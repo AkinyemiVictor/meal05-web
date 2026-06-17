@@ -1,0 +1,33 @@
+const normaliseHost = (value) => String(value || "").trim().toLowerCase();
+
+const hostFromUrl = (value) => {
+  try {
+    return normaliseHost(new URL(String(value || "")).host);
+  } catch {
+    return "";
+  }
+};
+
+const resolveRequestHost = (request) => {
+  const forwarded = normaliseHost(request.headers.get("x-forwarded-host"));
+  if (forwarded) return forwarded;
+  return normaliseHost(request.headers.get("host"));
+};
+
+export const isTrustedRequestOrigin = (request) => {
+  const originHost = hostFromUrl(request.headers.get("origin"));
+  if (!originHost) {
+    // Browsers usually send Origin for fetch/XHR. In local/dev tooling,
+    // allow missing origin to avoid breaking manual smoke tests.
+    return process.env.NODE_ENV !== "production";
+  }
+
+  const allowedHosts = new Set();
+  const requestHost = resolveRequestHost(request);
+  if (requestHost) allowedHosts.add(requestHost);
+
+  const siteHost = hostFromUrl(process.env.NEXT_PUBLIC_SITE_URL);
+  if (siteHost) allowedHosts.add(siteHost);
+
+  return allowedHosts.has(originHost);
+};

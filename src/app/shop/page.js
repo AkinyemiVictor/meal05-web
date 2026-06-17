@@ -1,0 +1,311 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import ProductGridSkeleton from "@/components/product-grid-skeleton";
+import ProductPromoRibbon from "@/components/product-promo-ribbon";
+import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
+import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
+import useProducts from "@/lib/use-products";
+import { getProductHref } from "@/lib/products";
+import { resolveProductImage } from "@/lib/product-image";
+
+const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
+  loading: () => <CategoryCarouselSkeleton />,
+});
+const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
+
+const PAGE_SIZE = 20;
+
+const SORT_OPTIONS = [
+  { value: "default", label: "Featured" },
+  { value: "price-asc", label: "Price: Low to High" },
+  { value: "price-desc", label: "Price: High to Low" },
+  { value: "name-asc", label: "Name: A–Z" },
+];
+
+function ShopProductCard({ product, onQuickAdd }) {
+  const stockClass = resolveStockClass(product.stock);
+  const hasOldPrice = product.oldPrice && product.oldPrice > product.price;
+  const href = getProductHref(product);
+  const isUnavailable = stockClass === "is-unavailable";
+  const productImage = resolveProductImage(product.image);
+  const formattedPrice = formatProductPrice(product.price, product.unit);
+  const [priceValue, unitValue] = formattedPrice.split("/");
+
+  return (
+    <article className="product-card product-card--with-cta">
+      <Link href={href} className="product-card__link" aria-label={`View ${product.name}`}>
+        <div>
+          <div className="product-card__imageWrap">
+            <div className="product-card__badge-row">
+              {product.discount ? (
+                <div className="product-card-discount"><p>{product.discount}% Off</p></div>
+              ) : <span />}
+              <div className={`product-card-season ${product.inSeason ? "is-in" : "is-out"}`}>
+                <p>{product.inSeason ? "In Season" : "Out of Season"}</p>
+              </div>
+            </div>
+            <Image
+              src={productImage}
+              alt={product.name}
+              className="productImg"
+              width={140}
+              height={140}
+              sizes="(max-width: 768px) 120px, 140px"
+              loading="lazy"
+            />
+            <ProductPromoRibbon
+              text={product.promoTagText}
+              expiresAt={product.promoTagExpiresAt}
+              enabled={product.promoTagEnabled}
+            />
+            {isUnavailable ? (
+              <div className="product-card__overlay" aria-hidden="true">Depleted</div>
+            ) : null}
+          </div>
+          <div className="product-card-details">
+            <h4>{product.name}</h4>
+            <span className="product-card__price">
+              <span className="price">{priceValue}</span>
+              {unitValue ? <span className="price-unit">/{unitValue}</span> : null}
+            </span>
+            {hasOldPrice ? (
+              <span className="old-price">{formatProductPrice(product.oldPrice, product.unit)}</span>
+            ) : null}
+          </div>
+        </div>
+      </Link>
+      <div className="product-card__cta">
+        <button
+          type="button"
+          className="product-card__cta-button"
+          onClick={(event) => onQuickAdd?.(product, event.currentTarget)}
+          disabled={isUnavailable}
+          aria-label={`Add ${product.name} to cart`}
+        >
+          <span className="product-card__cta-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="19" r="1.5" fill="currentColor" />
+              <circle cx="17" cy="19" r="1.5" fill="currentColor" />
+              <path d="M3 5H5L6.2 13.1C6.33347 13.983 7.07703 14.6425 7.96984 14.6425H17.4C18.1232 14.6425 18.753 14.1615 18.9363 13.4605L21 6.14246H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <span className="product-card__cta-label">
+            {isUnavailable ? "Out of stock" : "Add to cart"}
+          </span>
+        </button>
+      </div>
+    </article>
+  );
+}
+
+export default function ShopPage() {
+  const pageRef = useRef(null);
+  const [activeSlug, setActiveSlug] = useState("all");
+  const [categories, setCategories] = useState([]);
+  const [sort, setSort] = useState("default");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [quickAddProduct, setQuickAddProduct] = useState(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
+
+  const { ordered, status } = useProducts();
+  const isLoading = status === "loading";
+  const hasError = status === "error";
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/categories", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!cancelled) {
+          setCategories(Array.isArray(payload?.categories) ? payload.categories : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categoryCards = useMemo(
+    () =>
+      categories.map((entry) => ({
+        slug: entry.slug,
+        label: entry.label || entry.name,
+        icon: entry.icon || "fa-basket-shopping",
+        href: `/categories/${entry.slug}`,
+      })),
+    [categories]
+  );
+
+  const filteredProducts = useMemo(() => {
+    if (!ordered) return [];
+    let list = activeSlug === "all" ? ordered : ordered.filter((p) => p.categorySlug === activeSlug);
+    if (sort === "price-asc") list = [...list].sort((a, b) => a.price - b.price);
+    else if (sort === "price-desc") list = [...list].sort((a, b) => b.price - a.price);
+    else if (sort === "name-asc") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [ordered, activeSlug, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+
+  useEffect(() => { setCurrentPage(1); }, [activeSlug, sort]);
+
+  const pagedProducts = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredProducts.slice(start, start + PAGE_SIZE);
+  }, [filteredProducts, currentPage]);
+
+  const handlePageChange = (page) => {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    setCurrentPage(page);
+    pageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleQuickAdd = (product, anchorEl) => {
+    if (!product) return;
+    if (quickAddOpen && quickAddProduct?.id === product.id) {
+      setQuickAddOpen(false);
+      setQuickAddProduct(null);
+      return;
+    }
+    setQuickAddAnchorEl(anchorEl || null);
+    setQuickAddProduct(product);
+    setQuickAddOpen(true);
+  };
+
+  const handleQuickAddClose = () => {
+    setQuickAddOpen(false);
+    setQuickAddProduct(null);
+    setQuickAddAnchorEl(null);
+  };
+
+  const start = filteredProducts.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+  const end = Math.min(currentPage * PAGE_SIZE, filteredProducts.length);
+
+  return (
+    <main ref={pageRef} className="category-page">
+      <div className="category-page__header">
+        <div className="category-page__title">
+          <span className="categoryCard__icon" aria-hidden="true">
+            <i className="fa-solid fa-basket-shopping" />
+          </span>
+          <div>
+            <h1 className="categoryCard__label">Shop</h1>
+            <p className="category-page__description">
+              Farm-sourced produce, proteins, grains, and more — delivered fresh in Ibadan.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Category filter tabs */}
+      <div style={{ overflowX: "auto", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content", padding: "0 0.25rem" }}>
+          <button
+            type="button"
+            onClick={() => setActiveSlug("all")}
+            className={`category-carousel__card${activeSlug === "all" ? " is-active" : ""}`}
+            style={{ flexShrink: 0, padding: "0.5rem 1rem", borderRadius: "999px", border: "1.5px solid var(--mk-border)", background: activeSlug === "all" ? "var(--mk-accent)" : "var(--mk-surface)", color: activeSlug === "all" ? "#fff" : "var(--mk-text)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            All products
+          </button>
+          {categories.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/categories/${cat.slug}`}
+              style={{ flexShrink: 0, padding: "0.5rem 1rem", borderRadius: "999px", border: "1.5px solid var(--mk-border)", background: activeSlug === cat.slug ? "var(--mk-accent)" : "var(--mk-surface)", color: activeSlug === cat.slug ? "#fff" : "var(--mk-text)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              {cat.label || cat.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Sort bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.5rem" }}>
+        <p style={{ color: "var(--mk-text-subtle)", fontSize: "0.875rem" }}>
+          {isLoading ? "Loading..." : `${filteredProducts.length} product${filteredProducts.length === 1 ? "" : "s"}`}
+        </p>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          style={{ padding: "0.4rem 0.8rem", borderRadius: "8px", border: "1.5px solid var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-text)", fontSize: "0.875rem", fontWeight: 500, cursor: "pointer" }}
+          aria-label="Sort products"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Product grid */}
+      <section className="category-products" aria-live="polite">
+        {isLoading ? (
+          <ProductGridSkeleton count={12} />
+        ) : hasError ? (
+          <div className="category-empty-state">
+            <strong>We couldn&apos;t load products right now.</strong>
+            Please refresh the page or try again in a moment.
+          </div>
+        ) : filteredProducts.length ? (
+          <div className="product-card-grid">
+            {pagedProducts.map((product) => (
+              <ShopProductCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
+            ))}
+          </div>
+        ) : (
+          <div className="category-empty-state">
+            <strong>No products in this category right now.</strong>
+            <Link href="/shop" style={{ marginTop: "0.75rem", display: "inline-block" }} onClick={() => setActiveSlug("all")}>
+              View all products
+            </Link>
+          </div>
+        )}
+      </section>
+
+      {/* Pagination */}
+      <div className="category-page__pagination">
+        <p className="category-page__result-count" aria-live="polite">
+          {isLoading ? "Loading..." : filteredProducts.length ? `Showing ${start}–${end} of ${filteredProducts.length} products` : ""}
+        </p>
+        {totalPages > 1 ? (
+          <div className="pagination-nav" role="navigation" aria-label="Pagination">
+            <button type="button" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>Prev</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => handlePageChange(page)}
+                className={page === currentPage ? "active" : undefined}
+                aria-current={page === currentPage ? "page" : undefined}
+              >
+                {page}
+              </button>
+            ))}
+            <button type="button" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>Next</button>
+          </div>
+        ) : null}
+      </div>
+
+      <CategoryCarousel cards={categoryCards} heading="Browse by category" eyebrow="Shop by aisle" activeSlug={activeSlug !== "all" ? activeSlug : undefined} />
+
+      {quickAddProduct ? (
+        <QuickAddDrawer
+          product={quickAddProduct}
+          isOpen={quickAddOpen}
+          onClose={handleQuickAddClose}
+          variant="dropdown"
+          anchorEl={quickAddAnchorEl}
+        />
+      ) : null}
+    </main>
+  );
+}

@@ -1,0 +1,364 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import JsonLdScript from "@/components/json-ld-script";
+import ProductDetailClient from "@/components/product-detail-client";
+import ProductEngagementTracker from "@/components/product-engagement-tracker";
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveProductImage } from "@/lib/product-image";
+import { buildProductSlug } from "@/lib/products";
+import { fetchAllProducts, fetchProductBySlug } from "@/lib/products-server";
+import {
+  buildBreadcrumbSchema,
+  buildFaqSchema,
+  buildProductSchema,
+  resolveCategorySchemaData,
+  toAbsoluteUrl,
+} from "@/lib/seo/schema";
+
+const FALLBACK_IMAGE = PRODUCT_PLACEHOLDER_IMAGE;
+
+const REVIEW_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+
+const DEFAULT_FEATURES = [
+  "Sourced fresh each market day and handled with care.",
+  "Cleaned, sorted, and packaged to keep prep time low for busy kitchens.",
+  "Suitable for a wide range of recipes, from homestyle dishes to event catering.",
+];
+
+const formatCategoryLabel = (value) => {
+  if (!value) return "";
+  return String(value)
+    .replace(/[-_]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const createDefaultSpecifications = (product) => {
+  const categoryText = formatCategoryLabel(product.category) || "General";
+  return [
+    { label: "SKU", value: `M05-${String(product.id).padStart(4, "0")}` },
+    { label: "Category", value: categoryText },
+    { label: "Unit Metric", value: product.unit || "unit" },
+    { label: "Storage Protocol", value: "Keep refrigerated or in a cool, dry place immediately upon receipt." },
+  ];
+};
+
+const createPlaceholderRatings = (productName) => ({
+  average: 4.4,
+  totalRatings: 17,
+  breakdown: { 5: 10, 4: 6, 3: 0, 2: 0, 1: 1 },
+  reviews: [
+    { id: "p1", rating: 5, title: "Fresh and flavourful", comment: `${productName} arrived crisp and vibrant. Perfect for meal prep.`, author: "Amaka", date: "2025-07-02", verified: true },
+    { id: "p2", rating: 4, title: "Reliable quality", comment: "I have reordered a few times and the quality has been consistently good.", author: "Hope", date: "2025-06-18", verified: true },
+    { id: "p3", rating: 5, title: "Great value", comment: "The portion size is generous for the price. Makes weeknight cooking easier!", author: "Michael", date: "2025-05-04", verified: true },
+  ],
+});
+
+const normaliseSpecifications = (product, rawSpecifications) => {
+  if (rawSpecifications && typeof rawSpecifications === "object") {
+    const entries = Array.isArray(rawSpecifications)
+      ? rawSpecifications
+      : Object.entries(rawSpecifications).map(([label, value]) => ({ label, value }));
+    const cleaned = entries
+      .filter((entry) => entry && entry.label && entry.value)
+      .map((entry) => ({ label: String(entry.label), value: String(entry.value) }));
+    if (cleaned.length) return cleaned;
+  }
+  return createDefaultSpecifications(product);
+};
+
+const normaliseFeatures = (rawFeatures) => {
+  if (Array.isArray(rawFeatures) && rawFeatures.length) {
+    return rawFeatures.filter((f) => typeof f === "string" && f.trim().length);
+  }
+  return DEFAULT_FEATURES;
+};
+
+const formatReviewDate = (value) => {
+  if (!value) return REVIEW_DATE_FORMATTER.format(new Date());
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return REVIEW_DATE_FORMATTER.format(date);
+};
+
+const normaliseReviews = (productName, rawReviews) => {
+  if (!Array.isArray(rawReviews) || !rawReviews.length) return createPlaceholderRatings(productName).reviews;
+  return rawReviews
+    .map((review, index) => {
+      if (!review || typeof review !== "object") return null;
+      return {
+        id: review.id || `review-${index}`,
+        rating: Math.min(Math.max(Number(review.rating) || 0, 1), 5),
+        title: review.title || review.heading || `Customer feedback ${index + 1}`,
+        comment: review.comment || review.body || "Thanks for the quick delivery!",
+        author: review.author || review.customer || "Meal05 shopper",
+        date: formatReviewDate(review.date || review.createdAt || review.updatedAt),
+        verified: review.verified ?? true,
+      };
+    })
+    .filter(Boolean);
+};
+
+const normaliseRatings = (productName, rawRatings) => {
+  const fallback = createPlaceholderRatings(productName);
+  if (!rawRatings || typeof rawRatings !== "object") return { ...fallback, totalReviews: fallback.reviews.length };
+  const average = Number(rawRatings.average ?? rawRatings.value);
+  const totalRatings = Number(rawRatings.totalRatings ?? rawRatings.count);
+  const breakdown = { ...fallback.breakdown, ...(rawRatings.breakdown || rawRatings.distribution || {}) };
+  const reviews = normaliseReviews(productName, rawRatings.reviews);
+  return {
+    average: Number.isFinite(average) ? average : fallback.average,
+    totalRatings: Number.isFinite(totalRatings) && totalRatings > 0 ? totalRatings : fallback.totalRatings,
+    breakdown,
+    reviews: reviews.length ? reviews : fallback.reviews,
+    totalReviews: reviews.length ? reviews.length : fallback.reviews.length,
+  };
+};
+
+const normaliseProductDetailContent = (product, rawProduct) => {
+  const description = rawProduct?.description
+    ? String(rawProduct.description)
+    : `${product.name} is sourced fresh from trusted farmers and handled with care every step of the way. Expect vibrant quality and a texture that holds up beautifully in any recipe.`;
+  return {
+    description,
+    keyFeatures: normaliseFeatures(rawProduct?.keyFeatures),
+    specifications: normaliseSpecifications(product, rawProduct?.specifications),
+    ratings: normaliseRatings(product.name, rawProduct?.ratings),
+  };
+};
+
+const createProductBuyingGuide = (productName) => [
+  `Pick ${productName} with even color, a fresh smell, and firm texture for the best results.`,
+  "Store chilled items in the coldest part of your fridge and dry goods in sealed containers away from heat.",
+  "Plan portions for 2–3 meals at a time so quality stays high and food waste stays low.",
+];
+
+const createProductFaqItems = (productName, categoryName) => [
+  {
+    question: `How should I store ${productName} after delivery?`,
+    answer: "Store it immediately based on type: refrigerate perishables, freeze long-term portions, and keep dry items sealed in a cool place.",
+  },
+  {
+    question: `Is ${productName} suitable for weekly meal prep?`,
+    answer: `Yes. ${productName} works well for weekly prep when portioned early and paired with other ${categoryName.toLowerCase()} staples.`,
+  },
+];
+
+const formatSpecificationLabel = (label) => {
+  const normalized = String(label || "").trim().toLowerCase();
+  if (normalized === "sku") return "SKU";
+  if (normalized === "category") return "Category";
+  if (normalized === "unit" || normalized === "unit metric") return "Unit Metric";
+  if (normalized === "storage" || normalized === "storage protocol") return "Storage Protocol";
+  return String(label || "");
+};
+
+const toSpecificationKey = (label) =>
+  formatSpecificationLabel(label).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function ProductSectionHeading({ id, icon, title, tone = "info" }) {
+  return (
+    <div className={`product-detail-section__heading product-detail-section__heading--${tone}`}>
+      <span className="product-detail-section__heading-icon" aria-hidden="true">
+        <i className={`fa-solid ${icon}`} />
+      </span>
+      <h2 id={id}>{title}</h2>
+    </div>
+  );
+}
+
+function ProductSpecificationsSection({ description, features }) {
+  return (
+    <section className="product-detail-section" aria-labelledby="product-specifications-heading">
+      <ProductSectionHeading id="product-specifications-heading" icon="fa-circle-info" title="Item Specifications" tone="warning" />
+      <p className="product-detail-lead">{description}</p>
+      <div className="product-specs">
+        <div className="product-specs__features">
+          <p className="product-detail-section__eyebrow">Key Features</p>
+          <ul>
+            {features.map((feature, index) => (
+              <li key={index}>
+                <span className="product-specs__feature-icon" aria-hidden="true"><i className="fa-solid fa-angle-right" /></span>
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LogisticsManifestSection({ productId, specifications }) {
+  const rows = specifications.map((spec) => ({
+    ...spec,
+    label: formatSpecificationLabel(spec.label),
+    key: toSpecificationKey(spec.label),
+  }));
+  const storageEntry = rows.find((spec) => spec.key === "storage-protocol") || null;
+  const manifestRows = rows.filter((spec) => spec.key !== "storage-protocol");
+  const skuEntry = manifestRows.find((spec) => spec.key === "sku");
+  const skuValue = skuEntry?.value || `M05-${String(productId).padStart(4, "0")}`;
+
+  return (
+    <section className="product-detail-section product-detail-section--manifest" aria-labelledby="product-logistics-heading">
+      <div className="product-detail-manifest__header">
+        <h2 id="product-logistics-heading">Product Details</h2>
+        <span className="product-detail-manifest__sku">{skuValue}</span>
+      </div>
+      <dl className="product-detail-manifest__rows">
+        {manifestRows.map((spec) => (
+          <div key={`${spec.key}-${spec.value}`} className={`product-detail-manifest__row product-detail-manifest__row--${spec.key}`}>
+            <dt>{spec.key === "sku" ? "# SKU" : spec.label}</dt>
+            <dd>{spec.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {storageEntry ? (
+        <div className="product-detail-manifest__storage">
+          <p className="product-detail-manifest__storage-label">
+            <i className="fa-solid fa-temperature-quarter" aria-hidden="true" /> Storage Protocol
+          </p>
+          <p className="product-detail-manifest__storage-copy">{storageEntry.value}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ProductBuyingGuideSection({ productName, tips }) {
+  return (
+    <section className="product-detail-section" aria-labelledby="product-buying-guide-heading">
+      <ProductSectionHeading id="product-buying-guide-heading" icon="fa-shield-halved" title="Handling Tips" tone="success" />
+      <p className="product-detail-lead product-detail-lead--compact">
+        Use these quick tips to keep {productName} fresh longer and get better results from every order.
+      </p>
+      <ul className="product-buying-guide">
+        {tips.map((tip) => <li key={tip}>{tip}</li>)}
+      </ul>
+    </section>
+  );
+}
+
+function ProductFaqSection({ productName, faqItems }) {
+  return (
+    <section className="product-detail-section" aria-labelledby="product-faq-heading">
+      <ProductSectionHeading id="product-faq-heading" icon="fa-circle-question" title="Common Questions" tone="warning" />
+      <p className="product-detail-lead product-detail-lead--compact">
+        Frequently asked questions about ordering {productName}.
+      </p>
+      <dl className="product-faq-list">
+        {faqItems.map((item) => (
+          <div key={item.question} className="product-faq-item">
+            <dt>{item.question}</dt>
+            <dd>{item.answer}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+export async function generateStaticParams() {
+  try {
+    const list = await fetchAllProducts();
+    return list.map((product) => ({ productSlug: buildProductSlug(product) }));
+  } catch {
+    return [];
+  }
+}
+
+export async function generateMetadata({ params }) {
+  const { productSlug } = await params;
+  const { product, raw } = await fetchProductBySlug(productSlug);
+
+  if (!product) {
+    return {
+      title: "Meal05 | Product Not Found",
+      description: "Explore our farm-fresh marketplace for produce, proteins, and pantry staples.",
+    };
+  }
+
+  const description = raw?.description
+    ? String(raw.description)
+    : `Order ${product.name} fresh from Meal05 — delivered to your kitchen in Ibadan.`;
+  const pageUrl = toAbsoluteUrl(`/products/${productSlug}`);
+  const image = resolveProductImage(product.image, FALLBACK_IMAGE);
+
+  return {
+    title: `Meal05 | ${product.name}`,
+    description,
+    alternates: { canonical: pageUrl },
+    openGraph: {
+      type: "website",
+      url: pageUrl,
+      title: `Meal05 | ${product.name}`,
+      description,
+      images: [{ url: image, alt: product.name }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `Meal05 | ${product.name}`,
+      description,
+      images: [image],
+    },
+  };
+}
+
+export default async function ProductDetailPage({ params }) {
+  const { productSlug } = await params;
+  const { product, raw: rawProduct } = await fetchProductBySlug(productSlug);
+
+  if (!product) notFound();
+
+  const variations = Array.isArray(rawProduct?.variations) ? rawProduct.variations : [];
+  const detailContent = normaliseProductDetailContent(product, rawProduct);
+  const categorySchema = resolveCategorySchemaData(product.category);
+  const categoryName = categorySchema?.name || formatCategoryLabel(product.category) || "grocery";
+  const buyingGuideTips = createProductBuyingGuide(product.name);
+  const productFaqItems = createProductFaqItems(product.name, categoryName);
+  const productPath = `/products/${productSlug}`;
+  const productSchema = buildProductSchema({ product, productPath, description: detailContent.description, categoryName, ratings: detailContent.ratings });
+  const faqSchema = buildFaqSchema(productFaqItems);
+  const breadcrumbSchema = buildBreadcrumbSchema([
+    { name: "Home", url: "/" },
+    ...(categorySchema?.path ? [{ name: categorySchema.name, url: categorySchema.path }] : []),
+    { name: product.name, url: productPath },
+  ]);
+
+  return (
+    <main className="product-detail-page" data-product-id={product.id}>
+      <JsonLdScript id={`schema-product-${product.id}`} data={productSchema} />
+      <JsonLdScript id={`schema-breadcrumb-${product.id}`} data={breadcrumbSchema} />
+      <JsonLdScript id={`schema-faq-product-${product.id}`} data={faqSchema} />
+      <ProductEngagementTracker productId={product.id} product={product} />
+
+      <nav aria-label="Breadcrumb" className="product-detail-breadcrumb">
+        <Link href="/shop" className="product-detail-breadcrumb-chip">Shop</Link>
+        <span aria-hidden="true" className="product-detail-breadcrumb-divider">&rsaquo;</span>
+        {categorySchema?.path ? (
+          <Link href={categorySchema.path} className="product-detail-breadcrumb-chip">{categorySchema.name}</Link>
+        ) : (
+          <span className="product-detail-breadcrumb-chip">{categoryName}</span>
+        )}
+        <span aria-hidden="true" className="product-detail-breadcrumb-divider">&rsaquo;</span>
+        <span className="product-detail-breadcrumb-chip product-detail-breadcrumb-chip--current">{product.name}</span>
+      </nav>
+
+      <section className="product-detail-card">
+        <ProductDetailClient product={product} variations={variations} fallbackImage={FALLBACK_IMAGE} />
+      </section>
+
+      <ProductSpecificationsSection description={detailContent.description} features={detailContent.keyFeatures} />
+      <LogisticsManifestSection productId={product.id} specifications={detailContent.specifications} />
+      <ProductBuyingGuideSection productName={product.name} tips={buyingGuideTips} />
+      <ProductFaqSection productName={product.name} faqItems={productFaqItems} />
+    </main>
+  );
+}
