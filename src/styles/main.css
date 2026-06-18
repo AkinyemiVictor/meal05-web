@@ -5350,7 +5350,7 @@ main > section:not(.home-hero) {
 .site-footer--primary .newsletter-field {
   display: flex;
   gap: 0.6rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(148, 163, 184, 0.25);
@@ -5359,8 +5359,26 @@ main > section:not(.home-hero) {
   max-width: 460px;
 }
 
+@media (max-width: 1023px) and (min-width: 769px) {
+  .site-footer--primary .footer-hero {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .site-footer--primary .footer-newsletter {
+    max-width: 680px;
+  }
+
+  .site-footer--primary .newsletter-field {
+    width: 100%;
+    max-width: none;
+  }
+}
+
 .site-footer--primary .newsletter-field input {
-  flex: 1 1 220px;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 0.7rem 0.9rem;
   border-radius: 12px;
   border: none;
@@ -5374,6 +5392,7 @@ main > section:not(.home-hero) {
 }
 
 .site-footer--primary .newsletter-field button {
+  flex: 0 0 auto;
   padding: 0.65rem 1.6rem;
   border-radius: 12px;
   border: none;
@@ -5509,26 +5528,17 @@ main > section:not(.home-hero) {
   display: none;
 }
 
-/* Center the Subscribe button when layout wraps under 940px */
 @media (max-width: 940px) {
-  .site-footer--primary .newsletter-field {
-    justify-content: center;
-  }
-
   .site-footer--primary .newsletter-field button {
-    margin-left: auto;
-    margin-right: auto;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
 }
 
 @media (max-width: 956px) {
-  .site-footer--primary .newsletter-field {
-    justify-content: center;
-  }
-
   .site-footer--primary .newsletter-field button {
-    margin-left: auto;
-    margin-right: auto;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
 }
 
