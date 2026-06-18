@@ -34,6 +34,9 @@ const pickFirst = (row, fields = []) => {
   return "";
 };
 
+const normalizeBoolean = (value) =>
+  value === true || value === 1 || String(value || "").trim().toLowerCase() === "true";
+
 const bucketName =
   process.env.NEXT_PUBLIC_SUPABASE_PRODUCT_IMAGE_BUCKET ||
   process.env.SUPABASE_PRODUCT_IMAGE_BUCKET ||
@@ -256,6 +259,17 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
     ? gallery.map((image) => resolveProductImage(image, mainImageUrl))
     : [mainImageUrl];
   const merchandising = normalizeProductMerchandisingRecord({ ...productMeta, ...row });
+  const collectionSlug = toSlug(
+    pickFirst(row, ["collection_slug", "collectionSlug", "collection", "collection_key", "collectionKey"])
+  );
+  const prepMinutes = pickFirstNumber(row, [
+    "prep_minutes",
+    "prepMinutes",
+    "delivery_minutes",
+    "deliveryMinutes",
+    "ready_minutes",
+    "readyMinutes",
+  ]);
 
   return {
     id: String(productId ?? ""),
@@ -293,6 +307,11 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
         row.promo_expires_at ??
         row.promoExpiresAt
     ),
+    collectionSlug,
+    prepMinutes,
+    isPopular: normalizeBoolean(row.is_popular ?? row.isPopular ?? row.popular),
+    isChefChoice: normalizeBoolean(row.is_chef_choice ?? row.isChefChoice ?? row.chef_choice ?? row.chefChoice),
+    isUnder15m: normalizeBoolean(row.is_under_15m ?? row.isUnder15m ?? row.is_under_15_min ?? row.isUnder15Minutes),
     ...merchandising,
   };
 };

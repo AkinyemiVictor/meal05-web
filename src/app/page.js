@@ -14,24 +14,68 @@ import {
   IconShoppingCart,
   IconUser,
 } from "@tabler/icons-react";
-import { resolveStockClass } from "@/lib/catalogue";
+import {
+  pickInSeasonProducts,
+  pickMostPopularProducts,
+  pickNewestProducts,
+  resolveStockClass,
+} from "@/lib/catalogue";
 import AppComingSoonSection from "@/components/app-coming-soon-section";
 import {
   DesktopCategorySidebar,
   MobileCategories,
   TabletCategoryTabs,
 } from "@/components/home-category-navigation";
-import ProductCard from "@/components/product-card";
 import FilterChips from "@/components/filter-chips";
+import HomeProductCollection from "@/components/home-product-collection";
 
 const DESKTOP_NAVBAR_HEIGHT = 81;
 
 const filters = [
-  { label: "Popular", icon: IconFlame },
-  { label: "Under 15m", icon: IconClock },
-  { label: "Bundles", icon: IconPackage },
-  { label: "Chef Choice", icon: IconChefHat },
+  { value: "popular", label: "Popular", icon: IconFlame },
+  { value: "under-15m", label: "Under 15m", icon: IconClock },
+  { value: "bundles", label: "Bundles", icon: IconPackage },
+  { value: "chef-choice", label: "Chef Choice", icon: IconChefHat },
+  { value: "fresh-in-stock", label: "Fresh In Stock", icon: IconPackage },
+  { value: "in-season", label: "In Season", icon: IconChefHat },
 ];
+
+const COLLECTION_COPY = {
+  popular: {
+    eyebrow: "Top picks",
+    title: "Popular Items",
+    emptyMessage: "No popular products are available yet.",
+    seeAllHref: "/section/popular",
+  },
+  "under-15m": {
+    eyebrow: "Quick picks",
+    title: "Under 15m",
+    emptyMessage: "No under-15m products or bundles are available yet.",
+  },
+  bundles: {
+    eyebrow: "Curated packs",
+    title: "Bundles",
+    emptyMessage: "No bundle products are available yet.",
+    seeAllHref: "/section/bundle-plans",
+  },
+  "chef-choice": {
+    eyebrow: "Chef picks",
+    title: "Chef Choice",
+    emptyMessage: "No chef choice products are available yet.",
+  },
+  "fresh-in-stock": {
+    eyebrow: "Fresh arrivals",
+    title: "Fresh In Stock",
+    emptyMessage: "No fresh in-stock products are available yet.",
+    seeAllHref: "/section/new",
+  },
+  "in-season": {
+    eyebrow: "Seasonal picks",
+    title: "In Season",
+    emptyMessage: "No in-season products are available yet.",
+    seeAllHref: "/section/in-season",
+  },
+};
 
 const classNames = (...items) => items.filter(Boolean).join(" ");
 
@@ -105,7 +149,7 @@ export default function Home() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [productsStatus, setProductsStatus] = useState("loading");
-  const [activeCategory, setActiveCategory] = useState("");
+  const [activeCollection, setActiveCollection] = useState("popular");
   const [cartItems, setCartItems] = useState([]);
 
   useEffect(() => {
@@ -131,11 +175,6 @@ export default function Home() {
         if (cancelled) return;
         const nextCategories = Array.isArray(payload?.categories) ? payload.categories : [];
         setCategories(nextCategories);
-        setActiveCategory((current) =>
-          nextCategories.some((category) => category.slug === current)
-            ? current
-            : nextCategories[0]?.slug || ""
-        );
       })
       .catch(() => {
         if (!cancelled) setCategories([]);
@@ -166,23 +205,13 @@ export default function Home() {
   }, []);
 
   const counts = useMemo(() => {
-    const next = {};
-    products.forEach((product) => {
-      if (resolveStockClass(product.stock) === "is-unavailable") return;
-      const key = product.categorySlug || "uncategorised";
-      next[key] = (next[key] || 0) + 1;
-    });
-    return next;
-  }, [products]);
-
-  useEffect(() => {
-    if (!products.length) return;
-    if (counts[activeCategory] > 0) return;
-    const firstAvailableCategory = categories.find((category) => counts[category.slug] > 0);
-    if (firstAvailableCategory) {
-      setActiveCategory(firstAvailableCategory.slug);
-    }
-  }, [activeCategory, categories, counts, products.length]);
+    return categories.reduce((next, category) => {
+      next[category.slug] = Number(
+        category.product_count ?? category.available_product_count ?? category.count ?? 0
+      ) || 0;
+      return next;
+    }, {});
+  }, [categories]);
 
   useEffect(() => {
     let frame = null;
@@ -265,11 +294,46 @@ export default function Home() {
     };
   }, []);
 
-  const visibleProducts = useMemo(() => {
-    const availableProducts = products.filter((product) => resolveStockClass(product.stock) !== "is-unavailable");
-    const source = availableProducts.filter((product) => product.categorySlug === activeCategory);
-    return source.length ? source : availableProducts;
-  }, [activeCategory, products]);
+  const availableProducts = useMemo(
+    () => products.filter((product) => resolveStockClass(product.stock) !== "is-unavailable"),
+    [products]
+  );
+
+  const collectionProducts = useMemo(() => {
+    if (activeCollection === "popular") {
+      const databasePopular = availableProducts.filter(
+        (product) => product.isPopular || product.isBestseller || product.isHomepagePick || product.isFeatured
+      );
+      return databasePopular.length ? databasePopular : pickMostPopularProducts(availableProducts, new Set(), 12);
+    }
+    if (activeCollection === "fresh-in-stock") {
+      const databaseFresh = availableProducts.filter((product) => product.isNewArrival);
+      return databaseFresh.length ? databaseFresh : pickNewestProducts(availableProducts, new Set(), 12);
+    }
+    if (activeCollection === "in-season") {
+      return pickInSeasonProducts(availableProducts.filter((product) => product.inSeason === true), new Set(), 12);
+    }
+    if (activeCollection === "bundles") {
+      return availableProducts.filter((product) => product.isBundleEligible);
+    }
+    if (activeCollection === "chef-choice") {
+      return availableProducts.filter(
+        (product) => product.isChefChoice || product.collectionSlug === "chef-choice"
+      );
+    }
+    if (activeCollection === "under-15m") {
+      return availableProducts.filter(
+        (product) =>
+          product.isUnder15m ||
+          product.isUnder15Minutes ||
+          product.collectionSlug === "under-15m" ||
+          (Number.isFinite(Number(product.prepMinutes)) && Number(product.prepMinutes) <= 15)
+      );
+    }
+    return [];
+  }, [activeCollection, availableProducts]);
+
+  const activeCollectionCopy = COLLECTION_COPY[activeCollection] || COLLECTION_COPY.popular;
 
   const handleAdd = async (product) => {
     const key = String(product.variantId || product.id);
@@ -318,14 +382,14 @@ export default function Home() {
 
         <TabletCategoryTabs
           categories={categories}
-          activeCategory={activeCategory}
+          activeCategory=""
           counts={counts}
         />
 
         <div ref={contentBoundaryRef} className="relative z-0 flex overflow-visible lg:pl-72">
           <DesktopCategorySidebar
             categories={categories}
-            activeCategory={activeCategory}
+            activeCategory=""
             counts={counts}
             sidebarRef={sidebarRef}
             style={sidebarStyle}
@@ -335,14 +399,14 @@ export default function Home() {
             <div className="md:hidden">
               <MobileCategories
                 categories={categories}
-                activeCategory={activeCategory}
+                activeCategory=""
                 counts={counts}
               />
             </div>
 
           <section className="px-5 pt-5 md:px-6 md:py-8 lg:pl-8 lg:pr-0">
             <div className="md:hidden">
-              <FilterChips filters={filters} />
+              <FilterChips filters={filters} activeValue={activeCollection} onSelect={setActiveCollection} />
             </div>
 
             <div className="mt-1 md:mt-0">
@@ -350,48 +414,18 @@ export default function Home() {
             </div>
 
             <div className="hidden md:mt-6 md:block">
-              <FilterChips filters={filters} />
+              <FilterChips filters={filters} activeValue={activeCollection} onSelect={setActiveCollection} />
             </div>
 
-            <div className="mt-8 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.28em] text-meal-pepper">Top picks</p>
-                <h2 className="mt-2 text-3xl font-semibold italic tracking-tight text-meal-text">Popular Items</h2>
-              </div>
-              <button className="text-sm font-medium uppercase tracking-[0.28em] text-meal-pepper">See all</button>
-            </div>
-
-            {productsStatus !== "ready" ? (
-              <div className="mt-6 rounded-3xl border border-meal-line bg-meal-paper p-6 text-sm font-medium text-meal-muted shadow-soft">
-                {productsStatus === "loading"
-                  ? "Loading live Meal05 catalogue..."
-                  : "Unable to load the live Meal05 catalogue right now."}
-              </div>
-            ) : null}
-
-            <div className="mt-6 md:hidden">
-              <div className="-mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-3 [scrollbar-width:none]">
-                {visibleProducts.slice(0, 8).map((product) => (
-                  <div key={product.variantId || product.id} className="w-[82vw] max-w-[340px] shrink-0 snap-start">
-                    <ProductCard
-                      product={product}
-                      onAdd={handleAdd}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 hidden min-w-0 grid-cols-[repeat(3,minmax(0,1fr))] gap-6 md:grid lg:grid-cols-[repeat(4,minmax(0,1fr))] lg:overflow-x-auto lg:pb-2">
-              {visibleProducts.slice(0, 12).map((product) => (
-                <div key={product.variantId || product.id} className="min-w-0 lg:min-w-[220px]">
-                  <ProductCard
-                    product={product}
-                    onAdd={handleAdd}
-                  />
-                </div>
-              ))}
-            </div>
+            <HomeProductCollection
+              eyebrow={activeCollectionCopy.eyebrow}
+              title={activeCollectionCopy.title}
+              products={collectionProducts}
+              status={productsStatus}
+              emptyMessage={activeCollectionCopy.emptyMessage}
+              seeAllHref={activeCollectionCopy.seeAllHref}
+              onAdd={handleAdd}
+            />
           </section>
           </div>
       </div>
