@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  IconBasketCheck,
   IconChefHat,
   IconClock,
   IconFlame,
   IconHome,
   IconLayoutGrid,
+  IconLeaf,
   IconMapPin,
   IconPackage,
   IconShoppingBag,
@@ -36,8 +38,8 @@ const filters = [
   { value: "under-15m", label: "Under 15m", icon: IconClock },
   { value: "bundles", label: "Bundles", icon: IconPackage },
   { value: "chef-choice", label: "Chef Choice", icon: IconChefHat },
-  { value: "fresh-in-stock", label: "Fresh In Stock", icon: IconPackage },
-  { value: "in-season", label: "In Season", icon: IconChefHat },
+  { value: "fresh-in-stock", label: "Fresh In Stock", icon: IconBasketCheck },
+  { value: "in-season", label: "In Season", icon: IconLeaf },
 ];
 
 const COLLECTION_COPY = {
@@ -408,7 +410,7 @@ export default function Home() {
               />
             </div>
 
-          <section className="px-5 pt-5 md:px-6 md:py-8 lg:pl-8 lg:pr-0">
+          <section className="px-5 pt-5 md:px-6 md:py-8 lg:pl-8 lg:pr-8">
             <div className="md:hidden">
               <FilterChips filters={filters} activeValue={activeCollection} onSelect={setActiveCollection} />
             </div>
