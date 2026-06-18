@@ -5354,6 +5354,23 @@ main > section:not(.home-hero) {
   max-width: 460px;
 }
 
+@media (max-width: 1023px) and (min-width: 769px) {
+  .site-footer--primary .footer-hero {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .site-footer--primary .footer-newsletter {
+    max-width: 680px;
+  }
+
+  .site-footer--primary .newsletter-field {
+    width: 100%;
+    max-width: none;
+  }
+}
+
 .site-footer--primary .newsletter-field input {
   flex: 1 1 auto;
   min-width: 0;
