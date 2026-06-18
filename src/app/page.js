@@ -7,6 +7,7 @@ import {
   IconChefHat,
   IconClock,
   IconFlame,
+  IconHelpCircle,
   IconHome,
   IconLayoutGrid,
   IconLeaf,
@@ -110,7 +111,7 @@ const BOTTOM_NAV_ITEMS = [
   { label: "Home", icon: IconHome, href: "/" },
   { label: "Browse", icon: IconLayoutGrid, href: "/shop" },
   { label: "Orders", icon: IconShoppingBag, href: "/account?tab=orders" },
-  { label: "Profile", icon: IconUser, href: "/sign-in" },
+  { label: "Profile", icon: IconUser, href: "/account" },
 ];
 
 function BottomNav({ cartCount }) {
@@ -440,6 +441,13 @@ export default function Home() {
       <div ref={footerBoundaryRef}>
         <AppComingSoonSection />
       </div>
+      <Link
+        href="/help-center"
+        aria-label="Help Center"
+        className="fixed bottom-24 right-5 z-40 grid h-12 w-12 place-items-center rounded-full border border-meal-line bg-meal-paper text-meal-pepper shadow-meal transition hover:border-meal-pepper hover:bg-meal-pepper hover:text-meal-paper md:bottom-6 md:right-6"
+      >
+        <IconHelpCircle size={24} stroke={1.8} />
+      </Link>
       <BottomNav cartCount={cartCount} />
     </main>
   );

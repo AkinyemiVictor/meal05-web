@@ -653,7 +653,7 @@ function AccountPageContent() {
           <Link href="/account?tab=orders" className={styles.cardAction}>
             Track recent orders
           </Link>
-          <Link href="/products" className={styles.cardAction}>
+          <Link href="/shop" className={styles.cardAction}>
             Continue shopping
           </Link>
           <Link href="/checkout" className={styles.cardAction}>
@@ -807,7 +807,7 @@ function AccountPageContent() {
                 <div className={styles.sectionEmpty}>
                   <i className="fa-solid fa-box" aria-hidden="true" style={{ fontSize: "1.4rem" }} />
                   <p>No active orders at the moment.</p>
-                  <Link href="/products">Add fresh items to your cart</Link>
+                  <Link href="/shop">Add fresh items to your cart</Link>
                 </div>
               )}
             </div>
@@ -848,7 +848,7 @@ function AccountPageContent() {
                             </svg>
                           </span>
                         </button>
-                        <Link href="/products" className={styles.cardAction}>
+                        <Link href="/shop" className={styles.cardAction}>
                           Reorder items
                         </Link>
                       </div>
@@ -904,7 +904,7 @@ function AccountPageContent() {
         return renderEmptyState(
           "Wishlist",
           "Save seasonal bundles or special treats to your wishlist for easy reordering.",
-          "/products",
+          "/shop",
           "Browse catalogue"
         );
       case "voucher":
@@ -931,7 +931,7 @@ function AccountPageContent() {
             {recentlyViewed.length ? (
               <div className="product-card-grid" style={{ gap: "1rem" }}>
                 {recentlyViewed.map((product) => {
-                  const href = buildProductSlug(product) ? `/products/${buildProductSlug(product)}` : "/products";
+                  const href = buildProductSlug(product) ? `/products/${buildProductSlug(product)}` : "/shop";
                   const image =
                     resolveProductImage(product.image, product.image_url, product.thumbnail);
                   const price = Number(product.price ?? product.unit_price ?? product.unitPrice ?? 0);
@@ -1004,7 +1004,7 @@ function AccountPageContent() {
               <div className={styles.sectionEmpty}>
                 <i className="fa-regular fa-folder-open" aria-hidden="true" style={{ fontSize: "1.8rem" }} />
                 <p>Items you view will appear here so you can add them to cart in a tap.</p>
-                <Link href="/products">Start exploring</Link>
+                <Link href="/shop">Start exploring</Link>
               </div>
             )}
           </div>

@@ -93,10 +93,10 @@ export default function Footer() {
                 <Link href={loginHref}>My Account</Link>
               </li>
               <li>
-                <Link href="#">Track Your Order</Link>
+                <Link href="/account?tab=orders">Track Your Order</Link>
               </li>
               <li>
-                <Link href="#">Return</Link>
+                <Link href="/help-center#searchQnAAgent">Return</Link>
               </li>
               <li>
                 <Link href="/help-center">FAQ</Link>
@@ -116,7 +116,7 @@ export default function Footer() {
                 <Link href="#">Terms &amp; Conditions</Link>
               </li>
               <li>
-                <Link href="#">Return Policy</Link>
+                <Link href="/help-center#searchQnAAgent">Return Policy</Link>
               </li>
             </ul>
           </div>

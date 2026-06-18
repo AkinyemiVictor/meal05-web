@@ -83,7 +83,7 @@ export default function CheckoutReceipt({ status = "success", reason }) {
           <Link href="/checkout" className="checkout-empty__cta">
             {copy.checkout.receiptPage.backToCheckout}
           </Link>
-          <Link href="/products" className="checkout-empty__secondary">
+          <Link href="/shop" className="checkout-empty__secondary">
             {copy.checkout.receiptPage.viewOrders}
           </Link>
         </div>
@@ -170,7 +170,7 @@ export default function CheckoutReceipt({ status = "success", reason }) {
         </div>
 
         <div className="checkout-confirmation__actions">
-          <Link href="/products" className="checkout-confirmation__action">
+          <Link href="/shop" className="checkout-confirmation__action">
             {copy.checkout.receiptPage.viewOrders}
           </Link>
           {status === "failure" ? (

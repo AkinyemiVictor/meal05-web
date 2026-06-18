@@ -421,8 +421,8 @@ export default function HelpCenterPage() {
                   <li>Available daily from 7:00am - 10:00pm WAT</li>
                   <li>Average response time under 2 minutes</li>
                 </ul>
-                <a className={styles.agentCta} href="#">
-                  Start chat
+                <a className={styles.agentCta} href="tel:+2349129296433">
+                  Call support
                 </a>
               </article>
 

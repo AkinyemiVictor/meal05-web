@@ -7,9 +7,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import ProductCard from "@/components/product-card";
+import BundlePlanCard from "@/components/bundle-plan-card";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
 import SortSelect from "@/components/sort-select";
+import BUNDLE_PLANS from "@/data/bundle-plans";
+import { getBundlePlanPricingState } from "@/lib/bundle-plans";
 import useProducts from "@/lib/use-products";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
@@ -68,14 +71,33 @@ export default function ShopPage() {
     [categories]
   );
 
+  const catalogItems = useMemo(() => {
+    const products = Array.isArray(ordered)
+      ? ordered.map((product) => ({ type: "product", id: `product-${product.id}`, product }))
+      : [];
+    const bundles = BUNDLE_PLANS.map((plan) => ({ type: "bundle", id: `bundle-${plan.id || plan.slug}`, plan }));
+    return [...products, ...bundles];
+  }, [ordered]);
+
   const filteredProducts = useMemo(() => {
     if (!ordered) return [];
-    let list = activeSlug === "all" ? ordered : ordered.filter((p) => p.categorySlug === activeSlug);
-    if (sort === "price-asc") list = [...list].sort((a, b) => a.price - b.price);
-    else if (sort === "price-desc") list = [...list].sort((a, b) => b.price - a.price);
-    else if (sort === "name-asc") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    let list = activeSlug === "all"
+      ? catalogItems
+      : ordered
+          .filter((product) => product.categorySlug === activeSlug)
+          .map((product) => ({ type: "product", id: `product-${product.id}`, product }));
+    const getName = (item) => item.product?.name || item.plan?.name || "";
+    const getPrice = (item) => {
+      if (item.type === "bundle") {
+        return Number(item.plan?.bundlePriceNgn || getBundlePlanPricingState(item.plan).individualTotalNgn || 0);
+      }
+      return Number(item.product?.price || 0);
+    };
+    if (sort === "price-asc") list = [...list].sort((a, b) => getPrice(a) - getPrice(b));
+    else if (sort === "price-desc") list = [...list].sort((a, b) => getPrice(b) - getPrice(a));
+    else if (sort === "name-asc") list = [...list].sort((a, b) => getName(a).localeCompare(getName(b)));
     return list;
-  }, [ordered, activeSlug, sort]);
+  }, [ordered, activeSlug, sort, catalogItems]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
 
@@ -155,7 +177,7 @@ export default function ShopPage() {
       {/* Sort bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.5rem" }}>
         <p style={{ color: "var(--mk-text-subtle)", fontSize: "0.875rem" }}>
-          {isLoading ? "Loading..." : `${filteredProducts.length} product${filteredProducts.length === 1 ? "" : "s"}`}
+          {isLoading ? "Loading..." : `${filteredProducts.length} item${filteredProducts.length === 1 ? "" : "s"}`}
         </p>
         <SortSelect
           value={sort}
@@ -176,8 +198,12 @@ export default function ShopPage() {
         ) : filteredProducts.length ? (
           <ProductGrid
             products={pagedProducts}
-            renderProduct={(product) => (
-              <ProductCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
+            renderProduct={(item) => (
+              item.type === "bundle" ? (
+                <BundlePlanCard key={item.id} plan={item.plan} />
+              ) : (
+                <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
+              )
             )}
           />
         ) : (
@@ -192,7 +218,7 @@ export default function ShopPage() {
       {/* Pagination */}
       <div className="category-page__pagination">
         <p className="category-page__result-count" aria-live="polite">
-          {isLoading ? "Loading..." : filteredProducts.length ? `Showing ${start}–${end} of ${filteredProducts.length} products` : ""}
+          {isLoading ? "Loading..." : filteredProducts.length ? `Showing ${start}-${end} of ${filteredProducts.length} items` : ""}
         </p>
         {totalPages > 1 ? (
           <div className="pagination-nav" role="navigation" aria-label="Pagination">

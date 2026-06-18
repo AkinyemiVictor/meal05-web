@@ -53,7 +53,7 @@ export default function CheckoutExperience() {
         <h2>{copy.checkout.emptyTitle}</h2>
         <p>{copy.checkout.emptyDescription}</p>
         <div className="checkout-empty__actions">
-          <Link href="/products" className="checkout-empty__cta">
+          <Link href="/shop" className="checkout-empty__cta">
             {copy.checkout.emptyCta}
           </Link>
           <Link href="/cart" className="checkout-empty__secondary">

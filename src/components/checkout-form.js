@@ -237,7 +237,7 @@ function CheckoutConfirmation({ order }) {
         <Link href="/checkout/success" className="checkout-confirmation__action">
           {copy.checkout.receiptPage.viewReceipt}
         </Link>
-        <Link href="/products" className="checkout-confirmation__action checkout-confirmation__action--secondary">
+        <Link href="/shop" className="checkout-confirmation__action checkout-confirmation__action--secondary">
           {copy.checkout.emptyCta}
         </Link>
         <Link href="/categories" className="checkout-confirmation__action checkout-confirmation__action--secondary">

@@ -164,7 +164,7 @@ export default function Meal05Header() {
               <IconShoppingBag size={21} stroke={1.8} />
             </NavIcon>
 
-            <NavIcon href="/sign-in" label="Sign in / Profile">
+            <NavIcon href="/account" label="Account / Profile">
               <IconUser size={21} stroke={1.8} />
             </NavIcon>
           </div>
