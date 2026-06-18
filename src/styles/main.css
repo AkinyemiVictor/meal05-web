@@ -2747,16 +2747,6 @@ main > section:not(.home-hero) {
 /* removed header responsiveness at 500px */
 
 
-.flex {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-.flex p {
-  margin-top: 0.5rem;
-}
 .bestSellingSec {
   margin-top: 6rem;
   display: flex;
