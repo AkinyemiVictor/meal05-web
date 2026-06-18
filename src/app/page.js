@@ -22,6 +22,7 @@ import {
   TabletCategoryTabs,
 } from "@/components/home-category-navigation";
 import ProductCard from "@/components/product-card";
+import FilterChips from "@/components/filter-chips";
 
 const DESKTOP_NAVBAR_HEIGHT = 81;
 
@@ -35,30 +36,6 @@ const filters = [
 const classNames = (...items) => items.filter(Boolean).join(" ");
 
 // MobileHeader and TopNav are now in src/components/meal05-header.js (rendered by layout)
-
-function FilterChips() {
-  return (
-    <div className="flex gap-3 overflow-x-auto px-5 py-5 [scrollbar-width:none] md:px-0 md:py-0">
-      {filters.map((filter, index) => {
-        const Icon = filter.icon;
-        return (
-          <button
-            key={filter.label}
-            className={classNames(
-              "flex h-12 shrink-0 items-center gap-2 rounded-full border px-5 text-sm font-medium shadow-sm",
-              index === 0
-                ? "border-meal-pepper bg-meal-pepper text-meal-paper shadow-soft"
-                : "border-meal-line bg-meal-paper text-meal-text"
-            )}
-          >
-            <Icon size={18} stroke={1.8} />
-            {filter.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function PromoBanner() {
   return (
@@ -365,7 +342,7 @@ export default function Home() {
 
           <section className="px-5 pt-5 md:px-6 md:py-8 lg:pl-8 lg:pr-0">
             <div className="md:hidden">
-              <FilterChips />
+              <FilterChips filters={filters} />
             </div>
 
             <div className="mt-1 md:mt-0">
@@ -373,7 +350,7 @@ export default function Home() {
             </div>
 
             <div className="hidden md:mt-6 md:block">
-              <FilterChips />
+              <FilterChips filters={filters} />
             </div>
 
             <div className="mt-8 flex items-center justify-between gap-4">

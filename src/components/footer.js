@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { BRAND_MARK_SRC, BRAND_WORDMARK_DARK_SRC } from "@/lib/theme-logo";
+import NewsletterSignup from "@/components/newsletter-signup";
 
 export default function Footer() {
   const pathname = usePathname();
@@ -64,15 +65,7 @@ export default function Footer() {
             </div>
           </div>
 
-          <form className="footer-newsletter" action="#" method="post">
-            <h3>Stay in the loop</h3>
-            <p>Get weekly market updates, seasonal picks, and exclusive offers.</p>
-            <div className="newsletter-field">
-              <input type="email" name="newsletter-email" placeholder="Enter" aria-label="Email address" required />
-              <button type="submit">Subscribe</button>
-            </div>
-            <small>No spam — just fresh food stories.</small>
-          </form>
+          <NewsletterSignup />
         </div>
 
         <div className="footer-links footer-links-grid">

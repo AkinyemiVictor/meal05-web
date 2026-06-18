@@ -7,6 +7,9 @@ import { use, useEffect, useState } from "react";
 import SearchHistoryRecorder from "@/components/search-history-recorder";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
 import ProductCard from "@/components/product-card";
+import PageBreadcrumbs from "@/components/page-breadcrumbs";
+import PageState from "@/components/page-state";
+import ProductGrid from "@/components/product-grid";
 import copy from "@/data/copy";
 import useProducts from "@/lib/use-products";
 
@@ -164,19 +167,18 @@ export default function SearchPage({ searchParams }) {
 
   return (
     <main className="category-page" data-search-term={query}>
-      <nav className="page-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
-        <span aria-hidden="true" className="page-breadcrumb-divider">/</span>
-        {query ? (
-          <>
-            <Link href="/search">Search</Link>
-            <span aria-hidden="true" className="page-breadcrumb-divider">/</span>
-            <span className="page-breadcrumb-current">{query}</span>
-          </>
-        ) : (
-          <span className="page-breadcrumb-current">Search</span>
-        )}
-      </nav>
+      <PageBreadcrumbs
+        items={query
+          ? [
+              { label: "Home", href: "/" },
+              { label: "Search", href: "/search" },
+              { label: query },
+            ]
+          : [
+              { label: "Home", href: "/" },
+              { label: "Search" },
+            ]}
+      />
 
       <header className="category-page__header">
         <div className="category-page__title">
@@ -217,11 +219,10 @@ export default function SearchPage({ searchParams }) {
         isLoadingProducts ? (
           <div className="category-products"><ProductGridSkeleton count={PAGE_SIZE} /></div>
         ) : hasProductsError ? (
-          <div className="category-empty-state">
-            <strong>We couldn&apos;t load products right now.</strong>
+          <PageState title="We couldn't load products right now.">
             <p>Please refresh the page or try again in a moment.</p>
             <Link href="/shop" className="section-view-button">{copy.search.browseCategoriesCta}</Link>
-          </div>
+          </PageState>
         ) : totalResults ? (
           <>
             <div className="category-products">
@@ -231,11 +232,12 @@ export default function SearchPage({ searchParams }) {
                     <span className="search-results-group__eyebrow">Category</span>
                     <h2>{group.label}</h2>
                   </header>
-                  <div className="product-card-grid">
-                    {group.products.map((product) => (
+                  <ProductGrid
+                    products={group.products}
+                    renderProduct={(product) => (
                       <ProductCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
-                    ))}
-                  </div>
+                    )}
+                  />
                 </section>
               ))}
             </div>
@@ -245,8 +247,7 @@ export default function SearchPage({ searchParams }) {
             </div>
           </>
         ) : (
-          <div className="category-empty-state">
-            <strong>{copy.search.emptyTitle}</strong>
+          <PageState title={copy.search.emptyTitle}>
             <p>{copy.search.emptyDescription(query)}</p>
             {suggestionTerms.length ? (
               <ul className="search-empty-suggestions">
@@ -256,14 +257,13 @@ export default function SearchPage({ searchParams }) {
               </ul>
             ) : null}
             <Link href="/shop" className="section-view-button">{copy.search.browseCategoriesCta}</Link>
-          </div>
+          </PageState>
         )
       ) : (
-        <section className="category-empty-state">
-          <strong>{copy.search.emptyStartTitle}</strong>
+        <PageState as="section" title={copy.search.emptyStartTitle}>
           <p>{copy.search.emptyStartDescription}</p>
           <Link href="/shop" className="section-view-button">{copy.search.browseCategoriesCta}</Link>
-        </section>
+        </PageState>
       )}
 
       <QuickAddDrawer

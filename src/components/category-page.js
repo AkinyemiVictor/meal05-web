@@ -1,11 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import ProductCard from "@/components/product-card";
+import PageBreadcrumbs from "@/components/page-breadcrumbs";
+import PageState from "@/components/page-state";
+import ProductGrid from "@/components/product-grid";
+import SortSelect from "@/components/sort-select";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
   loading: () => <CategoryCarouselSkeleton />,
@@ -130,10 +133,9 @@ export default function CategoryPage({
   if (!category) {
     return (
       <main className="category-page">
-        <div className="category-empty-state">
-          <strong>Category not found.</strong>
+        <PageState title="Category not found.">
           Please return to the home page to explore available aisles.
-        </div>
+        </PageState>
       </main>
     );
   }
@@ -144,13 +146,13 @@ export default function CategoryPage({
 
   return (
     <main ref={pageRef} className="category-page" data-category-slug={category.slug}>
-      <nav className="page-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
-        <span aria-hidden="true" className="page-breadcrumb-divider">/</span>
-        <Link href="/shop">Shop</Link>
-        <span aria-hidden="true" className="page-breadcrumb-divider">/</span>
-        <span className="page-breadcrumb-current">{category.label}</span>
-      </nav>
+      <PageBreadcrumbs
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Shop", href: "/shop" },
+          { label: category.label },
+        ]}
+      />
       <div className="category-page__header">
         <div className="category-page__title">
           <span className="categoryCard__icon" aria-hidden="true">
@@ -171,43 +173,27 @@ export default function CategoryPage({
             ? `${categoryProducts.length} product${categoryProducts.length === 1 ? "" : "s"}`
             : "No products available right now"}
         </p>
-        <label>
-          <span className="sr-only">Sort products</span>
-          <select
-            value={sort}
-            onChange={(event) => setSort(event.target.value)}
-            aria-label="Sort products"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SortSelect value={sort} onChange={(event) => setSort(event.target.value)} options={SORT_OPTIONS} />
       </div>
 
       <section className="category-products" aria-live="polite">
         {isLoadingProducts ? (
-          <div className="category-empty-state">
-            <strong>Loading products...</strong>
-          </div>
+          <PageState title="Loading products..." />
         ) : categoryProducts.length ? (
-          <div className="product-card-grid">
-            {pagedProducts.map((product) => (
+          <ProductGrid
+            products={pagedProducts}
+            renderProduct={(product) => (
               <ProductCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
-            ))}
-          </div>
+            )}
+          />
         ) : hasProductsError ? (
-          <div className="category-empty-state">
-            <strong>We couldn&apos;t load products right now.</strong>
+          <PageState title="We couldn't load products right now.">
             Please try again in a moment.
-          </div>
+          </PageState>
         ) : (
-          <div className="category-empty-state">
-            <strong>No products are available right now.</strong>
-            Please check back soon — we are updating this aisle.
-          </div>
+          <PageState title="No products are available right now.">
+            Please check back soon - we are updating this aisle.
+          </PageState>
         )}
       </section>
 

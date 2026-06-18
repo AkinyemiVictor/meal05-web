@@ -7,6 +7,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import ProductCard from "@/components/product-card";
+import PageState from "@/components/page-state";
+import ProductGrid from "@/components/product-grid";
+import SortSelect from "@/components/sort-select";
 import useProducts from "@/lib/use-products";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
@@ -154,16 +157,12 @@ export default function ShopPage() {
         <p style={{ color: "var(--mk-text-subtle)", fontSize: "0.875rem" }}>
           {isLoading ? "Loading..." : `${filteredProducts.length} product${filteredProducts.length === 1 ? "" : "s"}`}
         </p>
-        <select
+        <SortSelect
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          style={{ padding: "0.4rem 0.8rem", borderRadius: "8px", border: "1.5px solid var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-text)", fontSize: "0.875rem", fontWeight: 500, cursor: "pointer" }}
-          aria-label="Sort products"
-        >
-          {SORT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+          options={SORT_OPTIONS}
+          selectStyle={{ padding: "0.4rem 0.8rem", borderRadius: "8px", border: "1.5px solid var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-text)", fontSize: "0.875rem", fontWeight: 500, cursor: "pointer" }}
+        />
       </div>
 
       {/* Product grid */}
@@ -171,23 +170,22 @@ export default function ShopPage() {
         {isLoading ? (
           <ProductGridSkeleton count={12} />
         ) : hasError ? (
-          <div className="category-empty-state">
-            <strong>We couldn&apos;t load products right now.</strong>
+          <PageState title="We couldn't load products right now.">
             Please refresh the page or try again in a moment.
-          </div>
+          </PageState>
         ) : filteredProducts.length ? (
-          <div className="product-card-grid">
-            {pagedProducts.map((product) => (
+          <ProductGrid
+            products={pagedProducts}
+            renderProduct={(product) => (
               <ProductCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
-            ))}
-          </div>
+            )}
+          />
         ) : (
-          <div className="category-empty-state">
-            <strong>No products in this category right now.</strong>
+          <PageState title="No products in this category right now.">
             <Link href="/shop" style={{ marginTop: "0.75rem", display: "inline-block" }} onClick={() => setActiveSlug("all")}>
               View all products
             </Link>
-          </div>
+          </PageState>
         )}
       </section>
 
