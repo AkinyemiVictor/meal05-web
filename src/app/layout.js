@@ -5,6 +5,7 @@ import "@/styles/notice.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import localFont from "next/font/local";
 
+import Footer from "@/components/footer";
 import Meal05Header from "@/components/meal05-header";
 import NoticeProvider from "@/components/notice-provider";
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }) {
           <div className="layout-main">
             {children}
           </div>
+          <Footer />
         </NoticeProvider>
       </body>
     </html>
