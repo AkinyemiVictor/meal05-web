@@ -105,7 +105,7 @@ export default function Meal05Header() {
   return (
     <>
       {/* Mobile header */}
-      <header className="fixed inset-x-0 top-0 z-50 bg-meal-paper px-5 pb-4 pt-4 shadow-sm md:hidden">
+      <header className="meal05-header meal05-header--mobile fixed inset-x-0 top-0 z-50 bg-meal-paper px-5 pb-4 pt-4 shadow-sm md:hidden">
         <div className="flex items-center justify-between">
           <Link href="/" aria-label="Meal05 home">
             <Image
@@ -128,7 +128,7 @@ export default function Meal05Header() {
       </header>
 
       {/* Desktop / tablet header */}
-      <header className="fixed inset-x-0 top-0 z-50 hidden min-h-20 border-b border-meal-line bg-meal-paper px-6 py-4 md:block">
+      <header className="meal05-header meal05-header--desktop fixed inset-x-0 top-0 z-50 hidden min-h-20 border-b border-meal-line bg-meal-paper px-6 py-4 md:block">
         <div className="mx-auto flex max-w-[1440px] items-center gap-4">
           <Link href="/" aria-label="Meal05 home">
             <Image

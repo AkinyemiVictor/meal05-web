@@ -265,7 +265,12 @@ export default function SearchPage({ searchParams }) {
             <p className="category-page__description">{description}</p>
           </div>
         </div>
-        <form className="site-header__search" role="search" action="/search" method="get">
+        <form
+          className="flex min-w-0 items-center gap-3 rounded-2xl border border-meal-line bg-meal-paper px-4 text-meal-muted shadow-sm"
+          role="search"
+          action="/search"
+          method="get"
+        >
           <label htmlFor="searchPageInput" className="sr-only">Search Meal05 products</label>
           <input
             id="searchPageInput"
@@ -273,11 +278,14 @@ export default function SearchPage({ searchParams }) {
             type="search"
             defaultValue={query}
             placeholder={copy.search.placeholderPage}
-            className="site-header__search-input"
+            className="h-12 min-w-0 flex-1 bg-transparent text-sm font-medium text-meal-text outline-none placeholder:text-meal-muted"
             autoComplete="off"
             spellCheck="false"
           />
-          <button type="submit" className="site-header__search-button">
+          <button
+            type="submit"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-meal-ink text-meal-paper transition hover:bg-meal-pepper"
+          >
             <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
             <span className="sr-only">Submit search</span>
           </button>
