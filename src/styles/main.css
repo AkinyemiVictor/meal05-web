@@ -4005,7 +4005,9 @@ main > section:not(.home-hero) {
 }
 
 .category-page .product-card,
-.category-products .product-card {
+.category-products .product-card,
+.category-page .meal05-product-card,
+.category-products .meal05-product-card {
   /* Prevent stretching to fill leftover space */
   flex: 0 0 240px;
   max-width: 240px;
@@ -4068,7 +4070,9 @@ main > section:not(.home-hero) {
   }
 
   .category-page .product-card,
-  .category-products .product-card {
+  .category-products .product-card,
+  .category-page .meal05-product-card,
+  .category-products .meal05-product-card {
     flex: 0 0 calc(50% - 0.6rem);
     max-width: calc(50% - 0.6rem);
     min-width: 0;
@@ -4124,7 +4128,8 @@ main > section:not(.home-hero) {
   justify-content: flex-start;
 }
 
-.category-page[data-category-slug] .category-products .product-card {
+.category-page[data-category-slug] .category-products .product-card,
+.category-page[data-category-slug] .category-products .meal05-product-card {
   flex: 0 0 calc((100% - (var(--category-grid-cols) - 1) * var(--category-grid-gap)) / var(--category-grid-cols));
   max-width: calc((100% - (var(--category-grid-cols) - 1) * var(--category-grid-gap)) / var(--category-grid-cols));
   min-width: 0;

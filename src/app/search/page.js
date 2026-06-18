@@ -1,18 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import Link from "next/link";
-import { Fragment, use, useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 import SearchHistoryRecorder from "@/components/search-history-recorder";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
-import ProductPromoRibbon from "@/components/product-promo-ribbon";
+import ProductCard from "@/components/product-card";
 import copy from "@/data/copy";
 import useProducts from "@/lib/use-products";
-import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
-import { getProductHref } from "@/lib/products";
-import { resolveProductImage } from "@/lib/product-image";
 
 const PAGE_SIZE = 12;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
@@ -26,8 +22,6 @@ const formatCategoryLabel = (value) =>
     .replace(/\b\w/g, (char) => char.toUpperCase());
 const buildTokens = (value) =>
   value.toLowerCase().split(/\s+/).map((t) => t.trim()).filter(Boolean);
-const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 const buildSearchText = (product) =>
   [normalise(product.name), normalise(product.category), normalise(product.categorySlug), normalise(product.unit)]
     .filter(Boolean).join(" ");
@@ -81,79 +75,6 @@ function getSuggestions(query, limit = 3, list = []) {
     if (unique.length >= limit) break;
   }
   return unique;
-}
-
-function HighlightedText({ text, tokens }) {
-  if (!tokens.length) return text;
-  const pattern = new RegExp(`(${tokens.map(escapeRegExp).join("|")})`, "gi");
-  const parts = text.split(pattern);
-  return (
-    <>
-      {parts.map((part, index) => {
-        if (!part) return null;
-        const isMatch = tokens.some((token) => part.toLowerCase() === token.toLowerCase());
-        return isMatch ? <mark key={`h-${index}`}>{part}</mark> : <Fragment key={`t-${index}`}>{part}</Fragment>;
-      })}
-    </>
-  );
-}
-
-function ProductResultCard({ product, tokens, onQuickAdd }) {
-  const stockClass = resolveStockClass(product.stock);
-  const hasOldPrice = product.oldPrice && product.oldPrice > product.price;
-  const href = getProductHref(product);
-  const isUnavailable = stockClass === "is-unavailable";
-  const productImage = resolveProductImage(product.image);
-  const formattedPrice = formatProductPrice(product.price, product.unit);
-  const [priceValue, unitValue] = formattedPrice.split("/");
-
-  return (
-    <article className="product-card product-card--with-cta">
-      <Link href={href} className="product-card__link" aria-label={`View ${product.name}`}>
-        <div>
-          <div className="product-card__imageWrap">
-            <div className="product-card__badge-row">
-              {product.discount ? (
-                <div className="product-card-discount"><p>{product.discount}% Off</p></div>
-              ) : <span />}
-              <div className={`product-card-season ${product.inSeason ? "is-in" : "is-out"}`}>
-                <p>{product.inSeason ? "In Season" : "Out of Season"}</p>
-              </div>
-            </div>
-            <Image src={productImage} alt={product.name} className="productImg" width={140} height={140} sizes="(max-width: 768px) 120px, 140px" loading="lazy" />
-            <ProductPromoRibbon text={product.promoTagText} expiresAt={product.promoTagExpiresAt} enabled={product.promoTagEnabled} />
-            {isUnavailable ? <div className="product-card__overlay" aria-hidden="true">Depleted</div> : null}
-          </div>
-          <div className="product-card-details">
-            <h4><HighlightedText text={product.name} tokens={tokens} /></h4>
-            <span className="product-card__price">
-              <span className="price">{priceValue}</span>
-              {unitValue ? <span className="price-unit">/{unitValue}</span> : null}
-            </span>
-            {hasOldPrice ? <span className="old-price">{formatProductPrice(product.oldPrice, product.unit)}</span> : null}
-          </div>
-        </div>
-      </Link>
-      <div className="product-card__cta">
-        <button
-          type="button"
-          className="product-card__cta-button"
-          onClick={(event) => onQuickAdd?.(product, event.currentTarget)}
-          disabled={isUnavailable}
-          aria-label={`Add ${product.name} to cart`}
-        >
-          <span className="product-card__cta-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="8" cy="19" r="1.5" fill="currentColor" />
-              <circle cx="17" cy="19" r="1.5" fill="currentColor" />
-              <path d="M3 5H5L6.2 13.1C6.33347 13.983 7.07703 14.6425 7.96984 14.6425H17.4C18.1232 14.6425 18.753 14.1615 18.9363 13.4605L21 6.14246H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <span className="product-card__cta-label">{isUnavailable ? "Out of stock" : "Add to cart"}</span>
-        </button>
-      </div>
-    </article>
-  );
 }
 
 function buildPageHref(query, pageNumber = 1) {
@@ -312,7 +233,7 @@ export default function SearchPage({ searchParams }) {
                   </header>
                   <div className="product-card-grid">
                     {group.products.map((product) => (
-                      <ProductResultCard key={product.id} product={product} tokens={tokens} onQuickAdd={handleQuickAdd} />
+                      <ProductCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
                     ))}
                   </div>
                 </section>
