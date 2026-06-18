@@ -386,7 +386,11 @@ export default function Home() {
           counts={counts}
         />
 
-        <div ref={contentBoundaryRef} className="relative z-0 flex overflow-visible lg:pl-72">
+        <div
+          ref={contentBoundaryRef}
+          className="relative z-0 flex overflow-visible lg:pl-72"
+          style={{ minHeight: `calc(100dvh - ${DESKTOP_NAVBAR_HEIGHT}px)` }}
+        >
           <DesktopCategorySidebar
             categories={categories}
             activeCategory=""
