@@ -313,7 +313,7 @@ export default function Home() {
 
     const applyFixed = (sidebar) => {
       sidebar.style.position = "fixed";
-      sidebar.style.left = "max(0px, calc((100vw - 1440px) / 2))";
+      sidebar.style.left = "max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem))";
       sidebar.style.top = `${DESKTOP_NAVBAR_HEIGHT}px`;
       sidebar.style.bottom = "";
       sidebar.style.height = sidebarHeight();
@@ -325,7 +325,7 @@ export default function Home() {
       const top = Math.max(0, window.scrollY + DESKTOP_NAVBAR_HEIGHT - boundaryTop);
 
       sidebar.style.position = "absolute";
-      sidebar.style.left = "0px";
+      sidebar.style.left = "1.5rem";
       sidebar.style.top = `${top}px`;
       sidebar.style.bottom = "";
       sidebar.style.height = sidebarHeight();
@@ -418,7 +418,7 @@ export default function Home() {
   const sidebarStyle = {
     position: "fixed",
     top: DESKTOP_NAVBAR_HEIGHT,
-    left: "max(0px, calc((100vw - 1440px) / 2))",
+    left: "max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem))",
     height: `calc(100dvh - ${DESKTOP_NAVBAR_HEIGHT}px)`,
   };
 
@@ -443,7 +443,7 @@ export default function Home() {
           counts={counts}
         />
 
-        <div ref={contentBoundaryRef} className="relative z-0 flex overflow-visible lg:pl-64">
+        <div ref={contentBoundaryRef} className="relative z-0 flex overflow-visible lg:pl-72">
           <DesktopCategorySidebar
             categories={categories}
             activeCategory={activeCategory}
