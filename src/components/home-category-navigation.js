@@ -87,7 +87,7 @@ export function DesktopCategorySidebar({ categories, activeCategory, counts, sid
   return (
     <aside
       ref={sidebarRef}
-      className="z-40 hidden w-64 overflow-y-auto border-r border-meal-line bg-meal-paper py-6 pr-4 lg:block"
+      className="z-40 hidden w-64 overflow-y-auto border-r border-meal-line bg-meal-paper px-4 py-6 lg:block"
       style={style}
     >
       <p className="px-3 text-xs font-medium uppercase tracking-[0.18em] text-meal-muted">Categories</p>
