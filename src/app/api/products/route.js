@@ -13,8 +13,14 @@ import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/l
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
+export const fetchCache = "default-cache";
+
+const PUBLIC_CATALOG_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+};
 
 const toSlug = (value) => {
   // Insert separators for camelCase/PascalCase before lowercasing
@@ -525,13 +531,7 @@ export async function GET() {
       { grouped, flat: mapped },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
-          "Surrogate-Control": "no-store",
-          "Vercel-CDN-Cache-Control": "no-store",
-        },
+        headers: PUBLIC_CATALOG_CACHE_HEADERS,
       }
     );
   } catch (err) {

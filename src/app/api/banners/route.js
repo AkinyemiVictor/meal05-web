@@ -16,10 +16,15 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
+export const fetchCache = "default-cache";
 
 const DEFAULT_LIMIT = 20;
+const PUBLIC_BANNER_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+};
 
 const listBucketFiles = async (client) => {
   const { data, error } = await client.storage
@@ -95,13 +100,7 @@ export async function GET(request) {
       { banners },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
-          "Surrogate-Control": "no-store",
-          "Vercel-CDN-Cache-Control": "no-store",
-        },
+        headers: PUBLIC_BANNER_CACHE_HEADERS,
       }
     );
   } catch (error) {

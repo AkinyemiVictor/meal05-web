@@ -172,7 +172,7 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/categories", { cache: "no-store" })
+    fetch("/api/categories")
       .then((response) => (response.ok ? response.json() : null))
       .then((payload) => {
         if (cancelled) return;
@@ -190,7 +190,7 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/products", { cache: "no-store" })
+    fetch("/api/products")
       .then((response) => (response.ok ? response.json() : null))
       .then((payload) => {
         if (cancelled) return;

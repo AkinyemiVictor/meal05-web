@@ -7,8 +7,14 @@ import { loadCategoryCounts, loadCategoryRows, mapCategoryRows } from "@/lib/cat
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 300;
+export const fetchCache = "default-cache";
+
+const PUBLIC_CATEGORY_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=1800",
+  "CDN-Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800",
+};
 
 export async function GET() {
   try {
@@ -64,13 +70,7 @@ export async function GET() {
       { categories },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
-          "Surrogate-Control": "no-store",
-          "Vercel-CDN-Cache-Control": "no-store",
-        },
+        headers: PUBLIC_CATEGORY_CACHE_HEADERS,
       }
     );
   } catch (err) {

@@ -45,7 +45,7 @@ export default function ShopPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/categories", { cache: "no-store" })
+    fetch("/api/categories")
       .then((response) => (response.ok ? response.json() : null))
       .then((payload) => {
         if (!cancelled) {

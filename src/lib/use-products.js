@@ -3,6 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { normaliseProductCatalogue } from "@/lib/catalogue";
 
+let productsRequestCache = null;
+
+const fetchProductsCatalogue = async ({ refresh = false } = {}) => {
+  if (!refresh && productsRequestCache) return productsRequestCache;
+  productsRequestCache = fetch("/api/products")
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+    .then((json) => (json && json.grouped ? json.grouped : json) || {})
+    .catch((error) => {
+      productsRequestCache = null;
+      throw error;
+    });
+  return productsRequestCache;
+};
+
 export default function useProducts() {
   const [catalogue, setCatalogue] = useState({});
   const [status, setStatus] = useState("loading");
@@ -10,13 +27,10 @@ export default function useProducts() {
 
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
+    const load = async ({ refresh = false } = {}) => {
       setStatus("loading");
       try {
-        const res = await fetch("/api/products", { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        const grouped = (json && json.grouped ? json.grouped : json) || {};
+        const grouped = await fetchProductsCatalogue({ refresh });
         if (!cancelled) {
           setCatalogue(grouped);
           setStatus("ready");
@@ -31,7 +45,7 @@ export default function useProducts() {
     };
     load();
     const handleCheckoutCompleted = () => {
-      load();
+      load({ refresh: true });
     };
     if (typeof window !== "undefined") {
       window.addEventListener("checkout-completed", handleCheckoutCompleted);
