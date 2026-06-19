@@ -4,8 +4,8 @@ export const CART_UPDATED_EVENT = "cart-updated";
 
 export const readCartItems = () => [];
 
-export const writeCartItems = () => {
-  dispatchCartUpdatedEvent({ source: "cart-storage-disabled" });
+export const writeCartItems = (_items, _userId, options = {}) => {
+  dispatchCartUpdatedEvent({ source: options?.source || "cart-storage-disabled" });
 };
 
 export const clearCartItems = () => {

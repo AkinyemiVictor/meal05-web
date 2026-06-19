@@ -110,6 +110,15 @@ const hydrateCartItems = (items) => {
   return items.map(hydrateCartItem).filter(Boolean);
 };
 
+const getCartItemsSignature = (items) => {
+  if (!Array.isArray(items) || items.length === 0) return "[]";
+  try {
+    return JSON.stringify(items);
+  } catch {
+    return String(items.length);
+  }
+};
+
 const pickDefaultVariant = (variations) => {
   if (!Array.isArray(variations) || variations.length === 0) return null;
   const explicit = variations.find((v) => v && v.is_default === true);
@@ -534,7 +543,9 @@ function CartPageContent() {
       }
 
       const next = readCartFromStorage();
-      setCartItems(next);
+      setCartItems((current) =>
+        getCartItemsSignature(current) === getCartItemsSignature(next) ? current : next
+      );
       setHydrated(true);
       upgradeLegacyCartItems(next);
     };
