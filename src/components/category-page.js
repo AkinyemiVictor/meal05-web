@@ -8,7 +8,6 @@ import ProductCard from "@/components/product-card";
 import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
-import SortSelect from "@/components/sort-select";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
   loading: () => <CategoryCarouselSkeleton />,
@@ -18,13 +17,6 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), {
 });
 
 const DEFAULT_PAGE_SIZE = 20;
-
-const SORT_OPTIONS = [
-  { value: "default", label: "Default" },
-  { value: "price-asc", label: "Price: Low to High" },
-  { value: "price-desc", label: "Price: High to Low" },
-  { value: "newest", label: "Newest" },
-];
 
 const mapCategoryCard = (entry) => ({
   slug: entry.slug,
@@ -42,7 +34,6 @@ export default function CategoryPage({
 }) {
   const pageRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [sort, setSort] = useState("default");
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorRect, setQuickAddAnchorRect] = useState(null);
@@ -52,17 +43,13 @@ export default function CategoryPage({
   const isLoadingProducts = status === "loading";
   const hasProductsError = status === "error";
   const categoryProducts = useMemo(() => {
-    const list = Array.isArray(products) ? products.slice() : [];
-    if (sort === "price-asc") return list.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
-    if (sort === "price-desc") return list.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
-    if (sort === "newest") return list.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
-    return list;
-  }, [products, sort]);
+    return Array.isArray(products) ? products.slice() : [];
+  }, [products]);
   const totalPages = Math.max(1, Math.ceil(categoryProducts.length / itemsPerPage));
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [categoryProducts.length, itemsPerPage, sort]);
+  }, [categoryProducts.length, itemsPerPage]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -167,15 +154,6 @@ export default function CategoryPage({
         </div>
       </div>
 
-      <div className="category-page__controls">
-        <p className="category-page__result-count" aria-live="polite">
-          {categoryProducts.length
-            ? `${categoryProducts.length} product${categoryProducts.length === 1 ? "" : "s"}`
-            : "No products available right now"}
-        </p>
-        <SortSelect value={sort} onChange={(event) => setSort(event.target.value)} options={SORT_OPTIONS} />
-      </div>
-
       <section className="category-products" aria-live="polite">
         {isLoadingProducts ? (
           <PageState title="Loading products..." />
@@ -243,6 +221,7 @@ export default function CategoryPage({
         heading="Explore more categories"
         eyebrow="Shop by aisle"
         activeSlug={category.slug}
+        className="category-carousel--compact"
       />
 
       {quickAddProduct ? (

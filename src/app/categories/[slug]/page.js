@@ -3,12 +3,23 @@ import { loadCategoryProductsPayload } from "@/lib/category-products";
 import { buildCategoryPageMetadata } from "@/lib/seo/metadata";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 async function getCategoryPayload(slug) {
-  const supabase = getSupabaseAdminClient();
-  return loadCategoryProductsPayload(supabase, slug);
+  const safeSlug = String(slug || "").trim().toLowerCase();
+  return unstable_cache(
+    async () => {
+      const supabase = getSupabaseAdminClient();
+      return loadCategoryProductsPayload(supabase, safeSlug);
+    },
+    ["category-products", safeSlug],
+    {
+      revalidate: 300,
+      tags: [`category-products:${safeSlug}`],
+    }
+  )();
 }
 
 export async function generateMetadata({ params }) {
