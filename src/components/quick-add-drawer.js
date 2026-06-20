@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import VariantPicker from "@/components/variant-picker";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
+import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { useNotice } from "@/components/notice-provider";
 import { resolveProductImage } from "@/lib/product-image";
 
@@ -106,7 +107,6 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
 export default function QuickAddDrawer({ product, isOpen, onClose, variant = "drawer" }) {
   const { showNotice } = useNotice();
   const cacheRef = useRef(new Map());
-  const autoAddedRef = useRef(false);
   const panelRef = useRef(null);
   const isDropdown = variant === "dropdown";
 
@@ -146,7 +146,6 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
   useEffect(() => {
     if (!isOpen) {
-      autoAddedRef.current = false;
       setStatus("idle");
       setError("");
       setDetail(null);
@@ -160,7 +159,6 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     let cancelled = false;
     const cacheKey = String(productId);
     const cached = cacheRef.current.get(cacheKey);
-    autoAddedRef.current = false;
 
     setStatus("loading");
     setError("");
@@ -248,20 +246,49 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
       setStatus("adding");
       try {
-        const response = await fetch("/api/cart", {
+        const items = readCartItems();
+        const lineKey = getLineKey({ variantId, id: baseProduct.id, productId: baseProduct.id });
+        const productIdKey = String(baseProduct.id || "");
+        const index = items.findIndex((item) => {
+          const itemKey = getLineKey(item);
+          const itemProductKey = String(item?.productId || item?.id || "");
+          return (
+            itemKey === lineKey ||
+            (!variantId && itemKey === productIdKey) ||
+            (!variantId && itemProductKey === productIdKey)
+          );
+        });
+
+        if (index >= 0) {
+          const existing = items[index];
+          const existingCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, 0);
+          const nextCount = existingCount + safeQty;
+          items[index] = {
+            ...existing,
+            ...buildCartItem(baseProduct, targetVariant, nextCount, product?.image),
+            note: existing.note || "Added from quick add",
+          };
+        } else {
+          items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image));
+        }
+
+        writeCartItems(items, undefined, { source: "quick-add" });
+
+        try {
+          fetch("/api/cart", {
             method: "POST",
             cache: "no-store",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               product_id: baseProduct.id,
               variant_id: variantId,
-              variant_name: buildVariantName(targetVariant),
+              variant_name: buildVariantName(targetVariant) || targetVariant?.name || baseProduct.unit || "Default",
               product_name: baseProduct.name,
               unit_price_at_add: getVariantPrice(targetVariant, baseProduct),
               quantity: safeQty,
             }),
-        });
-        if (!response.ok) throw new Error("Sign in to add this item to your cart.");
+          }).catch(() => {});
+        } catch (_) {}
 
         if (!isDropdown) {
           showNotice({
@@ -278,18 +305,8 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         setError(err?.message || "Unable to add to cart.");
       }
     },
-    [displayProduct, effectiveVariant, isDropdown, onClose, quantity, showNotice]
+    [displayProduct, effectiveVariant, isDropdown, onClose, product?.image, quantity, showNotice]
   );
-
-  useEffect(() => {
-    if (!isOpen || status !== "ready") return;
-    if (!displayProduct) return;
-    if (variations.length > 1) return;
-    if (isUnavailable) return;
-    if (autoAddedRef.current) return;
-    autoAddedRef.current = true;
-    handleAdd({ qty: 1, closeAfter: true });
-  }, [displayProduct, handleAdd, variations.length, isOpen, status, isUnavailable]);
 
   if (!isOpen) return null;
 
@@ -323,13 +340,15 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         <p className="quick-add-status">Loading options...</p>
       ) : status === "error" ? (
         <p className="quick-add-status is-error">{error || "Unable to load options."}</p>
-      ) : variations.length > 1 ? (
+      ) : status === "ready" || status === "adding" ? (
         <>
-          <VariantPicker
-            variations={variations}
-            selectedId={effectiveVariant?.variationId}
-            onChange={(variant) => setSelectedVariant(variant)}
-          />
+          {variations.length ? (
+            <VariantPicker
+              variations={variations}
+              selectedId={effectiveVariant?.variationId || effectiveVariant?.id}
+              onChange={(variant) => setSelectedVariant(variant)}
+            />
+          ) : null}
 
           <div className="quick-add-summary">
             <div>
@@ -377,7 +396,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           </button>
         </>
       ) : (
-        <p className="quick-add-status">Adding to cart...</p>
+        <p className="quick-add-status">Preparing options...</p>
       )}
     </div>
   );

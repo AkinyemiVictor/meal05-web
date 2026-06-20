@@ -90,7 +90,11 @@ const getSectionTitle = ({ kind, hasRipenessStep = false, options = [] }) => {
 export default function VariantPicker({ variations = [], selectedId, onChange }) {
   const safeVariations = useMemo(() => (Array.isArray(variations) ? variations : []), [variations]);
   const selectedVariant = useMemo(
-    () => safeVariations.find((variant) => String(variant?.variationId) === String(selectedId)),
+    () =>
+      safeVariations.find(
+        (variant) =>
+          String(variant?.variationId || variant?.id || "") === String(selectedId || "")
+      ),
     [safeVariations, selectedId]
   );
 

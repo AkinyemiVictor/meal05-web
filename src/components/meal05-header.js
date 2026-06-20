@@ -12,6 +12,7 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import { shouldShowCommerceChrome } from "@/lib/commerce-chrome";
+import { readCartItems } from "@/lib/cart-storage";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 
@@ -19,13 +20,16 @@ function useCartCount() {
   const [count, setCount] = useState(0);
   useEffect(() => {
     const update = () => {
+      const localItems = readCartItems();
+      setCount(localItems.reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
       fetch("/api/cart", { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : []))
+        .then((response) => (response.ok ? response.json() : null))
         .then((items) => {
+          if (!Array.isArray(items)) return;
           const rows = Array.isArray(items) ? items : [];
           setCount(rows.reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
         })
-        .catch(() => setCount(0));
+        .catch(() => {});
     };
     update();
     window.addEventListener("storage", update);

@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -31,8 +32,10 @@ import {
 } from "@/components/home-category-navigation";
 import FilterChips from "@/components/filter-chips";
 import HomeProductCollection from "@/components/home-product-collection";
+import { readCartItems } from "@/lib/cart-storage";
 
 const DESKTOP_NAVBAR_HEIGHT = 81;
+const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
 
 const filters = [
   { value: "popular", label: "Popular", icon: IconFlame },
@@ -154,19 +157,30 @@ export default function Home() {
   const [productsStatus, setProductsStatus] = useState("loading");
   const [activeCollection, setActiveCollection] = useState("popular");
   const [cartItems, setCartItems] = useState([]);
+  const [quickAddProduct, setQuickAddProduct] = useState(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+    const updateLocalCart = () => {
+      if (!cancelled) setCartItems(readCartItems());
+    };
+    updateLocalCart();
     fetch("/api/cart", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : []))
+      .then((response) => (response.ok ? response.json() : null))
       .then((items) => {
-        if (!cancelled) setCartItems(Array.isArray(items) ? items : []);
+        if (!cancelled && Array.isArray(items)) setCartItems(items);
       })
       .catch(() => {
-        if (!cancelled) setCartItems([]);
+        updateLocalCart();
       });
+    window.addEventListener("cart-updated", updateLocalCart);
+    window.addEventListener("storage", updateLocalCart);
     return () => {
       cancelled = true;
+      window.removeEventListener("cart-updated", updateLocalCart);
+      window.removeEventListener("storage", updateLocalCart);
     };
   }, []);
 
@@ -338,26 +352,21 @@ export default function Home() {
 
   const activeCollectionCopy = COLLECTION_COPY[activeCollection] || COLLECTION_COPY.popular;
 
-  const handleAdd = async (product) => {
-    const key = String(product.variantId || product.id);
-    const response = await fetch("/api/cart", {
-      method: "POST",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        product_id: product.id,
-        variant_id: key,
-        variant_name: product.variantName || product.unit || "Default",
-        product_name: product.name,
-        unit_price_at_add: Number(product.price || 0),
-        quantity: 1,
-      }),
-    });
-    if (!response.ok) return;
-    const cartResponse = await fetch("/api/cart", { cache: "no-store" });
-    const items = cartResponse.ok ? await cartResponse.json() : [];
-    setCartItems(Array.isArray(items) ? items : []);
-    window.dispatchEvent(new Event("cart-updated"));
+  const handleQuickAddClose = () => {
+    setQuickAddOpen(false);
+    setQuickAddProduct(null);
+    setQuickAddAnchorEl(null);
+  };
+
+  const handleQuickAdd = (product, anchorEl) => {
+    if (!product) return;
+    if (quickAddOpen && quickAddProduct?.id === product.id) {
+      handleQuickAddClose();
+      return;
+    }
+    setQuickAddAnchorEl(anchorEl || null);
+    setQuickAddProduct(product);
+    setQuickAddOpen(true);
   };
 
   const cartCount = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -431,7 +440,7 @@ export default function Home() {
               status={productsStatus}
               emptyMessage={activeCollectionCopy.emptyMessage}
               seeAllHref={activeCollectionCopy.seeAllHref}
-              onAdd={handleAdd}
+              onAdd={handleQuickAdd}
             />
           </section>
           </div>
@@ -449,6 +458,15 @@ export default function Home() {
         <IconHelpCircle size={24} stroke={1.8} />
       </Link>
       <BottomNav cartCount={cartCount} />
+      {quickAddProduct ? (
+        <QuickAddDrawer
+          product={quickAddProduct}
+          isOpen={quickAddOpen}
+          onClose={handleQuickAddClose}
+          variant="dropdown"
+          anchorEl={quickAddAnchorEl}
+        />
+      ) : null}
     </main>
   );
 }
