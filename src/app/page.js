@@ -37,7 +37,7 @@ const DESKTOP_NAVBAR_HEIGHT = 81;
 const filters = [
   { value: "popular", label: "Popular", icon: IconFlame },
   { value: "under-15m", label: "Under 15m", icon: IconClock },
-  { value: "bundles", label: "Bundles", icon: IconPackage },
+  { value: "bundles", label: "MealKit", icon: IconPackage },
   { value: "chef-choice", label: "Chef Choice", icon: IconChefHat },
   { value: "fresh-in-stock", label: "Fresh In Stock", icon: IconBasketCheck },
   { value: "in-season", label: "In Season", icon: IconLeaf },
@@ -57,7 +57,7 @@ const COLLECTION_COPY = {
   },
   bundles: {
     eyebrow: "Curated packs",
-    title: "Bundles",
+    title: "MealKit",
     emptyMessage: "No bundle products are available yet.",
     seeAllHref: "/section/bundle-plans",
   },
