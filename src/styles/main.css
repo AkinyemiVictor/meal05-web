@@ -2565,7 +2565,7 @@ main > section:not(.home-hero) {
   align-items: center;
   gap: 0.7rem;
   padding: 0.62rem 0.95rem 0.62rem 0.7rem;
-  border-radius: 0;
+  border-radius: 12px;
   border-color: rgba(15, 23, 42, 0.08);
   box-shadow: 0 8px 16px rgba(15, 23, 42, 0.045);
   transform: skewX(-10deg);
