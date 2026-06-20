@@ -13,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { shouldShowCommerceHeader } from "@/lib/commerce-chrome";
 import { readCartItems } from "@/lib/cart-storage";
+import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 
@@ -22,6 +23,7 @@ function useCartCount() {
     const update = () => {
       const localItems = readCartItems();
       setCount(localItems.reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
+      if (!readStoredUser()) return;
       fetch("/api/cart", { cache: "no-store" })
         .then((response) => (response.ok ? response.json() : null))
         .then((items) => {
@@ -34,9 +36,11 @@ function useCartCount() {
     update();
     window.addEventListener("storage", update);
     window.addEventListener("cart-updated", update);
+    window.addEventListener(AUTH_EVENT, update);
     return () => {
       window.removeEventListener("storage", update);
       window.removeEventListener("cart-updated", update);
+      window.removeEventListener(AUTH_EVENT, update);
     };
   }, []);
   return count;

@@ -33,6 +33,7 @@ import {
 import FilterChips from "@/components/filter-chips";
 import HomeProductCollection from "@/components/home-product-collection";
 import { readCartItems } from "@/lib/cart-storage";
+import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
 
 const DESKTOP_NAVBAR_HEIGHT = 81;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
@@ -167,20 +168,26 @@ export default function Home() {
       if (!cancelled) setCartItems(readCartItems());
     };
     updateLocalCart();
-    fetch("/api/cart", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((items) => {
-        if (!cancelled && Array.isArray(items)) setCartItems(items);
-      })
-      .catch(() => {
-        updateLocalCart();
-      });
+    const syncServerCart = () => {
+      if (!readStoredUser()) return;
+      fetch("/api/cart", { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((items) => {
+          if (!cancelled && Array.isArray(items)) setCartItems(items);
+        })
+        .catch(() => {
+          updateLocalCart();
+        });
+    };
+    syncServerCart();
     window.addEventListener("cart-updated", updateLocalCart);
     window.addEventListener("storage", updateLocalCart);
+    window.addEventListener(AUTH_EVENT, syncServerCart);
     return () => {
       cancelled = true;
       window.removeEventListener("cart-updated", updateLocalCart);
       window.removeEventListener("storage", updateLocalCart);
+      window.removeEventListener(AUTH_EVENT, syncServerCart);
     };
   }, []);
 
