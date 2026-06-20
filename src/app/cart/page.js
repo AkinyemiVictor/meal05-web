@@ -190,7 +190,7 @@ function ProductHighlightCard({ product, onQuickAdd }) {
               enabled={product.promoTagEnabled}
             />
             {isUnavailable ? (
-              <div className="product-card__overlay" aria-hidden="true">Depleted</div>
+              <div className="product-card__overlay" aria-hidden="true">Out of stock</div>
             ) : null}
           </div>
           <div className="product-card-details">

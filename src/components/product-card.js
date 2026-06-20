@@ -24,31 +24,35 @@ function ProductImage({ product }) {
   return (
     <Link
       href={getProductHref(product)}
-      className="relative block aspect-[1.06/1] overflow-hidden rounded-3xl border border-meal-line bg-meal-mist"
+      className="relative flex aspect-[1.06/1] items-center justify-center overflow-hidden rounded-3xl border border-meal-line bg-meal-mist"
       aria-label={`View ${product.name}`}
     >
-      {product.discount ? (
-        <span className="absolute left-4 top-4 z-10 rounded-lg bg-meal-pepper px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-meal-paper">
-          {product.discount}% off
-        </span>
-      ) : null}
-      {product.inSeason ? (
-        <span className="absolute right-4 top-4 z-10 rounded-lg bg-meal-green/20 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-meal-text">
-          In season
-        </span>
-      ) : null}
+      <div className="absolute left-4 right-4 top-4 z-10 flex min-w-0 items-start justify-between gap-2">
+        {product.discount ? (
+          <span className="max-w-[48%] shrink-0 truncate rounded-lg bg-meal-pepper px-2.5 py-1 text-[10px] font-medium uppercase leading-none tracking-wider text-meal-paper sm:text-[11px]">
+            {product.discount}% off
+          </span>
+        ) : (
+          <span aria-hidden="true" />
+        )}
+        {product.inSeason ? (
+          <span className="ml-auto max-w-[48%] shrink-0 truncate rounded-lg bg-meal-green/20 px-2.5 py-1 text-[10px] font-medium uppercase leading-none tracking-wider text-meal-text sm:text-[11px]">
+            In season
+          </span>
+        ) : null}
+      </div>
       <Image
         src={src}
         alt={product.name}
         fill
         unoptimized
         sizes="(max-width: 767px) 82vw, (max-width: 1023px) 30vw, 220px"
-        className="object-contain p-8"
+        className="object-contain object-center p-10"
       />
       {unavailable ? (
-        <div className="absolute inset-0 grid place-items-center bg-meal-paper/50">
-          <span className="-rotate-6 bg-meal-ink px-5 py-2 text-sm font-medium uppercase tracking-[0.22em] text-meal-paper">
-            Depleted
+        <div className="absolute inset-0 z-20 grid place-items-center bg-meal-paper/50">
+          <span className="-rotate-6 whitespace-nowrap bg-meal-ink px-5 py-2 text-sm font-medium uppercase tracking-[0.18em] text-meal-paper">
+            Out of stock
           </span>
         </div>
       ) : null}
