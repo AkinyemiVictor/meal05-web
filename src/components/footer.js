@@ -4,13 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildSignInHref } from "@/lib/auth-redirect";
-import { shouldShowCommerceChrome } from "@/lib/commerce-chrome";
+import { shouldShowCommerceFooter } from "@/lib/commerce-chrome";
 import { BRAND_MARK_SRC, BRAND_WORDMARK_DARK_SRC } from "@/lib/theme-logo";
 import NewsletterSignup from "@/components/newsletter-signup";
 
 export default function Footer() {
   const pathname = usePathname();
-  if (!shouldShowCommerceChrome(pathname)) return null;
+  if (!shouldShowCommerceFooter(pathname)) return null;
   const locationSearch = typeof window === "undefined" ? "" : window.location.search;
   const currentPathForAuth = `${pathname || "/"}${locationSearch}`;
   const loginHref = buildSignInHref({ tab: "login", next: currentPathForAuth, hash: "loginForm" });

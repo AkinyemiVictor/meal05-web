@@ -11,7 +11,7 @@ import {
   IconShoppingBag,
   IconUser,
 } from "@tabler/icons-react";
-import { shouldShowCommerceChrome } from "@/lib/commerce-chrome";
+import { shouldShowCommerceHeader } from "@/lib/commerce-chrome";
 import { readCartItems } from "@/lib/cart-storage";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
@@ -99,7 +99,7 @@ export default function Meal05Header() {
   const pathname = usePathname();
   const cartCount = useCartCount();
 
-  if (!shouldShowCommerceChrome(pathname)) return null;
+  if (!shouldShowCommerceHeader(pathname)) return null;
 
   return (
     <>

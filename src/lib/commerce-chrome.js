@@ -1,16 +1,51 @@
-const CHROME_HIDDEN_EXACT_PATHS = new Set([
+const CUSTOMER_CHROME_HIDDEN_EXACT_PATHS = new Set([
   "/sign-in",
   "/signup",
 ]);
 
-const CHROME_HIDDEN_PREFIXES = [
+const CUSTOMER_CHROME_HIDDEN_PREFIXES = [
   "/admin",
   "/auth/",
   "/checkout",
 ];
 
-export const shouldShowCommerceChrome = (pathname) => {
+const FOOTER_HIDDEN_EXACT_PATHS = new Set([
+  "/account",
+  "/cart",
+  "/sign-in",
+  "/signup",
+]);
+
+const FOOTER_HIDDEN_PREFIXES = [
+  "/account/",
+  "/admin",
+  "/auth/",
+  "/cart/",
+  "/checkout",
+];
+
+const normalizePath = (pathname) => {
   const path = String(pathname || "/");
-  if (CHROME_HIDDEN_EXACT_PATHS.has(path)) return false;
-  return !CHROME_HIDDEN_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix));
+  return path.length > 1 ? path.replace(/\/+$/, "") : path;
+};
+
+const isHiddenByRule = (pathname, exactPaths, prefixes) => {
+  const path = normalizePath(pathname);
+  if (exactPaths.has(path)) return true;
+  return prefixes.some((prefix) => path === prefix || path.startsWith(prefix));
+};
+
+export const shouldShowCommerceHeader = (pathname) =>
+  !isHiddenByRule(pathname, CUSTOMER_CHROME_HIDDEN_EXACT_PATHS, CUSTOMER_CHROME_HIDDEN_PREFIXES);
+
+export const shouldShowCommerceFooter = (pathname) =>
+  !isHiddenByRule(pathname, FOOTER_HIDDEN_EXACT_PATHS, FOOTER_HIDDEN_PREFIXES);
+
+export const shouldShowCommerceChrome = shouldShowCommerceHeader;
+
+export const CUSTOMER_CHROME_GUIDE = {
+  header:
+    "Show on customer browsing, cart, account, help, and content pages. Hide on auth, admin, and checkout because checkout has its own secure header.",
+  footer:
+    "Show on browsing, catalogue, product, help, and content pages. Hide on cart, account, auth, admin, and checkout task flows.",
 };
