@@ -40,12 +40,3 @@ export const shouldShowCommerceHeader = (pathname) =>
 
 export const shouldShowCommerceFooter = (pathname) =>
   !isHiddenByRule(pathname, FOOTER_HIDDEN_EXACT_PATHS, FOOTER_HIDDEN_PREFIXES);
-
-export const shouldShowCommerceChrome = shouldShowCommerceHeader;
-
-export const CUSTOMER_CHROME_GUIDE = {
-  header:
-    "Show on customer browsing, cart, account, help, and content pages. Hide on auth, admin, and checkout because checkout has its own secure header.",
-  footer:
-    "Show on browsing, catalogue, product, help, and content pages. Hide on cart, account, auth, admin, and checkout task flows.",
-};
