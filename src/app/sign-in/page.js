@@ -11,7 +11,7 @@ import "@/styles/sign-in.css";
 import { persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
 import { migrateGuestCartToUser } from "@/lib/cart-storage";
-import { BRAND_MARK_SRC } from "@/lib/theme-logo";
+import { BRAND_MARK_SRC, BRAND_WORDMARK_DARK_SRC } from "@/lib/theme-logo";
 
 const NAME_PATTERN = "[A-Za-z]+";
 const EMAIL_PATTERN = "[A-Za-z0-9]+@[A-Za-z0-9]+\\.com";
@@ -32,8 +32,8 @@ const PHONE_COUNTRY_OPTIONS = [
 ];
 
 const TAB_OPTIONS = [
-  { key: "login", label: "Login", hash: "#loginForm" },
-  { key: "signup", label: "Sign Up", hash: "#signupForm" },
+  { key: "login", label: "Sign in", hash: "#loginForm" },
+  { key: "signup", label: "Create account", hash: "#signupForm" },
 ];
 
 function GoogleIcon() {
@@ -284,10 +284,10 @@ function SignInPageContent() {
         });
         return;
       }
-      const nameFromEmail = email.includes("@") ? email.split("@")[0] : "MealKit Friend";
+      const nameFromEmail = email.includes("@") ? email.split("@")[0] : "Meal05 Friend";
       const cleaned = nameFromEmail.replace(/[\.\_\-]+/g, " ").trim();
       const parts = cleaned.split(/\s+/);
-      const firstName = (parts[0] || "MealKit").toUpperCase();
+      const firstName = (parts[0] || "Meal05").toUpperCase();
       const lastName = (parts[1] || "Friend").toUpperCase();
       const fullName = `${firstName} ${lastName}`.trim();
       const user = { firstName, lastName, fullName, email };
@@ -544,27 +544,27 @@ function SignInPageContent() {
   return (
     <main className="auth-page">
       <div className="auth-shell">
-        <aside className="auth-aside" aria-label="MealKit membership highlights">
+        <aside className="auth-aside" aria-label="Meal05 membership highlights">
           <div className="auth-aside-inner">
             <div>
-              <span className="auth-aside-badge">MealKit community</span>
-              <h1 className="auth-aside-title">Groceries done in minutes</h1>
+              <span className="auth-aside-badge">Meal05 market access</span>
+              <h1 className="auth-aside-title">Fresh food, sorted before the week gets busy.</h1>
               <p className="auth-aside-text">
-                Stay on top of your pantry with real-time delivery tracking and curated recommendations tailored to
-                your household.
+                Sign in to continue your cart, repeat trusted staples, and keep delivery details ready for the next
+                grocery run.
               </p>
               <ul className="auth-aside-list">
                 <li>
-                  <i className="fa-solid fa-bolt" aria-hidden="true" />
+                  <i className="fa-solid fa-basket-shopping" aria-hidden="true" />
                   <span>Same-day delivery across Ibadan</span>
                 </li>
                 <li>
-                  <i className="fa-solid fa-seedling" aria-hidden="true" />
-                  <span>Chef-picked seasonal bundles</span>
+                  <i className="fa-solid fa-leaf" aria-hidden="true" />
+                  <span>Fresh produce, pantry staples, and MealKits</span>
                 </li>
                 <li>
-                  <i className="fa-solid fa-shield-heart" aria-hidden="true" />
-                  <span>Secure payments & dedicated support</span>
+                  <i className="fa-solid fa-clock-rotate-left" aria-hidden="true" />
+                  <span>Saved carts and faster reorders</span>
                 </li>
               </ul>
             </div>
@@ -575,7 +575,7 @@ function SignInPageContent() {
           </div>
         </aside>
 
-        <section className="auth-panel" aria-label="MealKit authentication">
+        <section className="auth-panel" aria-label="Meal05 authentication">
           <div className="auth-panel-header auth-panel-header--top">
             <button type="button" className="auth-back-btn" onClick={handleNavigateBack}>
               <i className="fa-solid fa-arrow-left" aria-hidden="true" />
@@ -587,12 +587,25 @@ function SignInPageContent() {
             <div className="auth-panel-logo">
               <Image
                 src={BRAND_MARK_SRC}
-                alt="MealKit brand mark"
+                alt="Meal05 brand mark"
                 width={92}
                 height={92}
                 sizes="92px"
                 loading="lazy"
               />
+            </div>
+            <div className="auth-panel-heading">
+              <Image
+                src={BRAND_WORDMARK_DARK_SRC}
+                alt="Meal05"
+                width={132}
+                height={44}
+                sizes="132px"
+                className="auth-panel-wordmark"
+                loading="lazy"
+              />
+              <h2>{isLoginActive ? "Welcome back" : "Create your account"}</h2>
+              <p>{isLoginActive ? "Continue shopping with your saved cart and delivery details." : "Set up your profile for faster food orders."}</p>
             </div>
           </div>
 
@@ -664,7 +677,7 @@ function SignInPageContent() {
                 <Link href="#" onClick={handleForgotPassword}>Forgot password?</Link>
               </div>
               <button type="submit" className="auth-primary-btn">
-                Login
+                Sign in
               </button>
 
               <div className="auth-divider">
@@ -673,13 +686,13 @@ function SignInPageContent() {
 
               <button type="button" className="auth-google-btn" onClick={handleGoogleSignIn}>
                 <GoogleIcon />
-                Login with Google
+                Continue with Google
               </button>
 
               <p className="auth-switch">
                 Don&apos;t have an account?{' '}
               <button type="button" onClick={() => handleTabChange('signup')}>
-                Sign Up
+                Create account
               </button>
             </p>
             <p id="login-inline-hint" className="auth-inline-error" aria-live="polite"></p>
@@ -831,7 +844,7 @@ function SignInPageContent() {
                 </div>
               </div>
               <button type="submit" className="auth-primary-btn">
-                Sign Up
+                Create account
               </button>
 
               <div className="auth-divider">
@@ -840,20 +853,20 @@ function SignInPageContent() {
 
               <button type="button" className="auth-google-btn" onClick={handleGoogleSignIn}>
                 <GoogleIcon />
-                Sign up with Google
+                Continue with Google
               </button>
 
               <p className="auth-switch">
                 Already have an account?{' '}
                 <button type="button" onClick={() => handleTabChange('login')}>
-                  Login
+                  Sign in
                 </button>
               </p>
             </form>
           </div>
 
           <p className="auth-disclaimer">
-            By using MealKit you agree to our{' '}
+            By using Meal05 you agree to our{' '}
             <Link href="#">Terms and Conditions</Link>
             {' '}and{' '}
             <Link href="#">Privacy Policy</Link>.
