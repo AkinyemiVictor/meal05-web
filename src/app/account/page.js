@@ -11,7 +11,7 @@ import { AUTH_EVENT, clearStoredUser, persistStoredUser, readStoredUser } from "
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { ORDERS_EVENT, readUserOrders, updateUserOrderStatus, setUserOrders } from "@/lib/orders";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
-import { buildProductSlug } from "@/lib/products";
+import { getProductHref } from "@/lib/products";
 import useProducts from "@/lib/use-products";
 import { RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 import { resolveProductImage } from "@/lib/product-image";
@@ -931,7 +931,8 @@ function AccountPageContent() {
             {recentlyViewed.length ? (
               <div className="product-card-grid" style={{ gap: "1rem" }}>
                 {recentlyViewed.map((product) => {
-                  const href = buildProductSlug(product) ? `/products/${buildProductSlug(product)}` : "/shop";
+                  const productHref = getProductHref(product);
+                  const href = productHref === "#" ? "/shop" : productHref;
                   const image =
                     resolveProductImage(product.image, product.image_url, product.thumbnail);
                   const price = Number(product.price ?? product.unit_price ?? product.unitPrice ?? 0);

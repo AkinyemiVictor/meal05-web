@@ -8,13 +8,6 @@ import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/l
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const variantInactiveThresholdRaw =
-  process.env.NEXT_PUBLIC_VARIANT_INACTIVE_STOCK_THRESHOLD ??
-  process.env.VARIANT_INACTIVE_STOCK_THRESHOLD;
-const variantInactiveThreshold = Number(variantInactiveThresholdRaw);
-const variantInactiveStockThreshold = Number.isFinite(variantInactiveThreshold)
-  ? Math.max(0, Math.floor(variantInactiveThreshold))
-  : 5;
 
 const methodNotAllowed = () =>
   NextResponse.json({ error: "Method not allowed" }, { status: 405, headers: { Allow: "GET" } });
@@ -188,9 +181,6 @@ const isVariantSelectable = (variant) => {
   const stockValue = resolveVariantStock(variant);
   const count = getAvailableCount(stockValue);
   if (count === 0) return false;
-  if (Number.isFinite(count)) {
-    return count > variantInactiveStockThreshold;
-  }
   return true;
 };
 
@@ -318,7 +308,7 @@ export async function GET(_request, { params }) {
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
           image: resolveProductImage(row.variant_image_url, row.image_url, row.image, mainImageUrl),
-          category: row.category || undefined,
+          category: pickFirst(row, ["category", "category_name", "categoryName"]) || undefined,
           is_default: row.is_default === true,
           isSelectable: isVariantSelectable({ ...row, stock }),
         };
@@ -363,6 +353,8 @@ export async function GET(_request, { params }) {
       discount: pricing.discount,
       unit: unitValue,
       stock: effectiveStock,
+      category: pickFirst(data, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
+      categorySlug: pickFirst(data, ["category_slug", "categorySlug"]),
       promoTagEnabled: normalizePromoEnabled(data.promo_tag_enabled ?? data.promoTagEnabled),
       promoTagText: normalizePromoText(data.promo_tag_text ?? data.promoTagText),
       promoTagExpiresAt: parsePromoExpiry(data.promo_tag_expires_at ?? data.promoTagExpiresAt),

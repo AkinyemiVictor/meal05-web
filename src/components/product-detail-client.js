@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState, useEffect } from "react";
-import { resolveStockClass } from "@/lib/catalogue";
+import { getStockLabel, resolveStockClass } from "@/lib/catalogue";
 import AddToCartForm from "@/components/add-to-cart-form";
 import VariantPicker from "@/components/variant-picker";
 import { resolveProductImage } from "@/lib/product-image";
@@ -97,6 +97,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
 
   const stockClass = resolveStockClass(display.stock);
   const isUnavailable = stockClass === "is-unavailable";
+  const stockLabel = getStockLabel(display.stock) || (isUnavailable ? "Out of stock" : "In stock");
   const unitLabel = formatUnitLabel(display.unit);
 
   return (
@@ -155,6 +156,9 @@ export default function ProductDetailClient({ product, variations = [], fallback
             <span className="product-detail-old-price">{formatMoney(display.oldPrice)}/{unitLabel}</span>
           ) : null}
         </div>
+        <p className={`product-detail-stock ${stockClass || "is-available"}`.trim()}>
+          {stockLabel}
+        </p>
 
         {Array.isArray(variations) && variations.length ? (
           <VariantPicker

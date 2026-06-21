@@ -265,7 +265,8 @@ const mapRow = (row) => {
     stock: stockValue,
     inSeason: typeof row.inSeason === "boolean" ? row.inSeason : Boolean(row.in_season ?? true),
     discount,
-    category: row.category || "",
+    category: pickFirst(row, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
+    categorySlug: pickFirst(row, ["category_slug", "categorySlug"]),
     promoTagEnabled: normalizePromoEnabled(
       pickFirst(row, ["promo_tag_enabled", "promoTagEnabled", "promo_enabled", "promoEnabled"])
     ),
@@ -383,7 +384,7 @@ const fetchProductByIdUncached = async (id) => {
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
           image: resolveProductImage(row.variant_image_url, row.image_url, row.image, mainImageUrl),
-          category: row.category || undefined,
+          category: pickFirst(row, ["category", "category_name", "categoryName"]) || undefined,
           is_default: row.is_default === true,
           isSelectable: isVariantSelectable({ ...row, stock }),
         };
