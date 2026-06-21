@@ -18,14 +18,6 @@ export const dynamic = "force-dynamic";
 
 const allowedMethodsHeader = { Allow: "GET, POST" };
 const tooManyRequests = (rl) => applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rl);
-const variantInactiveThresholdRaw =
-  process.env.NEXT_PUBLIC_VARIANT_INACTIVE_STOCK_THRESHOLD ??
-  process.env.VARIANT_INACTIVE_STOCK_THRESHOLD;
-const variantInactiveThreshold = Number(variantInactiveThresholdRaw);
-const variantInactiveStockThreshold = Number.isFinite(variantInactiveThreshold)
-  ? Math.max(0, Math.floor(variantInactiveThreshold))
-  : 5;
-
 export async function POST(request) {
   let rl = await checkRateLimit({ request, id: "orders:create:ip", limit: 30, windowMs: 60_000 });
   if (!rl.allowed) return tooManyRequests(rl);
@@ -364,16 +356,6 @@ export async function POST(request) {
           available,
           product: label,
           message: "Out of stock",
-        });
-      }
-      if (available > 0 && available <= variantInactiveStockThreshold) {
-        issues.push({
-          variantId,
-          productId: row?.product_id ?? null,
-          requested,
-          available,
-          product: label,
-          message: "This option is currently unavailable",
         });
       }
       if (available > 0 && requested > available) {

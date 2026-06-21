@@ -85,7 +85,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
 
   const isUnavailable = useMemo(() => {
     const stockClass = resolveStockClass(product?.stock);
-    return stockClass === "is-unavailable" || stockClass === "is-limited" || availableCount === 0;
+    return stockClass === "is-unavailable" || availableCount === 0;
   }, [product?.stock, availableCount]);
 
   useEffect(() => {
@@ -133,6 +133,11 @@ export default function AddToCartForm({ product, fallbackImage }) {
       return;
     }
 
+    if (isUnavailable) {
+      setFeedback({ tone: "error", message: "This item is out of stock." });
+      return;
+    }
+
     if (Number.isFinite(availableCount) && parsedQuantity > availableCount) {
       showNotice({
         tone: "info",
@@ -159,6 +164,15 @@ export default function AddToCartForm({ product, fallbackImage }) {
     if (index >= 0) {
       const existing = items[index];
       const nextCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0) + parsedQuantity;
+      if (Number.isFinite(availableCount) && nextCount > availableCount) {
+        showNotice({
+          tone: "info",
+          title: "Limited stock",
+          message: `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available.`,
+          autoClose: true,
+        });
+        return;
+      }
       items[index] = {
         ...existing,
         ...buildCartItem(product, nextCount, fallbackImage),
@@ -189,7 +203,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
       tone: "success",
       message: `${product.name} (${formatQuantityLabel(parsedQuantity)} item${parsedQuantity === 1 ? "" : "s"}) added to cart.`,
     });
-  }, [availableCount, fallbackImage, product, quantityInput, showNotice]);
+  }, [availableCount, fallbackImage, isUnavailable, product, quantityInput, showNotice]);
 
   const handleBlur = () => {
     const parsed = parseWholeQuantity(quantityInput);
@@ -240,7 +254,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
           aria-disabled={isUnavailable}
         >
           <i className="fa-solid fa-cart-shopping" aria-hidden="true" />
-          <span>Add to cart</span>
+          <span>{isUnavailable ? "Out of stock" : "Add to cart"}</span>
         </button>
       </div>
       {feedback.message ? (

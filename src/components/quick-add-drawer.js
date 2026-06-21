@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import VariantPicker from "@/components/variant-picker";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
+import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
 import { resolveProductImage } from "@/lib/product-image";
 import { readStoredUser } from "@/lib/auth";
@@ -78,7 +79,7 @@ const isVariantInactive = (variant, product) => {
   if (!variant || typeof variant !== "object") return true;
   if (variant.isSelectable === false || variant.is_active === false || variant.isActive === false) return true;
   const stockClass = resolveStockClass(getStockValue(variant, product));
-  return stockClass === "is-unavailable" || stockClass === "is-limited";
+  return stockClass === "is-unavailable";
 };
 
 const buildCartItem = (product, variant, orderCount, fallbackImage) => {
@@ -234,8 +235,8 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         return;
       }
       const stockClass = resolveStockClass(getStockValue(targetVariant, baseProduct));
-      if (stockClass === "is-unavailable" || stockClass === "is-limited") {
-        const message = "This option is currently unavailable.";
+      if (stockClass === "is-unavailable") {
+        const message = "This option is out of stock.";
         if (isDropdown) {
           setError(message);
         } else {
@@ -244,6 +245,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         return;
       }
       const safeQty = normaliseOrderCount(qty ?? quantity, 1);
+      const availableCount = getAvailableCount(getStockValue(targetVariant, baseProduct));
 
       setStatus("adding");
       try {
@@ -264,12 +266,32 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           const existing = items[index];
           const existingCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, 0);
           const nextCount = existingCount + safeQty;
+          if (Number.isFinite(availableCount) && nextCount > availableCount) {
+            const message = `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available.`;
+            if (isDropdown) {
+              setError(message);
+            } else {
+              showNotice({ tone: "info", title: "Limited stock", message, autoClose: true });
+            }
+            setStatus("ready");
+            return;
+          }
           items[index] = {
             ...existing,
             ...buildCartItem(baseProduct, targetVariant, nextCount, product?.image),
             note: existing.note || "Added from quick add",
           };
         } else {
+          if (Number.isFinite(availableCount) && safeQty > availableCount) {
+            const message = `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available.`;
+            if (isDropdown) {
+              setError(message);
+            } else {
+              showNotice({ tone: "info", title: "Limited stock", message, autoClose: true });
+            }
+            setStatus("ready");
+            return;
+          }
           items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image));
         }
 
@@ -379,7 +401,14 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               />
               <button
                 type="button"
-                onClick={() => setQuantity((prev) => prev + 1)}
+                onClick={() => {
+                  const availableCount = getAvailableCount(getStockValue(effectiveVariant, displayProduct));
+                  setQuantity((prev) => {
+                    const next = prev + 1;
+                    return Number.isFinite(availableCount) ? Math.min(next, Math.max(1, availableCount)) : next;
+                  });
+                }}
+                disabled={Number.isFinite(getAvailableCount(getStockValue(effectiveVariant, displayProduct))) && quantity >= getAvailableCount(getStockValue(effectiveVariant, displayProduct))}
                 aria-label="Increase quantity"
               >
                 +

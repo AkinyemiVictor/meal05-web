@@ -42,7 +42,7 @@ const isVariantInactive = (variant) => {
   if (!variant || typeof variant !== "object") return true;
   if (variant.isSelectable === false || variant.is_active === false || variant.isActive === false) return true;
   const stockClass = resolveStockClass(getStockValue(variant));
-  return stockClass === "is-unavailable" || stockClass === "is-limited";
+  return stockClass === "is-unavailable";
 };
 
 const pickBySizeLabel = (list, label) => {

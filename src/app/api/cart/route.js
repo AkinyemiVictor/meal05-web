@@ -3,9 +3,69 @@ import { z } from "zod";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { respondZodError } from "@/lib/api/validate";
+import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const isUnknownColumnError = (message) => {
+  const errorText = String(message || "");
+  return (
+    /schema cache/i.test(errorText) ||
+    /column .* does not exist/i.test(errorText) ||
+    /could not find the .* column/i.test(errorText)
+  );
+};
+
+const loadVariantStock = async (client, variantId) => {
+  const id = String(variantId || "").trim();
+  if (!id) return { row: null, error: null };
+
+  const selects = [
+    "id, stock_count, stock, is_active",
+    "id, stock_count, is_active",
+    "id, stock, is_active",
+    "id, stock_count",
+    "id, stock",
+    "id",
+  ];
+
+  let lastError = null;
+  for (const select of selects) {
+    const result = await client.from("product_variants").select(select).eq("id", id).maybeSingle();
+    if (!result.error) return { row: result.data, error: null };
+    lastError = result.error;
+    if (isUnknownColumnError(result.error.message)) continue;
+    break;
+  }
+
+  return { row: null, error: lastError };
+};
+
+const loadProductStock = async (client, productId) => {
+  const id = String(productId || "").trim();
+  if (!id) return { row: null, error: null };
+
+  const selects = [
+    "id, stock_count, stock, is_active",
+    "id, stock_count, is_active",
+    "id, stock, is_active",
+    "id, stock_count",
+    "id, stock",
+    "id",
+  ];
+
+  let lastError = null;
+  for (const select of selects) {
+    const result = await client.from("products").select(select).eq("id", id).maybeSingle();
+    if (!result.error) return { row: result.data, error: null };
+    lastError = result.error;
+    if (isUnknownColumnError(result.error.message)) continue;
+    break;
+  }
+
+  return { row: null, error: lastError };
+};
 
 export async function GET(req) {
   const authClient = getSupabaseRouteClient(await cookies());
@@ -50,6 +110,20 @@ export async function POST(req) {
   const { product_id, variant_id, variant_name, product_name, unit_price_at_add, quantity } = parsed.data;
 
   const variantKey = String(variant_id);
+  const { row: variantStock, error: stockError } = await loadVariantStock(authClient, variantKey);
+  if (stockError) return new Response(JSON.stringify({ error: stockError.message || "Unable to validate stock" }), { status: 400 });
+  const { row: productStock, error: productStockError } = variantStock
+    ? { row: null, error: null }
+    : await loadProductStock(authClient, product_id);
+  if (productStockError) {
+    return new Response(JSON.stringify({ error: productStockError.message || "Unable to validate stock" }), { status: 400 });
+  }
+  const stockSource = variantStock || productStock;
+  if (!stockSource) return new Response(JSON.stringify({ error: "Product option not found" }), { status: 404 });
+  if (stockSource.is_active === false) {
+    return new Response(JSON.stringify({ error: "This option is out of stock", available: 0 }), { status: 409 });
+  }
+
   const { data: existingRows, error: findError } = await authClient
     .from("cart_items")
     .select("id, quantity")
@@ -61,6 +135,22 @@ export async function POST(req) {
   if (findError) return new Response(JSON.stringify({ error: findError }), { status: 400 });
 
   const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+  const nextQuantity = Number(existing?.quantity || 0) + quantity;
+  const availableCount = getAvailableCount(resolveStockValueFromRow(stockSource));
+  if (availableCount === 0) {
+    return new Response(JSON.stringify({ error: "This option is out of stock", available: 0 }), { status: 409 });
+  }
+  if (Number.isFinite(availableCount) && nextQuantity > availableCount) {
+    return new Response(
+      JSON.stringify({
+        error: `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available`,
+        available: availableCount,
+        requested: nextQuantity,
+      }),
+      { status: 409 }
+    );
+  }
+
   const payload = {
     product_id: product_id ?? null,
     variant_id: variantKey,
@@ -72,7 +162,7 @@ export async function POST(req) {
   const writeRequest = existing?.id
     ? authClient
         .from("cart_items")
-        .update({ ...payload, quantity: Number(existing.quantity || 0) + quantity })
+        .update({ ...payload, quantity: nextQuantity })
         .eq("id", existing.id)
         .eq("user_id", user.id)
     : authClient.from("cart_items").insert({

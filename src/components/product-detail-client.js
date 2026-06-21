@@ -13,7 +13,7 @@ const isVariantInactive = (variant) => {
   if (variant.isSelectable === false || variant.is_active === false || variant.isActive === false) return true;
   const stockSource = Number.isFinite(Number(variant.stockCount)) ? Number(variant.stockCount) : variant.stock;
   const stockClass = resolveStockClass(stockSource);
-  return stockClass === "is-unavailable" || stockClass === "is-limited";
+  return stockClass === "is-unavailable";
 };
 
 const pickDefaultVariant = (variations) => {
@@ -64,7 +64,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
       price: selectedVariant.price ?? product.price,
       oldPrice: selectedVariant.oldPrice ?? product.oldPrice,
       unit: selectedVariant.unit || product.unit,
-      stock: selectedVariant.stock ?? product.stock,
+      stock: selectedVariant.stockCount ?? selectedVariant.stock ?? product.stock,
       image: resolveProductImage(selectedVariant.image, product.image, fallbackImage),
       variantId: selectedVariant.variationId,
       variantName,
@@ -96,7 +96,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
     resolveProductImage(galleryImages[Math.min(activeImageIndex, galleryImages.length - 1)], fallbackImage);
 
   const stockClass = resolveStockClass(display.stock);
-  const isUnavailable = stockClass === "is-unavailable" || stockClass === "is-limited";
+  const isUnavailable = stockClass === "is-unavailable";
   const unitLabel = formatUnitLabel(display.unit);
 
   return (

@@ -83,22 +83,12 @@ const buildRangeLabel = (row) => {
 };
 
 const resolveVariantStock = (row) => resolveStockValueFromRow(row);
-const variantInactiveThresholdRaw =
-  process.env.NEXT_PUBLIC_VARIANT_INACTIVE_STOCK_THRESHOLD ??
-  process.env.VARIANT_INACTIVE_STOCK_THRESHOLD;
-const variantInactiveThreshold = Number(variantInactiveThresholdRaw);
-const variantInactiveStockThreshold = Number.isFinite(variantInactiveThreshold)
-  ? Math.max(0, Math.floor(variantInactiveThreshold))
-  : 5;
 const isVariantSelectable = (variant) => {
   if (!variant || typeof variant !== "object") return false;
   if (variant.is_active === false) return false;
   const stockValue = resolveVariantStock(variant);
   const count = getAvailableCount(stockValue);
   if (count === 0) return false;
-  if (Number.isFinite(count)) {
-    return count > variantInactiveStockThreshold;
-  }
   return true;
 };
 
