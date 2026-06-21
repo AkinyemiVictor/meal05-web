@@ -94,7 +94,13 @@ function SearchForm({ id, compact = false }) {
         placeholder="Search tomatoes, yam, fish..."
         autoComplete="off"
       />
-      <button type="submit" className="sr-only">Search</button>
+      <button
+        type="submit"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-meal-ink text-meal-paper transition hover:bg-meal-pepper focus-visible:bg-meal-pepper focus-visible:outline-none"
+        aria-label="Search"
+      >
+        <IconSearch size={17} stroke={2} aria-hidden="true" />
+      </button>
     </form>
   );
 }
