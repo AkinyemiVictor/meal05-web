@@ -49,15 +49,39 @@ export async function POST(req) {
   }
   const { product_id, variant_id, variant_name, product_name, unit_price_at_add, quantity } = parsed.data;
 
-  const { error } = await authClient.from("cart_items").insert({
-    user_id: user.id,
+  const variantKey = String(variant_id);
+  const { data: existingRows, error: findError } = await authClient
+    .from("cart_items")
+    .select("id, quantity")
+    .eq("user_id", user.id)
+    .eq("variant_id", variantKey)
+    .order("id", { ascending: true })
+    .limit(1);
+
+  if (findError) return new Response(JSON.stringify({ error: findError }), { status: 400 });
+
+  const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+  const payload = {
     product_id: product_id ?? null,
-    variant_id,
+    variant_id: variantKey,
     variant_name: variant_name ?? null,
     product_name: product_name ?? null,
     unit_price_at_add: unit_price_at_add ?? null,
-    quantity,
-  });
+  };
+
+  const writeRequest = existing?.id
+    ? authClient
+        .from("cart_items")
+        .update({ ...payload, quantity: Number(existing.quantity || 0) + quantity })
+        .eq("id", existing.id)
+        .eq("user_id", user.id)
+    : authClient.from("cart_items").insert({
+        user_id: user.id,
+        ...payload,
+        quantity,
+      });
+
+  const { error } = await writeRequest;
 
   if (error) return new Response(JSON.stringify({ error }), { status: 400 });
   return applyRateLimitHeaders(new Response(JSON.stringify({ message: "Item added to cart" }), { status: 201 }), rl);

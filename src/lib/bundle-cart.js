@@ -5,6 +5,7 @@ import { getProductById } from "@/lib/products";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { resolveProductImage } from "@/lib/product-image";
 import { getAvailableCount } from "@/lib/stock";
+import { readStoredUser } from "@/lib/auth";
 
 const DEFAULT_LINE_COUNT = 1;
 
@@ -77,6 +78,7 @@ const findCartItemIndex = (items, product) => {
 
 const syncAddedItemToApi = (product, quantity) => {
   try {
+    if (!readStoredUser()) return Promise.resolve();
     const payload = {
       product_id: product?.id,
       variant_id: product?.variantId ?? product?.id,

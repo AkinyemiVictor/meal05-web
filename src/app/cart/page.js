@@ -569,6 +569,7 @@ function CartPageContent() {
   // Optional: hydrate cart from backend (Supabase-based API)
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!readStoredUser()) return;
     const controller = new AbortController();
     fetch(`/api/cart`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))

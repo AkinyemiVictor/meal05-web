@@ -7,6 +7,7 @@ import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { useNotice } from "@/components/notice-provider";
 import { resolveProductImage } from "@/lib/product-image";
+import { readStoredUser } from "@/lib/auth";
 
 const ORDER_SIZE = 1;
 
@@ -275,19 +276,21 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         writeCartItems(items, undefined, { source: "quick-add" });
 
         try {
-          fetch("/api/cart", {
-            method: "POST",
-            cache: "no-store",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              product_id: baseProduct.id,
-              variant_id: variantId,
-              variant_name: buildVariantName(targetVariant) || targetVariant?.name || baseProduct.unit || "Default",
-              product_name: baseProduct.name,
-              unit_price_at_add: getVariantPrice(targetVariant, baseProduct),
-              quantity: safeQty,
-            }),
-          }).catch(() => {});
+          if (readStoredUser()) {
+            fetch("/api/cart", {
+              method: "POST",
+              cache: "no-store",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                product_id: baseProduct.id,
+                variant_id: variantId,
+                variant_name: buildVariantName(targetVariant) || targetVariant?.name || baseProduct.unit || "Default",
+                product_name: baseProduct.name,
+                unit_price_at_add: getVariantPrice(targetVariant, baseProduct),
+                quantity: safeQty,
+              }),
+            }).catch(() => {});
+          }
         } catch (_) {}
 
         if (!isDropdown) {

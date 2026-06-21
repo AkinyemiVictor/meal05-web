@@ -5,6 +5,8 @@ import { resolveStockClass } from "@/lib/catalogue";
 import { resolveProductImage } from "@/lib/product-image";
 import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
+import { readStoredUser } from "@/lib/auth";
+import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 
 const RECENTLY_VIEWED_STORAGE_KEY = "meal05_recently_viewed";
 const MIN_QUANTITY = 1;
@@ -28,6 +30,29 @@ const normaliseOrderCount = (value) => {
     return 1;
   }
   return Math.max(1, Math.round(numeric));
+};
+
+const getLineKey = (item) =>
+  String(item?.variantId || item?.id || item?.productId || "").trim();
+
+const buildCartItem = (product, quantity, fallbackImage) => {
+  const count = normaliseOrderCount(quantity);
+  const variantId = product.variantId ?? product.id;
+  return {
+    id: variantId,
+    productId: product.id,
+    variantId,
+    variantName: product.variantName || product.unit || "Default",
+    name: product.name,
+    unit: product.unit || "unit",
+    price: Number(product.price || 0),
+    orderSize: 1,
+    orderCount: count,
+    quantity: count,
+    stock: product.stock,
+    note: "Added from product details",
+    image: resolveProductImage(product.image, product.mainImageUrl || fallbackImage),
+  };
 };
 
 const formatQuantityLabel = (value) => {
@@ -118,7 +143,34 @@ export default function AddToCartForm({ product, fallbackImage }) {
       return;
     }
 
-    const response = await fetch("/api/cart", {
+    const items = readCartItems();
+    const lineKey = getLineKey({ variantId, id: product.id, productId: product.id });
+    const productIdKey = String(product.id || "");
+    const index = items.findIndex((item) => {
+      const itemKey = getLineKey(item);
+      const itemProductKey = String(item?.productId || item?.id || "");
+      return (
+        itemKey === lineKey ||
+        (!product.variantId && itemKey === productIdKey) ||
+        (!product.variantId && itemProductKey === productIdKey)
+      );
+    });
+
+    if (index >= 0) {
+      const existing = items[index];
+      const nextCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0) + parsedQuantity;
+      items[index] = {
+        ...existing,
+        ...buildCartItem(product, nextCount, fallbackImage),
+        note: existing.note || "Added from product details",
+      };
+    } else {
+      items.push(buildCartItem(product, parsedQuantity, fallbackImage));
+    }
+    writeCartItems(items, undefined, { source: "product-detail" });
+
+    if (readStoredUser()) {
+      fetch("/api/cart", {
         method: "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
@@ -130,21 +182,14 @@ export default function AddToCartForm({ product, fallbackImage }) {
           unit_price_at_add: product.price,
           quantity: parsedQuantity,
         }),
-    });
-    if (!response.ok) {
-      setFeedback({ tone: "error", message: "Sign in to add this item to your cart." });
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("cart-updated"));
+      }).catch(() => {});
     }
 
     setFeedback({
       tone: "success",
       message: `${product.name} (${formatQuantityLabel(parsedQuantity)} item${parsedQuantity === 1 ? "" : "s"}) added to cart.`,
     });
-  }, [availableCount, product, quantityInput, showNotice]);
+  }, [availableCount, fallbackImage, product, quantityInput, showNotice]);
 
   const handleBlur = () => {
     const parsed = parseWholeQuantity(quantityInput);

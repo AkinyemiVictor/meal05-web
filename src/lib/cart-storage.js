@@ -29,6 +29,45 @@ const getLineQuantity = (item) => {
   return 0;
 };
 
+const getLineCount = (item) => {
+  const orderCount = Number(item?.orderCount ?? item?.quantity);
+  if (Number.isFinite(orderCount) && orderCount > 0) return Math.max(1, Math.round(orderCount));
+  return 1;
+};
+
+const mergeCartLines = (baseItems, incomingItems) => {
+  const merged = Array.isArray(baseItems) ? baseItems.map((item) => ({ ...item })) : [];
+  (Array.isArray(incomingItems) ? incomingItems : []).forEach((incoming) => {
+    if (!incoming || typeof incoming !== "object") return;
+    const incomingKey = getLineKey(incoming);
+    const incomingProductKey = String(incoming?.productId || incoming?.id || "").trim();
+    const index = merged.findIndex((item) => {
+      const itemKey = getLineKey(item);
+      const itemProductKey = String(item?.productId || item?.id || "").trim();
+      return (
+        (incomingKey && itemKey === incomingKey) ||
+        (!incoming?.variantId && incomingProductKey && itemProductKey === incomingProductKey)
+      );
+    });
+
+    if (index >= 0) {
+      const current = merged[index];
+      const nextCount = getLineCount(current) + getLineCount(incoming);
+      merged[index] = {
+        ...current,
+        ...incoming,
+        orderCount: nextCount,
+        quantity: nextCount,
+        note: current.note || incoming.note,
+      };
+      return;
+    }
+
+    merged.push({ ...incoming });
+  });
+  return merged;
+};
+
 const trackCartAdditions = (previousItems, nextItems, options = {}) => {
   if (typeof window === "undefined") return;
   if (options?.skipAnalytics) return;
@@ -117,9 +156,8 @@ export const migrateGuestCartToUser = (user = readStoredUser()) => {
   const guestCart = readRawCart(null);
   if (!guestCart.length) return;
   const userCart = readRawCart(user);
-  if (userCart.length) return;
-  writeRawCart(guestCart, user, { source: "guest-migration" });
-  clearCartItems(null);
+  writeRawCart(mergeCartLines(userCart, guestCart), user, { source: "guest-migration" });
+  clearCartItems(null, { source: "guest-migration" });
 };
 
 export const dispatchCartUpdatedEvent = (detail) => {
