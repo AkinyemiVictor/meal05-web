@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 
 import SearchHistoryRecorder from "@/components/search-history-recorder";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
@@ -16,7 +16,16 @@ import useProducts from "@/lib/use-products";
 const PAGE_SIZE = 12;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
 
-const normalise = (value) => value?.toString().toLowerCase().trim() ?? "";
+const normalise = (value) =>
+  value
+    ?.toString()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim() ?? "";
 const formatCategoryLabel = (value) =>
   String(value || "")
     .replace(/[-_]+/g, " ")
@@ -24,19 +33,74 @@ const formatCategoryLabel = (value) =>
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 const buildTokens = (value) =>
-  value.toLowerCase().split(/\s+/).map((t) => t.trim()).filter(Boolean);
-const buildSearchText = (product) =>
-  [normalise(product.name), normalise(product.category), normalise(product.categorySlug), normalise(product.unit)]
-    .filter(Boolean).join(" ");
+  normalise(value).split(/\s+/).map((t) => t.trim()).filter(Boolean);
+const compact = (value) => normalise(value).replace(/\s+/g, "");
+
+const SEARCH_SYNONYMS = {
+  cereals: ["grain", "grains", "rice", "oats"],
+  cereal: ["grain", "grains", "rice", "oats"],
+  grains: ["cereal", "cereals", "rice", "oats"],
+  grain: ["cereal", "cereals", "rice"],
+  seafood: ["fish", "prawns", "shrimp"],
+  fish: ["seafood"],
+  veggies: ["vegetables", "greens"],
+  vegetable: ["vegetables", "veggies", "greens"],
+  vegetables: ["vegetable", "veggies", "greens"],
+  oil: ["cooking oil", "essentials"],
+  oils: ["oil", "cooking oil"],
+  spice: ["spices", "condiments", "seasoning"],
+  spices: ["spice", "condiments", "seasoning"],
+  condiment: ["condiments", "spices", "seasoning"],
+  condiments: ["condiment", "spices", "seasoning"],
+  egg: ["eggs", "dairy"],
+  eggs: ["egg", "dairy"],
+  milk: ["dairy"],
+  dairy: ["milk", "eggs"],
+  beans: ["legumes"],
+  legumes: ["beans"],
+  yam: ["tubers"],
+  yams: ["yam", "tubers"],
+  mealkit: ["meal kit", "bundle", "bundles", "pack"],
+  "meal kit": ["mealkit", "bundle", "bundles", "pack"],
+  bundle: ["bundles", "mealkit", "meal kit", "pack"],
+  bundles: ["bundle", "mealkit", "meal kit", "pack"],
+};
+
+const fieldValues = (product) => [
+  product.name,
+  product.category,
+  product.categorySlug,
+  product.unit,
+  product.variantName,
+  product.promoTagText,
+  product.collectionSlug,
+  ...(Array.isArray(product.tags) ? product.tags : []),
+  product.isPopular ? "popular bestseller best seller" : "",
+  product.isChefChoice ? "chef choice recommended" : "",
+  product.isUnder15m ? "quick fast under 15 minutes" : "",
+  product.isBundleEligible ? "bundle mealkit meal kit pack" : "",
+];
+
+const buildProductIndex = (product) => {
+  const values = fieldValues(product).map(normalise).filter(Boolean);
+  const text = values.join(" ");
+  const words = Array.from(new Set(text.split(/\s+/).filter(Boolean)));
+  const compactText = compact(text);
+  return { product, text, words, compactText };
+};
+
+const expandTokens = (tokens) => {
+  const expanded = [];
+  tokens.forEach((token) => {
+    expanded.push(token);
+    const synonyms = SEARCH_SYNONYMS[token] || [];
+    synonyms.forEach((entry) => buildTokens(entry).forEach((part) => expanded.push(part)));
+  });
+  return Array.from(new Set(expanded));
+};
 
 const getCategoryLabel = (slug, fallback) =>
   fallback || formatCategoryLabel(slug) || "More staples";
-
-function matchesProduct(product, tokens) {
-  if (!tokens.length) return false;
-  const haystack = buildSearchText(product);
-  return tokens.every((token) => haystack.includes(token));
-}
 
 function levenshtein(a, b) {
   const lenA = a.length, lenB = b.length;
@@ -54,25 +118,60 @@ function levenshtein(a, b) {
   return dp[lenA][lenB];
 }
 
-function getSuggestions(query, limit = 3, list = []) {
-  const normalisedQuery = normalise(query);
-  if (!normalisedQuery) return [];
-  const scored = list.map((product) => {
-    const name = normalise(product.name);
-    const score = Math.min(
-      levenshtein(name, normalisedQuery),
-      levenshtein(normalise(product.category), normalisedQuery)
-    ) + (name.includes(normalisedQuery) ? -2 : 0);
-    return { term: product.name, score };
+const fuzzyLimitFor = (token) => {
+  if (token.length <= 3) return 0;
+  if (token.length <= 5) return 1;
+  return 2;
+};
+
+const tokenScore = (token, indexed) => {
+  if (!token) return 0;
+  if (indexed.text.includes(token)) return token.length >= 4 ? 30 : 18;
+  if (indexed.compactText.includes(token)) return token.length >= 4 ? 24 : 14;
+  let best = Number.POSITIVE_INFINITY;
+  for (const word of indexed.words) {
+    if (word.includes(token) || token.includes(word)) return 16;
+    if (Math.abs(word.length - token.length) > 2) continue;
+    best = Math.min(best, levenshtein(word, token));
+  }
+  return best <= fuzzyLimitFor(token) ? 12 - best * 3 : 0;
+};
+
+function scoreProduct(indexed, tokens) {
+  if (!tokens.length) return 0;
+  const expanded = expandTokens(tokens);
+  let directScore = 0;
+  let matchedRequired = 0;
+
+  tokens.forEach((token) => {
+    const score = tokenScore(token, indexed);
+    if (score > 0) matchedRequired += 1;
+    directScore += score;
   });
-  scored.sort((a, b) => a.score - b.score);
+
+  if (matchedRequired === tokens.length) return directScore + 50;
+
+  let synonymScore = 0;
+  expanded.forEach((token) => {
+    if (tokens.includes(token)) return;
+    synonymScore = Math.max(synonymScore, tokenScore(token, indexed));
+  });
+
+  return matchedRequired > 0 || synonymScore > 0 ? directScore + synonymScore : 0;
+}
+
+function getSuggestions(query, limit = 5, indexedProducts = []) {
+  const tokens = buildTokens(query);
+  if (!tokens.length) return [];
+  const scored = indexedProducts
+    .map((indexed) => ({ term: indexed.product.name, score: scoreProduct(indexed, tokens) }))
+    .filter((candidate) => candidate.score > 0)
+    .sort((a, b) => b.score - a.score || a.term.localeCompare(b.term));
   const unique = [];
   const seen = new Set();
   for (const candidate of scored) {
-    const key = candidate.term.toLowerCase();
-    if (seen.has(key)) continue;
-    if (candidate.score > Math.max(5, normalisedQuery.length)) continue;
-    if (candidate.term.toLowerCase() === normalisedQuery) continue;
+    const key = normalise(candidate.term);
+    if (!key || seen.has(key) || key === normalise(query)) continue;
     seen.add(key);
     unique.push(candidate.term);
     if (unique.length >= limit) break;
@@ -121,9 +220,19 @@ export default function SearchPage({ searchParams }) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
 
-  const filteredProducts = tokens.length && isProductsReady
-    ? allProducts.filter((product) => matchesProduct(product, tokens))
-    : [];
+  const indexedProducts = useMemo(
+    () => (Array.isArray(allProducts) ? allProducts.map(buildProductIndex) : []),
+    [allProducts]
+  );
+
+  const filteredProducts = useMemo(() => {
+    if (!tokens.length || !isProductsReady) return [];
+    return indexedProducts
+      .map((indexed) => ({ product: indexed.product, score: scoreProduct(indexed, tokens) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || a.product.name.localeCompare(b.product.name))
+      .map((entry) => entry.product);
+  }, [indexedProducts, isProductsReady, tokens]);
 
   const totalResults = isProductsReady ? filteredProducts.length : 0;
   const totalPages = totalResults ? Math.ceil(totalResults / PAGE_SIZE) : 0;
@@ -139,7 +248,17 @@ export default function SearchPage({ searchParams }) {
     groupedMap.get(slug).products.push(product);
   });
   const groupedResults = Array.from(groupedMap.values()).sort((a, b) => a.label.localeCompare(b.label));
-  const suggestionTerms = query && !totalResults && isProductsReady ? getSuggestions(query, 3, allProducts) : [];
+  const suggestionTerms = query && !totalResults && isProductsReady ? getSuggestions(query, 5, indexedProducts) : [];
+  const starterSuggestions = isProductsReady
+    ? Array.from(
+        new Set(
+          allProducts
+            .flatMap((product) => [product.category, product.promoTagText, product.isBundleEligible ? "MealKits" : ""])
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
+        )
+      ).slice(0, 6)
+    : [];
 
   const description = query
     ? isLoadingProducts ? "Loading the latest products..."
@@ -262,6 +381,13 @@ export default function SearchPage({ searchParams }) {
       ) : (
         <PageState as="section" title={copy.search.emptyStartTitle}>
           <p>{copy.search.emptyStartDescription}</p>
+          {starterSuggestions.length ? (
+            <ul className="search-empty-suggestions">
+              {starterSuggestions.map((term) => (
+                <li key={term}><Link href={buildPageHref(term)}>{term}</Link></li>
+              ))}
+            </ul>
+          ) : null}
           <Link href="/shop" className="section-view-button">{copy.search.browseCategoriesCta}</Link>
         </PageState>
       )}
