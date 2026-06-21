@@ -102,7 +102,7 @@ const copy = {
     validation: {
       required: "Please complete this field.",
       name: "Name can contain letters and spaces only.",
-      email: "Enter a valid email address ending with .com.",
+      email: "Enter a valid email address.",
       phone: "Enter a valid phone number with country code and digits only.",
       cityService: "Sorry, we currently service Ibadan only.",
       cardNumber: "Card number must contain 16 digits.",

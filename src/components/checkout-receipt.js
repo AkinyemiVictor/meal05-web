@@ -97,7 +97,7 @@ export default function CheckoutReceipt({ status = "success", reason }) {
         <div className="checkout-status-overlay" role="alert" aria-live="assertive">
           <div className={`checkout-status-overlay__card checkout-status-overlay__card--${status}`}>
             <div className="checkout-status-overlay__icon" aria-hidden="true">
-              {status === "success" ? "✓" : "✕"}
+              {status === "success" ? "OK" : "X"}
             </div>
             <div className="checkout-status-overlay__body">
               <h2>{status === "success" ? "Payment successful" : "Payment unsuccessful"}</h2>

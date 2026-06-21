@@ -4,8 +4,8 @@ import CheckoutExperience from "@/components/checkout-experience";
 import copy from "@/data/copy";
 
 export const metadata = {
-  title: "MealKit | Checkout",
-  description: "Secure checkout for your MealKit order",
+  title: "Meal05 | Checkout",
+  description: "Secure checkout for your Meal05 order",
 };
 
 export default function CheckoutPage() {

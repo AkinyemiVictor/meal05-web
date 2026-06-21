@@ -2,7 +2,7 @@ import CheckoutReceipt from "@/components/checkout-receipt";
 import copy from "@/data/copy";
 
 export const metadata = {
-  title: "MealKit | Payment unsuccessful",
+  title: "Meal05 | Payment unsuccessful",
   description: "We could not confirm your payment.",
 };
 

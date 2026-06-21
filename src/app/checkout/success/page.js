@@ -2,8 +2,8 @@ import CheckoutReceipt from "@/components/checkout-receipt";
 import copy from "@/data/copy";
 
 export const metadata = {
-  title: "MealKit | Payment successful",
-  description: "Your MealKit order has been confirmed.",
+  title: "Meal05 | Payment successful",
+  description: "Your Meal05 order has been confirmed.",
 };
 
 export default function CheckoutSuccessPage() {

@@ -55,7 +55,7 @@ const DELIVERY_SLOT_LABELS = { ...copy.checkout.deliverySlots };
 const CARD_FIELDS = ["cardName", "cardNumber", "cardExpiry", "cardCvc"];
 
 const NAME_PATTERN = "[A-Za-z ]+";
-const EMAIL_PATTERN = "[A-Za-z0-9]+@[A-Za-z0-9]+\\.com";
+const EMAIL_PATTERN = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}";
 const PHONE_PATTERN = "\\+?[0-9]{10,15}";
 const ADDRESS_MIN_LENGTH = 10;
 const ADDRESS_PATTERN = "[A-Za-z0-9.,'\\-\\s]{10,}";
@@ -365,7 +365,6 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
 
   // We use Paystack for all online payments; never collect raw card details in our UI.
   const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "";
-  const usingPaystack = /^pk_(test|live)_/.test(paystackKey);
   const showCardFields = false;
   const isProcessing = status === "processing";
   const scrollToSubmitFeedback = () => {
@@ -452,7 +451,7 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
     setFormState((prev) => ({
       ...prev,
       address: match.line,
-      city: resolveCitySelection(match.city || defaultServiceCity),
+      city: resolveCitySelection(match.city || defaultServiceCity, defaultServiceCity, serviceZoneOptions, deliverySettings),
     }));
     setErrors((prev) => {
       if (!prev.address && !prev.city) return prev;
@@ -809,7 +808,9 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
 
     const cityTrimmed = formState.city.trim();
     const matchedServiceZone = findMatchingServiceZone(cityTrimmed, deliverySettings);
-    const canonicalCity = matchedServiceZone ? resolveCitySelection(cityTrimmed) : "";
+    const canonicalCity = matchedServiceZone
+      ? resolveCitySelection(cityTrimmed, defaultServiceCity, serviceZoneOptions, deliverySettings)
+      : "";
 
     const normalizedForm = {
       ...formState,
@@ -1042,7 +1043,7 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
           <div className="checkout-status-overlay" role="alert" aria-live="assertive">
             <div className={`checkout-status-overlay__card checkout-status-overlay__card--${overlayStatus}`}>
               <div className="checkout-status-overlay__icon" aria-hidden="true">
-                {overlayStatus === "success" ? "✓" : "✕"}
+                {overlayStatus === "success" ? "OK" : "X"}
               </div>
               <div className="checkout-status-overlay__body">
                 <h2>{overlayStatus === "success" ? "Payment successful" : "Payment unsuccessful"}</h2>
@@ -1176,7 +1177,7 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
                 >
                   {savedAddresses.map((addr) => (
                     <option key={addr.id} value={addr.id}>
-                      {addr.label || "Saved address"} — {addr.line}
+                      {addr.label || "Saved address"} - {addr.line}
                     </option>
                   ))}
                 </select>
