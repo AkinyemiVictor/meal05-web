@@ -164,7 +164,10 @@ async function applyVerifiedPayment({ reference, providedOrderId }) {
     };
   }
 
-  const { error: updateErr } = await admin.from("orders").update({ payment_status: "paid" }).eq("id", orderId);
+  const { error: updateErr } = await admin
+    .from("orders")
+    .update({ payment_status: "paid", status: "processing" })
+    .eq("id", orderId);
   if (updateErr) {
     return { ok: false, status: 500, error: updateErr.message || "Unable to update order payment status", verified: false };
   }
@@ -199,6 +202,15 @@ export async function POST(req) {
 
     const result = await applyVerifiedPayment({ reference, providedOrderId: orderId });
     if (!result.ok) {
+      if (orderId && !result.verified) {
+        try {
+          await getSupabaseAdminClient()
+            .from("orders")
+            .update({ payment_status: "failed", status: "payment_failed" })
+            .eq("id", orderId)
+            .neq("payment_status", "paid");
+        } catch {}
+      }
       const payload = { verified: Boolean(result.verified), stockUpdated: result.stockUpdated ?? false, error: result.error };
       return NextResponse.json(payload, { status: result.status || 400 });
     }

@@ -18,6 +18,7 @@ const ORDER_STATUS_OPTIONS = new Set([
   "delivered",
   "completed",
   "stock_failed",
+  "payment_failed",
   "cancelled",
 ]);
 
@@ -55,12 +56,13 @@ const DELIVERY_STATUS_OPTIONS = new Set([
 
 const ORDER_STATUS_TRANSITIONS = {
   pending: new Set(["pending", "processing", "completed", "cancelled"]),
-  processing: new Set(["processing", "shipped", "completed", "cancelled"]),
+  processing: new Set(["processing", "shipped", "completed", "payment_failed", "cancelled"]),
   shipped: new Set(["shipped", "delivered", "completed"]),
   delivered: new Set(["delivered", "completed"]),
   completed: new Set(["completed"]),
   cancelled: new Set(["cancelled"]),
   stock_failed: new Set(["stock_failed", "processing", "cancelled"]),
+  payment_failed: new Set(["payment_failed", "processing", "cancelled"]),
 };
 
 const PAYMENT_STATUS_TRANSITIONS = {

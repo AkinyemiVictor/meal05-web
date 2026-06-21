@@ -10,18 +10,20 @@ const ORDER_STATUS_OPTIONS = [
   { value: "delivered", label: "Delivered" },
   { value: "completed", label: "Completed" },
   { value: "stock_failed", label: "Stock Failed" },
+  { value: "payment_failed", label: "Payment Failed" },
   { value: "cancelled", label: "Cancelled" },
 ];
 const ORDER_STATUS_VALUES = new Set(ORDER_STATUS_OPTIONS.map((option) => option.value));
 
 const ORDER_STATUS_TRANSITIONS = {
   pending: new Set(["pending", "processing", "completed", "cancelled"]),
-  processing: new Set(["processing", "shipped", "completed", "cancelled"]),
+  processing: new Set(["processing", "shipped", "completed", "payment_failed", "cancelled"]),
   shipped: new Set(["shipped", "delivered", "completed"]),
   delivered: new Set(["delivered", "completed"]),
   completed: new Set(["completed"]),
   cancelled: new Set(["cancelled"]),
   stock_failed: new Set(["stock_failed", "processing", "cancelled"]),
+  payment_failed: new Set(["payment_failed", "processing", "cancelled"]),
 };
 
 const PAYMENT_STATUS_OPTIONS = [

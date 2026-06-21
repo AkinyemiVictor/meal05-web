@@ -70,9 +70,37 @@ export async function POST(req) {
   let payment_status = "pending";
   if (paidStatuses.has(event)) payment_status = "paid";
   else if (failedStatuses.has(event)) payment_status = "failed";
+  else {
+    await logAdminEvent({ route: "/api/payment/callback", order_id: orderId, provider, event, payment_status: "ignored" });
+    return json({ ok: true, order_id: orderId, ignored: true });
+  }
+
+  const { data: existingOrder, error: findErr } = await admin
+    .from("orders")
+    .select("id, payment_status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (findErr) {
+    await logAdminError(findErr, { route: "/api/payment/callback", order_id: orderId, provider, event, stage: "load_order" });
+    return json({ error: "Unable to load order" }, 500);
+  }
+  if (!existingOrder) return json({ error: "Order not found" }, 404);
+
+  const currentPaymentStatus = String(existingOrder.payment_status || "").toLowerCase();
+  if (currentPaymentStatus === "paid") {
+    return json({ ok: true, order_id: orderId, payment_status: "paid", alreadyPaid: true });
+  }
+
+  const patch = { payment_status };
+  if (payment_status === "paid") {
+    patch.status = "processing";
+  } else if (payment_status === "failed") {
+    patch.status = "payment_failed";
+  }
 
   try {
-    const { error } = await admin.from("orders").update({ payment_status }).eq("id", orderId);
+    const query = admin.from("orders").update(patch).eq("id", orderId);
+    const { error } = payment_status === "failed" ? await query.neq("payment_status", "paid") : await query;
     if (error) throw error;
   } catch (err) {
     await logAdminError(err, { route: "/api/payment/callback", order_id: orderId, provider, event });

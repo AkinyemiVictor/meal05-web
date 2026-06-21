@@ -50,6 +50,16 @@ const PAYMENT_METHOD_LABELS = copy.checkout.paymentMethods.reduce((accumulator, 
   return accumulator;
 }, {});
 
+const ENABLE_PALMPAY = process.env.NEXT_PUBLIC_ENABLE_PALMPAY === "true";
+const ENABLE_OPAY = process.env.NEXT_PUBLIC_ENABLE_OPAY === "true";
+
+const isPaymentMethodEnabled = (method, paystackKey = "") => {
+  if (method === "paystack") return /^pk_(test|live)_/.test(paystackKey || "");
+  if (method === "palmpay") return ENABLE_PALMPAY;
+  if (method === "opay") return ENABLE_OPAY;
+  return true;
+};
+
 const DELIVERY_SLOT_LABELS = { ...copy.checkout.deliverySlots };
 
 const CARD_FIELDS = ["cardName", "cardNumber", "cardExpiry", "cardCvc"];
@@ -367,6 +377,17 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
   const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "";
   const showCardFields = false;
   const isProcessing = status === "processing";
+  const enabledPaymentMethods = useMemo(
+    () => copy.checkout.paymentMethods.filter((method) => isPaymentMethodEnabled(method.value, paystackKey)),
+    [paystackKey]
+  );
+
+  useEffect(() => {
+    if (!enabledPaymentMethods.length) return;
+    if (enabledPaymentMethods.some((method) => method.value === formState.paymentMethod)) return;
+    setFormState((prev) => ({ ...prev, paymentMethod: enabledPaymentMethods[0].value }));
+  }, [enabledPaymentMethods, formState.paymentMethod]);
+
   const scrollToSubmitFeedback = () => {
     if (typeof window === "undefined") return;
     requestAnimationFrame(() => {
@@ -563,6 +584,18 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
       throw new Error(data?.error || "Unable to prepare secure payment session");
     }
     return data;
+  };
+
+  const markOrderPaymentFailed = async (orderId, authToken = "", reason = "") => {
+    if (!orderId) return;
+    try {
+      await fetch("/api/orders/payment-failed", {
+        method: "POST",
+        headers: buildCheckoutRequestHeaders(authToken),
+        cache: "no-store",
+        body: JSON.stringify({ orderId, reason }),
+      });
+    } catch (_) {}
   };
 
   const launchPaystack = async ({ email, amount, amountKobo, orderId, reference, channels }) => {
@@ -773,6 +806,10 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
       showSubmitError(copy.checkout.emptyDescription);
       return;
     }
+    if (!isPaymentMethodEnabled(formState.paymentMethod, paystackKey)) {
+      showSubmitError("That payment method is not available right now. Please choose another option.");
+      return;
+    }
     const checkoutItemsPayload = cartItems
       .map((item) => {
         const productId = item?.productId ?? item?.id ?? null;
@@ -963,8 +1000,8 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
     }
 
     setStatus("processing");
+    let createdOrderId = null;
     try {
-      let createdOrderId = null;
       let createdOrderPayload = null;
       // Always create the server order first to get an id
       try {
@@ -1029,6 +1066,9 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
       setOverlayMessage("Your order is confirmed. We are preparing it now.");
     } catch (err) {
       console.warn("Checkout error", err);
+      if (createdOrderId && formState.paymentMethod !== "delivery") {
+        await markOrderPaymentFailed(createdOrderId, authToken, err?.message || "Payment was not completed");
+      }
       showSubmitError(err?.message || "Payment was not completed");
       setStatus("idle");
       setOverlayStatus("failure");
@@ -1264,7 +1304,7 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
           {paymentHint}
         </p>
         <div className="checkout-payment-options">
-          {copy.checkout.paymentMethods.map((method) => (
+          {enabledPaymentMethods.map((method) => (
             <label
               key={method.value}
               className={`checkout-payment-tile${
