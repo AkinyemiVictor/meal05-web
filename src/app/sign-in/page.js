@@ -12,24 +12,19 @@ import { persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
 import { migrateGuestCartToUser } from "@/lib/cart-storage";
 import { BRAND_MARK_SRC, BRAND_WORDMARK_DARK_SRC } from "@/lib/theme-logo";
+import { DEFAULT_PHONE_COUNTRY_CODE, PHONE_COUNTRY_OPTIONS } from "@/lib/phone-country-options";
 
 const NAME_PATTERN = "[A-Za-z]+";
 const EMAIL_PATTERN = "[A-Za-z0-9]+@[A-Za-z0-9]+\\.com";
 const PASSWORD_PATTERN = "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{8,}";
-const PHONE_NUMBER_PATTERN = "[0-9]{10}";
+const PHONE_INPUT_PATTERN = "[0-9\\s().-]{4,24}";
+const PHONE_NUMBER_PATTERN = "[0-9]{4,14}";
 
 const NAME_REGEX = new RegExp(`^${NAME_PATTERN}$`);
 const EMAIL_REGEX = new RegExp(`^${EMAIL_PATTERN}$`);
 const PASSWORD_REGEX = new RegExp(`^${PASSWORD_PATTERN}$`);
 const PHONE_NUMBER_REGEX = new RegExp(`^${PHONE_NUMBER_PATTERN}$`);
-
-const PHONE_COUNTRY_OPTIONS = [
-  { code: "+234", label: "Nigeria", flag: "\uD83C\uDDF3\uD83C\uDDEC" },
-  { code: "+233", label: "Ghana", flag: "\uD83C\uDDEC\uD83C\uDDED" },
-  { code: "+44", label: "United Kingdom", flag: "\uD83C\uDDEC\uD83C\uDDE7" },
-  { code: "+1", label: "United States", flag: "\uD83C\uDDFA\uD83C\uDDF8" },
-  { code: "+971", label: "United Arab Emirates", flag: "\uD83C\uDDE6\uD83C\uDDEA" },
-];
+const PHONE_INPUT_REGEX = new RegExp(`^${PHONE_INPUT_PATTERN}$`);
 
 const TAB_OPTIONS = [
   { key: "login", label: "Sign in", hash: "#loginForm" },
@@ -360,9 +355,10 @@ function SignInPageContent() {
     const lastNameRaw = String(formData.get("signup-last-name") || "").trim();
     const email = String(formData.get("signup-email") || "").trim();
     const phoneCountry =
-      String(formData.get("signup-phone-country") || PHONE_COUNTRY_OPTIONS[0].code).trim() ||
-      PHONE_COUNTRY_OPTIONS[0].code;
-    const phoneDigits = String(formData.get("signup-phone") || "").trim();
+      String(formData.get("signup-phone-country") || DEFAULT_PHONE_COUNTRY_CODE).trim() ||
+      DEFAULT_PHONE_COUNTRY_CODE;
+    const phoneRaw = String(formData.get("signup-phone") || "").trim();
+    const phoneDigits = phoneRaw.replace(/\D/g, "");
     const password = String(formData.get("signup-password") || "");
     const confirm = String(formData.get("signup-confirm-password") || "");
 
@@ -397,9 +393,9 @@ function SignInPageContent() {
       return;
     }
 
-    if (!PHONE_NUMBER_REGEX.test(phoneDigits)) {
+    if (!PHONE_INPUT_REGEX.test(phoneRaw) || !PHONE_NUMBER_REGEX.test(phoneDigits)) {
       if (phoneDigitsInput instanceof HTMLInputElement) {
-        phoneDigitsInput.setCustomValidity("Enter exactly 10 digits for your phone number.");
+        phoneDigitsInput.setCustomValidity("Enter a valid phone number using 4 to 14 digits after the country code.");
         phoneDigitsInput.reportValidity();
       }
       return;
@@ -765,12 +761,12 @@ function SignInPageContent() {
                     id="signup-phone-country"
                     name="signup-phone-country"
                     className="auth-phone-select"
-                    defaultValue={PHONE_COUNTRY_OPTIONS[0].code}
+                    defaultValue={DEFAULT_PHONE_COUNTRY_CODE}
                     required
                   >
                     {PHONE_COUNTRY_OPTIONS.map((option) => (
-                      <option key={option.code} value={option.code}>
-                        {`${option.flag} ${option.code}`}
+                      <option key={option.iso} value={option.code}>
+                        {`${option.flag} ${option.iso} ${option.code} ${option.label}`}
                       </option>
                     ))}
                   </select>
@@ -782,10 +778,12 @@ function SignInPageContent() {
                     placeholder="8120000000"
                     required
                     autoComplete="tel"
-                    inputMode="tel"
-                    pattern={PHONE_NUMBER_PATTERN}
-                    maxLength={10}
-                    title="Enter exactly 10 digits after the country code"
+                    inputMode="numeric"
+                    pattern={PHONE_INPUT_PATTERN}
+                    minLength={4}
+                    maxLength={24}
+                    title="Enter 4 to 14 digits after the country code. Spaces, dashes, dots, and brackets are allowed."
+                    onInput={(e) => { try { e.currentTarget.setCustomValidity(""); } catch {} }}
                   />
                 </div>
               </div>

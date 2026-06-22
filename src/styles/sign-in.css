@@ -335,17 +335,41 @@
 }
 
 .auth-phone-group {
+  position: relative;
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr);
+  grid-template-columns: 132px minmax(0, 1fr);
   gap: 0.7rem;
 }
 
 .auth-phone-select {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, #6f7f93 50%) right 1.08rem center / 0.42rem 0.42rem no-repeat,
+    linear-gradient(135deg, #6f7f93 50%, transparent 50%) right 0.78rem center / 0.42rem 0.42rem no-repeat,
+    linear-gradient(to right, rgba(209, 221, 234, 0.86), rgba(209, 221, 234, 0.86)) right 2.35rem center / 1px 1.45rem no-repeat,
+    #f8faf9;
   cursor: pointer;
+  padding-left: 1.05rem;
+  padding-right: 2.85rem;
+  font-size: 0.87rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.auth-phone-select:focus {
+  background:
+    linear-gradient(45deg, transparent 50%, #ff4b16 50%) right 1.08rem center / 0.42rem 0.42rem no-repeat,
+    linear-gradient(135deg, #ff4b16 50%, transparent 50%) right 0.78rem center / 0.42rem 0.42rem no-repeat,
+    linear-gradient(to right, rgba(255, 75, 22, 0.24), rgba(255, 75, 22, 0.24)) right 2.35rem center / 1px 1.45rem no-repeat,
+    #ffffff;
 }
 
 .auth-phone-select option {
+  background: #ffffff;
   color: #111d33;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
 }
 
 .auth-password-group {

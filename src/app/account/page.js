@@ -15,6 +15,11 @@ import { getProductHref } from "@/lib/products";
 import useProducts from "@/lib/use-products";
 import { RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 import { resolveProductImage } from "@/lib/product-image";
+import {
+  DEFAULT_PHONE_COUNTRY_CODE,
+  PHONE_COUNTRY_OPTIONS,
+  findPhoneCountryByDialCode,
+} from "@/lib/phone-country-options";
 
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), {
   ssr: false,
@@ -36,16 +41,10 @@ const FALLBACK_USER = {
   email: "hello@mealkit.ng",
 };
 
-const PHONE_COUNTRY_OPTIONS = [
-  { code: "+234", label: "Nigeria", flag: "\uD83C\uDDF3\uD83C\uDDEC" },
-  { code: "+233", label: "Ghana", flag: "\uD83C\uDDEC\uD83C\uDDED" },
-  { code: "+44", label: "United Kingdom", flag: "\uD83C\uDDEC\uD83C\uDDE7" },
-  { code: "+1", label: "United States", flag: "\uD83C\uDDFA\uD83C\uDDF8" },
-  { code: "+971", label: "United Arab Emirates", flag: "\uD83C\uDDE6\uD83C\uDDEA" },
-];
-
-const PHONE_NUMBER_PATTERN = "[0-9]{10}";
+const PHONE_INPUT_PATTERN = "[0-9\\s().-]{4,24}";
+const PHONE_NUMBER_PATTERN = "[0-9]{4,14}";
 const PHONE_NUMBER_REGEX = new RegExp(`^${PHONE_NUMBER_PATTERN}$`);
+const PHONE_INPUT_REGEX = new RegExp(`^${PHONE_INPUT_PATTERN}$`);
 const SERVICE_CITY = "Ibadan";
 const ADDRESS_MIN_LENGTH = 10;
 
@@ -63,20 +62,20 @@ const formatName = (user) => {
 
 const derivePhoneParts = (phone) => {
   if (!phone || typeof phone !== "string") {
-    return { country: PHONE_COUNTRY_OPTIONS[0].code, digits: "" };
+    return { country: DEFAULT_PHONE_COUNTRY_CODE, digits: "" };
   }
   const trimmed = phone.trim();
-  const matchedCountry = PHONE_COUNTRY_OPTIONS.find((option) => trimmed.startsWith(option.code));
+  const matchedCountry = findPhoneCountryByDialCode(trimmed);
   if (matchedCountry) {
-    const digits = trimmed.slice(matchedCountry.code.length).replace(/\D/g, "").slice(0, 10);
+    const digits = trimmed.slice(matchedCountry.code.length).replace(/\D/g, "").slice(0, 14);
     return {
       country: matchedCountry.code,
       digits,
     };
   }
-  const fallbackDigits = trimmed.replace(/\D/g, "").slice(-10);
+  const fallbackDigits = trimmed.replace(/\D/g, "").slice(-14);
   return {
-    country: PHONE_COUNTRY_OPTIONS[0].code,
+    country: DEFAULT_PHONE_COUNTRY_CODE,
     digits: fallbackDigits,
   };
 };
@@ -163,7 +162,7 @@ function AccountPageContent() {
   const [user, setUser] = useState(null);
   const [hydrated, setHydrated] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [phoneCountry, setPhoneCountry] = useState(PHONE_COUNTRY_OPTIONS[0].code);
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneFeedback, setPhoneFeedback] = useState("");
   const [isEditingPhone, setIsEditingPhone] = useState(false);
@@ -395,10 +394,11 @@ function AccountPageContent() {
   const handlePhoneSubmit = (event) => {
     event.preventDefault();
     if (!user) return;
-    const digitsOnly = phoneNumber.trim();
+    const phoneRaw = phoneNumber.trim();
+    const digitsOnly = phoneRaw.replace(/\D/g, "");
     const existingPhone = (user.phone || "").trim();
-    if (digitsOnly && !PHONE_NUMBER_REGEX.test(digitsOnly)) {
-      setPhoneFeedback("Enter exactly 10 digits for your phone number.");
+    if (phoneRaw && (!PHONE_INPUT_REGEX.test(phoneRaw) || !PHONE_NUMBER_REGEX.test(digitsOnly))) {
+      setPhoneFeedback("Enter a valid phone number using 4 to 14 digits after the country code.");
       return;
     }
     const nextValue = digitsOnly ? `${phoneCountry}${digitsOnly}` : "";
@@ -1090,8 +1090,8 @@ function AccountPageContent() {
                       }}
                     >
                       {PHONE_COUNTRY_OPTIONS.map((option) => (
-                        <option key={option.code} value={option.code}>
-                          {`${option.flag} ${option.code}`}
+                        <option key={option.iso} value={option.code}>
+                          {`${option.flag} ${option.iso} ${option.code} ${option.label}`}
                         </option>
                       ))}
                     </select>
@@ -1102,16 +1102,17 @@ function AccountPageContent() {
                       className={styles.profilePhoneInput}
                       value={phoneNumber}
                       onChange={(event) => {
-                        setPhoneNumber(event.target.value.replace(/\D/g, "").slice(0, 10));
+                        setPhoneNumber(event.target.value.slice(0, 24));
                         if (phoneFeedback) {
                           setPhoneFeedback("");
                         }
                       }}
                       placeholder="8120000000"
                       autoComplete="tel"
-                      inputMode="tel"
-                      pattern={PHONE_NUMBER_PATTERN}
-                      maxLength={10}
+                      inputMode="numeric"
+                      pattern={PHONE_INPUT_PATTERN}
+                      minLength={4}
+                      maxLength={24}
                     />
                   </div>
                   <p className={styles.profileHint}>We use this number for delivery updates and order support.</p>
