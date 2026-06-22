@@ -28,6 +28,7 @@ import {
   findMatchingServiceZone,
   getDeliverySummaryConfig,
   normalizeServiceZoneFees,
+  resolveDeliveryArea,
 } from "@/lib/delivery-settings";
 
 const INITIAL_FORM_STATE = {
@@ -83,7 +84,7 @@ const resolveCitySelection = (value, defaultServiceCity, serviceZoneOptions, del
   if (serviceZoneOptions.includes(trimmed)) return trimmed;
   const match = findMatchingServiceZone(trimmed, deliverySettings);
   if (match && serviceZoneOptions.includes(match)) return match;
-  return defaultServiceCity;
+  return trimmed;
 };
 
 const createInitialFormState = (user) => ({
@@ -273,16 +274,31 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
   const [overlayStatus, setOverlayStatus] = useState(null); // "success" | "failure" | null
   const [overlayMessage, setOverlayMessage] = useState("");
-  const deliverySummaryConfig = useMemo(
-    () => getDeliverySummaryConfig(deliverySettings, formState.city),
+  const deliveryArea = useMemo(
+    () => resolveDeliveryArea(deliverySettings, formState.city),
     [deliverySettings, formState.city]
+  );
+  const deliverySummaryConfig = useMemo(
+    () => {
+      const config = getDeliverySummaryConfig(deliverySettings, formState.city);
+      if (!deliveryArea.available || deliveryArea.fee == null) return config;
+      return { ...config, deliveryFee: deliveryArea.fee };
+    },
+    [deliveryArea, deliverySettings, formState.city]
   );
   const serviceZoneOptions = useMemo(() => {
     const zones = normalizeServiceZoneFees(
       deliverySettings?.serviceZoneFees ?? deliverySettings?.serviceZones,
       deliverySettings?.deliveryFee
     );
-    return zones.map((zone) => zone.name).filter(Boolean);
+    const names = [];
+    zones.forEach((zone) => {
+      if (zone?.name) names.push(zone.name);
+      (Array.isArray(zone?.subzones) ? zone.subzones : []).forEach((subzone) => {
+        if (subzone?.name) names.push(subzone.name);
+      });
+    });
+    return Array.from(new Set(names.filter(Boolean)));
   }, [deliverySettings]);
   const defaultServiceCity = useMemo(
     () => serviceZoneOptions[0] || "Ibadan",
@@ -515,9 +531,10 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
       nextErrors.address = validation.addressLength ?? validation.required;
     }
     const cityTrimmed = state.city.trim();
+    const resolvedArea = resolveDeliveryArea(deliverySettings, cityTrimmed);
     if (!cityTrimmed) {
       nextErrors.city = validation.required;
-    } else if (!findMatchingServiceZone(cityTrimmed, deliverySettings)) {
+    } else if (!resolvedArea.available) {
       nextErrors.city = cityServiceMessage || validation.required;
     }
 
@@ -844,9 +861,9 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
     const storedUser = readStoredUser();
 
     const cityTrimmed = formState.city.trim();
-    const matchedServiceZone = findMatchingServiceZone(cityTrimmed, deliverySettings);
-    const canonicalCity = matchedServiceZone
-      ? resolveCitySelection(cityTrimmed, defaultServiceCity, serviceZoneOptions, deliverySettings)
+    const resolvedDeliveryArea = resolveDeliveryArea(deliverySettings, cityTrimmed);
+    const canonicalCity = resolvedDeliveryArea.available
+      ? resolvedDeliveryArea.matchedName || resolvedDeliveryArea.zone
       : "";
 
     const normalizedForm = {
@@ -1106,13 +1123,16 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
 
   const getFieldErrorId = (field) => (errors[field] ? `checkout-${field}-error` : undefined);
   const cityServiceMismatch =
-    Boolean(formState.city.trim()) && !findMatchingServiceZone(formState.city.trim(), deliverySettings);
+    Boolean(formState.city.trim()) && !deliveryArea.available;
   const cityErrorId = getFieldErrorId("city");
   const cityFieldHasError = Boolean(cityErrorId) || cityServiceMismatch;
   const cityDescribedBy = (() => {
     const ids = [];
     if (cityServiceMismatch) {
       ids.push("checkout-city-service-alert");
+    }
+    if (!cityServiceMismatch && deliveryArea.available) {
+      ids.push("checkout-city-fee-note");
     }
     if (cityErrorId) {
       ids.push(cityErrorId);
@@ -1269,6 +1289,11 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
                 role="alert"
               >
                 {cityServiceMessage}
+              </div>
+            ) : null}
+            {!cityServiceMismatch && deliveryArea.available ? (
+              <div className="checkout-field__notice" id="checkout-city-fee-note">
+                Delivery to {deliveryArea.matchedName || deliveryArea.zone} is {formatProductPrice(deliveryArea.fee)} before any free-delivery offer.
               </div>
             ) : null}
             {errors.city ? (

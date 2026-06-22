@@ -7,8 +7,14 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 300;
+export const fetchCache = "default-cache";
+
+const PUBLIC_CATEGORY_DETAIL_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=120, s-maxage=300, stale-while-revalidate=900",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
+};
 
 export async function GET(_request, { params }) {
   try {
@@ -59,13 +65,7 @@ export async function GET(_request, { params }) {
       },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
-          "Surrogate-Control": "no-store",
-          "Vercel-CDN-Cache-Control": "no-store",
-        },
+        headers: PUBLIC_CATEGORY_DETAIL_CACHE_HEADERS,
       }
     );
   } catch (err) {

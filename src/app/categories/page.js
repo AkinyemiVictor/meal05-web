@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PageState from "@/components/page-state";
 import { loadCategoryCounts, loadCategoryRows, mapCategoryRows } from "@/lib/categories-server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
@@ -14,14 +15,14 @@ async function getCategories() {
     const supabase = getSupabaseAdminClient();
     const rows = await loadCategoryRows(supabase);
     const counts = await loadCategoryCounts(supabase);
-    return mapCategoryRows(rows, counts);
+    return { categories: mapCategoryRows(rows, counts), error: null };
   } catch {
-    return [];
+    return { categories: [], error: "Unable to load categories right now." };
   }
 }
 
 export default async function CategoriesPage() {
-  const categories = await getCategories();
+  const { categories, error } = await getCategories();
 
   return (
     <main>
@@ -44,21 +45,33 @@ export default async function CategoriesPage() {
           </p>
         </header>
 
-        <div className="categories-grid">
-          {categories.map((cat) => (
-            <Link
-              key={cat.slug}
-              href={`/categories/${cat.slug}`}
-              className="categories-grid__card"
-            >
-              <span className="categories-grid__icon" aria-hidden="true">
-                <i className={`fa-solid ${cat.icon}`} />
-              </span>
-              <span className="categories-grid__label">{cat.label}</span>
-              <span className="categories-grid__desc">{cat.description}</span>
-            </Link>
-          ))}
-        </div>
+        {error ? (
+          <PageState title="We couldn't load categories right now.">
+            <p>Please refresh the page or try again in a moment.</p>
+            <Link href="/shop" className="section-view-button">View all products</Link>
+          </PageState>
+        ) : categories.length ? (
+          <div className="categories-grid">
+            {categories.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/categories/${cat.slug}`}
+                className="categories-grid__card"
+              >
+                <span className="categories-grid__icon" aria-hidden="true">
+                  <i className={`fa-solid ${cat.icon}`} />
+                </span>
+                <span className="categories-grid__label">{cat.label}</span>
+                <span className="categories-grid__desc">{cat.description}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <PageState title="No categories are available right now.">
+            <p>We are updating the aisles. You can still browse the full catalog.</p>
+            <Link href="/shop" className="section-view-button">View all products</Link>
+          </PageState>
+        )}
       </div>
     </main>
   );

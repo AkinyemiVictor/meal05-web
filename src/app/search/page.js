@@ -7,10 +7,16 @@ import { use, useEffect, useMemo, useState } from "react";
 import SearchHistoryRecorder from "@/components/search-history-recorder";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
 import ProductCard from "@/components/product-card";
+import BundlePlanCard from "@/components/bundle-plan-card";
 import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
 import copy from "@/data/copy";
+import {
+  buildCatalogItems,
+  getCatalogItemName,
+  isBundleCatalogItem,
+} from "@/lib/catalog-items";
 import useProducts from "@/lib/use-products";
 
 const PAGE_SIZE = 12;
@@ -66,27 +72,33 @@ const SEARCH_SYNONYMS = {
   bundles: ["bundle", "mealkit", "meal kit", "pack"],
 };
 
-const fieldValues = (product) => [
-  product.name,
-  product.category,
-  product.categorySlug,
-  product.unit,
-  product.variantName,
-  product.promoTagText,
-  product.collectionSlug,
-  ...(Array.isArray(product.tags) ? product.tags : []),
-  product.isPopular ? "popular bestseller best seller" : "",
-  product.isChefChoice ? "chef choice recommended" : "",
-  product.isUnder15m ? "quick fast under 15 minutes" : "",
-  product.isBundleEligible ? "bundle mealkit meal kit pack" : "",
+const fieldValues = (item) => [
+  item.name,
+  item.category,
+  item.categorySlug,
+  item.product?.name,
+  item.product?.category,
+  item.product?.categorySlug,
+  item.product?.unit,
+  item.product?.variantName,
+  item.product?.promoTagText,
+  item.product?.collectionSlug,
+  ...(Array.isArray(item.product?.tags) ? item.product.tags : []),
+  item.product?.isPopular ? "popular bestseller best seller" : "",
+  item.product?.isChefChoice ? "chef choice recommended" : "",
+  item.product?.isUnder15m ? "quick fast under 15 minutes" : "",
+  item.product?.isBundleEligible ? "bundle mealkit meal kit pack" : "",
+  item.plan?.description,
+  ...(Array.isArray(item.plan?.keyFeatures) ? item.plan.keyFeatures : []),
+  isBundleCatalogItem(item) ? "bundle bundles mealkit meal kit pack combo plans" : "",
 ];
 
-const buildProductIndex = (product) => {
-  const values = fieldValues(product).map(normalise).filter(Boolean);
+const buildCatalogIndex = (item) => {
+  const values = fieldValues(item).map(normalise).filter(Boolean);
   const text = values.join(" ");
   const words = Array.from(new Set(text.split(/\s+/).filter(Boolean)));
   const compactText = compact(text);
-  return { product, text, words, compactText };
+  return { item, text, words, compactText };
 };
 
 const expandTokens = (tokens) => {
@@ -220,40 +232,54 @@ export default function SearchPage({ searchParams }) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
 
-  const indexedProducts = useMemo(
-    () => (Array.isArray(allProducts) ? allProducts.map(buildProductIndex) : []),
-    [allProducts]
+  const catalogItems = useMemo(() => buildCatalogItems(allProducts), [allProducts]);
+  const indexedCatalogItems = useMemo(
+    () => catalogItems.map(buildCatalogIndex),
+    [catalogItems]
   );
 
-  const filteredProducts = useMemo(() => {
-    if (!tokens.length || !isProductsReady) return [];
-    return indexedProducts
-      .map((indexed) => ({ product: indexed.product, score: scoreProduct(indexed, tokens) }))
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score || a.product.name.localeCompare(b.product.name))
-      .map((entry) => entry.product);
-  }, [indexedProducts, isProductsReady, tokens]);
+  const indexedProducts = useMemo(
+    () => indexedCatalogItems.map((indexed) => ({
+      ...indexed,
+      product: { name: getCatalogItemName(indexed.item) },
+    })),
+    [indexedCatalogItems]
+  );
 
-  const totalResults = isProductsReady ? filteredProducts.length : 0;
+  const filteredItems = useMemo(() => {
+    if (!tokens.length || !isProductsReady) return [];
+    return indexedCatalogItems
+      .map((indexed) => ({ item: indexed.item, score: scoreProduct(indexed, tokens) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || getCatalogItemName(a.item).localeCompare(getCatalogItemName(b.item)))
+      .map((entry) => entry.item);
+  }, [indexedCatalogItems, isProductsReady, tokens]);
+
+  const totalResults = isProductsReady ? filteredItems.length : 0;
   const totalPages = totalResults ? Math.ceil(totalResults / PAGE_SIZE) : 0;
   const requestedPage = Number.parseInt(resolvedSearchParams?.page ?? "1", 10);
   const currentPage = Number.isFinite(requestedPage) && requestedPage >= 1 ? Math.min(requestedPage, Math.max(totalPages, 1)) : 1;
   const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const pagedProducts = filteredProducts.slice(startIndex, startIndex + PAGE_SIZE);
+  const pagedItems = filteredItems.slice(startIndex, startIndex + PAGE_SIZE);
 
   const groupedMap = new Map();
-  pagedProducts.forEach((product) => {
-    const slug = normalise(product.category) || "other";
-    if (!groupedMap.has(slug)) groupedMap.set(slug, { slug, label: getCategoryLabel(product.category, product.category), products: [] });
-    groupedMap.get(slug).products.push(product);
+  pagedItems.forEach((item) => {
+    const slug = normalise(item.category) || "other";
+    if (!groupedMap.has(slug)) groupedMap.set(slug, { slug, label: getCategoryLabel(item.category, item.category), items: [] });
+    groupedMap.get(slug).items.push(item);
   });
   const groupedResults = Array.from(groupedMap.values()).sort((a, b) => a.label.localeCompare(b.label));
   const suggestionTerms = query && !totalResults && isProductsReady ? getSuggestions(query, 5, indexedProducts) : [];
   const starterSuggestions = isProductsReady
     ? Array.from(
         new Set(
-          allProducts
-            .flatMap((product) => [product.category, product.promoTagText, product.isBundleEligible ? "MealKits" : ""])
+          catalogItems
+            .flatMap((item) => [
+              item.category,
+              item.product?.promoTagText,
+              item.product?.isBundleEligible ? "MealKits" : "",
+              isBundleCatalogItem(item) ? "MealKits" : "",
+            ])
             .map((value) => String(value || "").trim())
             .filter(Boolean)
         )
@@ -263,14 +289,14 @@ export default function SearchPage({ searchParams }) {
   const description = query
     ? isLoadingProducts ? "Loading the latest products..."
       : hasProductsError ? "We couldn’t load products right now. Please try again shortly."
-      : totalResults ? `Showing ${pagedProducts.length} of ${totalResults} matching items.`
+      : totalResults ? `Showing ${pagedItems.length} of ${totalResults} matching items.`
       : copy.search.emptyDescription(query)
     : copy.search.introDefault;
 
   const resultCountText = query
     ? isLoadingProducts ? "Loading products..."
       : hasProductsError ? "Unable to load products right now"
-      : totalResults ? `Showing ${pagedProducts.length} of ${totalResults} matching items.`
+      : totalResults ? `Showing ${pagedItems.length} of ${totalResults} matching items.`
       : "No matching items found"
     : "Enter a search term to view results";
 
@@ -352,9 +378,13 @@ export default function SearchPage({ searchParams }) {
                     <h2>{group.label}</h2>
                   </header>
                   <ProductGrid
-                    products={group.products}
-                    renderProduct={(product) => (
-                      <ProductCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
+                    products={group.items}
+                    renderProduct={(item) => (
+                      isBundleCatalogItem(item) ? (
+                        <BundlePlanCard key={item.id} plan={item.plan} />
+                      ) : (
+                        <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
+                      )
                     )}
                   />
                 </section>

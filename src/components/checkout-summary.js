@@ -11,7 +11,7 @@ import {
   readStoredCart,
   readStoredPromo,
 } from "@/lib/checkout";
-import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
+import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
 import useProducts from "@/lib/use-products";
 
 export default function CheckoutSummary({ deliverySettings, deliveryCity }) {
@@ -20,10 +20,22 @@ export default function CheckoutSummary({ deliverySettings, deliveryCity }) {
   const [promoState, setPromoState] = useState(() => readStoredPromo());
   const [lastCheckout, setLastCheckout] = useState(null);
 
-  const summaryConfig = useMemo(
-    () => getDeliverySummaryConfig(deliverySettings, deliveryCity),
+  const deliveryArea = useMemo(
+    () => resolveDeliveryArea(deliverySettings, deliveryCity),
     [deliverySettings, deliveryCity]
   );
+  const summaryConfig = useMemo(
+    () => {
+      const config = getDeliverySummaryConfig(deliverySettings, deliveryCity);
+      if (String(deliveryCity || "").trim() && !deliveryArea.available) {
+        return { ...config, deliveryFee: 0 };
+      }
+      if (!deliveryArea.available || deliveryArea.fee == null) return config;
+      return { ...config, deliveryFee: deliveryArea.fee };
+    },
+    [deliveryArea, deliverySettings, deliveryCity]
+  );
+  const deliveryUnavailable = Boolean(String(deliveryCity || "").trim()) && !deliveryArea.available;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -113,7 +125,9 @@ export default function CheckoutSummary({ deliverySettings, deliveryCity }) {
         <div>
           <span>{copy.checkout.labels.delivery}</span>
           <span>
-            {summary.deliveryFee === 0
+            {deliveryUnavailable
+              ? "Unavailable"
+              : summary.deliveryFee === 0
               ? copy.checkout.freeDeliveryLabel
               : formatProductPrice(summary.deliveryFee)}
           </span>

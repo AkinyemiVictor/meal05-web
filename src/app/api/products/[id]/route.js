@@ -8,6 +8,14 @@ import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/l
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 60;
+export const fetchCache = "default-cache";
+
+const PUBLIC_PRODUCT_DETAIL_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+};
 
 const methodNotAllowed = () =>
   NextResponse.json({ error: "Method not allowed" }, { status: 405, headers: { Allow: "GET" } });
@@ -340,29 +348,34 @@ export async function GET(_request, { params }) {
   const stockValue = defaultVariation ? defaultVariation.stock : resolveStockValueFromRow(data);
   const effectiveStock = variations.length && !selectableVariations.length ? 0 : stockValue;
 
-  return NextResponse.json({
-    product: {
-      ...data,
-      id: String(data.id),
-      image: mainImageUrl,
-      main_image_url: mainImageUrl,
-      gallery_image_urls: galleryImageUrls,
-      variantId: defaultVariantId,
-      price: pricing.price,
-      oldPrice: pricing.oldPrice,
-      discount: pricing.discount,
-      unit: unitValue,
-      stock: effectiveStock,
-      category: pickFirst(data, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
-      categorySlug: pickFirst(data, ["category_slug", "categorySlug"]),
-      promoTagEnabled: normalizePromoEnabled(data.promo_tag_enabled ?? data.promoTagEnabled),
-      promoTagText: normalizePromoText(data.promo_tag_text ?? data.promoTagText),
-      promoTagExpiresAt: parsePromoExpiry(data.promo_tag_expires_at ?? data.promoTagExpiresAt),
-      ...merchandising,
+  return NextResponse.json(
+    {
+      product: {
+        ...data,
+        id: String(data.id),
+        image: mainImageUrl,
+        main_image_url: mainImageUrl,
+        gallery_image_urls: galleryImageUrls,
+        variantId: defaultVariantId,
+        price: pricing.price,
+        oldPrice: pricing.oldPrice,
+        discount: pricing.discount,
+        unit: unitValue,
+        stock: effectiveStock,
+        category: pickFirst(data, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
+        categorySlug: pickFirst(data, ["category_slug", "categorySlug"]),
+        promoTagEnabled: normalizePromoEnabled(data.promo_tag_enabled ?? data.promoTagEnabled),
+        promoTagText: normalizePromoText(data.promo_tag_text ?? data.promoTagText),
+        promoTagExpiresAt: parsePromoExpiry(data.promo_tag_expires_at ?? data.promoTagExpiresAt),
+        ...merchandising,
+      },
+      variations,
+      defaultVariantId,
     },
-    variations,
-    defaultVariantId,
-  });
+    {
+      headers: PUBLIC_PRODUCT_DETAIL_CACHE_HEADERS,
+    }
+  );
 }
 
 export function POST() {

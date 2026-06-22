@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
+import BUNDLE_PLANS from "@/data/bundle-plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
+export const fetchCache = "default-cache";
+
+const PUBLIC_CATALOG_SUMMARY_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+};
 
 const toNumber = (value) => {
   const numeric = Number(value);
@@ -70,10 +77,13 @@ export async function GET() {
         .map((row) => String(row.product_id))
         .filter((id) => activeProductIds.has(id))
     );
+    const totalBundlePlans = BUNDLE_PLANS.length;
 
     return NextResponse.json(
       {
+        totalCatalogItems: totalActiveProducts + totalBundlePlans,
         totalActiveProducts,
+        totalBundlePlans,
         totalCategories,
         totalAvailableProducts: availableProductIds.size,
         totalVariants,
@@ -83,13 +93,7 @@ export async function GET() {
       },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
-          "Surrogate-Control": "no-store",
-          "Vercel-CDN-Cache-Control": "no-store",
-        },
+        headers: PUBLIC_CATALOG_SUMMARY_CACHE_HEADERS,
       }
     );
   } catch (error) {

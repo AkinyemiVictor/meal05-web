@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect } from 'react';
 import { logError } from '@/lib/logging';
 
@@ -9,13 +10,19 @@ export default function GlobalError({ error, reset }) {
   }, [error]);
 
   return (
-    <main style={{ maxWidth: 720, margin: '48px auto', padding: 16 }}>
-      <h1>Something went wrong</h1>
-      <p>We hit a snag while loading this page. Please try again.</p>
-      <pre style={{ whiteSpace: 'pre-wrap', background: '#f6f8fa', padding: 12, borderRadius: 8 }}>
-        {String(error?.message || error)}
-      </pre>
-      <button onClick={() => reset()} style={{ marginTop: 12 }}>Try again</button>
+    <main className="category-page">
+      <section className="category-empty-state" role="alert">
+        <strong>Something went wrong.</strong>
+        <p>We could not load this page. Please try again, or return to the catalog.</p>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button type="button" className="section-view-button" onClick={() => reset()}>
+            Try again
+          </button>
+          <Link href="/shop" className="section-view-button">
+            Browse products
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

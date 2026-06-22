@@ -1,4 +1,6 @@
 import CategoryPage from "@/components/category-page";
+import Link from "next/link";
+import PageState from "@/components/page-state";
 import { loadCategoryProductsPayload } from "@/lib/category-products";
 import { buildCategoryPageMetadata } from "@/lib/seo/metadata";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
@@ -35,7 +37,19 @@ export async function generateMetadata({ params }) {
 
 export default async function CategoryRoute({ params }) {
   const { slug } = await params;
-  const payload = await getCategoryPayload(slug);
+  let payload;
+  try {
+    payload = await getCategoryPayload(slug);
+  } catch {
+    return (
+      <main className="category-page">
+        <PageState title="We couldn't load this category right now.">
+          <p>Please refresh the page or browse the full catalog while we reconnect.</p>
+          <Link href="/shop" className="section-view-button">View all products</Link>
+        </PageState>
+      </main>
+    );
+  }
   if (!payload.category) notFound();
   return (
     <CategoryPage

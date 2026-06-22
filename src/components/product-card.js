@@ -9,6 +9,9 @@ import { resolveProductImage } from "@/lib/product-image";
 import { getProductHref } from "@/lib/products";
 
 const classNames = (...items) => items.filter(Boolean).join(" ");
+const canUseNextImageOptimization = (src) =>
+  String(src || "").startsWith("/") ||
+  /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/public\//i.test(String(src || ""));
 
 const formatNaira = (value) =>
   new Intl.NumberFormat("en-NG", {
@@ -20,6 +23,7 @@ const formatNaira = (value) =>
 function ProductImage({ product }) {
   const src = resolveProductImage(product.image, product.mainImageUrl);
   const unavailable = resolveStockClass(product.stock) === "is-unavailable";
+  const shouldOptimize = canUseNextImageOptimization(src);
 
   return (
     <Link
@@ -46,7 +50,7 @@ function ProductImage({ product }) {
           src={src}
           alt={product.name}
           fill
-          unoptimized
+          unoptimized={!shouldOptimize}
           sizes="(max-width: 767px) 82vw, (max-width: 1023px) 30vw, 220px"
           className="object-contain object-center p-6 sm:p-7"
         />

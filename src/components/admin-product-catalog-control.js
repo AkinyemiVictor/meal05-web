@@ -24,17 +24,25 @@ export default function AdminProductCatalogControl({
   inSeason = true,
   price = 0,
   oldPrice = null,
+  stockCount = null,
+  variantActive = true,
   showSeason = true,
   showPrice = true,
+  showStock = false,
+  showAvailability = false,
 }) {
   const router = useRouter();
   const initialSeason = inSeason ? "in" : "out";
   const initialPrice = toInputValue(price);
   const initialOldPrice = oldPrice == null ? "" : toInputValue(oldPrice);
+  const initialStock = stockCount == null ? "" : toInputValue(stockCount);
+  const initialAvailability = variantActive ? "active" : "inactive";
 
   const [seasonValue, setSeasonValue] = useState(initialSeason);
   const [priceValue, setPriceValue] = useState(initialPrice);
   const [oldPriceValue, setOldPriceValue] = useState(initialOldPrice);
+  const [stockValue, setStockValue] = useState(initialStock);
+  const [availabilityValue, setAvailabilityValue] = useState(initialAvailability);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -46,8 +54,10 @@ export default function AdminProductCatalogControl({
     setSeasonValue(initialSeason);
     setPriceValue(initialPrice);
     setOldPriceValue(initialOldPrice);
+    setStockValue(initialStock);
+    setAvailabilityValue(initialAvailability);
     setError("");
-  }, [initialOldPrice, initialPrice, initialSeason]);
+  }, [initialAvailability, initialOldPrice, initialPrice, initialSeason, initialStock]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -95,18 +105,53 @@ export default function AdminProductCatalogControl({
       requestBody.old_price = nextOldPrice;
     }
 
+    let nextStock = null;
+    let stockChanged = false;
+    if (showStock) {
+      if (!variantId) {
+        setError("Missing variant id.");
+        return;
+      }
+
+      const trimmedStock = String(stockValue || "").trim();
+      if (!trimmedStock && initialStock) {
+        setError("Enter a stock count.");
+        return;
+      }
+
+      if (trimmedStock) {
+        nextStock = Number(trimmedStock);
+        if (!Number.isInteger(nextStock) || nextStock < 0) {
+          setError("Stock must be a whole number, 0 or more.");
+          return;
+        }
+
+        stockChanged = String(nextStock) !== initialStock;
+        if (stockChanged) {
+          requestBody.variant_id = variantId;
+          requestBody.stock_count = nextStock;
+        }
+      }
+    }
+
     const nextInSeason = showSeason ? seasonValue === "in" : null;
+    const nextVariantActive = showAvailability ? availabilityValue === "active" : null;
     const seasonChanged = showSeason && nextInSeason !== (inSeason === true);
     const priceChanged = showPrice && String(nextPrice) !== initialPrice;
     const oldPriceChanged = showPrice && String(nextOldPrice ?? "") !== initialOldPrice;
+    const availabilityChanged = showAvailability && nextVariantActive !== (variantActive === true);
 
-    if (!seasonChanged && !priceChanged && !oldPriceChanged) {
+    if (!seasonChanged && !priceChanged && !oldPriceChanged && !stockChanged && !availabilityChanged) {
       setError("No change selected.");
       return;
     }
 
     if (seasonChanged) {
       requestBody.in_season = nextInSeason;
+    }
+    if (availabilityChanged) {
+      requestBody.variant_id = variantId;
+      requestBody.variant_is_active = nextVariantActive;
     }
 
     setIsSaving(true);
@@ -125,10 +170,10 @@ export default function AdminProductCatalogControl({
       const oldPriceCleared = Boolean(payload?.normalized?.oldPriceCleared || clearedOldPrice);
       if (oldPriceCleared) {
         setOk("Saved. Old price cleared because it was below current price.");
-      } else if (showSeason && !showPrice) {
+      } else if (showSeason && !showPrice && !showStock && !showAvailability) {
         setOk("Season updated.");
-      } else if (showPrice && !showSeason) {
-        setOk("Price updated.");
+      } else if ((showPrice || showStock || showAvailability) && !showSeason) {
+        setOk("Variant updated.");
       } else {
         setOk("Saved.");
       }
@@ -175,6 +220,40 @@ export default function AdminProductCatalogControl({
             placeholder="0"
             style={{ width: 92, border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
           />
+        </label>
+      ) : null}
+
+      {showStock ? (
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={fieldLabelStyle}>Stock</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1}
+            value={stockValue}
+            onChange={(event) => setStockValue(event.target.value)}
+            disabled={disabled}
+            aria-label={`Stock for ${productName} ${variantName}`}
+            placeholder="0"
+            style={{ width: 92, border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
+          />
+        </label>
+      ) : null}
+
+      {showAvailability ? (
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={fieldLabelStyle}>Availability</span>
+          <select
+            value={availabilityValue}
+            onChange={(event) => setAvailabilityValue(event.target.value)}
+            disabled={disabled}
+            aria-label={`Availability for ${productName} ${variantName}`}
+            style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
+          >
+            <option value="active">Available</option>
+            <option value="inactive">Unavailable</option>
+          </select>
         </label>
       ) : null}
 

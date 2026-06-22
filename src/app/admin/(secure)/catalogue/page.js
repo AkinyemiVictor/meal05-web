@@ -8,8 +8,11 @@ import {
 } from "@/lib/admin-dashboard-data";
 import AdminRestockControl from "@/components/admin-restock-control";
 import AdminProductCatalogControl from "@/components/admin-product-catalog-control";
+import AdminProductManagementControl from "@/components/admin-product-management-control";
 import AdminProductPromoControl from "@/components/admin-product-promo-control";
 import ProductPromoRibbon from "@/components/product-promo-ribbon";
+import { loadCategoryRows, mapCategoryRows } from "@/lib/categories-server";
+import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
 export const dynamic = "force-dynamic";
 
@@ -212,12 +215,14 @@ export default async function AdminCataloguePage({ searchParams }) {
   const promoRequestedPage = toPositiveInt(params?.promoPage, 1);
   const promoQuery = String(params?.promoQ || "").trim();
 
-  const [inventory, priceCatalogue, seasonCatalogue, promoCatalogue] = await Promise.all([
+  const [inventory, priceCatalogue, seasonCatalogue, promoCatalogue, categoryRows] = await Promise.all([
     loadInventoryMetrics({ lowStockThreshold: threshold }),
     loadProductAdminCatalogue({ page: priceRequestedPage, pageSize: pricePageSize, query: priceQuery }),
     loadProductSeasonAdminCatalogue({ page: seasonRequestedPage, pageSize: seasonPageSize, query: seasonQuery }),
     loadProductPromoAdminCatalogue({ page: promoRequestedPage, pageSize: promoPageSize, query: promoQuery }),
+    loadCategoryRows(getSupabaseAdminClient()).catch(() => []),
   ]);
+  const categoryOptions = mapCategoryRows(categoryRows);
 
   const alertRows = [...inventory.outOfStock, ...inventory.lowStock];
   const stockTotalCount = alertRows.length;
@@ -258,7 +263,7 @@ export default async function AdminCataloguePage({ searchParams }) {
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ margin: "0 0 6px" }}>Catalogue Admin</h1>
         <p style={{ margin: 0, color: "#64748b" }}>
-          Use one page for the three input jobs: restock alert items, edit variant prices, and switch product season.
+          Use one page for restock alerts, variant price and stock edits, and product category, image, season, bundle, and availability changes.
         </p>
       </header>
 
@@ -289,7 +294,7 @@ export default async function AdminCataloguePage({ searchParams }) {
             fontWeight: 600,
           }}
         >
-          Price Control
+          Variant Control
         </a>
         <a
           href="#season-control"
@@ -303,7 +308,7 @@ export default async function AdminCataloguePage({ searchParams }) {
             fontWeight: 600,
           }}
         >
-          Season Control
+          Product Management
         </a>
         <a
           href="#promo-control"
@@ -403,7 +408,7 @@ export default async function AdminCataloguePage({ searchParams }) {
         <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e2e8f0" }}>
           <strong>Stock Alerts</strong>
           <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>
-            Restock items that are out of stock or running low. Price and season live in the sections below.
+            Restock items that are out of stock or running low. Variant stock and product availability live in the sections below.
           </p>
         </div>
 
@@ -540,9 +545,9 @@ export default async function AdminCataloguePage({ searchParams }) {
         style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#ffffff", marginBottom: 16 }}
       >
         <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e2e8f0" }}>
-          <strong>Price Control</strong>
+          <strong>Variant Control</strong>
           <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>
-            Update current and old price for any variant, not only items that are out of stock.
+            Update current price, old price, stock count, and storefront availability for any variant.
           </p>
         </div>
 
@@ -645,7 +650,11 @@ export default async function AdminCataloguePage({ searchParams }) {
                       variantName={row.variantName}
                       price={row.price}
                       oldPrice={row.oldPrice}
+                      stockCount={row.stockCount}
+                      variantActive={row.variantActive}
                       showSeason={false}
+                      showStock
+                      showAvailability
                     />
                   </td>
                 </tr>
@@ -655,7 +664,7 @@ export default async function AdminCataloguePage({ searchParams }) {
         </div>
 
         {!priceCatalogue.records.length ? (
-          <p style={{ margin: 0, padding: 12, color: "#64748b" }}>No variants match the current price filter.</p>
+          <p style={{ margin: 0, padding: 12, color: "#64748b" }}>No variants match the current filter.</p>
         ) : null}
 
         <SectionPagination
@@ -671,9 +680,9 @@ export default async function AdminCataloguePage({ searchParams }) {
 
       <section id="season-control" style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#ffffff" }}>
         <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e2e8f0" }}>
-          <strong>Season Control</strong>
+          <strong>Product Management</strong>
           <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>
-            Switch a product between the two available season states without touching pricing.
+            Update category, product availability, season status, image URL, and bundle eligibility without touching variant pricing.
           </p>
         </div>
 
@@ -734,11 +743,12 @@ export default async function AdminCataloguePage({ searchParams }) {
         </div>
 
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1180 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Product</th>
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Current Status</th>
+                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Category / Image</th>
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Update</th>
               </tr>
             </thead>
@@ -784,13 +794,53 @@ export default async function AdminCataloguePage({ searchParams }) {
                       >
                         {seasonTone.label}
                       </span>
+                      {row.isBundleEligible ? (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            marginTop: 6,
+                            marginLeft: 6,
+                            background: "#ede9fe",
+                            color: "#5b21b6",
+                            borderRadius: 999,
+                            padding: "4px 10px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Bundle Eligible
+                        </span>
+                      ) : null}
                     </td>
                     <td style={{ padding: 10, verticalAlign: "top" }}>
-                      <AdminProductCatalogControl
+                      <p style={{ margin: 0, color: "#0f172a", fontSize: 13 }}>
+                        {categoryOptions.find((category) => String(category.id) === String(row.categoryId))?.label || "Unassigned"}
+                      </p>
+                      <p
+                        style={{
+                          margin: "4px 0 0",
+                          color: row.imageUrl ? "#64748b" : "#b91c1c",
+                          fontSize: 12,
+                          maxWidth: 240,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={row.imageUrl || "No image URL"}
+                      >
+                        {row.imageUrl || "No image URL"}
+                      </p>
+                    </td>
+                    <td style={{ padding: 10, verticalAlign: "top" }}>
+                      <AdminProductManagementControl
                         productId={row.productId}
                         productName={row.productName}
                         inSeason={row.productInSeason}
-                        showPrice={false}
+                        productActive={row.productActive}
+                        categoryId={row.categoryId}
+                        imageUrl={row.imageUrl}
+                        isBundleEligible={row.isBundleEligible}
+                        categories={categoryOptions}
                       />
                     </td>
                   </tr>

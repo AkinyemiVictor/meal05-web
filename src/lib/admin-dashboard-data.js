@@ -909,12 +909,22 @@ export async function loadOrderSupportCaseMetrics({ page = 1, pageSize = 12, cas
   };
 }
 
-export async function loadOrderSupportOrderCatalogue({ page = 1, pageSize = 12, query = "" } = {}) {
+export async function loadOrderSupportOrderCatalogue({
+  page = 1,
+  pageSize = 12,
+  query = "",
+  status = "all",
+  paymentStatus = "all",
+  deliveryStatus = "all",
+} = {}) {
   const admin = getSupabaseAdminClient();
   const warnings = createWarnings();
   const currentPage = Math.max(1, Number(page || 1));
   const size = Math.min(100, Math.max(5, Number(pageSize || 12)));
   const search = String(query || "").trim().toLowerCase();
+  const normalizedStatus = String(status || "all").trim().toLowerCase();
+  const normalizedPaymentStatus = String(paymentStatus || "all").trim().toLowerCase();
+  const normalizedDeliveryStatus = String(deliveryStatus || "all").trim().toLowerCase();
 
   const { rows, usedSelect, lastError } = await queryOrders(admin, { from: 0, to: 4999 });
   if (lastError) warnings.push(`Order support catalogue query failed: ${lastError.message}`);
@@ -973,7 +983,13 @@ export async function loadOrderSupportOrderCatalogue({ page = 1, pageSize = 12, 
         searchText: haystack,
       };
     })
-    .filter((row) => (search ? row.searchText.includes(search) : true));
+    .filter((row) => {
+      if (search && !row.searchText.includes(search)) return false;
+      if (normalizedStatus !== "all" && String(row.status || "").toLowerCase() !== normalizedStatus) return false;
+      if (normalizedPaymentStatus !== "all" && String(row.paymentStatus || "").toLowerCase() !== normalizedPaymentStatus) return false;
+      if (normalizedDeliveryStatus !== "all" && String(row.deliveryStatus || "").toLowerCase() !== normalizedDeliveryStatus) return false;
+      return true;
+    });
 
   const totalCount = records.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / size));
@@ -986,6 +1002,97 @@ export async function loadOrderSupportOrderCatalogue({ page = 1, pageSize = 12, 
     page: safePage,
     pageSize: size,
     totalPages,
+    warnings,
+  };
+}
+
+const mapOrderItemRecord = (row) => {
+  const product = Array.isArray(row?.products) ? row.products[0] : row?.products;
+  return {
+    id: row?.id ?? `${row?.order_id || ""}-${row?.product_id || ""}`,
+    orderId: row?.order_id,
+    productId: row?.product_id,
+    variantId: row?.variant_id ?? null,
+    productName: row?.product_name || product?.name || `Product ${String(row?.product_id || "").slice(0, 8)}...`,
+    unit: row?.unit || product?.unit || "",
+    quantity: toNumber(row?.quantity),
+    unitPrice: toNumber(row?.unit_price),
+    lineTotal: toNumber(row?.quantity) * toNumber(row?.unit_price),
+    imageUrl: product?.image_url || row?.image_url || "",
+  };
+};
+
+export async function loadOrderAdminDetail(orderId) {
+  const admin = getSupabaseAdminClient();
+  const warnings = createWarnings();
+  const safeOrderId = String(orderId || "").trim();
+  if (!safeOrderId) {
+    return { order: null, items: [], supportCases: [], warnings };
+  }
+
+  const { rows, lastError } = await queryOrdersByIds(admin, [safeOrderId]);
+  if (lastError) warnings.push(`Order detail query failed: ${lastError.message}`);
+  const userLookup = await loadUserLookup(admin, rows.map((row) => row?.user_id));
+  const order = rows[0] ? mapOrderRecord(rows[0], userLookup, Date.now()) : null;
+  if (!order) {
+    return { order: null, items: [], supportCases: [], warnings };
+  }
+
+  let itemRows = [];
+  let itemError = null;
+  const itemSelectCandidates = [
+    "id, order_id, product_id, variant_id, quantity, unit_price, products(name, unit, image_url)",
+    "id, order_id, product_id, quantity, unit_price, products(name, unit, image_url)",
+    "id, order_id, product_id, variant_id, quantity, unit_price",
+    "id, order_id, product_id, quantity, unit_price",
+  ];
+  for (const select of itemSelectCandidates) {
+    const result = await admin.from("order_items").select(select).eq("order_id", safeOrderId).range(0, 499);
+    if (!result.error) {
+      itemRows = Array.isArray(result.data) ? result.data : [];
+      itemError = null;
+      break;
+    }
+    itemError = result.error;
+    if (!isUnknownColumnError(result.error.message)) break;
+  }
+  if (itemError) warnings.push(`Order items query failed: ${itemError.message}`);
+
+  let supportCases = [];
+  const supportResult = await admin
+    .from("order_support_cases")
+    .select("id, order_id, user_id, case_type, case_status, refund_amount, reason, customer_note, admin_note, replacement_order_id, requested_at, resolved_at, created_by_email, updated_at")
+    .eq("order_id", safeOrderId)
+    .order("updated_at", { ascending: false })
+    .range(0, 99);
+  if (supportResult.error) {
+    if (!isUnknownColumnError(supportResult.error.message)) {
+      warnings.push(`Order support notes query failed: ${supportResult.error.message}`);
+    }
+  } else {
+    supportCases = (Array.isArray(supportResult.data) ? supportResult.data : []).map((row) => ({
+      id: row?.id,
+      orderId: row?.order_id,
+      caseType: normalizeOrderSupportCaseType(row?.case_type),
+      caseTypeLabel: getOrderSupportCaseTypeLabel(row?.case_type),
+      caseStatus: normalizeOrderSupportCaseStatus(row?.case_status),
+      caseStatusLabel: getOrderSupportCaseStatusLabel(row?.case_status),
+      refundAmount: toNumber(row?.refund_amount),
+      reason: String(row?.reason || "").trim(),
+      customerNote: String(row?.customer_note || "").trim(),
+      adminNote: String(row?.admin_note || "").trim(),
+      replacementOrderId: String(row?.replacement_order_id || "").trim(),
+      requestedAt: row?.requested_at || row?.updated_at,
+      resolvedAt: row?.resolved_at || null,
+      createdByEmail: String(row?.created_by_email || "").trim(),
+      updatedAt: row?.updated_at,
+    }));
+  }
+
+  return {
+    order,
+    items: itemRows.map(mapOrderItemRecord),
+    supportCases,
     warnings,
   };
 }
@@ -1633,7 +1740,10 @@ export async function loadProductSeasonAdminCatalogue({ page = 1, pageSize = 25,
   const size = Math.min(100, Math.max(10, Number(pageSize || 25)));
   const search = String(query || "").trim().toLowerCase();
 
-  const productsRes = await admin.from("products").select("id, name, in_season, is_active").range(0, 4999);
+  const productsRes = await admin
+    .from("products")
+    .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible")
+    .range(0, 4999);
   if (productsRes.error) warnings.push(`Products season query failed: ${productsRes.error.message}`);
 
   const products = (Array.isArray(productsRes.data) ? productsRes.data : [])
@@ -1643,7 +1753,10 @@ export async function loadProductSeasonAdminCatalogue({ page = 1, pageSize = 25,
       productInSeason: row?.in_season !== false,
       productRawInSeason: row?.in_season ?? null,
       productActive: row?.is_active !== false,
-      searchText: `${String(row?.name || "")}`.trim().toLowerCase(),
+      categoryId: row?.category_id ?? "",
+      imageUrl: row?.image_url || "",
+      isBundleEligible: row?.is_bundle_eligible === true,
+      searchText: `${String(row?.name || "")} ${String(row?.image_url || "")}`.trim().toLowerCase(),
     }))
     .sort((a, b) => a.productName.localeCompare(b.productName, "en", { sensitivity: "base" }));
 

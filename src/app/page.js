@@ -34,6 +34,8 @@ import FilterChips from "@/components/filter-chips";
 import HomeProductCollection from "@/components/home-product-collection";
 import { readCartItems } from "@/lib/cart-storage";
 import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
+import useCategories from "@/lib/use-categories";
+import useProducts from "@/lib/use-products";
 
 const DESKTOP_NAVBAR_HEIGHT = 81;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
@@ -153,14 +155,13 @@ export default function Home() {
   const contentBoundaryRef = useRef(null);
   const footerBoundaryRef = useRef(null);
   const sidebarRef = useRef(null);
-  const [categories, setCategories] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [productsStatus, setProductsStatus] = useState("loading");
   const [activeCollection, setActiveCollection] = useState("popular");
   const [cartItems, setCartItems] = useState([]);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
+  const { categories } = useCategories();
+  const { ordered: products, status: productsStatus } = useProducts();
 
   useEffect(() => {
     let cancelled = false;
@@ -188,43 +189,6 @@ export default function Home() {
       window.removeEventListener("cart-updated", updateLocalCart);
       window.removeEventListener("storage", updateLocalCart);
       window.removeEventListener(AUTH_EVENT, syncServerCart);
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/categories")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload) => {
-        if (cancelled) return;
-        const nextCategories = Array.isArray(payload?.categories) ? payload.categories : [];
-        setCategories(nextCategories);
-      })
-      .catch(() => {
-        if (!cancelled) setCategories([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/products")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload) => {
-        if (cancelled) return;
-        const nextProducts = Array.isArray(payload?.flat) ? payload.flat : [];
-        setProducts(nextProducts);
-        setProductsStatus("ready");
-      })
-      .catch(() => {
-        if (!cancelled) setProductsStatus("error");
-      });
-
-    return () => {
-      cancelled = true;
     };
   }, []);
 

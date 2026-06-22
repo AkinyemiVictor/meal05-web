@@ -5,7 +5,7 @@ export function formatNaira(value) {
     );
   } catch {
     const n = Math.round(Number(value) || 0).toLocaleString();
-    return `₦${n}`;
+    return `NGN ${n}`;
   }
 }
 
@@ -100,8 +100,8 @@ export function renderReceiptHtml(order, options = {}) {
                       <tr>
                         <th align="left" style="padding:12px 8px;color:${dark};text-align:left">Item</th>
                         <th align="center" style="padding:12px 8px;color:${dark};text-align:center">Qty</th>
-                        <th align="right" style="padding:12px 8px;color:${dark};text-align:right">Price (₦)</th>
-                        <th align="right" style="padding:12px 8px;color:${dark};text-align:right">Subtotal (₦)</th>
+                        <th align="right" style="padding:12px 8px;color:${dark};text-align:right">Price</th>
+                        <th align="right" style="padding:12px 8px;color:${dark};text-align:right">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -136,6 +136,81 @@ export function renderReceiptHtml(order, options = {}) {
             </table>
           </td>
         </tr>
+      </table>
+    </body>
+  </html>`;
+}
+
+export function renderOrderConfirmationHtml(order, options = {}) {
+  const brandGreen = "#00ac11";
+  const dark = "#0f172a";
+  const muted = "#475569";
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const summary = order?.summary || { subtotal: 0, deliveryFee: 0, total: 0 };
+  const baseUrl = options.baseUrl || process.env.APP_BASE_URL || "";
+  const orderHref = baseUrl ? `${baseUrl.replace(/\/$/, "")}/account?tab=orders` : "";
+
+  return `
+  <!doctype html>
+  <html>
+    <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
+    <body style="margin:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${dark}">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7f6;padding:24px 12px">
+        <tr><td align="center">
+          <table role="presentation" width="680" cellspacing="0" cellpadding="0" style="max-width:680px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden">
+            <tr><td style="padding:24px 28px;border-bottom:1px dashed #e2e8f0">
+              <div style="font-weight:800;color:${brandGreen};font-size:22px">Meal05</div>
+              <h1 style="margin:18px 0 8px;font-size:24px;color:${dark}">Order received</h1>
+              <p style="margin:0;color:${muted};line-height:1.6">We have received your order ${escapeHtml(order?.orderId || "")}. We will send payment and delivery updates as your order moves forward.</p>
+            </td></tr>
+            <tr><td style="padding:22px 28px">
+              <p style="margin:0 0 8px;color:${muted}">Delivery address</p>
+              <p style="margin:0 0 18px;color:${dark};font-weight:700">${escapeHtml(order?.address || order?.user?.address || "-")}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
+                ${items.map((item) => {
+                  const qty = Number(item?.quantity ?? item?.orderCount ?? 1) || 1;
+                  return `<tr><td style="padding:10px 0;color:${dark}">${escapeHtml(item?.name || "Item")}</td><td align="right" style="padding:10px 0;color:${muted}">x${qty}</td></tr>`;
+                }).join("")}
+              </table>
+              <p style="margin:18px 0 0;text-align:right;font-weight:800;color:${dark}">Order total: ${formatNaira(summary?.total)}</p>
+              ${orderHref ? `<p style="margin:22px 0 0"><a href="${orderHref}" style="display:inline-block;background:${brandGreen};color:#fff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:700">View order</a></p>` : ""}
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+  </html>`;
+}
+
+export function renderAdminOrderAlertHtml(order, options = {}) {
+  const brandGreen = "#00ac11";
+  const dark = "#0f172a";
+  const muted = "#475569";
+  const summary = order?.summary || { total: 0 };
+  const baseUrl = options.baseUrl || process.env.APP_BASE_URL || "";
+  const adminHref = baseUrl ? `${baseUrl.replace(/\/$/, "")}/admin/orders?orderId=${encodeURIComponent(order?.orderId || "")}` : "";
+
+  return `
+  <!doctype html>
+  <html>
+    <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
+    <body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${dark}">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 12px">
+        <tr><td align="center">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border:1px solid #e2e8f0;border-radius:12px">
+            <tr><td style="padding:22px 24px">
+              <h1 style="margin:0 0 12px;color:${dark};font-size:22px">New Meal05 order</h1>
+              <p style="margin:0 0 16px;color:${muted}">Order ${escapeHtml(order?.orderId || "-")} was placed for ${formatNaira(summary?.total)}.</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr><td style="padding:6px 0;color:${muted}">Customer</td><td align="right" style="padding:6px 0;color:${dark};font-weight:700">${escapeHtml(order?.fullName || order?.user?.name || order?.user?.email || "-")}</td></tr>
+                <tr><td style="padding:6px 0;color:${muted}">Email</td><td align="right" style="padding:6px 0;color:${dark}">${escapeHtml(order?.email || order?.user?.email || "-")}</td></tr>
+                <tr><td style="padding:6px 0;color:${muted}">Payment</td><td align="right" style="padding:6px 0;color:${dark}">${escapeHtml(order?.paymentMethod || "-")}</td></tr>
+                <tr><td style="padding:6px 0;color:${muted}">Address</td><td align="right" style="padding:6px 0;color:${dark}">${escapeHtml(order?.address || order?.user?.address || "-")}</td></tr>
+              </table>
+              ${adminHref ? `<p style="margin:20px 0 0"><a href="${adminHref}" style="display:inline-block;background:${brandGreen};color:#fff;text-decoration:none;padding:11px 14px;border-radius:8px;font-weight:700">Open order</a></p>` : ""}
+            </td></tr>
+          </table>
+        </td></tr>
       </table>
     </body>
   </html>`;

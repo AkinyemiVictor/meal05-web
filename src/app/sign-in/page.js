@@ -8,28 +8,24 @@ import { useNotice } from "@/components/notice-provider";
 import { useSearchParams } from "next/navigation";
 
 import "@/styles/sign-in.css";
-import { persistStoredUser, readStoredUser } from "@/lib/auth";
+import { clearStoredUser, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
 import { migrateGuestCartToUser } from "@/lib/cart-storage";
-import { BRAND_MARK_SRC, BRAND_WORDMARK_DARK_SRC } from "@/lib/theme-logo";
+import { BRAND_WORDMARK_SRC } from "@/lib/theme-logo";
+import { DEFAULT_PHONE_COUNTRY_CODE, PHONE_COUNTRY_OPTIONS } from "@/lib/phone-country-options";
 
 const NAME_PATTERN = "[A-Za-z]+";
 const EMAIL_PATTERN = "[A-Za-z0-9]+@[A-Za-z0-9]+\\.com";
 const PASSWORD_PATTERN = "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{8,}";
-const PHONE_NUMBER_PATTERN = "[0-9]{10}";
+const PHONE_INPUT_PATTERN = "[0-9\\s().-]{4,24}";
+const PHONE_NUMBER_PATTERN = "[0-9]{4,14}";
+const REMEMBERED_LOGIN_EMAIL_KEY = "meal05_remembered_login_email";
 
 const NAME_REGEX = new RegExp(`^${NAME_PATTERN}$`);
 const EMAIL_REGEX = new RegExp(`^${EMAIL_PATTERN}$`);
 const PASSWORD_REGEX = new RegExp(`^${PASSWORD_PATTERN}$`);
 const PHONE_NUMBER_REGEX = new RegExp(`^${PHONE_NUMBER_PATTERN}$`);
-
-const PHONE_COUNTRY_OPTIONS = [
-  { code: "+234", label: "Nigeria", flag: "\uD83C\uDDF3\uD83C\uDDEC" },
-  { code: "+233", label: "Ghana", flag: "\uD83C\uDDEC\uD83C\uDDED" },
-  { code: "+44", label: "United Kingdom", flag: "\uD83C\uDDEC\uD83C\uDDE7" },
-  { code: "+1", label: "United States", flag: "\uD83C\uDDFA\uD83C\uDDF8" },
-  { code: "+971", label: "United Arab Emirates", flag: "\uD83C\uDDE6\uD83C\uDDEA" },
-];
+const PHONE_INPUT_REGEX = new RegExp(`^${PHONE_INPUT_PATTERN}$`);
 
 const TAB_OPTIONS = [
   { key: "login", label: "Sign in", hash: "#loginForm" },
@@ -73,6 +69,18 @@ function SignInPageContent() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const text = `${window.location.search || ""} ${window.location.hash || ""}`;
+    return /type=recovery|password_recovery|recovery/i.test(text);
+  });
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryConfirm, setRecoveryConfirm] = useState("");
+  const [showRecoveryPassword, setShowRecoveryPassword] = useState(false);
+  const [showRecoveryConfirm, setShowRecoveryConfirm] = useState(false);
+  const [isSavingRecoveryPassword, setIsSavingRecoveryPassword] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const { showNotice } = useNotice();
   const clearLoginInlineHint = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -103,6 +111,13 @@ function SignInPageContent() {
       url.searchParams.set("next", requestedNext);
     }
     url.hash = "loginForm";
+    return url.toString();
+  }, [requestedNext]);
+  const getSignupConfirmRedirect = useCallback(() => {
+    const url = new URL("/auth/callback", window.location.origin);
+    if (requestedNext) {
+      url.searchParams.set("next", requestedNext);
+    }
     return url.toString();
   }, [requestedNext]);
   const handleGoogleSignIn = useCallback(async () => {
@@ -161,6 +176,30 @@ function SignInPageContent() {
     };
   }, [syncFromLocation]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const supabase = getBrowserSupabaseClient();
+    const markRecoveryFromUrl = () => {
+      const text = `${window.location.search || ""} ${window.location.hash || ""}`;
+      if (/type=recovery|password_recovery|recovery/i.test(text)) {
+        setIsPasswordRecovery(true);
+        setActiveTab("login");
+      }
+    };
+    markRecoveryFromUrl();
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecovery(true);
+        setActiveTab("login");
+      }
+    });
+    window.addEventListener("hashchange", markRecoveryFromUrl);
+    return () => {
+      window.removeEventListener("hashchange", markRecoveryFromUrl);
+      data?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
   // Also react to client-side Next.js navigation where hashchange/popstate may not fire
   useEffect(() => {
     if (!searchParams) return;
@@ -205,6 +244,19 @@ function SignInPageContent() {
 
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const rememberedEmail = window.localStorage.getItem(REMEMBERED_LOGIN_EMAIL_KEY) || "";
+      if (!rememberedEmail) return;
+      const emailInput = document.getElementById("login-email");
+      if (emailInput instanceof HTMLInputElement && !emailInput.value) {
+        emailInput.value = rememberedEmail;
+        setRememberMe(true);
+      }
+    } catch {}
+  }, []);
 
   const handleNavigateBack = useCallback(() => {
     if (typeof window === "undefined") {
@@ -292,6 +344,13 @@ function SignInPageContent() {
       const fullName = `${firstName} ${lastName}`.trim();
       const user = { firstName, lastName, fullName, email };
       persistStoredUser(user);
+      try {
+        if (rememberMe) {
+          window.localStorage.setItem(REMEMBERED_LOGIN_EMAIL_KEY, email);
+        } else {
+          window.localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
+        }
+      } catch {}
       migrateGuestCartToUser(user);
       try {
         await fetch("/api/users/sync", {
@@ -305,7 +364,7 @@ function SignInPageContent() {
       console.error("Supabase login error", e);
       await showNotice({ tone: "error", title: "Login error", message: "Unexpected error during login. Please try again." });
     }
-  }, [fallbackAfterAuth, getLoginResetRedirect, showNotice]);
+  }, [fallbackAfterAuth, getLoginResetRedirect, rememberMe, showNotice]);
 
   const handleForgotPassword = useCallback(async (event) => {
     try {
@@ -360,9 +419,10 @@ function SignInPageContent() {
     const lastNameRaw = String(formData.get("signup-last-name") || "").trim();
     const email = String(formData.get("signup-email") || "").trim();
     const phoneCountry =
-      String(formData.get("signup-phone-country") || PHONE_COUNTRY_OPTIONS[0].code).trim() ||
-      PHONE_COUNTRY_OPTIONS[0].code;
-    const phoneDigits = String(formData.get("signup-phone") || "").trim();
+      String(formData.get("signup-phone-country") || DEFAULT_PHONE_COUNTRY_CODE).trim() ||
+      DEFAULT_PHONE_COUNTRY_CODE;
+    const phoneRaw = String(formData.get("signup-phone") || "").trim();
+    const phoneDigits = phoneRaw.replace(/\D/g, "");
     const password = String(formData.get("signup-password") || "");
     const confirm = String(formData.get("signup-confirm-password") || "");
 
@@ -397,9 +457,9 @@ function SignInPageContent() {
       return;
     }
 
-    if (!PHONE_NUMBER_REGEX.test(phoneDigits)) {
+    if (!PHONE_INPUT_REGEX.test(phoneRaw) || !PHONE_NUMBER_REGEX.test(phoneDigits)) {
       if (phoneDigitsInput instanceof HTMLInputElement) {
-        phoneDigitsInput.setCustomValidity("Enter exactly 10 digits for your phone number.");
+        phoneDigitsInput.setCustomValidity("Enter a valid phone number using 4 to 14 digits after the country code.");
         phoneDigitsInput.reportValidity();
       }
       return;
@@ -457,6 +517,7 @@ function SignInPageContent() {
         email,
         password,
         options: {
+          emailRedirectTo: getSignupConfirmRedirect(),
           data: {
             name: fullName,
             first_name: firstName,
@@ -497,16 +558,19 @@ function SignInPageContent() {
           ],
         });
         return;
-        await showNotice({
-          tone: "info",
-          title: "Account already exists",
-          message: "You already have an account with this email. Redirecting to login...",
-        });
-        setTimeout(() => { window.location.replace(loginTabHref); }, 1200);
-        return;
       }
 
       const user = { firstName, lastName, fullName, email, phone: `${phoneCountry}${phoneDigits}` };
+      if (!data?.session) {
+        await showNotice({
+          tone: "success",
+          title: "Confirm your email",
+          message: "Please check your email to confirm your account, then sign in.",
+        });
+        setTimeout(() => { window.location.replace(loginTabHref); }, 1400);
+        return;
+      }
+
       persistStoredUser(user);
       migrateGuestCartToUser(user);
       // If email confirmation is disabled and a session exists, sync names into public.users
@@ -520,24 +584,53 @@ function SignInPageContent() {
         }
       } catch {}
 
-      if (!data?.session) {
-        // Email confirmation may be required
-        await showNotice({ tone: "success", title: "Account created", message: "Please check your email to confirm your account." });
-      }
-
       window.location.replace(fallbackAfterAuth);
     } catch (e) {
       console.error("Supabase signup error", e);
       await showNotice({ tone: "error", title: "Signup error", message: "Unexpected error during signup. Please try again." });
     }
-  }, [fallbackAfterAuth, getLoginResetRedirect, loginTabHref, showNotice]);
+  }, [fallbackAfterAuth, getLoginResetRedirect, getSignupConfirmRedirect, loginTabHref, showNotice]);
+
+  const handleRecoverySubmit = useCallback(async (event) => {
+    event.preventDefault();
+    setRecoveryError("");
+    if (!PASSWORD_REGEX.test(recoveryPassword)) {
+      setRecoveryError("Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.");
+      return;
+    }
+    if (recoveryPassword !== recoveryConfirm) {
+      setRecoveryError("Passwords must match.");
+      return;
+    }
+    setIsSavingRecoveryPassword(true);
+    try {
+      const supabase = getBrowserSupabaseClient();
+      const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
+      if (error) {
+        setRecoveryError(error.message || "Could not update password. Please request a new reset link.");
+        return;
+      }
+      clearStoredUser();
+      await supabase.auth.signOut();
+      await showNotice({
+        tone: "success",
+        title: "Password updated",
+        message: "Your password has been updated. Sign in with the new password.",
+      });
+      window.location.replace(loginTabHref);
+    } catch (error) {
+      setRecoveryError(error?.message || "Could not update password. Please request a new reset link.");
+    } finally {
+      setIsSavingRecoveryPassword(false);
+    }
+  }, [loginTabHref, recoveryConfirm, recoveryPassword, showNotice]);
 
   useEffect(() => {
     const existing = readStoredUser();
-    if (existing) {
+    if (existing && !isPasswordRecovery) {
       window.location.replace(fallbackAfterAuth);
     }
-  }, [fallbackAfterAuth]);
+  }, [fallbackAfterAuth, isPasswordRecovery]);
 
   const isLoginActive = activeTab === "login";
 
@@ -547,31 +640,37 @@ function SignInPageContent() {
         <aside className="auth-aside" aria-label="Meal05 membership highlights">
           <div className="auth-aside-inner">
             <div>
-              <span className="auth-aside-badge">Meal05 market access</span>
-              <h1 className="auth-aside-title">Fresh food, sorted before the week gets busy.</h1>
+              <span className="auth-aside-badge"><span aria-hidden="true" />Meal05 community</span>
+              <h1 className="auth-aside-title">Groceries done in <span>05 minutes.</span></h1>
               <p className="auth-aside-text">
-                Sign in to continue your cart, repeat trusted staples, and keep delivery details ready for the next
-                grocery run.
+                Stay on top of your kitchen with active fleet tracking and hyper-local sourcing across Ibadan.
               </p>
               <ul className="auth-aside-list">
                 <li>
-                  <i className="fa-solid fa-basket-shopping" aria-hidden="true" />
-                  <span>Same-day delivery across Ibadan</span>
+                  <i className="fa-solid fa-check" aria-hidden="true" />
+                  <span><strong>Same-day delivery across Ibadan</strong></span>
                 </li>
                 <li>
-                  <i className="fa-solid fa-leaf" aria-hidden="true" />
-                  <span>Fresh produce, pantry staples, and MealKits</span>
+                  <i className="fa-solid fa-check" aria-hidden="true" />
+                  <span><strong>Chef-picked seasonal bundles</strong></span>
                 </li>
                 <li>
-                  <i className="fa-solid fa-clock-rotate-left" aria-hidden="true" />
-                  <span>Saved carts and faster reorders</span>
+                  <i className="fa-solid fa-check" aria-hidden="true" />
+                  <span><strong>Secure payments and instant tracking</strong></span>
                 </li>
               </ul>
             </div>
-            <p className="auth-aside-footer">
-              Need help logging in?{' '}
-              <Link href="/help-center">Talk to our concierge</Link>
-            </p>
+            <div className="auth-aside-bottom">
+              <div className="auth-aside-stats" aria-label="Meal05 service highlights">
+                <span><strong>Ibadan</strong><small>launch city</small></span>
+                <span><strong>Live</strong><small>order tracking</small></span>
+                <span><strong>SSL</strong><small>secure checkout</small></span>
+              </div>
+              <p className="auth-aside-footer">
+                Need help logging in?{' '}
+                <Link href="/help-center">Talk to our concierge</Link>
+              </p>
+            </div>
           </div>
         </aside>
 
@@ -579,36 +678,102 @@ function SignInPageContent() {
           <div className="auth-panel-header auth-panel-header--top">
             <button type="button" className="auth-back-btn" onClick={handleNavigateBack}>
               <i className="fa-solid fa-arrow-left" aria-hidden="true" />
-              <span>Back</span>
+              <span>Back to store</span>
             </button>
+            <Link href="/" className="auth-panel-logo" aria-label="Meal05 home">
+              <Image src={BRAND_WORDMARK_SRC} alt="Meal05" width={94} height={40} priority />
+            </Link>
           </div>
 
-          <div className="auth-panel-header auth-panel-header--logo">
-            <div className="auth-panel-logo">
-              <Image
-                src={BRAND_MARK_SRC}
-                alt="Meal05 brand mark"
-                width={92}
-                height={92}
-                sizes="92px"
-                loading="lazy"
-              />
-            </div>
+          <div className="auth-panel-header auth-panel-header--copy">
             <div className="auth-panel-heading">
-              <Image
-                src={BRAND_WORDMARK_DARK_SRC}
-                alt="Meal05"
-                width={132}
-                height={44}
-                sizes="132px"
-                className="auth-panel-wordmark"
-                loading="lazy"
-              />
-              <h2>{isLoginActive ? "Welcome back" : "Create your account"}</h2>
-              <p>{isLoginActive ? "Continue shopping with your saved cart and delivery details." : "Set up your profile for faster food orders."}</p>
+              <h2>{isPasswordRecovery ? "Update password" : isLoginActive ? "Welcome back" : "Create your account"}</h2>
+              <p>
+                {isPasswordRecovery
+                  ? "Choose a new password for your Meal05 account."
+                  : isLoginActive
+                    ? "Continue shopping with your saved cart and delivery details."
+                    : "Set up your profile for faster food orders."}
+              </p>
             </div>
           </div>
 
+          {isPasswordRecovery ? (
+            <form className="auth-form is-active" onSubmit={handleRecoverySubmit}>
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="recovery-password">
+                  New password
+                </label>
+                <div className="auth-password-group">
+                  <input
+                    id="recovery-password"
+                    type={showRecoveryPassword ? "text" : "password"}
+                    name="recovery-password"
+                    placeholder="New password"
+                    required
+                    autoComplete="new-password"
+                    pattern={PASSWORD_PATTERN}
+                    value={recoveryPassword}
+                    onChange={(event) => {
+                      setRecoveryPassword(event.target.value);
+                      setRecoveryError("");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="auth-password-toggle"
+                    aria-label={showRecoveryPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showRecoveryPassword}
+                    onClick={() => setShowRecoveryPassword((state) => !state)}
+                    title={showRecoveryPassword ? "Hide password" : "Show password"}
+                  >
+                    <i className={`fa-regular ${showRecoveryPassword ? "fa-eye-slash" : "fa-eye"}`} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="recovery-confirm-password">
+                  Confirm new password
+                </label>
+                <div className="auth-password-group">
+                  <input
+                    id="recovery-confirm-password"
+                    type={showRecoveryConfirm ? "text" : "password"}
+                    name="recovery-confirm-password"
+                    placeholder="Confirm new password"
+                    required
+                    autoComplete="new-password"
+                    pattern={PASSWORD_PATTERN}
+                    value={recoveryConfirm}
+                    onChange={(event) => {
+                      setRecoveryConfirm(event.target.value);
+                      setRecoveryError("");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="auth-password-toggle"
+                    aria-label={showRecoveryConfirm ? "Hide password" : "Show password"}
+                    aria-pressed={showRecoveryConfirm}
+                    onClick={() => setShowRecoveryConfirm((state) => !state)}
+                    title={showRecoveryConfirm ? "Hide password" : "Show password"}
+                  >
+                    <i className={`fa-regular ${showRecoveryConfirm ? "fa-eye-slash" : "fa-eye"}`} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+              <button type="submit" className="auth-primary-btn" disabled={isSavingRecoveryPassword}>
+                <span>{isSavingRecoveryPassword ? "Updating..." : "Update password"}</span>
+                <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+              </button>
+              {recoveryError ? (
+                <p className="auth-inline-error" role="alert">
+                  {recoveryError}
+                </p>
+              ) : null}
+            </form>
+          ) : (
+            <>
           <div className="auth-tabs" role="tablist" aria-label="Authentication tabs">
             {TAB_OPTIONS.map((tab) => (
               <button
@@ -635,8 +800,8 @@ function SignInPageContent() {
               onSubmit={handleLoginSubmit}
             >
               <div className="auth-field">
-                <label className="sr-only" htmlFor="login-email">
-                  Email
+                <label className="auth-label" htmlFor="login-email">
+                  Email address
                 </label>
                 <input
                   id="login-email"
@@ -649,7 +814,7 @@ function SignInPageContent() {
                 />
               </div>
               <div className="auth-field">
-                <label className="sr-only" htmlFor="login-password">
+                <label className="auth-label" htmlFor="login-password">
                   Password
                 </label>
                 <div className="auth-password-group">
@@ -673,11 +838,22 @@ function SignInPageContent() {
                   </button>
                 </div>
               </div>
-              <div className="auth-forgot">
+              <div className="auth-login-options">
+                <label className="auth-remember" htmlFor="login-remember">
+                  <input
+                    id="login-remember"
+                    name="login-remember"
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                  />
+                  <span>Remember me</span>
+                </label>
                 <Link href="#" onClick={handleForgotPassword}>Forgot password?</Link>
               </div>
               <button type="submit" className="auth-primary-btn">
-                Sign in
+                <span>Sign in</span>
+                <i className="fa-solid fa-chevron-right" aria-hidden="true" />
               </button>
 
               <div className="auth-divider">
@@ -707,7 +883,7 @@ function SignInPageContent() {
             >
               <div className="auth-field auth-field--split">
                 <div className="auth-field-half">
-                  <label className="sr-only" htmlFor="signup-first-name">
+                  <label className="auth-label" htmlFor="signup-first-name">
                     First name
                   </label>
                   <input
@@ -722,7 +898,7 @@ function SignInPageContent() {
                   />
                 </div>
                 <div className="auth-field-half">
-                  <label className="sr-only" htmlFor="signup-last-name">
+                  <label className="auth-label" htmlFor="signup-last-name">
                     Last name
                   </label>
                   <input
@@ -738,8 +914,8 @@ function SignInPageContent() {
                 </div>
               </div>
               <div className="auth-field">
-                <label className="sr-only" htmlFor="signup-email">
-                  Email
+                <label className="auth-label" htmlFor="signup-email">
+                  Email address
                 </label>
                 <input
                   id="signup-email"
@@ -754,7 +930,7 @@ function SignInPageContent() {
                 />
               </div>
               <div className="auth-field">
-                <label className="sr-only" htmlFor="signup-phone">
+                <label className="auth-label" htmlFor="signup-phone">
                   Phone number
                 </label>
                 <div className="auth-phone-group">
@@ -765,12 +941,12 @@ function SignInPageContent() {
                     id="signup-phone-country"
                     name="signup-phone-country"
                     className="auth-phone-select"
-                    defaultValue={PHONE_COUNTRY_OPTIONS[0].code}
+                    defaultValue={DEFAULT_PHONE_COUNTRY_CODE}
                     required
                   >
                     {PHONE_COUNTRY_OPTIONS.map((option) => (
-                      <option key={option.code} value={option.code}>
-                        {`${option.flag} ${option.code}`}
+                      <option key={option.iso} value={option.code}>
+                        {`${option.flag} ${option.iso} ${option.code} ${option.label}`}
                       </option>
                     ))}
                   </select>
@@ -782,15 +958,17 @@ function SignInPageContent() {
                     placeholder="8120000000"
                     required
                     autoComplete="tel"
-                    inputMode="tel"
-                    pattern={PHONE_NUMBER_PATTERN}
-                    maxLength={10}
-                    title="Enter exactly 10 digits after the country code"
+                    inputMode="numeric"
+                    pattern={PHONE_INPUT_PATTERN}
+                    minLength={4}
+                    maxLength={24}
+                    title="Enter 4 to 14 digits after the country code. Spaces, dashes, dots, and brackets are allowed."
+                    onInput={(e) => { try { e.currentTarget.setCustomValidity(""); } catch {} }}
                   />
                 </div>
               </div>
               <div className="auth-field">
-                <label className="sr-only" htmlFor="signup-password">
+                <label className="auth-label" htmlFor="signup-password">
                   Password
                 </label>
                 <div className="auth-password-group">
@@ -817,7 +995,7 @@ function SignInPageContent() {
                 </div>
               </div>
               <div className="auth-field">
-                <label className="sr-only" htmlFor="signup-confirm-password">
+                <label className="auth-label" htmlFor="signup-confirm-password">
                   Confirm password
                 </label>
                 <div className="auth-password-group">
@@ -844,7 +1022,8 @@ function SignInPageContent() {
                 </div>
               </div>
               <button type="submit" className="auth-primary-btn">
-                Create account
+                <span>Create account</span>
+                <i className="fa-solid fa-chevron-right" aria-hidden="true" />
               </button>
 
               <div className="auth-divider">
@@ -864,6 +1043,8 @@ function SignInPageContent() {
               </p>
             </form>
           </div>
+            </>
+          )}
 
           <p className="auth-disclaimer">
             By using Meal05 you agree to our{' '}

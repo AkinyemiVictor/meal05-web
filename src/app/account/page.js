@@ -3,18 +3,24 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./account.module.css";
 import { AUTH_EVENT, clearStoredUser, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { ORDERS_EVENT, readUserOrders, updateUserOrderStatus, setUserOrders } from "@/lib/orders";
+import { CART_UPDATED_EVENT, readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { getProductHref } from "@/lib/products";
 import useProducts from "@/lib/use-products";
 import { RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 import { resolveProductImage } from "@/lib/product-image";
+import {
+  DEFAULT_PHONE_COUNTRY_CODE,
+  PHONE_COUNTRY_OPTIONS,
+  findPhoneCountryByDialCode,
+} from "@/lib/phone-country-options";
 
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), {
   ssr: false,
@@ -23,6 +29,7 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), {
 const ACCOUNT_TABS = [
   { slug: "overview", label: "My Account", iconClass: "fa-solid fa-user" },
   { slug: "orders", label: "Orders", iconClass: "fa-solid fa-box" },
+  { slug: "cart", label: "Saved Cart", iconClass: "fa-solid fa-cart-shopping" },
   { slug: "wishlist", label: "Wishlist", iconClass: "fa-regular fa-heart" },
   { slug: "voucher", label: "Voucher", iconClass: "fa-solid fa-ticket" },
   { slug: "recent", label: "Recently Viewed", iconClass: "fa-solid fa-clock-rotate-left" },
@@ -36,16 +43,10 @@ const FALLBACK_USER = {
   email: "hello@mealkit.ng",
 };
 
-const PHONE_COUNTRY_OPTIONS = [
-  { code: "+234", label: "Nigeria", flag: "\uD83C\uDDF3\uD83C\uDDEC" },
-  { code: "+233", label: "Ghana", flag: "\uD83C\uDDEC\uD83C\uDDED" },
-  { code: "+44", label: "United Kingdom", flag: "\uD83C\uDDEC\uD83C\uDDE7" },
-  { code: "+1", label: "United States", flag: "\uD83C\uDDFA\uD83C\uDDF8" },
-  { code: "+971", label: "United Arab Emirates", flag: "\uD83C\uDDE6\uD83C\uDDEA" },
-];
-
-const PHONE_NUMBER_PATTERN = "[0-9]{10}";
+const PHONE_INPUT_PATTERN = "[0-9\\s().-]{4,24}";
+const PHONE_NUMBER_PATTERN = "[0-9]{4,14}";
 const PHONE_NUMBER_REGEX = new RegExp(`^${PHONE_NUMBER_PATTERN}$`);
+const PHONE_INPUT_REGEX = new RegExp(`^${PHONE_INPUT_PATTERN}$`);
 const SERVICE_CITY = "Ibadan";
 const ADDRESS_MIN_LENGTH = 10;
 
@@ -63,20 +64,20 @@ const formatName = (user) => {
 
 const derivePhoneParts = (phone) => {
   if (!phone || typeof phone !== "string") {
-    return { country: PHONE_COUNTRY_OPTIONS[0].code, digits: "" };
+    return { country: DEFAULT_PHONE_COUNTRY_CODE, digits: "" };
   }
   const trimmed = phone.trim();
-  const matchedCountry = PHONE_COUNTRY_OPTIONS.find((option) => trimmed.startsWith(option.code));
+  const matchedCountry = findPhoneCountryByDialCode(trimmed);
   if (matchedCountry) {
-    const digits = trimmed.slice(matchedCountry.code.length).replace(/\D/g, "").slice(0, 10);
+    const digits = trimmed.slice(matchedCountry.code.length).replace(/\D/g, "").slice(0, 14);
     return {
       country: matchedCountry.code,
       digits,
     };
   }
-  const fallbackDigits = trimmed.replace(/\D/g, "").slice(-10);
+  const fallbackDigits = trimmed.replace(/\D/g, "").slice(-14);
   return {
-    country: PHONE_COUNTRY_OPTIONS[0].code,
+    country: DEFAULT_PHONE_COUNTRY_CODE,
     digits: fallbackDigits,
   };
 };
@@ -156,6 +157,85 @@ const ensureUserAddressBook = (user) => {
   };
 };
 
+const mapApiOrder = (order) => ({
+  orderId: String(order?.id ?? ""),
+  placedAt: order?.createdAt || new Date().toISOString(),
+  status: order?.status || (order?.paymentStatus === "paid" ? "awaiting delivery" : "processing"),
+  paymentStatus: order?.paymentStatus || "pending",
+  deliveryAddress: order?.deliveryAddress || "",
+  summary: { total: Number(order?.total) || 0 },
+  items: Array.isArray(order?.items) ? order.items : [],
+});
+
+const normaliseOrderQuantity = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 1;
+  return Math.max(1, Math.round(numeric));
+};
+
+const getCartLineKey = (item) =>
+  String(item?.variantId || item?.id || item?.productId || "").trim();
+
+const buildCartItemFromOrderItem = (item, productIndex) => {
+  if (!item || typeof item !== "object") return null;
+  const productId = item.productId ?? item.product_id ?? item.product?.id ?? null;
+  if (productId == null) return null;
+  const variantId = item.variantId ?? item.variant_id ?? productId;
+  const product = productIndex?.get?.(String(productId)) || null;
+  const quantity = normaliseOrderQuantity(item.quantity);
+  const productName = item.product?.title || item.product?.name || product?.name || `Product ${productId}`;
+  const unit = item.product?.unit || product?.unit || "";
+  const price = Number(item.unitPrice ?? item.unit_price ?? product?.price ?? 0) || 0;
+
+  return {
+    id: String(variantId),
+    productId: String(productId),
+    variantId: String(variantId),
+    variantName: item.variantName || item.variant_name || product?.variantName || unit || "Default",
+    name: productName,
+    unit: unit || "unit",
+    price,
+    orderSize: 1,
+    orderCount: quantity,
+    quantity,
+    stock: product?.stock,
+    note: "Reordered from account",
+    image: resolveProductImage(item.product?.image, product?.image, product?.mainImageUrl),
+  };
+};
+
+const mergeCartItems = (currentItems, incomingItems) => {
+  const merged = Array.isArray(currentItems) ? currentItems.map((item) => ({ ...item })) : [];
+  (Array.isArray(incomingItems) ? incomingItems : []).forEach((incoming) => {
+    if (!incoming) return;
+    const incomingKey = getCartLineKey(incoming);
+    const incomingProductKey = String(incoming.productId || incoming.id || "").trim();
+    const index = merged.findIndex((item) => {
+      const itemKey = getCartLineKey(item);
+      const itemProductKey = String(item.productId || item.id || "").trim();
+      return itemKey === incomingKey || (!incoming.variantId && incomingProductKey && itemProductKey === incomingProductKey);
+    });
+    if (index >= 0) {
+      const current = merged[index];
+      const nextCount = normaliseOrderQuantity(current.orderCount ?? current.quantity) + normaliseOrderQuantity(incoming.orderCount ?? incoming.quantity);
+      merged[index] = { ...current, ...incoming, orderCount: nextCount, quantity: nextCount, note: current.note || incoming.note };
+    } else {
+      merged.push({ ...incoming });
+    }
+  });
+  return merged;
+};
+
+const saveProfileToServer = (patch) => {
+  if (!patch || typeof patch !== "object") return;
+  fetch("/api/profile", {
+    method: "PUT",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  }).catch(() => {});
+};
+
 function AccountPageContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -163,11 +243,16 @@ function AccountPageContent() {
   const [user, setUser] = useState(null);
   const [hydrated, setHydrated] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [phoneCountry, setPhoneCountry] = useState(PHONE_COUNTRY_OPTIONS[0].code);
+  const [ordersSyncState, setOrdersSyncState] = useState("idle");
+  const [ordersMessage, setOrdersMessage] = useState("");
+  const [savedCart, setSavedCart] = useState([]);
+  const [cartMessage, setCartMessage] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneFeedback, setPhoneFeedback] = useState("");
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const phoneFeedbackTimeoutRef = useRef(null);
+  const profileLoadedRef = useRef(false);
   const [addressValue, setAddressValue] = useState("");
   const [addressFeedback, setAddressFeedback] = useState("");
   const [addressFormLabel, setAddressFormLabel] = useState("Home");
@@ -204,27 +289,98 @@ function AccountPageContent() {
     [accountReturnPath]
   );
 
+  const syncOrdersFromServer = useCallback(
+    async ({ showFeedback = false } = {}) => {
+      if (!user) return;
+      setOrdersSyncState("loading");
+      if (showFeedback) setOrdersMessage("");
+      try {
+        const response = await fetch("/api/orders", { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (showFeedback) setOrdersMessage(payload?.error || "Unable to refresh orders right now.");
+          setOrdersSyncState("error");
+          return;
+        }
+        const apiOrders = Array.isArray(payload?.orders) ? payload.orders.map(mapApiOrder).filter((order) => order.orderId) : [];
+        setUserOrders(apiOrders, user);
+        setOrders(apiOrders);
+        setOrdersSyncState("ready");
+        if (showFeedback) {
+          setOrdersMessage(apiOrders.length ? "Orders refreshed." : "No server orders found yet.");
+        }
+      } catch {
+        if (showFeedback) setOrdersMessage("Unable to refresh orders right now.");
+        setOrdersSyncState("error");
+      }
+    },
+    [user]
+  );
+
   useEffect(() => {
     const stored = ensureUserAddressBook(readStoredUser());
     if (!stored) {
+      setUser(null);
+      setOrders([]);
+      setSavedCart([]);
       router.replace(signInRedirectHref);
       return;
     }
     setUser(stored);
     setOrders(readUserOrders(stored));
+    setSavedCart(readCartItems(stored));
     persistStoredUser(stored);
     setHydrated(true);
   }, [router, signInRedirectHref]);
 
   useEffect(() => {
+    if (!hydrated || !user) return;
+    syncOrdersFromServer();
+  }, [hydrated, syncOrdersFromServer, user]);
+
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    if (profileLoadedRef.current) return;
+    profileLoadedRef.current = true;
+    let cancelled = false;
+    fetch("/api/profile", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (cancelled || !payload?.profile) return;
+        const profile = payload.profile;
+        const merged = ensureUserAddressBook({
+          ...user,
+          fullName:
+            [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
+            profile.name ||
+            user.fullName,
+          phone: profile.phone ?? user.phone,
+          address: profile.address ?? user.address,
+        });
+        setUser(merged);
+        persistStoredUser(merged);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, user]);
+
+  useEffect(() => {
     const handleAuthChange = (event) => {
       const nextUser = ensureUserAddressBook(event?.detail?.user ?? readStoredUser());
       if (!nextUser) {
+        profileLoadedRef.current = false;
+        setUser(null);
+        setOrders([]);
+        setSavedCart([]);
         router.replace(signInRedirectHref);
         return;
       }
+      profileLoadedRef.current = false;
       setUser(nextUser);
       setOrders(readUserOrders(nextUser));
+      setSavedCart(readCartItems(nextUser));
     };
 
     window.addEventListener(AUTH_EVENT, handleAuthChange);
@@ -244,6 +400,17 @@ function AccountPageContent() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleCartChange = () => {
+      setSavedCart(readCartItems());
+    };
+    handleCartChange();
+    window.addEventListener(CART_UPDATED_EVENT, handleCartChange);
+    return () => {
+      window.removeEventListener(CART_UPDATED_EVENT, handleCartChange);
+    };
+  }, []);
+
   const handleSelectTab = (slug) => {
     const params = new URLSearchParams(searchParams?.toString() || "");
     params.set("tab", slug);
@@ -252,6 +419,10 @@ function AccountPageContent() {
 
   const handleLogout = () => {
     clearStoredUser();
+    profileLoadedRef.current = false;
+    setUser(null);
+    setOrders([]);
+    setSavedCart([]);
     router.replace(signInRedirectHref);
   };
 
@@ -395,10 +566,11 @@ function AccountPageContent() {
   const handlePhoneSubmit = (event) => {
     event.preventDefault();
     if (!user) return;
-    const digitsOnly = phoneNumber.trim();
+    const phoneRaw = phoneNumber.trim();
+    const digitsOnly = phoneRaw.replace(/\D/g, "");
     const existingPhone = (user.phone || "").trim();
-    if (digitsOnly && !PHONE_NUMBER_REGEX.test(digitsOnly)) {
-      setPhoneFeedback("Enter exactly 10 digits for your phone number.");
+    if (phoneRaw && (!PHONE_INPUT_REGEX.test(phoneRaw) || !PHONE_NUMBER_REGEX.test(digitsOnly))) {
+      setPhoneFeedback("Enter a valid phone number using 4 to 14 digits after the country code.");
       return;
     }
     const nextValue = digitsOnly ? `${phoneCountry}${digitsOnly}` : "";
@@ -410,6 +582,7 @@ function AccountPageContent() {
     const nextUser = { ...user, phone: nextValue };
     setUser(nextUser);
     persistStoredUser(nextUser);
+    saveProfileToServer({ phone: nextValue });
     setPhoneFeedback(digitsOnly ? "Phone number saved" : "Phone number removed");
     setIsEditingPhone(false);
     schedulePhoneFeedbackClear();
@@ -482,6 +655,7 @@ function AccountPageContent() {
     });
     setUser(nextUser);
     persistStoredUser(nextUser);
+    saveProfileToServer({ address: trimmedAddress });
     setAddressFeedback(trimmedAddress ? "Delivery address saved" : "Delivery address removed");
     setIsEditingAddress(false);
     scheduleAddressFeedbackClear();
@@ -526,6 +700,7 @@ function AccountPageContent() {
     const nextUser = ensureUserAddressBook({ ...user, addresses: nextAddresses, defaultAddressId });
     setUser(nextUser);
     persistStoredUser(nextUser);
+    saveProfileToServer({ address: nextUser.address || "" });
     setAddressValue(nextUser.address || "");
     setAddressFeedback("Address saved");
     scheduleAddressFeedbackClear();
@@ -544,6 +719,7 @@ function AccountPageContent() {
     });
     setUser(nextUser);
     persistStoredUser(nextUser);
+    saveProfileToServer({ address: nextUser.address || "" });
     setAddressValue(nextUser.address || "");
     setAddressFeedback("Address removed");
     scheduleAddressFeedbackClear();
@@ -554,23 +730,65 @@ function AccountPageContent() {
     const nextUser = ensureUserAddressBook({ ...user, defaultAddressId: id });
     setUser(nextUser);
     persistStoredUser(nextUser);
+    saveProfileToServer({ address: nextUser.address || "" });
     setAddressValue(nextUser.address || "");
     setAddressFeedback("Default address updated");
     scheduleAddressFeedbackClear();
   };
 
   const presentOrders = useMemo(
-    () => orders.filter((order) => order.status !== "delivered"),
+    () => orders.filter((order) => !["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
     [orders]
   );
   const pastOrders = useMemo(
-    () => orders.filter((order) => order.status === "delivered"),
+    () => orders.filter((order) => ["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
     [orders]
   );
 
   const handleMarkOrderDelivered = (orderId) => {
     updateUserOrderStatus(orderId, "delivered");
     setOrders(readUserOrders());
+  };
+
+  const handleRefreshOrders = () => {
+    syncOrdersFromServer({ showFeedback: true });
+  };
+
+  const handleReorder = (order) => {
+    const orderItems = Array.isArray(order?.items) ? order.items : [];
+    const incoming = orderItems
+      .map((item) => buildCartItemFromOrderItem(item, productIndex))
+      .filter(Boolean);
+
+    if (!incoming.length) {
+      setCartMessage("This order does not have reorderable items.");
+      return;
+    }
+
+    const nextCart = mergeCartItems(readCartItems(), incoming);
+    writeCartItems(nextCart, undefined, { source: "account-reorder" });
+    setSavedCart(nextCart);
+    setCartMessage(`${incoming.length} item${incoming.length === 1 ? "" : "s"} added back to your cart.`);
+
+    incoming.forEach((item) => {
+      fetch("/api/cart", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_id: item.productId,
+          variant_id: item.variantId || item.productId,
+          variant_name: item.variantName,
+          product_name: item.name,
+          unit_price_at_add: item.price,
+          quantity: normaliseOrderQuantity(item.quantity),
+        }),
+      }).catch(() => {});
+    });
+
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    params.set("tab", "cart");
+    router.replace(`/account?${params.toString()}`, { scroll: false });
   };
 
   const formatOrderDate = (iso) => {
@@ -695,32 +913,17 @@ function AccountPageContent() {
                 <button
                   type="button"
                   className={styles.orderActionButton}
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/orders', { cache: 'no-store' });
-                      const payload = await res.json().catch(() => ({}));
-                      if (!res.ok) {
-                        console.warn('Failed to fetch orders', payload?.error || res.statusText);
-                        return;
-                      }
-                      const apiOrders = Array.isArray(payload?.orders) ? payload.orders : [];
-                      const mapped = apiOrders.map((o) => ({
-                        orderId: String(o.id ?? ''),
-                        placedAt: o.createdAt || new Date().toISOString(),
-                        status: o.status || (o.paymentStatus === 'paid' ? 'awaiting delivery' : 'processing'),
-                        summary: { total: Number(o.total) || 0 },
-                        items: Array.isArray(o.items) ? o.items : [],
-                      }));
-                      setUserOrders(mapped);
-                      setOrders(mapped);
-                    } catch (e) {
-                      console.warn('Unable to sync orders', e);
-                    }
-                  }}
+                  onClick={handleRefreshOrders}
+                  disabled={ordersSyncState === "loading"}
                 >
-                  Refresh from server
+                  {ordersSyncState === "loading" ? "Refreshing..." : "Refresh from server"}
                 </button>
               </div>
+              {ordersMessage ? (
+                <span className={styles.profileMessage} role="status" aria-live="polite">
+                  {ordersMessage}
+                </span>
+              ) : null}
               {presentOrders.length ? (
                 <div className={styles.list}>
                   {presentOrders.map((order) => (
@@ -788,7 +991,7 @@ function AccountPageContent() {
                                     {it?.product?.title || it?.product?.name || `Item ${idx + 1}`}
                                   </div>
                                   <div style={{ color: "#6b7280", fontSize: 13 }}>
-                                    {it?.product?.unit ? `${it.product.unit} • ` : ""}Qty {it?.quantity ?? 0}
+                                    {it?.product?.unit ? `${it.product.unit} - ` : ""}Qty {it?.quantity ?? 0}
                                   </div>
                                 </div>
                                 <div style={{ textAlign: "right" }}>
@@ -848,9 +1051,9 @@ function AccountPageContent() {
                             </svg>
                           </span>
                         </button>
-                        <Link href="/shop" className={styles.cardAction}>
+                        <button type="button" className={styles.orderActionButton} onClick={() => handleReorder(order)}>
                           Reorder items
-                        </Link>
+                        </button>
                       </div>
                       {expandedOrderId === order.orderId ? (
                         <div style={{ marginTop: 12, borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
@@ -876,7 +1079,7 @@ function AccountPageContent() {
                                     {it?.product?.title || it?.product?.name || `Item ${idx + 1}`}
                                   </div>
                                   <div style={{ color: "#6b7280", fontSize: 13 }}>
-                                    {it?.product?.unit ? `${it.product.unit} • ` : ""}Qty {it?.quantity ?? 0}
+                                    {it?.product?.unit ? `${it.product.unit} - ` : ""}Qty {it?.quantity ?? 0}
                                   </div>
                                 </div>
                                 <div style={{ textAlign: "right" }}>
@@ -900,6 +1103,79 @@ function AccountPageContent() {
             </div>
           </>
         );
+      case "cart": {
+        const cartTotal = savedCart.reduce((sum, item) => {
+          const count = normaliseOrderQuantity(item.orderCount ?? item.quantity);
+          return sum + (Number(item.price) || 0) * count;
+        }, 0);
+        return (
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h3 className={styles.sectionTitle}>Saved cart</h3>
+                <p className={styles.cardBody}>
+                  Items saved in your cart are kept here so you can continue checkout or rebuild an order quickly.
+                </p>
+              </div>
+              <span className={styles.addressBadge}>{savedCart.length} item{savedCart.length === 1 ? "" : "s"}</span>
+            </div>
+
+            {cartMessage ? (
+              <span className={styles.profileMessage} role="status" aria-live="polite">
+                {cartMessage}
+              </span>
+            ) : null}
+
+            {savedCart.length ? (
+              <>
+                <div className={styles.list}>
+                  {savedCart.map((item, index) => {
+                    const quantity = normaliseOrderQuantity(item.orderCount ?? item.quantity);
+                    const lineTotal = (Number(item.price) || 0) * quantity;
+                    return (
+                      <div className={styles.listItem} key={`${item.variantId || item.id || item.productId || index}`}>
+                        <div className={styles.orderInfo}>
+                          <strong>{item.name || item.productName || `Cart item ${index + 1}`}</strong>
+                          <span>
+                            {item.variantName ? `${item.variantName} - ` : ""}
+                            Qty {quantity}
+                            {item.unit ? ` - ${item.unit}` : ""}
+                          </span>
+                        </div>
+                        <div className={styles.listItemValue}>
+                          <span>{formatProductPrice(lineTotal)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className={styles.twoColumn}>
+                  <div className={styles.card}>
+                    <h3 className={styles.cardTitle}>Cart total</h3>
+                    <p className={styles.cardBody}>{formatProductPrice(cartTotal)}</p>
+                    <Link href="/cart" className={styles.cardAction}>
+                      Review cart
+                    </Link>
+                  </div>
+                  <div className={styles.card}>
+                    <h3 className={styles.cardTitle}>Ready to checkout</h3>
+                    <p className={styles.cardBody}>Your default address will be available during checkout.</p>
+                    <Link href="/checkout" className={styles.cardAction}>
+                      Continue checkout
+                    </Link>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className={styles.sectionEmpty}>
+                <i className="fa-solid fa-cart-shopping" aria-hidden="true" style={{ fontSize: "1.6rem" }} />
+                <p>Your saved cart is empty. Reorder a past order or add fresh items from the catalogue.</p>
+                <Link href="/shop">Browse catalogue</Link>
+              </div>
+            )}
+          </div>
+        );
+      }
       case "wishlist":
         return renderEmptyState(
           "Wishlist",
@@ -1090,8 +1366,8 @@ function AccountPageContent() {
                       }}
                     >
                       {PHONE_COUNTRY_OPTIONS.map((option) => (
-                        <option key={option.code} value={option.code}>
-                          {`${option.flag} ${option.code}`}
+                        <option key={option.iso} value={option.code}>
+                          {`${option.flag} ${option.iso} ${option.code} ${option.label}`}
                         </option>
                       ))}
                     </select>
@@ -1102,16 +1378,17 @@ function AccountPageContent() {
                       className={styles.profilePhoneInput}
                       value={phoneNumber}
                       onChange={(event) => {
-                        setPhoneNumber(event.target.value.replace(/\D/g, "").slice(0, 10));
+                        setPhoneNumber(event.target.value.slice(0, 24));
                         if (phoneFeedback) {
                           setPhoneFeedback("");
                         }
                       }}
                       placeholder="8120000000"
                       autoComplete="tel"
-                      inputMode="tel"
-                      pattern={PHONE_NUMBER_PATTERN}
-                      maxLength={10}
+                      inputMode="numeric"
+                      pattern={PHONE_INPUT_PATTERN}
+                      minLength={4}
+                      maxLength={24}
                     />
                   </div>
                   <p className={styles.profileHint}>We use this number for delivery updates and order support.</p>
@@ -1333,6 +1610,16 @@ function AccountPageContent() {
             <span className={styles.sidebarHeading}>Loading</span>
           </div>
           <div className={styles.skeleton}>Preparing your account...</div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className={styles.page}>
+        <div className={styles.layout}>
+          <div className={styles.skeleton}>Redirecting to sign in...</div>
         </div>
       </main>
     );

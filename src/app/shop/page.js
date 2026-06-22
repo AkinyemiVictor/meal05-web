@@ -11,8 +11,13 @@ import BundlePlanCard from "@/components/bundle-plan-card";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
 import SortSelect from "@/components/sort-select";
-import BUNDLE_PLANS from "@/data/bundle-plans";
-import { getBundlePlanPricingState } from "@/lib/bundle-plans";
+import {
+  buildCatalogItems,
+  getCatalogItemName,
+  getCatalogItemPrice,
+  isBundleCatalogItem,
+} from "@/lib/catalog-items";
+import useCategories from "@/lib/use-categories";
 import useProducts from "@/lib/use-products";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
@@ -32,7 +37,6 @@ const SORT_OPTIONS = [
 export default function ShopPage() {
   const pageRef = useRef(null);
   const [activeSlug, setActiveSlug] = useState("all");
-  const [categories, setCategories] = useState([]);
   const [sort, setSort] = useState("default");
   const [currentPage, setCurrentPage] = useState(1);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
@@ -40,25 +44,10 @@ export default function ShopPage() {
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
 
   const { ordered, status } = useProducts();
+  const { categories, status: categoriesStatus } = useCategories();
   const isLoading = status === "loading";
   const hasError = status === "error";
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/categories")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload) => {
-        if (!cancelled) {
-          setCategories(Array.isArray(payload?.categories) ? payload.categories : []);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCategories([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const hasCategoriesError = categoriesStatus === "error";
 
   const categoryCards = useMemo(
     () =>
@@ -72,11 +61,7 @@ export default function ShopPage() {
   );
 
   const catalogItems = useMemo(() => {
-    const products = Array.isArray(ordered)
-      ? ordered.map((product) => ({ type: "product", id: `product-${product.id}`, product }))
-      : [];
-    const bundles = BUNDLE_PLANS.map((plan) => ({ type: "bundle", id: `bundle-${plan.id || plan.slug}`, plan }));
-    return [...products, ...bundles];
+    return buildCatalogItems(ordered);
   }, [ordered]);
 
   const filteredProducts = useMemo(() => {
@@ -86,16 +71,9 @@ export default function ShopPage() {
       : ordered
           .filter((product) => product.categorySlug === activeSlug)
           .map((product) => ({ type: "product", id: `product-${product.id}`, product }));
-    const getName = (item) => item.product?.name || item.plan?.name || "";
-    const getPrice = (item) => {
-      if (item.type === "bundle") {
-        return Number(item.plan?.bundlePriceNgn || getBundlePlanPricingState(item.plan).individualTotalNgn || 0);
-      }
-      return Number(item.product?.price || 0);
-    };
-    if (sort === "price-asc") list = [...list].sort((a, b) => getPrice(a) - getPrice(b));
-    else if (sort === "price-desc") list = [...list].sort((a, b) => getPrice(b) - getPrice(a));
-    else if (sort === "name-asc") list = [...list].sort((a, b) => getName(a).localeCompare(getName(b)));
+    if (sort === "price-asc") list = [...list].sort((a, b) => getCatalogItemPrice(a) - getCatalogItemPrice(b));
+    else if (sort === "price-desc") list = [...list].sort((a, b) => getCatalogItemPrice(b) - getCatalogItemPrice(a));
+    else if (sort === "name-asc") list = [...list].sort((a, b) => getCatalogItemName(a).localeCompare(getCatalogItemName(b)));
     return list;
   }, [ordered, activeSlug, sort, catalogItems]);
 
@@ -152,27 +130,34 @@ export default function ShopPage() {
       </div>
 
       {/* Category filter tabs */}
-      <div style={{ overflowX: "auto", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content", padding: "0 0.25rem" }}>
-          <button
-            type="button"
-            onClick={() => setActiveSlug("all")}
-            className={`category-carousel__card${activeSlug === "all" ? " is-active" : ""}`}
-            style={{ flexShrink: 0, padding: "0.5rem 1rem", borderRadius: "999px", border: "1.5px solid var(--mk-border)", background: activeSlug === "all" ? "var(--mk-accent)" : "var(--mk-surface)", color: activeSlug === "all" ? "#fff" : "var(--mk-text)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", whiteSpace: "nowrap" }}
-          >
-            All products
-          </button>
-          {categories.map((cat) => (
-            <Link
-              key={cat.slug}
-              href={`/categories/${cat.slug}`}
-              style={{ flexShrink: 0, padding: "0.5rem 1rem", borderRadius: "999px", border: "1.5px solid var(--mk-border)", background: activeSlug === cat.slug ? "var(--mk-accent)" : "var(--mk-surface)", color: activeSlug === cat.slug ? "#fff" : "var(--mk-text)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", whiteSpace: "nowrap" }}
+      {hasCategoriesError ? (
+        <PageState title="Category filters are unavailable right now.">
+          <p>You can still browse all products below.</p>
+        </PageState>
+      ) : null}
+      {!hasCategoriesError ? (
+        <div style={{ overflowX: "auto", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content", padding: "0 0.25rem" }}>
+            <button
+              type="button"
+              onClick={() => setActiveSlug("all")}
+              className={`category-carousel__card${activeSlug === "all" ? " is-active" : ""}`}
+              style={{ flexShrink: 0, padding: "0.5rem 1rem", borderRadius: "999px", border: "1.5px solid var(--mk-border)", background: activeSlug === "all" ? "var(--mk-accent)" : "var(--mk-surface)", color: activeSlug === "all" ? "#fff" : "var(--mk-text)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", whiteSpace: "nowrap" }}
             >
-              {cat.label || cat.name}
-            </Link>
-          ))}
+              All products
+            </button>
+            {categories.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/categories/${cat.slug}`}
+                style={{ flexShrink: 0, padding: "0.5rem 1rem", borderRadius: "999px", border: "1.5px solid var(--mk-border)", background: activeSlug === cat.slug ? "var(--mk-accent)" : "var(--mk-surface)", color: activeSlug === cat.slug ? "#fff" : "var(--mk-text)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                {cat.label || cat.name}
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Sort bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.5rem" }}>
@@ -199,7 +184,7 @@ export default function ShopPage() {
           <ProductGrid
             products={pagedProducts}
             renderProduct={(item) => (
-              item.type === "bundle" ? (
+              isBundleCatalogItem(item) ? (
                 <BundlePlanCard key={item.id} plan={item.plan} />
               ) : (
                 <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
@@ -239,7 +224,9 @@ export default function ShopPage() {
         ) : null}
       </div>
 
-      <CategoryCarousel cards={categoryCards} heading="Browse by category" eyebrow="Shop by aisle" activeSlug={activeSlug !== "all" ? activeSlug : undefined} />
+      {hasCategoriesError ? null : (
+        <CategoryCarousel cards={categoryCards} heading="Browse by category" eyebrow="Shop by aisle" activeSlug={activeSlug !== "all" ? activeSlug : undefined} />
+      )}
 
       {quickAddProduct ? (
         <QuickAddDrawer

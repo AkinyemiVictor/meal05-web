@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { shouldShowCommerceFooter } from "@/lib/commerce-chrome";
@@ -10,8 +11,11 @@ import NewsletterSignup from "@/components/newsletter-signup";
 
 export default function Footer() {
   const pathname = usePathname();
+  const [locationSearch, setLocationSearch] = useState("");
+  useEffect(() => {
+    setLocationSearch(window.location.search || "");
+  }, [pathname]);
   if (!shouldShowCommerceFooter(pathname)) return null;
-  const locationSearch = typeof window === "undefined" ? "" : window.location.search;
   const currentPathForAuth = `${pathname || "/"}${locationSearch}`;
   const loginHref = buildSignInHref({ tab: "login", next: currentPathForAuth, hash: "loginForm" });
 

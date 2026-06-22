@@ -275,6 +275,55 @@ export const findMatchingServiceZone = (city, settings) => {
 
 export const isCityServed = (city, settings) => Boolean(findMatchingServiceZone(city, settings));
 
+export const resolveDeliveryArea = (settings, city) => {
+  const normalized = normalizeDeliverySettingsRecord(settings);
+  const fallbackFee = roundMoney(normalized.deliveryFee, DEFAULT_DELIVERY_FEE);
+  const cityText = normalizeZoneText(city);
+  if (!cityText) {
+    return {
+      available: false,
+      zone: "",
+      matchedName: "",
+      fee: fallbackFee,
+      reason: "missing_city",
+    };
+  }
+
+  for (const zone of normalized.serviceZoneFees || []) {
+    const zoneText = normalizeZoneText(zone?.name);
+    if (zoneText && (cityText === zoneText || cityText.includes(zoneText) || zoneText.includes(cityText))) {
+      return {
+        available: true,
+        zone: zone.name,
+        matchedName: zone.name,
+        fee: roundMoney(zone?.fee, fallbackFee),
+        reason: "",
+      };
+    }
+    const subzones = Array.isArray(zone?.subzones) ? zone.subzones : [];
+    for (const subzone of subzones) {
+      const subText = normalizeZoneText(subzone?.name);
+      if (subText && (cityText === subText || cityText.includes(subText) || subText.includes(cityText))) {
+        return {
+          available: true,
+          zone: zone.name,
+          matchedName: subzone.name,
+          fee: roundMoney(subzone?.fee, roundMoney(zone?.fee, fallbackFee)),
+          reason: "",
+        };
+      }
+    }
+  }
+
+  return {
+    available: false,
+    zone: "",
+    matchedName: "",
+    fee: null,
+    reason: "unsupported_city",
+  };
+};
+
 export const isSameDayAvailableNow = (settings, date = new Date()) => {
   const normalized = normalizeDeliverySettingsRecord(settings);
   if (!normalized.sameDayEnabled) return false;
@@ -293,24 +342,8 @@ export const buildSameDayDeliveryNotice = (settings, { useStoredNotice = true } 
 export const getDeliveryFeeForCity = (settings, city) => {
   const normalized = normalizeDeliverySettingsRecord(settings);
   const fallbackFee = roundMoney(normalized.deliveryFee, DEFAULT_DELIVERY_FEE);
-  const cityText = normalizeZoneText(city);
-  if (!cityText) return fallbackFee;
-
-  for (const zone of normalized.serviceZoneFees || []) {
-    const zoneText = normalizeZoneText(zone?.name);
-    if (zoneText && (cityText === zoneText || cityText.includes(zoneText) || zoneText.includes(cityText))) {
-      return roundMoney(zone?.fee, fallbackFee);
-    }
-    const subzones = Array.isArray(zone?.subzones) ? zone.subzones : [];
-    for (const subzone of subzones) {
-      const subText = normalizeZoneText(subzone?.name);
-      if (subText && (cityText === subText || cityText.includes(subText) || subText.includes(cityText))) {
-        return roundMoney(subzone?.fee, roundMoney(zone?.fee, fallbackFee));
-      }
-    }
-  }
-
-  return fallbackFee;
+  const resolved = resolveDeliveryArea(normalized, city);
+  return resolved.available ? resolved.fee : fallbackFee;
 };
 
 export const getServiceZoneFeeRange = (settings) => {

@@ -198,7 +198,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       };
     }
 
-    fetch(`/api/products/${productId}`, { cache: "no-store" })
+    fetch(`/api/products/${productId}`)
       .then((res) => res.json())
       .then((json) => applyData(json))
       .catch((err) => {

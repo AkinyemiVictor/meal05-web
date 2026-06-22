@@ -14,6 +14,7 @@ import ProductGrid from "@/components/product-grid";
 import BUNDLE_PLANS from "@/data/bundle-plans";
 import categories, { getCategoryHref } from "@/data/categories";
 import useProducts from "@/lib/use-products";
+import { buildCatalogItems, isBundleCatalogItem } from "@/lib/catalog-items";
 import {
   pickMostPopularProducts,
   pickNewestProducts,
@@ -43,6 +44,7 @@ export default function SectionViewPage() {
   const isLoadingProducts = !isBundlePlansSlug && productsStatus === "loading";
   const isProductsReady = productsStatus === "ready";
   const hasProductsError = !isBundlePlansSlug && productsStatus === "error";
+  const catalogItems = useMemo(() => buildCatalogItems(allProducts), [allProducts]);
 
   const pageRef = useRef(null);
   const [items, setItems] = useState(() => (isBundlePlansSlug ? BUNDLE_PLANS : []));
@@ -96,9 +98,9 @@ export default function SectionViewPage() {
       setItems(pickInSeasonProducts(seasonal, new Set(), 48));
       return;
     }
-    // Fallback: show full catalogue
-    setItems(allProducts.slice(0, 48));
-  }, [isBundlePlansSlug, slug, allProducts, productIndex, isProductsReady]);
+    // Fallback: show full catalogue, including MealKit bundle plans.
+    setItems(catalogItems.slice(0, 48));
+  }, [isBundlePlansSlug, slug, allProducts, catalogItems, productIndex, isProductsReady]);
 
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const pagedItems = useMemo(() => {
@@ -219,8 +221,14 @@ export default function SectionViewPage() {
               ? pagedItems.map((plan) => (
                   <BundlePlanCard key={plan.id || plan.slug} plan={plan} />
                 ))
-              : pagedItems.map((p) => (
-                  <ProductCard key={p.id} product={p} onQuickAdd={handleQuickAdd} />
+              : pagedItems.map((item) => (
+                  isBundleCatalogItem(item) ? (
+                    <BundlePlanCard key={item.id} plan={item.plan} />
+                  ) : item.product ? (
+                    <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
+                  ) : (
+                    <ProductCard key={item.id} product={item} onQuickAdd={handleQuickAdd} />
+                  )
                 ))}
           </ProductGrid>
         ) : hasProductsError ? (

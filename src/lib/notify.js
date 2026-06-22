@@ -1,8 +1,14 @@
 import "server-only";
-import { renderReceiptHtml } from "@/lib/email-templates";
+import {
+  renderAdminOrderAlertHtml,
+  renderOrderConfirmationHtml,
+  renderReceiptHtml,
+} from "@/lib/email-templates";
 
-const hasSendgrid = () => Boolean(process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM);
-const hasResend = () => Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+const getFromEmail = () => process.env.EMAIL_FROM || process.env.RECEIPT_FROM_EMAIL || "";
+const getFromName = () => process.env.EMAIL_FROM_NAME || process.env.RECEIPT_FROM_NAME || "Meal05";
+const hasSendgrid = () => Boolean(process.env.SENDGRID_API_KEY && getFromEmail());
+const hasResend = () => Boolean((process.env.RESEND_API_KEY || process.env.RESEND_API_TOKEN) && getFromEmail());
 // Require full SMTP creds to avoid triggering nodemailer path accidentally in dev
 const hasSmtp = () =>
   Boolean(
@@ -10,15 +16,33 @@ const hasSmtp = () =>
       process.env.SMTP_PORT &&
       process.env.SMTP_USER &&
       process.env.SMTP_PASS &&
-      process.env.EMAIL_FROM
+      getFromEmail()
+  );
+
+const readEmailList = (value) =>
+  String(value || "")
+    .split(/[,\s;]+/)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entry));
+
+const getAdminOrderAlertRecipients = () =>
+  Array.from(
+    new Set(
+      readEmailList(
+        process.env.ADMIN_ORDER_ALERT_EMAILS ||
+          process.env.ORDER_ALERT_EMAILS ||
+          process.env.ADMIN_EMAILS ||
+          process.env.NEXT_PUBLIC_ADMIN_EMAILS
+      )
+    )
   );
 
 async function sendViaSendgrid({ to, subject, html }) {
   const apiKey = process.env.SENDGRID_API_KEY;
-  const from = process.env.EMAIL_FROM;
+  const from = getFromEmail();
   const body = {
     personalizations: [{ to: [{ email: to }] }],
-    from: { email: from, name: process.env.EMAIL_FROM_NAME || "Meal05" },
+    from: { email: from, name: getFromName() },
     subject,
     content: [{ type: "text/html", value: html }],
   };
@@ -37,15 +61,17 @@ async function sendViaSendgrid({ to, subject, html }) {
 }
 
 async function sendViaResend({ to, subject, html }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
+  const apiKey = process.env.RESEND_API_KEY || process.env.RESEND_API_TOKEN;
+  const fromEmail = getFromEmail();
+  const fromName = getFromName();
+  const from = fromEmail.includes("<") ? fromEmail : `${fromName} <${fromEmail}>`;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from, to, subject, html }),
+    body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, html }),
   });
   if (!res.ok) {
     const msg = await res.text().catch(() => "");
@@ -59,8 +85,6 @@ async function sendViaSmtp({ to, subject, html }) {
     SMTP_PORT = 587,
     SMTP_USER,
     SMTP_PASS,
-    EMAIL_FROM,
-    EMAIL_FROM_NAME = "Meal05",
   } = process.env;
   // Lazy import nodemailer
   const nodemailer = await import("nodemailer");
@@ -71,11 +95,37 @@ async function sendViaSmtp({ to, subject, html }) {
     auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
   });
   await transporter.sendMail({
-    from: { name: EMAIL_FROM_NAME, address: EMAIL_FROM },
+    from: { name: getFromName(), address: getFromEmail() },
     to,
     subject,
     html,
   });
+}
+
+export async function sendTransactionalEmail({ to, subject, html }) {
+  if (!to) return;
+  const recipients = Array.isArray(to) ? to.filter(Boolean) : [to].filter(Boolean);
+  if (!recipients.length) return;
+  if (hasResend()) {
+    await sendViaResend({ to: recipients, subject, html });
+  } else if (hasSendgrid()) {
+    await Promise.all(recipients.map((recipient) => sendViaSendgrid({ to: recipient, subject, html })));
+  } else if (hasSmtp()) {
+    await sendViaSmtp({ to: recipients.join(","), subject, html });
+  } else {
+    console.info("[email:disabled] Would send email", { to: recipients, subject });
+  }
+}
+
+export async function sendOrderConfirmationEmail({ to, order }) {
+  if (!to) return;
+  try {
+    const html = renderOrderConfirmationHtml(order, {});
+    const subject = `Meal05 order received - ${order?.orderId || "Order"}`;
+    await sendTransactionalEmail({ to, subject, html });
+  } catch (e) {
+    console.warn("Failed to send order confirmation email", e);
+  }
 }
 
 export async function sendOrderReceiptEmail({ to, order }) {
@@ -83,20 +133,29 @@ export async function sendOrderReceiptEmail({ to, order }) {
   try {
     const html = renderReceiptHtml(order, {});
     const subject = `Your Meal05 order ${order?.orderId || ""}`.trim();
-    if (hasResend()) {
-      await sendViaResend({ to, subject, html });
-    } else if (hasSendgrid()) {
-      await sendViaSendgrid({ to, subject, html });
-    } else if (hasSmtp()) {
-      await sendViaSmtp({ to, subject, html });
-    } else {
-      console.info("[email:disabled] Would send receipt to", to, { subject });
-    }
+    await sendTransactionalEmail({ to, subject, html });
   } catch (e) {
     console.warn("Failed to send order receipt email", e);
   }
 }
 
-const notifyApi = { sendOrderReceiptEmail };
+export async function sendAdminOrderAlertEmail({ order }) {
+  const recipients = getAdminOrderAlertRecipients();
+  if (!recipients.length) return;
+  try {
+    const html = renderAdminOrderAlertHtml(order, {});
+    const subject = `New Meal05 order - ${order?.orderId || "Order"}`;
+    await sendTransactionalEmail({ to: recipients, subject, html });
+  } catch (e) {
+    console.warn("Failed to send admin order alert email", e);
+  }
+}
+
+const notifyApi = {
+  sendAdminOrderAlertEmail,
+  sendOrderConfirmationEmail,
+  sendOrderReceiptEmail,
+  sendTransactionalEmail,
+};
 
 export default notifyApi;

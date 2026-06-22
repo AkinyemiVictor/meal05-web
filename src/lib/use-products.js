@@ -4,15 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { normaliseProductCatalogue } from "@/lib/catalogue";
 
 let productsRequestCache = null;
+let productsValueCache = null;
 
 const fetchProductsCatalogue = async ({ refresh = false } = {}) => {
+  if (!refresh && productsValueCache) return productsValueCache;
   if (!refresh && productsRequestCache) return productsRequestCache;
   productsRequestCache = fetch("/api/products")
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     })
-    .then((json) => (json && json.grouped ? json.grouped : json) || {})
+    .then((json) => {
+      productsValueCache = (json && json.grouped ? json.grouped : json) || {};
+      return productsValueCache;
+    })
     .catch((error) => {
       productsRequestCache = null;
       throw error;
@@ -21,8 +26,8 @@ const fetchProductsCatalogue = async ({ refresh = false } = {}) => {
 };
 
 export default function useProducts() {
-  const [catalogue, setCatalogue] = useState({});
-  const [status, setStatus] = useState("loading");
+  const [catalogue, setCatalogue] = useState(() => productsValueCache || {});
+  const [status, setStatus] = useState(() => (productsValueCache ? "ready" : "loading"));
   const [error, setError] = useState(null);
 
   useEffect(() => {

@@ -6,10 +6,10 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
-import { sendOrderReceiptEmail } from "@/lib/notify";
+import { sendAdminOrderAlertEmail, sendOrderConfirmationEmail } from "@/lib/notify";
 import { resolveProductImage } from "@/lib/product-image";
 import { applyPromoToOrderSummary, computeOrderSummary } from "@/lib/order-pricing";
-import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
+import { buildCityServiceMessage, getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
 import { loadDeliverySettings } from "@/lib/delivery-settings-server";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
 
@@ -18,6 +18,16 @@ export const dynamic = "force-dynamic";
 
 const allowedMethodsHeader = { Allow: "GET, POST" };
 const tooManyRequests = (rl) => applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rl);
+const isUnknownColumnError = (message) => {
+  const errorText = String(message || "");
+  return (
+    /schema cache/i.test(errorText) ||
+    /column .* does not exist/i.test(errorText) ||
+    /could not find the .* column/i.test(errorText) ||
+    /relation .* does not exist/i.test(errorText)
+  );
+};
+
 export async function POST(request) {
   let rl = await checkRateLimit({ request, id: "orders:create:ip", limit: 30, windowMs: 60_000 });
   if (!rl.allowed) return tooManyRequests(rl);
@@ -106,15 +116,6 @@ export async function POST(request) {
     return undefined; // unknown/undocumented treated as unavailable
   };
 
-  const isUnknownColumnError = (message) => {
-    const errorText = String(message || "");
-    return (
-      /schema cache/i.test(errorText) ||
-      /column .* does not exist/i.test(errorText) ||
-      /could not find the .* column/i.test(errorText) ||
-      /relation .* does not exist/i.test(errorText)
-    );
-  };
   const normalizePayloadCartItems = (rawItems) => {
     if (!Array.isArray(rawItems)) return [];
     return rawItems
@@ -423,7 +424,26 @@ export async function POST(request) {
   );
 
   const deliverySettings = await loadDeliverySettings();
-  const deliverySummaryConfig = getDeliverySummaryConfig(deliverySettings, parsed.data.deliveryCity);
+  const deliveryCity = String(parsed.data.deliveryCity || "").trim();
+  const deliveryArea = resolveDeliveryArea(deliverySettings, deliveryCity);
+  if (!deliveryArea.available) {
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        {
+          error: deliveryArea.reason === "missing_city"
+            ? "Select a delivery area before placing your order."
+            : buildCityServiceMessage(deliverySettings),
+          code: "delivery_area_unavailable",
+        },
+        { status: 400 }
+      ),
+      rl
+    );
+  }
+  const deliverySummaryConfig = {
+    ...getDeliverySummaryConfig(deliverySettings, deliveryCity),
+    deliveryFee: deliveryArea.fee,
+  };
   const pricingItems = cart.map((row) => ({
     quantity: Number(row?.quantity || 0),
     unit_price_at_add: resolveUnitPrice(row),
@@ -610,35 +630,37 @@ export async function POST(request) {
     promo_code: finalSummary.promoCode || undefined,
   });
 
-  // Fire-and-forget email receipt (if configured)
+  // Fire-and-forget order notifications (if configured)
   try {
     const email = user?.email || null;
+    const normalized = {
+      orderId: String(orderIns.id),
+      createdAt: orderIns.created_at,
+      paymentMethod: requestedPaymentMethod,
+      address: orderRow.delivery_address || "",
+      summary: {
+        total: Math.round(orderIns.total ?? finalSummary.total),
+        subtotal: Math.round(orderIns.subtotal ?? finalSummary.subtotal),
+        deliveryFee: Math.round(orderIns.delivery_fee ?? finalSummary.deliveryFee),
+        itemDiscount: Math.round(orderIns.item_discount ?? finalSummary.itemDiscount),
+        deliveryDiscount: Math.round(orderIns.delivery_discount ?? finalSummary.deliveryDiscount),
+        discountTotal: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
+        discount: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
+        promoCode: orderIns.promo_code ?? finalSummary.promoCode ?? "",
+        promoDescription: orderIns.promo_description ?? finalSummary.promoDescription ?? "",
+      },
+      items: cart.map((c) => ({
+        name: resolveItemName(c) || `Product ${c.product_id}`,
+        unit: resolveUnit(c),
+        quantity: Number(c?.quantity) || 0,
+        price: Math.round(resolveUnitPrice(c) || 0),
+      })),
+      user: { email, address: orderRow.delivery_address || "" },
+    };
     if (email) {
-      const normalized = {
-        orderId: String(orderIns.id),
-        createdAt: orderIns.created_at,
-        summary: {
-          total: Math.round(orderIns.total ?? finalSummary.total),
-          subtotal: Math.round(orderIns.subtotal ?? finalSummary.subtotal),
-          deliveryFee: Math.round(orderIns.delivery_fee ?? finalSummary.deliveryFee),
-          itemDiscount: Math.round(orderIns.item_discount ?? finalSummary.itemDiscount),
-          deliveryDiscount: Math.round(orderIns.delivery_discount ?? finalSummary.deliveryDiscount),
-          discountTotal: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
-          discount: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
-          promoCode: orderIns.promo_code ?? finalSummary.promoCode ?? "",
-          promoDescription: orderIns.promo_description ?? finalSummary.promoDescription ?? "",
-        },
-        items: cart.map((c) => ({
-          name: resolveItemName(c) || `Product ${c.product_id}`,
-          unit: resolveUnit(c),
-          quantity: Number(c?.quantity) || 0,
-          price: Math.round(resolveUnitPrice(c) || 0),
-        })),
-        user: { email, address: orderRow.delivery_address || "" },
-      };
-      // Do not await to keep latency low
-      sendOrderReceiptEmail({ to: email, order: normalized }).catch(() => {});
+      sendOrderConfirmationEmail({ to: email, order: normalized }).catch(() => {});
     }
+    sendAdminOrderAlertEmail({ order: normalized }).catch(() => {});
   } catch {}
 
   // 6) Return updated stock snapshot for affected products
@@ -704,13 +726,26 @@ export async function GET(request) {
   if (!user) return applyRateLimitHeaders(NextResponse.json({ error: "Not authenticated" }, { status: 401 }), rl);
 
   const routeClient = getSupabaseRouteClient(await cookies());
-  const { data, error } = await routeClient
-    .from("orders")
-    .select(
-      "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, unit_price, products(name, unit, image_url))"
-    )
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const orderSelects = [
+    "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, unit_price, products(name, unit, image_url))",
+    "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, unit_price, products(name, unit, image_url))",
+  ];
+  let data = [];
+  let error = null;
+  for (const select of orderSelects) {
+    const result = await routeClient
+      .from("orders")
+      .select(select)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (!result.error) {
+      data = result.data;
+      error = null;
+      break;
+    }
+    error = result.error;
+    if (!isUnknownColumnError(result.error.message)) break;
+  }
   if (error) return applyRateLimitHeaders(NextResponse.json({ error: error.message }, { status: 400 }), rl);
 
   const rows = Array.isArray(data) ? data : [];
@@ -730,6 +765,7 @@ export async function GET(request) {
         return {
           orderId: it.order_id,
           productId: it.product_id,
+          variantId: it.variant_id ?? null,
           quantity: qty,
           unitPrice: unit,
           lineTotal: unit * qty,
