@@ -9,6 +9,7 @@ import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { sendAdminOrderAlertEmail, sendOrderConfirmationEmail } from "@/lib/notify";
 import { resolveProductImage } from "@/lib/product-image";
 import { applyPromoToOrderSummary, computeOrderSummary } from "@/lib/order-pricing";
+import { DEFAULT_DISPATCH_OPTION_ID, resolveDispatchOption } from "@/lib/dispatch-partners";
 import { buildCityServiceMessage, getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
 import { loadDeliverySettings } from "@/lib/delivery-settings-server";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
@@ -76,6 +77,7 @@ export async function POST(request) {
   const schema = z.object({
     deliveryAddress: z.string().max(500).optional().default(""),
     deliveryCity: z.string().max(120).optional().default(""),
+    dispatchOptionId: z.string().max(80).optional().default(DEFAULT_DISPATCH_OPTION_ID),
     note: z.string().max(500).optional(),
     paymentMethod: z.string().max(64).optional().default("paystack"),
     promo_code: z.string().trim().max(64).optional(),
@@ -442,8 +444,9 @@ export async function POST(request) {
   }
   const deliverySummaryConfig = {
     ...getDeliverySummaryConfig(deliverySettings, deliveryCity),
-    deliveryFee: deliveryArea.fee,
+    deliveryFee: resolveDispatchOption(deliveryArea.fee, parsed.data.dispatchOptionId).fee,
   };
+  const dispatchOption = resolveDispatchOption(deliveryArea.fee, parsed.data.dispatchOptionId);
   const pricingItems = cart.map((row) => ({
     quantity: Number(row?.quantity || 0),
     unit_price_at_add: resolveUnitPrice(row),
@@ -508,7 +511,10 @@ export async function POST(request) {
     status: "processing",
     payment_status: "pending",
     delivery_address: parsed.data.deliveryAddress || "",
-    note: parsed.data.note || null,
+    note: [
+      parsed.data.note,
+      `Dispatch: ${dispatchOption.name} (${dispatchOption.id}) - ${dispatchOption.eta}`,
+    ].filter(Boolean).join("\n"),
   };
   const orderSelect =
     "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, created_at";
@@ -626,9 +632,12 @@ export async function POST(request) {
     total: orderTotal,
     subtotal: finalSummary.subtotal,
     delivery_fee: finalSummary.deliveryFee,
-    discount_total: finalSummary.discountTotal,
-    promo_code: finalSummary.promoCode || undefined,
-  });
+      discount_total: finalSummary.discountTotal,
+      promo_code: finalSummary.promoCode || undefined,
+      dispatch_partner: dispatchOption.name,
+      dispatch_option_id: dispatchOption.id,
+      dispatch_fee: finalSummary.deliveryFee,
+    });
 
   // Fire-and-forget order notifications (if configured)
   try {
@@ -648,6 +657,7 @@ export async function POST(request) {
         discount: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
         promoCode: orderIns.promo_code ?? finalSummary.promoCode ?? "",
         promoDescription: orderIns.promo_description ?? finalSummary.promoDescription ?? "",
+        dispatchPartner: dispatchOption,
       },
       items: cart.map((c) => ({
         name: resolveItemName(c) || `Product ${c.product_id}`,
@@ -691,6 +701,7 @@ export async function POST(request) {
           discount: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
           promoCode: orderIns.promo_code ?? finalSummary.promoCode ?? "",
           promoDescription: orderIns.promo_description ?? finalSummary.promoDescription ?? "",
+          dispatchPartner: dispatchOption,
         },
         promo: promoValidation?.promo || null,
       },

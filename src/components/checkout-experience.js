@@ -7,6 +7,7 @@ import CheckoutForm from "@/components/checkout-form";
 import CheckoutSummary from "@/components/checkout-summary";
 import copy from "@/data/copy";
 import { readStoredCart } from "@/lib/checkout";
+import { DEFAULT_DISPATCH_OPTION_ID } from "@/lib/dispatch-partners";
 import useDeliverySettings from "@/lib/use-delivery-settings";
 
 export default function CheckoutExperience() {
@@ -14,6 +15,7 @@ export default function CheckoutExperience() {
   const [hasItems, setHasItems] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
   const [deliveryCity, setDeliveryCity] = useState("");
+  const [dispatchOptionId, setDispatchOptionId] = useState(DEFAULT_DISPATCH_OPTION_ID);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -66,8 +68,17 @@ export default function CheckoutExperience() {
 
   return (
     <div className="checkout-grid">
-      <CheckoutForm deliverySettings={deliverySettings} onCityChange={setDeliveryCity} />
-      <CheckoutSummary deliverySettings={deliverySettings} deliveryCity={deliveryCity} />
+      <CheckoutForm
+        deliverySettings={deliverySettings}
+        selectedDispatchOptionId={dispatchOptionId}
+        onCityChange={setDeliveryCity}
+        onDispatchChange={setDispatchOptionId}
+      />
+      <CheckoutSummary
+        deliverySettings={deliverySettings}
+        deliveryCity={deliveryCity}
+        selectedDispatchOptionId={dispatchOptionId}
+      />
     </div>
   );
 }

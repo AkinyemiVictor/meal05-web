@@ -9,6 +9,7 @@ const CUSTOMER_PREFETCH_ROUTES = [
   "/cart",
   "/checkout",
   "/account",
+  "/notifications",
   "/help-center",
   "/section/popular",
   "/section/new",

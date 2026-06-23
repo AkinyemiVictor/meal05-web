@@ -7,12 +7,12 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./account.module.css";
+import ProductCard from "@/components/product-card";
 import { AUTH_EVENT, clearStoredUser, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { ORDERS_EVENT, readUserOrders, updateUserOrderStatus, setUserOrders } from "@/lib/orders";
 import { CART_UPDATED_EVENT, readCartItems, writeCartItems } from "@/lib/cart-storage";
-import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
-import { getProductHref } from "@/lib/products";
+import { formatProductPrice } from "@/lib/catalogue";
 import useProducts from "@/lib/use-products";
 import { RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 import { resolveProductImage } from "@/lib/product-image";
@@ -1205,75 +1205,22 @@ function AccountPageContent() {
           <div className={styles.section}>
             <h3 className={styles.sectionTitle}>Recently viewed</h3>
             {recentlyViewed.length ? (
-              <div className="product-card-grid" style={{ gap: "1rem" }}>
+              <div className="product-card-grid">
                 {recentlyViewed.map((product) => {
-                  const productHref = getProductHref(product);
-                  const href = productHref === "#" ? "/shop" : productHref;
-                  const image =
-                    resolveProductImage(product.image, product.image_url, product.thumbnail);
                   const price = Number(product.price ?? product.unit_price ?? product.unitPrice ?? 0);
-                  const stockClass = resolveStockClass(product.stock);
-                  const isUnavailable = stockClass === "is-unavailable";
+                  const cardProduct = {
+                    ...product,
+                    image: product.image || product.image_url || product.thumbnail,
+                    name: product.name || "Fresh produce",
+                    price,
+                  };
+
                   return (
-                    <article key={product.id} className="product-card product-card--with-cta" style={{ maxWidth: 260 }}>
-                      <Link href={href} className="product-card__link">
-                        <div>
-                          <div className="product-card__media">
-                            <Image
-                              src={resolveProductImage(image)}
-                              alt={product.name || "Recently viewed product"}
-                              className="productImg"
-                              width={140}
-                              height={140}
-                              sizes="(max-width: 768px) 120px, 140px"
-                              loading="lazy"
-                            />
-                            {isUnavailable ? (
-                              <div className="product-card__overlay" aria-hidden="true">
-                                Out of Stock
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="product-card__body">
-                            <h4>{product.name || "Fresh produce"}</h4>
-                            <p className="product-card__price">{formatProductPrice(price)}</p>
-                            {product.unit ? <p className="product-card__unit">{product.unit}</p> : null}
-                          </div>
-                        </div>
-                      </Link>
-                      <div className="product-card__cta">
-                        <button
-                          type="button"
-                          className="product-card__cta-button"
-                          onClick={(event) => handleQuickAdd(product, event.currentTarget)}
-                          disabled={isUnavailable}
-                          aria-label={`Add ${product.name || "item"} to cart`}
-                        >
-                          <span className="product-card__cta-icon" aria-hidden="true">
-                            <svg
-                              width="24"
-                              height="24"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <circle cx="8" cy="19" r="1.5" fill="currentColor" />
-                              <circle cx="17" cy="19" r="1.5" fill="currentColor" />
-                              <path
-                                d="M3 5H5L6.2 13.1C6.33347 13.983 7.07703 14.6425 7.96984 14.6425H17.4C18.1232 14.6425 18.753 14.1615 18.9363 13.4605L21 6.14246H6"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </span>
-                          <span className="product-card__cta-label">
-                            {isUnavailable ? "Out of stock" : "Add to cart"}
-                          </span>
-                        </button>
-                      </div>
-                    </article>
+                    <ProductCard
+                      key={cardProduct.variantId || cardProduct.id}
+                      product={cardProduct}
+                      onQuickAdd={handleQuickAdd}
+                    />
                   );
                 })}
               </div>

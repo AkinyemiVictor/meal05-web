@@ -11,10 +11,18 @@ import {
   readStoredCart,
   readStoredPromo,
 } from "@/lib/checkout";
+import {
+  DEFAULT_DISPATCH_OPTION_ID,
+  resolveDispatchOption,
+} from "@/lib/dispatch-partners";
 import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
 import useProducts from "@/lib/use-products";
 
-export default function CheckoutSummary({ deliverySettings, deliveryCity }) {
+export default function CheckoutSummary({
+  deliverySettings,
+  deliveryCity,
+  selectedDispatchOptionId = DEFAULT_DISPATCH_OPTION_ID,
+}) {
   const { index: productIndex } = useProducts();
   const [items, setItems] = useState(() => readStoredCart());
   const [promoState, setPromoState] = useState(() => readStoredPromo());
@@ -31,9 +39,17 @@ export default function CheckoutSummary({ deliverySettings, deliveryCity }) {
         return { ...config, deliveryFee: 0 };
       }
       if (!deliveryArea.available || deliveryArea.fee == null) return config;
-      return { ...config, deliveryFee: deliveryArea.fee };
+      const dispatchOption = resolveDispatchOption(deliveryArea.fee, selectedDispatchOptionId);
+      return { ...config, deliveryFee: dispatchOption.fee };
     },
-    [deliveryArea, deliverySettings, deliveryCity]
+    [deliveryArea, deliverySettings, deliveryCity, selectedDispatchOptionId]
+  );
+  const selectedDispatchOption = useMemo(
+    () => resolveDispatchOption(
+      deliveryArea.available && deliveryArea.fee != null ? deliveryArea.fee : summaryConfig.deliveryFee,
+      selectedDispatchOptionId
+    ),
+    [deliveryArea.available, deliveryArea.fee, selectedDispatchOptionId, summaryConfig.deliveryFee]
   );
   const deliveryUnavailable = Boolean(String(deliveryCity || "").trim()) && !deliveryArea.available;
 
@@ -123,7 +139,12 @@ export default function CheckoutSummary({ deliverySettings, deliveryCity }) {
           <span>{formatProductPrice(summary.subtotal)}</span>
         </div>
         <div>
-          <span>{copy.checkout.labels.delivery}</span>
+          <span>
+            {copy.checkout.labels.delivery}
+            {deliveryUnavailable ? null : (
+              <small className="checkout-summary__dispatch">{selectedDispatchOption.name}</small>
+            )}
+          </span>
           <span>
             {deliveryUnavailable
               ? "Unavailable"

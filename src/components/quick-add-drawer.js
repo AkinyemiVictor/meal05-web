@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import VariantPicker from "@/components/variant-picker";
+import categories from "@/data/categories";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { getAvailableCount } from "@/lib/stock";
@@ -11,6 +12,7 @@ import { resolveProductImage } from "@/lib/product-image";
 import { readStoredUser } from "@/lib/auth";
 
 const ORDER_SIZE = 1;
+const CATEGORY_LABELS = new Map(categories.map((category) => [category.slug, category.label]));
 
 const normaliseOrderCount = (value, fallback = 1) => {
   const numeric = Number(value);
@@ -218,6 +220,14 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     if (!displayProduct) return "";
     return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), getVariantUnit(effectiveVariant, displayProduct));
   }, [displayProduct, effectiveVariant]);
+  const addTotalLabel = useMemo(() => {
+    const price = getVariantPrice(effectiveVariant, displayProduct) * normaliseOrderCount(quantity, 1);
+    return formatProductPrice(price, "").replace(/\/$/, "");
+  }, [displayProduct, effectiveVariant, quantity]);
+  const categoryLabel = useMemo(() => {
+    const category = displayProduct?.category || displayProduct?.categorySlug || "";
+    return CATEGORY_LABELS.get(category) || category || "Produce";
+  }, [displayProduct]);
 
   const isUnavailable = isVariantInactive(effectiveVariant, displayProduct);
 
@@ -355,9 +365,10 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         <div>
           <p className="quick-add-label">Quick add</p>
           <h3 className="quick-add-title">{displayProduct?.name || "Select an option"}</h3>
+          <p className="quick-add-category">{categoryLabel}</p>
         </div>
         <button type="button" className="quick-add-close" onClick={onClose} aria-label="Close">
-          ✕
+          X
         </button>
       </div>
 
@@ -424,7 +435,16 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             onClick={() => handleAdd({})}
             disabled={!effectiveVariant || isUnavailable || status === "adding"}
           >
-            {isUnavailable ? "Out of stock" : status === "adding" ? "Adding..." : "Add to cart"}
+            {isUnavailable ? (
+              "Out of stock"
+            ) : status === "adding" ? (
+              "Adding..."
+            ) : (
+              <>
+                <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+                Add to cart · {addTotalLabel}
+              </>
+            )}
           </button>
         </>
       ) : (

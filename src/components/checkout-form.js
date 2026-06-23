@@ -23,6 +23,11 @@ import { addUserOrder } from "@/lib/orders";
 import { trackPurchase } from "@/lib/analytics";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import {
+  DEFAULT_DISPATCH_OPTION_ID,
+  getDispatchOptions,
+  resolveDispatchOption,
+} from "@/lib/dispatch-partners";
+import {
   buildCityServiceMessage,
   buildSameDayDeliveryNotice,
   findMatchingServiceZone,
@@ -181,6 +186,12 @@ function CheckoutConfirmation({ order }) {
           <dt>{copy.checkout.confirmation.deliverySlotLabel}</dt>
           <dd>{deliverySlot}</dd>
         </div>
+        {order.dispatchPartner?.name ? (
+          <div>
+            <dt>Dispatch partner</dt>
+            <dd>{order.dispatchPartner.name}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>{copy.checkout.confirmation.paymentMethodLabel}</dt>
           <dd>{paymentLabel}</dd>
@@ -259,7 +270,12 @@ function CheckoutConfirmation({ order }) {
   );
 }
 
-export default function CheckoutForm({ deliverySettings, onCityChange }) {
+export default function CheckoutForm({
+  deliverySettings,
+  selectedDispatchOptionId = DEFAULT_DISPATCH_OPTION_ID,
+  onCityChange,
+  onDispatchChange,
+}) {
   const formRef = useRef(null);
   const submitFeedbackRef = useRef(null);
   const [formState, setFormState] = useState(() =>
@@ -282,9 +298,21 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
     () => {
       const config = getDeliverySummaryConfig(deliverySettings, formState.city);
       if (!deliveryArea.available || deliveryArea.fee == null) return config;
-      return { ...config, deliveryFee: deliveryArea.fee };
+      const dispatchOption = resolveDispatchOption(deliveryArea.fee, selectedDispatchOptionId);
+      return { ...config, deliveryFee: dispatchOption.fee };
     },
-    [deliveryArea, deliverySettings, formState.city]
+    [deliveryArea, deliverySettings, formState.city, selectedDispatchOptionId]
+  );
+  const dispatchOptions = useMemo(
+    () => getDispatchOptions(deliveryArea.available && deliveryArea.fee != null ? deliveryArea.fee : deliverySummaryConfig.deliveryFee),
+    [deliveryArea.available, deliveryArea.fee, deliverySummaryConfig.deliveryFee]
+  );
+  const selectedDispatchOption = useMemo(
+    () => resolveDispatchOption(
+      deliveryArea.available && deliveryArea.fee != null ? deliveryArea.fee : deliverySummaryConfig.deliveryFee,
+      selectedDispatchOptionId
+    ),
+    [deliveryArea.available, deliveryArea.fee, deliverySummaryConfig.deliveryFee, selectedDispatchOptionId]
   );
   const serviceZoneOptions = useMemo(() => {
     const zones = normalizeServiceZoneFees(
@@ -321,6 +349,12 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
       onCityChange(formState.city);
     }
   }, [formState.city, onCityChange]);
+
+  useEffect(() => {
+    if (!dispatchOptions.some((option) => option.id === selectedDispatchOptionId)) {
+      onDispatchChange?.(DEFAULT_DISPATCH_OPTION_ID);
+    }
+  }, [dispatchOptions, onDispatchChange, selectedDispatchOptionId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -601,6 +635,10 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
       throw new Error(data?.error || "Unable to prepare secure payment session");
     }
     return data;
+  };
+
+  const handleDispatchChange = (event) => {
+    onDispatchChange?.(event.target.value);
   };
 
   const markOrderPaymentFailed = async (orderId, authToken = "", reason = "") => {
@@ -931,6 +969,7 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
       orderId: generateOrderId(),
       items: cartItems,
       summary,
+      dispatchPartner: selectedDispatchOption,
       createdAt: new Date().toISOString(),
       status,
       user: nextUserRecord
@@ -953,6 +992,7 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
           body: JSON.stringify({
             deliveryAddress: order.address,
             deliveryCity: canonicalCity,
+            dispatchOptionId: selectedDispatchOption.id,
             note: order.notes,
             paymentMethod: order.paymentMethod,
             promo_code: summary.promoCode || undefined,
@@ -1029,6 +1069,7 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
           body: JSON.stringify({
             deliveryAddress: order.address,
             deliveryCity: canonicalCity,
+            dispatchOptionId: selectedDispatchOption.id,
             note: order.notes,
             paymentMethod: order.paymentMethod,
             promo_code: summary.promoCode || undefined,
@@ -1310,6 +1351,55 @@ export default function CheckoutForm({ deliverySettings, onCityChange }) {
               <option value="evening">{copy.checkout.deliverySlots.evening}</option>
             </select>
           </label>
+        </div>
+        <div className="checkout-dispatch" aria-labelledby="checkout-dispatch-heading">
+          <div className="checkout-dispatch__header">
+            <div>
+              <h3 id="checkout-dispatch-heading">Choose dispatch company</h3>
+              <p>Pick the delivery partner you want to handle this order.</p>
+            </div>
+            {selectedDispatchOption?.name ? (
+              <span className="checkout-dispatch__current">
+                {selectedDispatchOption.name}
+              </span>
+            ) : null}
+          </div>
+          <div className="checkout-dispatch__list">
+            {dispatchOptions.map((option) => (
+              <label
+                key={option.id}
+                className={`checkout-dispatch-card${
+                  selectedDispatchOptionId === option.id ? " checkout-dispatch-card--active" : ""
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="dispatchOption"
+                  value={option.id}
+                  checked={selectedDispatchOptionId === option.id}
+                  onChange={handleDispatchChange}
+                  disabled={!deliveryArea.available}
+                />
+                <span className="checkout-dispatch-card__body">
+                  <span className="checkout-dispatch-card__topline">
+                    <span className="checkout-dispatch-card__name">{option.name}</span>
+                    {option.recommended ? (
+                      <span className="checkout-dispatch-card__badge">Recommended</span>
+                    ) : (
+                      <span className="checkout-dispatch-card__badge checkout-dispatch-card__badge--muted">
+                        {option.reason}
+                      </span>
+                    )}
+                  </span>
+                  <span className="checkout-dispatch-card__summary">{option.summary}</span>
+                  <span className="checkout-dispatch-card__meta">
+                    <span>{option.eta}</span>
+                    <strong>{deliveryArea.available ? formatProductPrice(option.fee) : "Select delivery area"}</strong>
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
         <label className="checkout-textarea">
           <span>{copy.checkout.labels.notes}</span>

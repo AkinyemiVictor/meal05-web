@@ -45,14 +45,14 @@ function ProductImage({ product }) {
           </span>
         ) : null}
       </div>
-      <div className="absolute inset-x-0 bottom-0 top-10 sm:top-11">
+      <div className="absolute inset-x-4 bottom-4 top-12 sm:inset-x-5 sm:bottom-5 sm:top-14">
         <Image
           src={src}
           alt={product.name}
           fill
           unoptimized={!shouldOptimize}
           sizes="(max-width: 767px) 82vw, (max-width: 1023px) 30vw, 220px"
-          className="object-contain object-center p-6 sm:p-7"
+          className="object-contain object-center"
         />
       </div>
       {unavailable ? (

@@ -10,21 +10,20 @@ import styles from "./cart.module.css";
 
 import AppComingSoonSection from "@/components/app-coming-soon-section";
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
+import PageBreadcrumbs from "@/components/page-breadcrumbs";
+import ProductCard from "@/components/product-card";
 import copy from "@/data/copy";
 import useProducts from "@/lib/use-products";
 import categories, { getCategoryHref } from "@/data/categories";
 import {
-  formatProductPrice,
   pickMostPopularProducts,
-  resolveStockClass,
 } from "@/lib/catalogue";
-import { pickTopEngagedProducts, recordProductClick, recordProductView, RECENTLY_VIEWED_KEY } from "@/lib/engagement";
+import { pickTopEngagedProducts, RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { readStoredUser, AUTH_EVENT } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { trackBeginCheckout } from "@/lib/analytics";
-import { getProductHref } from "@/lib/products";
 import { resolveProductImage } from "@/lib/product-image";
 import {
   applyStoredPromoToSummary,
@@ -34,8 +33,7 @@ import {
 } from "@/lib/checkout";
 import { computeOrderSummary } from "@/lib/order-pricing";
 import { requestPromoCodeValidation } from "@/lib/promo-code-client";
-import ProductPromoRibbon from "@/components/product-promo-ribbon";
-import { buildSameDayDeliveryNotice, getDeliverySummaryConfig } from "@/lib/delivery-settings";
+import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
 import useDeliverySettings from "@/lib/use-delivery-settings";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
@@ -138,6 +136,7 @@ const CATEGORY_CARDS = categories.map((category) => ({
   icon: category.icon,
   href: getCategoryHref(category),
 }));
+const CATEGORY_LABELS = new Map(categories.map((category) => [category.slug, category.label]));
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-NG", {
@@ -146,165 +145,11 @@ const formatCurrency = (value) =>
     maximumFractionDigits: 0,
   }).format(Number.isFinite(value) ? value : 0);
 
-function ProductHighlightCard({ product, onQuickAdd }) {
-  const stockClass = resolveStockClass(product.stock);
-  const hasOldPrice = product.oldPrice && product.oldPrice > product.price;
-  const href = getProductHref(product);
-  const isUnavailable = stockClass === "is-unavailable";
-  const productImage = resolveProductImage(product.image);
-  const formattedPrice = formatProductPrice(product.price, product.unit);
-  const [priceValue, unitValue] = formattedPrice.split("/");
-
-  return (
-    <article className="product-card product-card--with-cta">
-      <Link
-        href={href}
-        className="product-card__link"
-        aria-label={`View ${product.name}`}
-        onClick={() => { recordProductClick(product.id); recordProductView(product.id); }}
-      >
-        <div>
-          <div className="product-card__imageWrap">
-            <div className="product-card__badge-row">
-              {product.discount ? (
-                <div className="product-card-discount">
-                  <p>{product.discount}% Off</p>
-                </div>
-              ) : <span />}
-              <div className={`product-card-season ${product.inSeason ? 'is-in' : 'is-out'}`}>
-                <p>{product.inSeason ? "In Season" : "Out of Season"}</p>
-              </div>
-            </div>
-            <Image
-              src={productImage}
-              alt={product.name}
-              className="productImg"
-              width={140}
-              height={140}
-              sizes="(max-width: 768px) 120px, 140px"
-              loading="lazy"
-            />
-            <ProductPromoRibbon
-              text={product.promoTagText}
-              expiresAt={product.promoTagExpiresAt}
-              enabled={product.promoTagEnabled}
-            />
-            {isUnavailable ? (
-              <div className="product-card__overlay" aria-hidden="true">Out of stock</div>
-            ) : null}
-          </div>
-          <div className="product-card-details">
-            <h4>{product.name}</h4>
-            <span className="product-card__price">
-              <span className="price">{priceValue}</span>
-              {unitValue ? <span className="price-unit">/{unitValue}</span> : null}
-            </span>
-            {hasOldPrice ? (
-              <span className="old-price">{formatProductPrice(product.oldPrice, product.unit)}</span>
-            ) : null}
-          </div>
-        </div>
-      </Link>
-      <div className="product-card__cta">
-        <button
-          type="button"
-          className="product-card__cta-button"
-          onClick={(event) => onQuickAdd?.(product, event.currentTarget)}
-          disabled={isUnavailable}
-          aria-label={`Add ${product.name} to cart`}
-        >
-          <span className="product-card__cta-icon" aria-hidden="true">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle cx="8" cy="19" r="1.5" fill="currentColor" />
-              <circle cx="17" cy="19" r="1.5" fill="currentColor" />
-              <path
-                d="M3 5H5L6.2 13.1C6.33347 13.983 7.07703 14.6425 7.96984 14.6425H17.4C18.1232 14.6425 18.753 14.1615 18.9363 13.4605L21 6.14246H6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          <span className="product-card__cta-label">
-            {isUnavailable ? "Out of stock" : "Add to order"}
-          </span>
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function CartProductSection({ title, eyebrow, ctaLabel = "See all", ctaHref, headingId, variant = "emphasis", children }) {
-  const sectionClasses = ["home-section"];
+function CartProductSection({ title, eyebrow, ctaLabel = "See all", ctaHref, headingId, variant = "plain", children }) {
+  const sectionClasses = ["home-section", styles.productSection];
   if (variant && variant !== "plain") {
     sectionClasses.push(`home-section--${variant}`);
   }
-
-  const viewportRef = useRef(null);
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
-
-  const evalScroll = useCallback(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const { scrollLeft, clientWidth, scrollWidth } = el;
-    const threshold = 8;
-    setCanScrollPrev(scrollLeft > threshold);
-    setCanScrollNext(scrollLeft + clientWidth < scrollWidth - threshold);
-  }, []);
-
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const onScroll = () => window.requestAnimationFrame(evalScroll);
-    evalScroll();
-    el.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      el.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [evalScroll]);
-
-  const scrollByAmount = useCallback((direction) => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
-    const card = viewport.querySelector(".product-card, .product-highlight-card");
-    let trackSize = 260; // fallback
-    let gap = 24;
-    if (card) {
-      const rect = card.getBoundingClientRect();
-      trackSize = rect.width || trackSize;
-    }
-    const grid = viewport.querySelector(".product-card-grid");
-    if (grid) {
-      const styles = window.getComputedStyle(grid);
-      const gapValue = styles.columnGap || styles.gap || styles.rowGap || "0";
-      const parsed = parseFloat(gapValue);
-      if (!Number.isNaN(parsed)) gap = parsed;
-    }
-
-    const step = trackSize + gap;
-    const visible = viewport.clientWidth;
-    const cardsPerView = Math.max(1, Math.round(visible / step));
-    const delta = cardsPerView * step * direction;
-    const maxScroll = Math.max(0, viewport.scrollWidth - visible);
-    let target = viewport.scrollLeft + delta;
-    target = Math.max(0, Math.min(target, maxScroll));
-    const snapped = Math.round(target / step) * step;
-    viewport.scrollTo({ left: snapped, behavior: "smooth" });
-  }, []);
-
-  const handlePrev = useCallback(() => scrollByAmount(-1), [scrollByAmount]);
-  const handleNext = useCallback(() => scrollByAmount(1), [scrollByAmount]);
 
   return (
     <section className={sectionClasses.join(" ")} aria-labelledby={headingId}>
@@ -326,33 +171,9 @@ function CartProductSection({ title, eyebrow, ctaLabel = "See all", ctaHref, hea
         </header>
 
         <div className="home-section__rail">
-          <button
-            type="button"
-            className="home-section__nav home-section__nav--prev"
-            onClick={handlePrev}
-            disabled={!canScrollPrev}
-            aria-label={`Scroll ${title} backwards`}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M15 19l-7-7 7-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-
-          <div className="home-section__viewport" ref={viewportRef}>
+          <div className="home-section__viewport">
             {children}
           </div>
-
-          <button
-            type="button"
-            className="home-section__nav home-section__nav--next"
-            onClick={handleNext}
-            disabled={!canScrollNext}
-            aria-label={`Scroll ${title} forwards`}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
         </div>
       </div>
     </section>
@@ -673,27 +494,6 @@ function CartPageContent() {
 
   const hasCheckoutBlocker = stockStatus.hasError;
   const deliverySummaryConfig = useMemo(() => getDeliverySummaryConfig(deliverySettings), [deliverySettings]);
-  const benefits = useMemo(
-    () => [
-      {
-        icon: "fa-truck-fast",
-        title: "Same-day delivery",
-        body: buildSameDayDeliveryNotice(deliverySettings),
-      },
-      {
-        icon: "fa-seedling",
-        title: "Freshly sourced",
-        body: "We handpick produce directly from trusted farms every morning for peak freshness.",
-      },
-      {
-        icon: "fa-shield-heart",
-        title: "Hassle-free returns",
-        body: "If anything arrives below standard we'll replace or refund it within hours.",
-      },
-    ],
-    [deliverySettings]
-  );
-
   const baseSummary = useMemo(
     () =>
       computeOrderSummary(cartItems, deliverySummaryConfig),
@@ -878,40 +678,24 @@ function CartPageContent() {
     <div className={styles.page}>
 
       <div className={styles.pageInner}>
-        {/* Benefits section (desktop/tablet only) */}
-        <section className={`${styles.benefitsSection} ${styles.desktopOnly}`} aria-label="Why shop with MealKit">
-          <div className={styles.benefitsGrid}>
-            {benefits.map((benefit) => (
-              <article key={benefit.title} className={styles.benefitCard}>
-                <span className={styles.benefitIcon} aria-hidden="true">
-                  <i className={`fa-solid ${benefit.icon}`} aria-hidden="true"></i>
-                </span>
-                <h3>{benefit.title}</h3>
-                <p>{benefit.body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* Breadcrumbs (desktop/tablet only) */}
-        <nav className={`${styles.breadcrumbs} ${styles.desktopOnly}`} aria-label="Breadcrumb">
-          <Link href="/">Home</Link>
-          <span>/</span>
-          <span>Cart</span>
-        </nav>
+        <PageBreadcrumbs
+          items={[
+            { label: "Home", href: "/" },
+            { label: "Cart" },
+          ]}
+        />
 
         <div className={styles.cartLayout}>
           <section className={styles.cartBoard} aria-labelledby="cart-title">
             <header className={styles.cartHeader}>
               <div className={styles.cartTitleGroup}>
+                <p className={styles.cartSubtitle}>Your Basket</p>
                 <h1 id="cart-title" className={styles.cartTitle}>
-                  {copy.cart.sectionTitle}
+                  Shopping Cart
                 </h1>
-                <p className={styles.cartSubtitle}>{copy.cart.subtitle}</p>
               </div>
               <span className={styles.cartTag}>
-                <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
-                {copy.cart.tagLabel(formattedItemsCount, itemLabel)}
+                {formattedItemsCount} {itemLabel} · ready for delivery
               </span>
             </header>
 
@@ -929,10 +713,12 @@ function CartPageContent() {
                   const quantity = computeQuantity(orderSize, orderCount);
                   const price = Number(item.price) || 0;
                   const lineTotal = price * quantity;
-                  const perOrderLabel = item.unit
-                    ? `${formatOrderSize(orderSize)} ${item.unit}`
-                    : formatOrderSize(orderSize);
-                  const orderLabel = orderCount === 1 ? "order" : "orders";
+                  const productCategory = product?.category || item.category || "";
+                  const categoryLabel = CATEGORY_LABELS.get(productCategory) || productCategory || "Produce";
+                  const unitLabel = item.unit ? String(item.unit).replace(/^per\s+/i, "") : "";
+                  const priceLabel = unitLabel ? `${formatCurrency(price)}/${unitLabel}` : formatCurrency(price);
+                  const oldPrice = Number(product?.oldPrice || item.oldPrice || 0);
+                  const hasOldPrice = oldPrice > price;
                   const lineClassNames = [styles.cartLine];
                   if (status?.level === "error") {
                     lineClassNames.push(styles.cartLineUnavailable);
@@ -953,11 +739,11 @@ function CartPageContent() {
                         />
                       </div>
                       <div className={styles.cartInfo}>
+                        <span className={styles.cartCategory}>{categoryLabel}</span>
                         <h3>{item.name}</h3>
-                        <div className={styles.cartMeta}>
-                          {item.variantName ? <span>{item.variantName}</span> : null}
-                          <span>{perOrderLabel} per order</span>
-                          <span className={styles.cartPrice}>{formatCurrency(price)}</span>
+                        <div className={styles.cartPriceRow}>
+                          <span className={styles.cartPrice}>{priceLabel}</span>
+                          {hasOldPrice ? <span className={styles.cartOldPrice}>{formatCurrency(oldPrice)}</span> : null}
                         </div>
                         {status?.message ? (
                           <p
@@ -981,7 +767,6 @@ function CartPageContent() {
                           </button>
                           <span className={styles.qtyValue}>
                             <span className={styles.qtyNumber}>{formatOrderCount(orderCount)}</span>
-                            <span className={styles.qtyUnit}>{orderLabel}</span>
                           </span>
                           <button
                             type="button"
@@ -994,9 +779,6 @@ function CartPageContent() {
                         </div>
                         <div className={styles.cartControlsMeta}>
                           <div className={styles.cartLineSummary}>
-                            <span className={styles.cartLineQuantity}>
-                              {formatOrderSize(quantity)}{item.unit ? ` ${item.unit}` : ""}
-                            </span>
                             <span className={styles.cartLineTotal}>{formatCurrency(lineTotal)}</span>
                           </div>
                           <button
@@ -1021,25 +803,41 @@ function CartPageContent() {
             <div className={styles.summaryHeader}>
               <h2 id="summary-heading">Order summary</h2>
             </div>
-            <div className={styles.summaryRows}>
-              <div className={styles.summaryRow}>
-                <span>Items</span>
-                <span>{formattedItemsCount} {itemLabel}</span>
+            <div className={styles.summaryBlock}>
+              <div className={styles.promoGroup}>
+                <input
+                  id="promo-code"
+                  className={styles.promoInput}
+                  value={promoInput}
+                  onChange={(event) => setPromoInput(event.target.value)}
+                  placeholder="Promo code"
+                  aria-label="Promo code"
+                />
+                <button type="button" className={styles.promoApply} onClick={handleApplyPromo} disabled={promoBusy}>
+                  {promoBusy ? "Checking..." : "Apply"}
+                </button>
               </div>
+              {promoMessage.text ? (
+                <p className={`${styles.promoMessage} ${promoToneClass}`.trim()} aria-live="polite">
+                  {promoMessage.text}
+                </p>
+              ) : null}
+            </div>
+            <div className={styles.summaryRows}>
               <div className={styles.summaryRow}>
                 <span>Subtotal</span>
                 <span>{formatCurrency(summary.subtotal)}</span>
               </div>
+              <div className={styles.summaryRow}>
+                <span>Delivery fee</span>
+                <span>{formatCurrency(summary.delivery)}</span>
+              </div>
               {summary.discount > 0 ? (
-                <div className={styles.summaryRow}>
-                  <span>Promo</span>
+                <div className={`${styles.summaryRow} ${styles.summaryRowSavings}`.trim()}>
+                  <span><i className="fa-solid fa-tag" aria-hidden="true"></i> Savings</span>
                   <span>-{formatCurrency(summary.discount)}</span>
                 </div>
               ) : null}
-              <div className={styles.summaryRow}>
-                <span>Delivery</span>
-                <span>{formatCurrency(summary.delivery)}</span>
-              </div>
               <div className={`${styles.summaryRow} ${styles.summaryRowStrong}`.trim()}>
                 <span>Total</span>
                 <span>{formatCurrency(summary.total)}</span>
@@ -1057,53 +855,28 @@ function CartPageContent() {
               </p>
             ) : null}
 
-            <div className={styles.summaryBlock}>
-              <label htmlFor="promo-code">Have a promo code?</label>
-              <div className={styles.promoGroup}>
-                <input
-                  id="promo-code"
-                  className={styles.promoInput}
-                  value={promoInput}
-                  onChange={(event) => setPromoInput(event.target.value)}
-                  placeholder="Enter code e.g. FRESHSAVE"
-                />
-                <button type="button" className={styles.promoApply} onClick={handleApplyPromo} disabled={promoBusy}>
-                  {promoBusy ? "Checking..." : "Apply"}
-                </button>
-              </div>
-              {promoMessage.text ? (
-                <p className={`${styles.promoMessage} ${promoToneClass}`.trim()} aria-live="polite">
-                  {promoMessage.text}
-                </p>
-              ) : null}
-            </div>
-
             <button
               type="button"
               className={styles.checkoutButton}
               onClick={handleCheckout}
               disabled={cartIsEmpty || hasCheckoutBlocker}
             >
-              Proceed to checkout
+              Checkout <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
             </button>
             <p className={styles.summaryHint}>
-              <i className="fa-solid fa-lock" aria-hidden="true"></i> Secure & encrypted checkout
+              <i className="fa-solid fa-lock" aria-hidden="true"></i> Secure checkout · Free returns within 24h
             </p>
-            <div className={styles.summarySupport}>
-              <p className={styles.summarySupportTitle}>Need help finalising your order?</p>
-              <p className={styles.summarySupportContact}>
-                Chat with a shopper on <a href="tel:+2349129296433">+234 91 2929 6433</a>
-              </p>
-            </div>
           </aside>
         </div>
       </div>
 
       {recentlyViewed.length ? (
         <CartProductSection title={copy.cart.recentlyViewedTitle} eyebrow={copy.cart.recentlyViewedEyebrow} headingId="recently-heading" ctaHref="/section/recently-viewed">
-          <div className="product-card-grid" id="cartRecentlyViewedGrid">
+          <div className={styles.productRailGrid} id="cartRecentlyViewedGrid">
             {recentlyViewed.map((product) => (
-              <ProductHighlightCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
+              <div key={product.variantId || product.id} className={styles.productCardShell}>
+                <ProductCard product={product} onQuickAdd={handleQuickAdd} />
+              </div>
             ))}
           </div>
         </CartProductSection>
@@ -1111,22 +884,22 @@ function CartPageContent() {
 
       {crossSellProducts.length ? (
         <CartProductSection title={copy.cart.crossSellTitle} eyebrow={copy.cart.crossSellEyebrow} headingId="crossSell-heading" ctaHref="/section/cross-sell">
-          <div className="product-card-grid" id="cartCrossSellGrid">
+          <div className={styles.productRailGrid} id="cartCrossSellGrid">
             {crossSellProducts.map((product) => (
-              <ProductHighlightCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
+              <div key={product.variantId || product.id} className={styles.productCardShell}>
+                <ProductCard product={product} onQuickAdd={handleQuickAdd} />
+              </div>
             ))}
           </div>
         </CartProductSection>
       ) : null}
-
-      {/* Benefits section moved to top; block removed from here */}
 
       {/* Category aisle just above the Download App section */}
       <CategoryCarousel
         cards={CATEGORY_CARDS}
         heading="Browse categories"
         eyebrow="Shop by aisle"
-        className={styles.categorySection}
+        className="category-carousel--compact"
       />
     </div>
 

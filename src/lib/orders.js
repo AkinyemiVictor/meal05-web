@@ -1,6 +1,7 @@
 "use client";
 
 import { readStoredUser } from "./auth";
+import { addNotification } from "./notifications";
 
 const ORDERS_KEY_PREFIX = "mealkit_orders";
 export const ORDERS_EVENT = "mealkit-orders-changed";
@@ -49,6 +50,18 @@ export const addUserOrder = (order, status = "processing", user = readStoredUser
   };
   orders.unshift(orderRecord);
   writeRawOrders(orders, user);
+  addNotification(
+    {
+      id: `order-${orderRecord.orderId || orderRecord.id || placedAt}-received`,
+      type: "order",
+      title: "Order received",
+      body: `We received ${orderRecord.orderId || "your order"} and will keep you posted from here.`,
+      href: "/account?tab=orders",
+      createdAt: placedAt,
+      meta: { orderId: orderRecord.orderId || orderRecord.id || null, status },
+    },
+    user
+  );
   return orderRecord;
 };
 
@@ -56,8 +69,21 @@ export const updateUserOrderStatus = (orderId, status, user = readStoredUser()) 
   const orders = readRawOrders(user);
   const index = orders.findIndex((order) => order.orderId === orderId);
   if (index === -1) return null;
-  orders[index] = { ...orders[index], status };
+  const updatedAt = new Date().toISOString();
+  orders[index] = { ...orders[index], status, updatedAt };
   writeRawOrders(orders, user);
+  addNotification(
+    {
+      id: `order-${orderId}-${status}`,
+      type: "order",
+      title: status === "delivered" ? "Order delivered" : "Order status updated",
+      body: `${orderId} is now ${String(status || "").replace(/-/g, " ")}.`,
+      href: "/account?tab=orders",
+      createdAt: updatedAt,
+      meta: { orderId, status },
+    },
+    user
+  );
   return orders[index];
 };
 

@@ -225,7 +225,13 @@ export default function ShopPage() {
       </div>
 
       {hasCategoriesError ? null : (
-        <CategoryCarousel cards={categoryCards} heading="Browse by category" eyebrow="Shop by aisle" activeSlug={activeSlug !== "all" ? activeSlug : undefined} />
+        <CategoryCarousel
+          cards={categoryCards}
+          heading="Browse by category"
+          eyebrow="Shop by aisle"
+          activeSlug={activeSlug !== "all" ? activeSlug : undefined}
+          className="category-carousel--compact"
+        />
       )}
 
       {quickAddProduct ? (

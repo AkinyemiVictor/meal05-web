@@ -11,7 +11,6 @@ const CUSTOMER_CHROME_HIDDEN_PREFIXES = [
 
 const FOOTER_HIDDEN_EXACT_PATHS = new Set([
   "/account",
-  "/cart",
   "/sign-in",
   "/signup",
 ]);
@@ -20,7 +19,6 @@ const FOOTER_HIDDEN_PREFIXES = [
   "/account/",
   "/admin",
   "/auth/",
-  "/cart/",
   "/checkout",
 ];
 

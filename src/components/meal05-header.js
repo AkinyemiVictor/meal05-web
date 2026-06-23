@@ -22,6 +22,12 @@ import { shouldShowCommerceHeader } from "@/lib/commerce-chrome";
 import { readCartItems } from "@/lib/cart-storage";
 import { AUTH_EVENT, clearStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
+import { ORDERS_EVENT, readUserOrders } from "@/lib/orders";
+import {
+  NOTIFICATIONS_EVENT,
+  getUnreadNotificationCount,
+  syncDerivedNotifications,
+} from "@/lib/notifications";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 const ACCOUNT_MENU_ID = "meal05-account-menu";
@@ -64,6 +70,38 @@ function CartBadge({ count }) {
   );
 }
 
+function useUnreadNotificationCount(user) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      const activeUser = readStoredUser();
+      syncDerivedNotifications({
+        orders: readUserOrders(activeUser),
+        cartItems: readCartItems(activeUser),
+        user: activeUser,
+      });
+      setCount(getUnreadNotificationCount(activeUser));
+    };
+
+    update();
+    window.addEventListener("storage", update);
+    window.addEventListener("cart-updated", update);
+    window.addEventListener(AUTH_EVENT, update);
+    window.addEventListener(ORDERS_EVENT, update);
+    window.addEventListener(NOTIFICATIONS_EVENT, update);
+    return () => {
+      window.removeEventListener("storage", update);
+      window.removeEventListener("cart-updated", update);
+      window.removeEventListener(AUTH_EVENT, update);
+      window.removeEventListener(ORDERS_EVENT, update);
+      window.removeEventListener(NOTIFICATIONS_EVENT, update);
+    };
+  }, [user]);
+
+  return count;
+}
+
 function useHeaderUser() {
   const [user, setUser] = useState(null);
 
@@ -84,7 +122,8 @@ function useHeaderUser() {
   return user;
 }
 
-function NavIcon({ href, label, children, cartCount }) {
+function NavIcon({ href, label, children, cartCount, badgeCount }) {
+  const count = badgeCount ?? cartCount;
   return (
     <Link
       href={href}
@@ -92,7 +131,7 @@ function NavIcon({ href, label, children, cartCount }) {
       className="relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-meal-line bg-meal-paper text-meal-text shadow-sm transition hover:border-meal-pepper hover:text-meal-pepper"
     >
       {children}
-      {cartCount != null ? <CartBadge count={cartCount} /> : null}
+      {count != null ? <CartBadge count={count} /> : null}
     </Link>
   );
 }
@@ -269,6 +308,7 @@ export default function Meal05Header() {
   const pathname = usePathname();
   const cartCount = useCartCount();
   const user = useHeaderUser();
+  const unreadNotifications = useUnreadNotificationCount(user);
 
   if (!shouldShowCommerceHeader(pathname)) return null;
 
@@ -288,9 +328,14 @@ export default function Meal05Header() {
               className="h-12 w-auto shrink-0 object-contain"
             />
           </Link>
-          <NavIcon href="/cart" label={`Cart - ${cartCount} item${cartCount === 1 ? "" : "s"}`} cartCount={cartCount}>
-            <IconShoppingBag size={22} stroke={1.8} />
-          </NavIcon>
+          <div className="flex items-center gap-2">
+            <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} badgeCount={unreadNotifications}>
+              <IconBell size={22} stroke={1.8} />
+            </NavIcon>
+            <NavIcon href="/cart" label={`Cart - ${cartCount} item${cartCount === 1 ? "" : "s"}`} cartCount={cartCount}>
+              <IconShoppingBag size={22} stroke={1.8} />
+            </NavIcon>
+          </div>
         </div>
         <div className="mt-4">
           <SearchForm id="header-search-mobile" compact />
@@ -326,7 +371,7 @@ export default function Meal05Header() {
               <span className="sm:hidden">Bodija</span>
             </Link>
 
-            <NavIcon href="/account" label="Notifications">
+            <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} badgeCount={unreadNotifications}>
               <IconBell size={21} stroke={1.8} />
             </NavIcon>
 

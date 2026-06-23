@@ -1,7 +1,6 @@
 .page {
-  /* Restore default bottom padding; Download App is full-bleed outside container */
-  padding: 2rem 1rem 2rem;
-  background: #f4f4f4;
+  padding: 2.25rem 1rem 2.75rem;
+  background: #f5f6f8;
   min-height: calc(100vh - 160px);
   overflow-x: hidden;
 }
@@ -11,7 +10,7 @@
   max-width: 1100px;
   margin: 0 auto;
   display: grid;
-  gap: 2rem;
+  gap: 1.2rem;
   min-width: 0;
 }
 
@@ -35,7 +34,7 @@
 .cartLayout {
   display: grid;
   gap: 1.75rem;
-  grid-template-columns: minmax(0, 720px) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 708px) minmax(320px, 380px);
   align-items: start;
   width: 100%;
   min-width: 0;
@@ -43,17 +42,17 @@
 }
 
 .cartBoard {
-  background: #ffffff;
-  border-radius: 28px;
-  box-shadow: 0 12px 32px rgba(0, 83, 36, 0.12);
-  padding: 2.5rem 2.75rem;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
   display: grid;
-  gap: 1.5rem;
+  gap: 1.45rem;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   width: 100%;
   min-width: 0;
-  max-width: 720px;
+  max-width: 708px;
   margin: 0 auto;
 }
 
@@ -72,6 +71,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
 }
 
 .cartTitleGroup {
@@ -82,61 +82,69 @@
 
 .cartTitle {
   margin: 0;
-  font-size: 2rem;
-  color: #0f301c;
+  font-size: clamp(2rem, 3vw, 2.4rem);
+  color: #080d1d;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.05;
 }
 
 .cartSubtitle {
   margin: 0;
-  color: #64748b;
-  font-size: 0.98rem;
+  color: #ff3d14;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .cartTag {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
-  background: rgba(0, 172, 17, 0.18);
-  color: #0f766e;
-  font-weight: 600;
-  font-size: 0.88rem;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #5a6475;
+  font-weight: 800;
+  font-size: 1rem;
 }
 
 .cartMain {
   display: grid;
-  gap: 1.25rem;
+  gap: 0.95rem;
 }
 
 .cartLine {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas: "thumb info actions";
-  gap: 1rem;
+  gap: 1.1rem;
   align-items: center;
-  padding: 1.35rem 1.6rem;
-  border-radius: 24px;
+  min-height: 7.75rem;
+  padding: 1rem 1rem;
+  border-radius: 17px;
   background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 4px 10px rgba(0, 172, 17, 0.08);
+  border: 1px solid #e3e6ea;
+  box-shadow: none;
 }
 
 .cartLineUnavailable {
   border-color: rgba(239, 68, 68, 0.45);
-  background: rgba(254, 226, 226, 0.55);
+  background: #fff7f7;
 }
 
 .cartLineWarning {
   border-color: rgba(251, 191, 36, 0.45);
-  background: rgba(255, 237, 213, 0.55);
+  background: #fffaf0;
 }
 
 .cartThumbnail {
-  width: 96px;
-  height: 96px;
-  border-radius: 20px;
-  background: linear-gradient(180deg, #f7fff9 0%, #eef8f1 100%);
+  width: 92px;
+  height: 92px;
+  border-radius: 14px;
+  background: #f1f3f5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -153,22 +161,33 @@
 .cartInfo {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.38rem;
   grid-area: info;
+  min-width: 0;
 }
 
 .cartInfo h3 {
   margin: 0;
-  font-size: 1.15rem;
-  color: #0f172a;
+  font-size: 1.02rem;
+  color: #080d1d;
+  line-height: 1.25;
 }
 
-.cartMeta {
+.cartCategory {
+  color: #3978ff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.cartPriceRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
-  font-size: 0.9rem;
-  color: #475569;
+  align-items: baseline;
+  gap: 0.55rem;
+  line-height: 1.2;
 }
 
 .cartWarning {
@@ -183,15 +202,22 @@
 }
 
 .cartPrice {
-  font-weight: 700;
-  color: #0f766e;
-  font-size: 1.1rem;
+  font-weight: 900;
+  color: #080d1d;
+  font-size: 1rem;
+}
+
+.cartOldPrice {
+  color: #a8b0bd;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-decoration: line-through;
 }
 
 .cartControls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.3rem;
   grid-area: actions;
   justify-self: end;
 }
@@ -207,17 +233,11 @@
 .qtyControl {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  background: transparent;
+  gap: 0.32rem;
+  background: #f2f3f5;
   border-radius: 999px;
-  padding: 0.35rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-}
-
-.categorySection {
-  width: 100%;
-  /* Add spacing above and below the category carousel */
-  margin: 3rem auto 3rem;
+  padding: 0.28rem;
+  border: 1px solid #e8eaee;
 }
 
 .cartLineSummary {
@@ -234,31 +254,37 @@
 }
 
 .cartLineTotal {
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 900;
+  color: #080d1d;
+  font-size: 1.12rem;
 }
 .qtyButton {
-  width: 32px;
-  height: 32px;
+  width: 31px;
+  height: 31px;
   border-radius: 999px;
   border: none;
-  background: #00ac11;
-  color: #ffffff;
-  font-size: 1rem;
+  background: #ffffff;
+  color: #5b6575;
+  font-size: 1.05rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.qtyButton:last-child {
+  background: #11131f;
+  color: #ffffff;
+}
+
 .qtyValue {
-  min-width: 72px;
+  min-width: 42px;
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.35rem;
-  font-weight: 600;
-  color: #1f2937;
+  gap: 0;
+  font-weight: 900;
+  color: #080d1d;
 }
 
 .qtyNumber {
@@ -266,6 +292,7 @@
 }
 
 .qtyUnit {
+  display: none;
   font-size: 0.85rem;
   font-weight: 500;
   color: #64748b;
@@ -279,7 +306,7 @@
 .removeButton {
   background: none;
   border: none;
-  color: #ef4444;
+  color: #8b94a3;
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -390,13 +417,14 @@
 
 .summaryCard {
   background: #ffffff;
-  border-radius: 28px;
-  box-shadow: 0 12px 32px rgba(0, 83, 36, 0.12);
-  padding: 2rem 2.25rem;
+  border-radius: 18px;
+  border: 1px solid #e3e6ea;
+  box-shadow: none;
+  padding: 1.7rem 1.55rem 1.45rem;
   display: grid;
-  gap: 1.25rem;
-  position: static;
-  top: auto;
+  gap: 1.35rem;
+  position: sticky;
+  top: 1.25rem;
   align-self: start;
   width: 100%;
   min-width: 0;
@@ -404,15 +432,18 @@
 
 .summaryHeader h2 {
   margin: 0;
-  font-size: 1.6rem;
-  color: #0f172a;
+  font-size: 1.15rem;
+  font-style: italic;
+  font-weight: 900;
+  color: #11131f;
+  line-height: 1.2;
 }
 
 .summaryRows {
   display: grid;
-  gap: 1rem;
+  gap: 0.82rem;
   font-size: 0.98rem;
-  color: #475569;
+  color: #6b7485;
 }
 
 .summaryRow {
@@ -422,38 +453,66 @@
 }
 
 .summaryRowStrong {
-  font-weight: 700;
-  color: #0f301c;
+  margin-top: 0.55rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid #e8eaee;
+  font-weight: 900;
+  color: #11131f;
+  font-size: 1.05rem;
+}
+
+.summaryRowStrong > span:last-child {
+  font-size: 1.78rem;
+  line-height: 1;
+}
+
+.summaryRowSavings,
+.summaryRowSavings > span:last-child {
+  color: #00a650;
+  font-weight: 900;
+}
+
+.summaryRowSavings > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .checkoutButton {
-  padding: 0.85rem 1.2rem;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 1rem 1.2rem;
+  border-radius: 13px;
   border: none;
-  background: #00ac11;
+  background: #11131f;
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 900;
   font-size: 1rem;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .checkoutButton:hover {
-  background: #008f0e;
+  background: #0a0c15;
   transform: translateY(-1px);
 }
 
 .summaryHint {
-  color: #0f172a;
-  font-size: 0.9rem;
+  margin: 0;
+  color: #9aa2af;
+  font-size: 0.82rem;
+  text-align: center;
+  font-weight: 700;
 }
 
 .summarySupport {
-  background: rgba(0, 172, 17, 0.12);
-  border-radius: 18px;
-  padding: 1.1rem 1.2rem;
-  color: #0f301c;
-  font-size: 0.95rem;
+  background: #f7f8fa;
+  border-radius: 14px;
+  padding: 1rem;
+  color: #3e4858;
+  font-size: 0.9rem;
 }
 
 .summarySupport a {
@@ -507,32 +566,57 @@
   margin: 0 auto;
 }
 
-.benefitsSection {
-  padding: 2rem 1rem;
-  background: transparent;
-  width: 100%;
+.productSection {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 2.75rem auto 0;
 }
 
-.benefitsGrid {
+.productSection :global(.home-section__inner) {
   max-width: 100%;
-  margin: 0 auto;
+}
+
+.productSection :global(.home-section__header) {
+  align-items: end;
+}
+
+.productSection :global(.home-section__eyebrow) {
+  color: #ff3d14;
+}
+
+.productSection :global(.home-section__title) {
+  color: #080d1d;
+}
+
+.productSection :global(.home-section__cta) {
+  color: #ff3d14;
+}
+
+.productSection :global(.home-section__rail) {
+  display: block;
+}
+
+.productSection :global(.home-section__viewport) {
+  overflow: visible;
+  padding: 0;
+  scroll-snap-type: none;
+}
+
+.productRailGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.9rem;
+  align-items: stretch;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.productCardShell {
   min-width: 0;
 }
 
-.benefitCard {
-  background: #ffffff;
-  border-radius: 24px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 4px 10px rgba(0, 172, 17, 0.08);
-  padding: 1rem 1rem;
-  display: grid;
-  gap: 0.75rem;
-  text-align: center;
-  color: #0f172a;
-  width: 100%;
+.productCardShell :global(.meal05-product-card) {
+  height: 100%;
 }
 
 .desktopOnly {
@@ -542,33 +626,6 @@
 @media (max-width: 768px) {
   .desktopOnly {
     display: none !important;
-  }
-}
-
-.benefitCard i {
-  font-size: 1.8rem;
-  color: #00ac11;
-}
-
-.benefitCard p {
-  margin: 0;
-  color: #475569;
-  line-height: 1.6;
-}
-
-@media (max-width: 900px) {
-  .benefitsSection {
-    padding: 2.5rem 1rem;
-  }
-
-  .benefitsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-  }
-
-  .benefitCard {
-    padding: 1rem;
-    border-radius: 18px;
   }
 }
 
@@ -587,8 +644,8 @@
   }
 
   .cartBoard {
-    padding: 1.75rem 1.35rem;
-    border-radius: 24px;
+    padding: 0;
+    border-radius: 0;
     gap: 1.2rem;
   }
 
@@ -638,11 +695,6 @@
     margin-inline: auto;
   }
 
-  .benefitsGrid {
-    grid-template-columns: 1fr;
-    max-width: min(520px, 100%);
-    margin-inline: auto;
-  }
 }
 
 @media (max-width: 1024px) {
@@ -663,6 +715,25 @@
     padding: 1.5rem 0.85rem 4.25rem;
   }
 
+  .productSection {
+    width: 100%;
+    margin-top: 2.25rem;
+    padding-inline: 0.85rem;
+  }
+
+  .productSection :global(.home-section__header) {
+    align-items: flex-start;
+  }
+
+  .productRailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .productCardShell {
+    min-width: 0;
+  }
+
   .pageInner {
     max-width: 100%;
     gap: 1.1rem;
@@ -673,8 +744,8 @@
   }
 
   .cartBoard {
-    padding: 1.4rem 1.1rem;
-    border-radius: 22px;
+    padding: 0;
+    border-radius: 0;
     gap: 1.1rem;
   }
 
@@ -728,7 +799,7 @@
   }
 
   .cartTag {
-    padding: 0.35rem 0.75rem;
+    padding: 0;
     font-size: 0.78rem;
   }
 
@@ -793,19 +864,6 @@
     border-radius: 16px;
   }
 
-  .benefitsSection {
-    padding: 2rem 0.85rem;
-  }
-
-  .benefitsGrid {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .benefitCard {
-    padding: 0.85rem 0.95rem;
-    border-radius: 16px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -814,7 +872,7 @@
   }
 
   .cartBoard {
-    padding: 1.25rem 1rem;
+    padding: 0;
   }
 
   .cartTitle {
@@ -835,9 +893,6 @@
     gap: 0.35rem;
   }
 
-  .benefitCard {
-    padding: 0.75rem 0.85rem;
-  }
 }
 .cartFooterActions {
   display: flex;
@@ -870,7 +925,7 @@
 
 .summaryBlock {
   display: grid;
-  gap: 1rem;
+  gap: 0.55rem;
 }
 
 .summaryAlert {
@@ -893,16 +948,19 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: stretch;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .promoInput {
   width: 100%;
   min-width: 0;
   border-radius: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  padding: 0.7rem 0.9rem;
+  border: 1px dashed #cfd5df;
+  background: #fafafa;
+  padding: 0.82rem 0.95rem;
   font-size: 0.95rem;
+  font-weight: 700;
+  color: #11131f;
 }
 
 .promoApply {
@@ -911,18 +969,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.7rem 1.1rem;
+  padding: 0.82rem 1.15rem;
   border-radius: 12px;
-  border: none;
-  background: #0f766e;
-  color: #ffffff;
-  font-weight: 600;
+  border: 1px solid #11131f;
+  background: #ffffff;
+  color: #11131f;
+  font-weight: 900;
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
 .promoApply:hover {
-  background: #0c594f;
+  background: #11131f;
+  color: #ffffff;
 }
 
 .promoMessage {
@@ -959,60 +1018,6 @@
   color: rgba(15, 23, 42, 0.5);
 }
 
-.benefitsSection {
-  padding: 4rem 1rem;
-  background: transparent;
-}
-
-.benefitsGrid {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.5rem;
-}
-
-.benefitCard {
-  background: #ffffff;
-  border-radius: 24px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 4px 10px rgba(0, 172, 17, 0.08);
-  padding: 1rem 1rem;
-  display: grid;
-  gap: 0.8rem;
-  align-content: start;
-  justify-items: center;
-  grid-template-rows: auto auto 1fr;
-  text-align: center;
-  color: #0f172a;
-}
-
-.benefitIcon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 172, 17, 0.08);
-  border: 1px solid rgba(0, 172, 17, 0.2);
-}
-
-.benefitCard i {
-  font-size: 1.25rem;
-  line-height: 1;
-  color: #00ac11;
-}
-
-.benefitCard h3 {
-  margin: 0;
-  line-height: 1.25;
-}
-
-.benefitCard p {
-  margin: 0;
-  color: #475569;
-  line-height: 1.6;
-}
 .summaryHeader {
   display: grid;
   gap: 0.35rem;
@@ -1024,7 +1029,7 @@
 
 .summaryRows {
   display: grid;
-  gap: 1rem;
+  gap: 0.82rem;
 }
 
 .summaryRow {
@@ -1042,7 +1047,7 @@
 
 .summaryBlock {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.55rem;
 }
 
 .summaryBlock label {
@@ -1051,19 +1056,22 @@
 
 .summaryHint {
   margin: 0;
-  color: #0f172a;
-  font-size: 0.9rem;
+  color: #9aa2af;
+  font-size: 0.82rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 .summarySupport {
-  background: rgba(0, 172, 17, 0.12);
-  border-radius: 18px;
-  padding: 1.1rem 1.2rem;
-  color: #0f301c;
-  font-size: 0.95rem;
+  background: #f7f8fa;
+  border-radius: 14px;
+  padding: 1rem;
+  color: #3e4858;
+  font-size: 0.9rem;
   display: grid;
   gap: 0.4rem;
 }
@@ -1087,32 +1095,6 @@
 }
 
 @media (min-width: 1025px) {
-  .pageInner .benefitsGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: stretch;
-  }
-
-  .pageInner .benefitCard {
-    grid-template-rows: 44px auto 1fr;
-    align-content: start;
-    justify-items: center;
-  }
-
-  .pageInner .benefitIcon {
-    width: 44px;
-    height: 44px;
-    display: grid;
-    place-items: center;
-    margin: 0;
-  }
-
-  .pageInner .benefitIcon i {
-    position: static !important;
-    margin: 0 !important;
-    transform: none !important;
-    line-height: 1;
-  }
-
   .pageInner .summaryCard {
     display: flex;
     flex-direction: column;

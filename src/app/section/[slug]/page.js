@@ -284,6 +284,7 @@ export default function SectionViewPage() {
         cards={CATEGORY_CARDS}
         heading="Explore categories"
         eyebrow="Shop by aisle"
+        className="category-carousel--compact"
       />
 
       {quickAddProduct ? (
