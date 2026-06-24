@@ -412,6 +412,7 @@ export default function Home() {
               emptyMessage={activeCollectionCopy.emptyMessage}
               seeAllHref={activeCollectionCopy.seeAllHref}
               onAdd={handleQuickAdd}
+              showSeasonBadge={activeCollection !== "in-season"}
             />
           </section>
           </div>

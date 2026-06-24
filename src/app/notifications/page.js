@@ -125,9 +125,6 @@ export default function NotificationsPage() {
           <div>
             <span className="category-page__eyebrow">Updates</span>
             <h1 className="categoryCard__label">Notifications</h1>
-            <p className="category-page__description">
-              Order updates, saved-cart reminders, and important Meal05 alerts appear here.
-            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -153,7 +150,7 @@ export default function NotificationsPage() {
       </header>
 
       {!user ? (
-        <section className="rounded-[28px] border border-meal-line bg-meal-paper p-5 shadow-soft md:p-6">
+        <section className="mx-auto w-full max-w-[1200px] rounded-[28px] border border-meal-line bg-meal-paper p-5 shadow-soft md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-extrabold text-meal-text">Sign in for order notifications</h2>
@@ -171,7 +168,7 @@ export default function NotificationsPage() {
         </section>
       ) : null}
 
-      <section className="mt-6 grid gap-3" aria-live="polite">
+      <section className="mx-auto mt-6 grid w-full max-w-[1200px] gap-3" aria-live="polite">
         {notifications.length ? (
           notifications.map((notification) => {
             const Icon = getNotificationIcon(notification.type);

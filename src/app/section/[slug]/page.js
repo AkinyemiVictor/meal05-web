@@ -225,9 +225,19 @@ export default function SectionViewPage() {
                   isBundleCatalogItem(item) ? (
                     <BundlePlanCard key={item.id} plan={item.plan} />
                   ) : item.product ? (
-                    <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
+                    <ProductCard
+                      key={item.id}
+                      product={item.product}
+                      onQuickAdd={handleQuickAdd}
+                      showSeasonBadge={slug !== "in-season"}
+                    />
                   ) : (
-                    <ProductCard key={item.id} product={item} onQuickAdd={handleQuickAdd} />
+                    <ProductCard
+                      key={item.id}
+                      product={item}
+                      onQuickAdd={handleQuickAdd}
+                      showSeasonBadge={slug !== "in-season"}
+                    />
                   )
                 ))}
           </ProductGrid>

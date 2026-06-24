@@ -29,14 +29,24 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), {
 const ACCOUNT_TABS = [
   { slug: "overview", label: "My Account", iconClass: "fa-solid fa-user" },
   { slug: "orders", label: "Orders", iconClass: "fa-solid fa-box" },
-  { slug: "cart", label: "Saved Cart", iconClass: "fa-solid fa-cart-shopping" },
-  { slug: "wishlist", label: "Wishlist", iconClass: "fa-regular fa-heart" },
+  { slug: "wishlist", label: "Wishlist", iconClass: "fa-solid fa-wand-magic-sparkles" },
   { slug: "voucher", label: "Voucher", iconClass: "fa-solid fa-ticket" },
   { slug: "recent", label: "Recently Viewed", iconClass: "fa-solid fa-clock-rotate-left" },
   { slug: "management", label: "Account Management", iconClass: "fa-solid fa-user-gear" },
   { slug: "addresses", label: "Address Book", iconClass: "fa-solid fa-location-dot" },
   { slug: "newsletter", label: "Newsletter Preferences", iconClass: "fa-solid fa-envelope-open-text" },
 ];
+
+const ACCOUNT_SUBTITLES = {
+  overview: "Manage deliveries, preferences, and saved details from one place.",
+  orders: "Track active deliveries and quickly reorder previous market runs.",
+  wishlist: "Saved bundles and treats - ready to reorder in a tap.",
+  voucher: "Your store credit and available discount codes live here.",
+  recent: "Pick up where you left off with items you recently browsed.",
+  management: "Update your personal details, contact info, and password.",
+  addresses: "Save multiple delivery locations and choose one at checkout.",
+  newsletter: "Choose exactly which updates land in your inbox.",
+};
 
 const FALLBACK_USER = {
   fullName: "MealKit Friend",
@@ -744,6 +754,17 @@ function AccountPageContent() {
     () => orders.filter((order) => ["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
     [orders]
   );
+  const wishlistProducts = useMemo(() => catalogueList.slice(0, 6), [catalogueList]);
+  const userInitials = useMemo(() => {
+    const words = formatName(resolvedUser).split(/\s+/).filter(Boolean);
+    return `${words[0]?.[0] || "M"}${words[1]?.[0] || words[0]?.[1] || "F"}`.toUpperCase();
+  }, [resolvedUser]);
+  const getTabBadge = (slug) => {
+    if (slug === "orders") return presentOrders.length || orders.length || "";
+    if (slug === "wishlist") return wishlistProducts.length || "";
+    if (slug === "voucher") return 2;
+    return "";
+  };
 
   const handleMarkOrderDelivered = (orderId) => {
     updateUserOrderStatus(orderId, "delivered");
@@ -1177,7 +1198,17 @@ function AccountPageContent() {
         );
       }
       case "wishlist":
-        return renderEmptyState(
+        return wishlistProducts.length ? (
+          <div className={styles.productGrid}>
+            {wishlistProducts.map((product) => (
+              <ProductCard
+                key={product.variantId || product.id}
+                product={product}
+                onQuickAdd={handleQuickAdd}
+              />
+            ))}
+          </div>
+        ) : renderEmptyState(
           "Wishlist",
           "Save seasonal bundles or special treats to your wishlist for easy reordering.",
           "/shop",
@@ -1185,52 +1216,57 @@ function AccountPageContent() {
         );
       case "voucher":
         return (
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>Voucher wallet</h3>
-            <div className={styles.list}>
-              <div className={styles.listItem}>
-                <span>Store credit</span>
-                <span>₦0.00</span>
+          <>
+            <div className={styles.creditBanner}>
+              <div>
+                <span>Store credit balance</span>
+                <strong>₦0.00</strong>
               </div>
-              <div className={styles.sectionEmpty}>
-                <i className="fa-solid fa-ticket" aria-hidden="true" style={{ fontSize: "1.6rem" }} />
-                <p>No vouchers saved yet. Apply promo codes on the cart page to store them here.</p>
-                <Link href="/cart">Go to cart</Link>
+              <i className="fa-solid fa-wallet" aria-hidden="true" />
+            </div>
+            <div className={styles.section}>
+              <h3 className={styles.sectionTitle}>Available vouchers</h3>
+              <div className={styles.voucherList}>
+                <div className={styles.voucherItem}>
+                  <strong>10% <span>OFF</span></strong>
+                  <div>
+                    <h4>Welcome discount</h4>
+                    <p>Code <b>WELCOME10</b> - Expires 31 Jul</p>
+                  </div>
+                  <Link href="/cart">Apply</Link>
+                </div>
+                <div className={styles.voucherItem}>
+                  <strong>{"\u20a6500"} <span>OFF</span></strong>
+                  <div>
+                    <h4>Free delivery credit</h4>
+                    <p>Code <b>FRESH500</b> - Expires 15 Aug</p>
+                  </div>
+                  <Link href="/cart">Apply</Link>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         );
       case "recent":
         return (
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>Recently viewed</h3>
-            {recentlyViewed.length ? (
-              <div className="product-card-grid">
-                {recentlyViewed.map((product) => {
-                  const price = Number(product.price ?? product.unit_price ?? product.unitPrice ?? 0);
-                  const cardProduct = {
-                    ...product,
-                    image: product.image || product.image_url || product.thumbnail,
-                    name: product.name || "Fresh produce",
-                    price,
-                  };
+          <div className={styles.productGrid}>
+            {(recentlyViewed.length ? recentlyViewed : wishlistProducts.slice(0, 3)).map((product) => {
+              const price = Number(product.price ?? product.unit_price ?? product.unitPrice ?? 0);
+              const cardProduct = {
+                ...product,
+                image: product.image || product.image_url || product.thumbnail,
+                name: product.name || "Fresh produce",
+                price,
+              };
 
-                  return (
-                    <ProductCard
-                      key={cardProduct.variantId || cardProduct.id}
-                      product={cardProduct}
-                      onQuickAdd={handleQuickAdd}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <div className={styles.sectionEmpty}>
-                <i className="fa-regular fa-folder-open" aria-hidden="true" style={{ fontSize: "1.8rem" }} />
-                <p>Items you view will appear here so you can add them to cart in a tap.</p>
-                <Link href="/shop">Start exploring</Link>
-              </div>
-            )}
+              return (
+                <ProductCard
+                  key={cardProduct.variantId || cardProduct.id}
+                  product={cardProduct}
+                  onQuickAdd={handleQuickAdd}
+                />
+              );
+            })}
           </div>
         );
       case "management": {
@@ -1240,14 +1276,17 @@ function AccountPageContent() {
             <h3 className={styles.sectionTitle}>Account management</h3>
             <div className={styles.list}>
               <div className={styles.listItem}>
+                <i className="fa-regular fa-user" aria-hidden="true" />
                 <span>Full name</span>
                 <span>{formatName(resolvedUser)}</span>
               </div>
               <div className={styles.listItem}>
+                <i className="fa-regular fa-envelope" aria-hidden="true" />
                 <span>Email</span>
                 <span>{resolvedUser.email}</span>
               </div>
               <div className={styles.listItem}>
+                <i className="fa-solid fa-phone" aria-hidden="true" />
                 <span>Phone</span>
                 <div className={styles.listItemValue}>
                   <span>{formatPhoneDisplay(resolvedUser.phone)}</span>
@@ -1268,6 +1307,7 @@ function AccountPageContent() {
                 </div>
               </div>
               <div className={styles.listItem}>
+                <i className="fa-solid fa-location-dot" aria-hidden="true" />
                 <span>Delivery address</span>
                 <div className={styles.listItemValue}>
                   <span>{addressDisplay || "Not set"}</span>
@@ -1288,6 +1328,7 @@ function AccountPageContent() {
                 </div>
               </div>
               <div className={styles.listItem}>
+                <i className="fa-solid fa-lock" aria-hidden="true" />
                 <span>Password</span>
                 <Link href={signInRedirectHref}>Change password</Link>
               </div>
@@ -1314,7 +1355,7 @@ function AccountPageContent() {
                     >
                       {PHONE_COUNTRY_OPTIONS.map((option) => (
                         <option key={option.iso} value={option.code}>
-                          {`${option.flag} ${option.iso} ${option.code} ${option.label}`}
+                          {`${option.iso} ${option.code}`}
                         </option>
                       ))}
                     </select>
@@ -1413,6 +1454,9 @@ function AccountPageContent() {
                   const isDefault = addr.id === defaultAddress?.id;
                   return (
                     <div key={addr.id} className={styles.addressCard}>
+                      <span className={styles.addressIcon}>
+                        <i className={/office/i.test(addr.label || "") ? "fa-regular fa-building" : "fa-solid fa-house"} aria-hidden="true" />
+                      </span>
                       <div className={styles.addressMeta}>
                         <div className={styles.addressLabelRow}>
                           <span className={styles.addressLabel}>{addr.label || "Saved address"}</span>
@@ -1424,23 +1468,13 @@ function AccountPageContent() {
                         </p>
                       </div>
                       <div className={styles.addressActions}>
-                        {isDefault ? (
-                          <span className={styles.addressHint}>Used automatically at checkout</span>
-                        ) : (
-                          <button
-                            type="button"
-                            className={styles.profileEditButton}
-                            onClick={() => handleSetDefaultAddress(addr.id)}
-                          >
-                            Use at checkout
-                          </button>
-                        )}
                         <button
                           type="button"
-                          className={styles.addressRemove}
-                          onClick={() => handleRemoveAddress(addr.id)}
+                          className={styles.addressEdit}
+                          onClick={() => (isDefault ? handleStartEditAddress() : handleSetDefaultAddress(addr.id))}
+                          aria-label={`Edit ${addr.label || "saved address"}`}
                         >
-                          Remove
+                          <i className="fa-solid fa-pencil" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -1526,22 +1560,31 @@ function AccountPageContent() {
               hits your inbox.
             </p>
             <div className={styles.list}>
-              <div className={styles.listItem}>
-                <span>Weekly offers & flash sales</span>
-                <span>Subscribed</span>
+              <div className={styles.newsletterItem}>
+                <i className="fa-solid fa-percent" aria-hidden="true" />
+                <div>
+                  <strong>Weekly offers & flash sales</strong>
+                  <span>Deals, price drops and limited-time bundles</span>
+                </div>
+                <button type="button" className={`${styles.toggle} ${styles.toggleOn}`} aria-pressed="true" aria-label="Weekly offers subscribed" />
               </div>
-              <div className={styles.listItem}>
-                <span>Seasonal farmer drops</span>
-                <span>Subscribed</span>
+              <div className={styles.newsletterItem}>
+                <i className="fa-solid fa-leaf" aria-hidden="true" />
+                <div>
+                  <strong>Seasonal farmer drops</strong>
+                  <span>Fresh harvests as they hit the market</span>
+                </div>
+                <button type="button" className={`${styles.toggle} ${styles.toggleOn}`} aria-pressed="true" aria-label="Seasonal farmer drops subscribed" />
               </div>
-              <div className={styles.listItem}>
-                <span>Chef recipes & meal plans</span>
-                <span>Unsubscribed</span>
+              <div className={styles.newsletterItem}>
+                <i className="fa-solid fa-kitchen-set" aria-hidden="true" />
+                <div>
+                  <strong>Chef recipes & meal plans</strong>
+                  <span>Weekly inspiration for your kitchen</span>
+                </div>
+                <button type="button" className={styles.toggle} aria-pressed="false" aria-label="Chef recipes unsubscribed" />
               </div>
             </div>
-            <Link href="/help-center" className={styles.cardAction}>
-              Update with concierge
-            </Link>
           </div>
         );
       default:
@@ -1576,20 +1619,35 @@ function AccountPageContent() {
     <main className={styles.page}>
       <div className={styles.layout}>
         <nav className={styles.sidebar} aria-label="Account sections">
+          <div className={styles.profileCard}>
+            <span className={styles.profileAvatar}>{userInitials}</span>
+            <span className={styles.profileText}>
+              <strong>{formatName(resolvedUser)}</strong>
+              <span>{resolvedUser.email}</span>
+            </span>
+          </div>
           <span className={styles.sidebarHeading}>My account</span>
           <ul className={styles.navList}>
-            {ACCOUNT_TABS.map((tab) => (
-              <li
-                key={tab.slug}
-                className={`${styles.navItem}${activeTab === tab.slug ? ` ${styles.navItemActive}` : ""}`}
-              >
-                <button type="button" onClick={() => handleSelectTab(tab.slug)}>
-                  <i className={tab.iconClass} aria-hidden="true" />
-                  <span>{tab.label}</span>
-                </button>
-              </li>
-            ))}
+            {ACCOUNT_TABS.map((tab) => {
+              const badge = getTabBadge(tab.slug);
+              return (
+                <li
+                  key={tab.slug}
+                  className={`${styles.navItem}${activeTab === tab.slug ? ` ${styles.navItemActive}` : ""}`}
+                >
+                  <button type="button" onClick={() => handleSelectTab(tab.slug)}>
+                    <i className={tab.iconClass} aria-hidden="true" />
+                    <span>{tab.label}</span>
+                    {badge ? <strong>{badge}</strong> : null}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
+          <button type="button" className={styles.sidebarLogout} onClick={handleLogout}>
+            <i className="fa-solid fa-arrow-right-from-bracket" aria-hidden="true" />
+            <span>Logout</span>
+          </button>
         </nav>
 
         <section className={styles.content} aria-live="polite">
@@ -1598,7 +1656,7 @@ function AccountPageContent() {
             <h1 className={styles.headerTitle}>
               {ACCOUNT_TABS.find((tab) => tab.slug === activeTab)?.label ?? "My Account"}
             </h1>
-            <p className={styles.headerSubtitle}>Manage deliveries, preferences, and saved details from one place.</p>
+            <p className={styles.headerSubtitle}>{ACCOUNT_SUBTITLES[activeTab] || ACCOUNT_SUBTITLES.overview}</p>
           </header>
 
           {renderContent()}

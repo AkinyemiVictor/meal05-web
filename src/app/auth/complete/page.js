@@ -37,13 +37,14 @@ export default function OAuthCompletePage() {
           return;
         }
         const { firstName, lastName, fullName } = toNameParts(user.email, user.user_metadata || {});
-        const localUser = { firstName, lastName, fullName, email: user.email || "" };
+        const phone = String(user.user_metadata?.phone || "").trim();
+        const localUser = { firstName, lastName, fullName, email: user.email || "", ...(phone ? { phone } : {}) };
         persistStoredUser(localUser);
         try {
           await fetch("/api/users/sync", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ first_name: firstName, last_name: lastName }),
+            body: JSON.stringify({ first_name: firstName, last_name: lastName, ...(phone ? { phone } : {}) }),
           });
         } catch {}
         try { migrateGuestCartToUser(localUser); } catch {}

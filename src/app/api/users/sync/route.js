@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const payloadSchema = z.object({
   first_name: z.string().min(1).max(120).optional(),
   last_name: z.string().min(1).max(120).optional(),
+  phone: z.string().min(4).max(32).optional(),
 });
 
 export async function PUT(request) {
@@ -36,8 +37,7 @@ export async function PUT(request) {
     ...parsed.data,
   };
 
-  const { data, error } = await auth.from("users").upsert(patch).select("id, first_name, last_name, email").maybeSingle();
+  const { data, error } = await auth.from("users").upsert(patch).select("id, first_name, last_name, email, phone").maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ user: data || patch }, { status: 200 });
 }
-

@@ -7,6 +7,7 @@ import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
 import { readStoredUser } from "@/lib/auth";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
+import { formatMoney } from "@/lib/region";
 
 const RECENTLY_VIEWED_STORAGE_KEY = "meal05_recently_viewed";
 const MIN_QUANTITY = 1;
@@ -82,6 +83,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
   const { showNotice } = useNotice();
 
   const availableCount = useMemo(() => getAvailableCount(product?.stock), [product?.stock]);
+  const addLabel = useMemo(() => `Add · ${formatMoney(product?.price || 0)}`, [product?.price]);
 
   const isUnavailable = useMemo(() => {
     const stockClass = resolveStockClass(product?.stock);
@@ -254,7 +256,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
           aria-disabled={isUnavailable}
         >
           <i className="fa-solid fa-cart-shopping" aria-hidden="true" />
-          <span>{isUnavailable ? "Out of stock" : "Add to cart"}</span>
+          <span>{isUnavailable ? "Out of stock" : addLabel}</span>
         </button>
       </div>
       {feedback.message ? (

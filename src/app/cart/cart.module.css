@@ -602,17 +602,22 @@
 }
 
 .productRailGrid {
-  display: grid;
+  display: flex;
   align-items: stretch;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 1.25rem;
   width: 100%;
   margin: 0;
-  padding: 0;
+  padding: 0 0 0.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
 }
 
 .productCardShell {
-  min-width: 0;
+  flex: 0 0 clamp(210px, 22vw, 255px);
+  min-width: 210px;
+  scroll-snap-align: start;
 }
 
 .productCardShell :global(.meal05-product-card) {
@@ -726,12 +731,13 @@
   }
 
   .productRailGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
+    padding-bottom: 0.3rem;
   }
 
   .productCardShell {
-    min-width: 0;
+    flex-basis: min(78vw, 320px);
+    min-width: min(78vw, 320px);
   }
 
   .pageInner {

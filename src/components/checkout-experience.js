@@ -78,6 +78,7 @@ export default function CheckoutExperience() {
         deliverySettings={deliverySettings}
         deliveryCity={deliveryCity}
         selectedDispatchOptionId={dispatchOptionId}
+        submitFormId="checkout-order-form"
       />
     </div>
   );

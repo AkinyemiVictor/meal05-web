@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
 import copy from "@/data/copy";
@@ -16,12 +17,14 @@ import {
   resolveDispatchOption,
 } from "@/lib/dispatch-partners";
 import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
+import { resolveProductImage } from "@/lib/product-image";
 import useProducts from "@/lib/use-products";
 
 export default function CheckoutSummary({
   deliverySettings,
   deliveryCity,
   selectedDispatchOptionId = DEFAULT_DISPATCH_OPTION_ID,
+  submitFormId,
 }) {
   const { index: productIndex } = useProducts();
   const [items, setItems] = useState(() => readStoredCart());
@@ -116,13 +119,29 @@ export default function CheckoutSummary({
         {itemsToRender.length ? (
           itemsToRender.map((item, index) => {
             const key = item?.id != null ? String(item.id) : `${item?.name ?? "item"}-${index}`;
-            const product = productIndex?.get(String(item?.id));
+            const product = productIndex?.get(String(item?.productId ?? item?.id ?? ""));
             const price = Number(item?.price) || Number(product?.price) || 0;
+            const quantity = Number(item?.quantity) || Number(item?.orderCount) || Number(item?.orderSize) || 1;
+            const image = resolveProductImage(item?.image, product?.image);
             return (
               <li key={key}>
-                <div>
-                  <span className="checkout-summary__name">{item?.name ?? "Fresh produce"}</span>
-                  {product?.unit ? <span className="checkout-summary__unit">{product.unit}</span> : null}
+                <div className="checkout-summary__item">
+                  <span className="checkout-summary__thumb">
+                    <Image
+                      src={image}
+                      alt=""
+                      width={56}
+                      height={56}
+                      sizes="56px"
+                      loading="lazy"
+                    />
+                  </span>
+                  <span>
+                    <span className="checkout-summary__name">{item?.name ?? "Fresh produce"}</span>
+                    <span className="checkout-summary__unit">
+                      {quantity.toLocaleString()} {product?.unit || item?.unit || "item"}
+                    </span>
+                  </span>
                 </div>
                 <span>{formatProductPrice(price, product?.unit)}</span>
               </li>
@@ -154,7 +173,7 @@ export default function CheckoutSummary({
           </span>
         </div>
         {summary.discountTotal > 0 ? (
-          <div>
+          <div className="checkout-summary__savings">
             <span>{summary.promoCode ? `Discount (${summary.promoCode})` : "Discount"}</span>
             <span>-{formatProductPrice(summary.discountTotal)}</span>
           </div>
@@ -164,6 +183,19 @@ export default function CheckoutSummary({
           <span>{formatProductPrice(summary.total)}</span>
         </div>
       </div>
+
+      {submitFormId ? (
+        <div className="checkout-summary__actions">
+          <button type="submit" form={submitFormId} className="checkout-submit">
+            <i className="fa-solid fa-lock" aria-hidden="true" />
+            {copy.checkout.completeOrder}
+          </button>
+          <p className="checkout-summary__secure">
+            <i className="fa-solid fa-shield-halved" aria-hidden="true" />
+            Encrypted & secure - Free returns within 24h
+          </p>
+        </div>
+      ) : null}
     </aside>
   );
 }

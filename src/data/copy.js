@@ -44,19 +44,19 @@ const copy = {
     paymentMethods: [
       {
         value: "paystack",
-        title: "Pay online: Card / Transfer / USSD",
-        subtitle: "Secure online payment via Paystack",
+        title: "Pay online",
+        subtitle: "Card, transfer or USSD - secured by Paystack.",
         badges: [
           { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/visa card.png", label: "Visa" },
           { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/master card.png", label: "Mastercard" },
           { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/verve card.png", label: "Verve" },
         ],
       },
-      { value: "delivery", title: "Pay on delivery", subtitle: "Cash or POS on arrival" },
+      { value: "delivery", title: "Pay on delivery", subtitle: "Cash or POS when your order arrives." },
       {
         value: "palmpay",
         title: "Pay with PalmPay",
-        subtitle: "Use your PalmPay app or wallet",
+        subtitle: "Use your PalmPay app or wallet.",
         badges: [
           { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/palmpay logo.png", label: "PalmPay" },
         ],
@@ -64,7 +64,7 @@ const copy = {
       {
         value: "opay",
         title: "Pay with OPay",
-        subtitle: "Use OPay wallet or QR",
+        subtitle: "Use your OPay wallet or scan QR.",
         badges: [
           { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png", label: "OPay" },
         ],
@@ -82,16 +82,16 @@ const copy = {
       cardNumber: "Card number",
       cardExpiry: "Expiry date",
       cardCvc: "CVV",
-      subtotal: "Items",
+      subtotal: "Subtotal",
       delivery: "Delivery",
       total: "Total payable",
       paymentMethod: "Payment method",
     },
     placeholders: {
-      fullName: "e.g. Adaeze Okafor",
-      email: "e.g. ada@meal05.ng",
+      fullName: "Victor Akinyemi",
+      email: "you@example.com",
       phone: "e.g. +234 912 000 0000",
-      address: "Street, estate, and any delivery notes",
+      address: "Street, estate, and any landmarks",
       city: "e.g. Ibadan",
       notes: "Entrance instructions, buzzer code, etc.",
       cardName: "Exact name on your card",

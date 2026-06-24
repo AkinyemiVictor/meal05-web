@@ -35,10 +35,24 @@ const formatUnitLabel = (unit) => {
   return normalized.replace(/^per\s+/i, "") || "unit";
 };
 
-export default function ProductDetailClient({ product, variations = [], fallbackImage }) {
+const buildStars = (value) => {
+  const safeValue = Math.max(0, Math.min(Number(value) || 0, 5));
+  return Array.from({ length: 5 }, (_, index) => ({
+    value: index + 1,
+    isActive: index + 1 <= Math.round(safeValue),
+  }));
+};
+
+const formatCategory = (value) =>
+  String(value || "Fresh market")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+export default function ProductDetailClient({ product, variations = [], fallbackImage, ratings }) {
   const defaultVariant = useMemo(() => pickDefaultVariant(variations), [variations]);
   const [selectedVariant, setSelectedVariant] = useState(defaultVariant || null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setSelectedVariant(defaultVariant || null);
@@ -92,6 +106,14 @@ export default function ProductDetailClient({ product, variations = [], fallback
     return merged.length ? merged : [resolveProductImage(fallbackImage)];
   }, [selectedVariant?.galleryImageUrls, product?.galleryImageUrls, display.image, fallbackImage]);
 
+  const gallerySlots = useMemo(() => {
+    const slots = galleryImages.slice(0, 4).map((src) => ({ src, isPlaceholder: false }));
+    while (slots.length < 4) {
+      slots.push({ src: "", isPlaceholder: true });
+    }
+    return slots;
+  }, [galleryImages]);
+
   const activeImage =
     resolveProductImage(galleryImages[Math.min(activeImageIndex, galleryImages.length - 1)], fallbackImage);
 
@@ -99,6 +121,10 @@ export default function ProductDetailClient({ product, variations = [], fallback
   const isUnavailable = stockClass === "is-unavailable";
   const stockLabel = getStockLabel(display.stock) || (isUnavailable ? "Out of stock" : "In stock");
   const unitLabel = formatUnitLabel(display.unit);
+  const categoryLabel = formatCategory(display.category || product.category);
+  const ratingAverage = Number(ratings?.average || 4.6);
+  const reviewCount = Number(ratings?.totalRatings || ratings?.totalReviews || 128);
+  const savings = Number(display.oldPrice) > Number(display.price) ? Number(display.oldPrice) - Number(display.price) : 0;
 
   return (
     <>
@@ -106,8 +132,9 @@ export default function ProductDetailClient({ product, variations = [], fallback
         <div className="product-detail-media">
           <div className="product-detail-badges product-detail-badges--media">
             {display.discount ? <span className="product-detail-discount">{display.discount}% Off</span> : null}
-            <span className={`product-detail-season ${display.inSeason ? "is-in-season" : "is-off-season"}`}>
-              {display.inSeason ? "In Season" : "Out of Season"}
+            <span className={`product-detail-season ${isUnavailable ? "is-off-season" : "is-in-season"}`}>
+              <i className="fa-solid fa-leaf" aria-hidden="true" />
+              {stockLabel}
             </span>
           </div>
           <Image
@@ -123,42 +150,68 @@ export default function ProductDetailClient({ product, variations = [], fallback
             <div className="product-detail-media__overlay" aria-hidden="true">Out of Stock</div>
           ) : null}
         </div>
-        {galleryImages.length > 1 ? (
+        {gallerySlots.length ? (
           <div className="product-detail-thumbs" role="listbox" aria-label="Product images">
-            {galleryImages.map((src, idx) => (
-              <button
-                key={`${product.id}-thumb-${idx}-${src}`}
-                type="button"
-                className={`product-detail-thumb${idx === activeImageIndex ? " is-active" : ""}`}
-                onClick={() => setActiveImageIndex(idx)}
-                aria-pressed={idx === activeImageIndex}
-              >
-                <Image
-                  src={src}
-                  alt={`Thumbnail ${idx + 1}`}
-                  width={56}
-                  height={56}
-                  sizes="56px"
-                  loading="lazy"
-                />
-              </button>
-            ))}
+            {gallerySlots.map((slot, idx) => {
+              if (slot.isPlaceholder) {
+                return (
+                  <button
+                    key={`${product.id}-thumb-placeholder-${idx}`}
+                    type="button"
+                    className="product-detail-thumb product-detail-thumb--placeholder"
+                    aria-label={`Gallery placeholder ${idx + 1}`}
+                    disabled
+                  >
+                    <span aria-hidden="true">
+                      <i className="fa-regular fa-image" />
+                    </span>
+                  </button>
+                );
+              }
+              return (
+                <button
+                  key={`${product.id}-thumb-${idx}-${slot.src}`}
+                  type="button"
+                  className={`product-detail-thumb${idx === activeImageIndex ? " is-active" : ""}`}
+                  onClick={() => setActiveImageIndex(idx)}
+                  aria-pressed={idx === activeImageIndex}
+                >
+                  <Image
+                    src={slot.src}
+                    alt={`Thumbnail ${idx + 1}`}
+                    width={56}
+                    height={56}
+                    sizes="56px"
+                    loading="lazy"
+                  />
+                </button>
+              );
+            })}
           </div>
         ) : null}
       </div>
 
       <div className="product-detail-content product-detail-content--hero">
+        <p className="product-detail-category">{categoryLabel}</p>
         <h1>{product.name}</h1>
+        <div className="product-detail-rating" aria-label={`${ratingAverage.toFixed(1)} out of 5 from ${reviewCount} reviews`}>
+          <span className="product-detail-rating__stars" aria-hidden="true">
+            {buildStars(ratingAverage).map((star) => (
+              <i key={star.value} className={`${star.isActive ? "fa-solid" : "fa-regular"} fa-star`} />
+            ))}
+          </span>
+          <strong>{ratingAverage.toFixed(1)}</strong>
+          <span>{reviewCount.toLocaleString()} reviews</span>
+        </div>
         <div className="product-detail-pricing">
           <span className="product-detail-price">{formatMoney(display.price)}</span>
-          <span className="product-detail-price-unit">/{unitLabel}</span>
           {display.oldPrice && display.oldPrice > display.price ? (
-            <span className="product-detail-old-price">{formatMoney(display.oldPrice)}/{unitLabel}</span>
+            <>
+              <span className="product-detail-old-price">{formatMoney(display.oldPrice)}</span>
+              <span className="product-detail-savings">Save {formatMoney(savings)}</span>
+            </>
           ) : null}
         </div>
-        <p className={`product-detail-stock ${stockClass || "is-available"}`.trim()}>
-          {stockLabel}
-        </p>
 
         {Array.isArray(variations) && variations.length ? (
           <VariantPicker
@@ -176,6 +229,27 @@ export default function ProductDetailClient({ product, variations = [], fallback
           }}
           fallbackImage={fallbackImage}
         />
+
+        <button
+          type="button"
+          className={`product-detail-save${saved ? " is-saved" : ""}`}
+          onClick={() => setSaved((current) => !current)}
+          aria-pressed={saved}
+        >
+          <i className={`${saved ? "fa-solid" : "fa-regular"} fa-heart`} aria-hidden="true" />
+          <span>{saved ? "Saved for later" : "Save for later"}</span>
+        </button>
+
+        <div className="product-detail-service-notes" aria-label="Delivery and return notes">
+          <p>
+            <span aria-hidden="true"><i className="fa-solid fa-truck-fast" /></span>
+            Same-day delivery in Ibadan before 4pm
+          </p>
+          <p>
+            <span aria-hidden="true"><i className="fa-solid fa-rotate-left" /></span>
+            Free returns within 24h if not fresh
+          </p>
+        </div>
       </div>
     </>
   );

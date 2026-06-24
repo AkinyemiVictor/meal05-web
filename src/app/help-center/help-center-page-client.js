@@ -1,39 +1,9 @@
 'use client';
 
-import Image from "next/image";
 import { useState } from "react";
 
-import AppComingSoonSection from "@/components/app-coming-soon-section";
 import HelpCenterFaqs from "@/components/help-center-faqs";
 import styles from "./help-center.module.css";
-
-const heroCards = [
-  {
-    label: "Place an Order",
-    icon: "fa-bag-shopping",
-    aria: "Place an order help",
-  },
-  {
-    label: "Pay for Your Order",
-    icon: "fa-credit-card",
-    aria: "Payment help",
-  },
-  {
-    label: "Track Your Order",
-    icon: "fa-magnifying-glass-location",
-    aria: "Track order help",
-  },
-  {
-    label: "Cancel an Order",
-    icon: "fa-ban",
-    aria: "Cancel order help",
-  },
-  {
-    label: "Create a Return",
-    icon: "fa-rotate-left",
-    aria: "Create a return help",
-  },
-];
 
 const sidebarTopics = [
   { slug: "payments", icon: "fa-credit-card", label: "Payments" },
@@ -41,8 +11,8 @@ const sidebarTopics = [
   { slug: "delivery", icon: "fa-truck", label: "Delivery" },
   { slug: "returns", icon: "fa-rotate-left", label: "Returns & Refunds" },
   { slug: "products", icon: "fa-basket-shopping", label: "Products" },
-  { slug: "express", icon: "fa-paper-plane", label: "MealKit Express" },
-  { slug: "sell", icon: "fa-store", label: "Sell on MealKit" },
+  { slug: "express", icon: "fa-paper-plane", label: "MEAL05 Express" },
+  { slug: "sell", icon: "fa-store", label: "Sell on MEAL05" },
   { slug: "pickup", icon: "fa-location-dot", label: "Pickup Stations" },
 ];
 
@@ -50,16 +20,16 @@ const faqSections = [
   {
     slug: "payments",
     title: "Payments",
-    description: "Popular questions about paying for your MealKit orders.",
+    description: "Popular questions about paying for your MEAL05 orders.",
     tag: "Payments",
     items: [
       {
-        question: "What payment methods are accepted on MealKit?",
+        question: "What payment methods are accepted on MEAL05?",
         answer:
-          "We accept major debit and credit cards, MealKit wallet balance, and bank transfers handled by trusted payment partners. You can save a preferred payment method for faster checkout, and the total is shown before you confirm.",
+          "We accept major debit and credit cards, MEAL05 wallet balance, and bank transfers handled by trusted payment partners. You can save a preferred payment method for faster checkout, and the total is shown before you confirm.",
       },
       {
-        question: "How secure is my payment information on MealKit?",
+        question: "How secure is my payment information on MEAL05?",
         answer:
           "Payments are processed over encrypted connections that comply with PCI DSS standards. We never store your CVV, and you can enable multi-factor authentication for an extra layer of protection.",
       },
@@ -84,9 +54,9 @@ const faqSections = [
           "You will receive both an in-app notification and an email receipt as soon as your payment is successful. You can also open the order details page to view the status of the payment in real time.",
       },
       {
-        question: "What is MealKit Store Credit and how can I use it?",
+        question: "What is MEAL05 Store Credit and how can I use it?",
         answer:
-          "Store Credit is a flexible balance we add to your account whenever we issue a refund or run loyalty campaigns. You can apply it at checkout to cover part or all of an order; just select Store Credit as your payment option.",
+          "MEAL05 Store Credit is a flexible balance we add to your account whenever we issue a refund or run loyalty campaigns. You can apply it at checkout to cover part or all of an order; just select Store Credit as your payment option.",
       },
       {
         question: "Can I cancel my order and get my money back?",
@@ -112,7 +82,7 @@ const faqSections = [
     tag: "Vouchers & Promotions",
     items: [
       {
-        question: "Where can I enter a MealKit voucher code?",
+        question: "Where can I enter a MEAL05 voucher code?",
         answer:
           'Enter your voucher under the "Have a promo code?" field in the cart before you check out. Once applied, you will see the discount reflected in your order summary immediately.',
       },
@@ -145,7 +115,7 @@ const faqSections = [
     tag: "Delivery & Fulfilment",
     items: [
       {
-        question: "How long will it take to receive my MealKit order?",
+        question: "How long will it take to receive my MEAL05 order?",
         answer:
           "Same-day delivery is available for orders placed before 2pm within Ibadan, Nigeria. Outside Ibadan, delivery typically takes 24-72 hours depending on your location and preferred slot.",
       },
@@ -200,7 +170,7 @@ const faqSections = [
       {
         question: "Can I schedule a pickup for returns?",
         answer:
-          "Yes. Once your return request is approved, you can book a free pickup slot from the order page or drop the items at the nearest MealKit pickup station within 48 hours.",
+          "Yes. Once your return request is approved, you can book a free pickup slot from the order page or drop the items at the nearest MEAL05 pickup station within 48 hours.",
       },
     ],
   },
@@ -239,14 +209,14 @@ const faqSections = [
   },
   {
     slug: "express",
-    title: "MealKit Express",
+    title: "MEAL05 Express",
     description: "Answers about our lightning-fast delivery service for urgent grocery runs.",
-    tag: "MealKit Express",
+    tag: "MEAL05 Express",
     items: [
       {
-        question: "What is MealKit Express?",
+        question: "What is MEAL05 Express?",
         answer:
-          "MealKit Express is a 90-minute delivery service available in select Ibadan neighbourhoods. Orders are fulfilled from micro-hubs to keep travel time and costs low.",
+          "MEAL05 Express is a 90-minute delivery service available in select Ibadan neighbourhoods. Orders are fulfilled from micro-hubs to keep travel time and costs low.",
       },
       {
         question: "How do I know if Express is available for my location?",
@@ -272,12 +242,12 @@ const faqSections = [
   },
   {
     slug: "sell",
-    title: "Sell on MealKit",
-    description: "Interested in becoming a MealKit vendor? Start here.",
-    tag: "Sell on MealKit",
+    title: "Sell on MEAL05",
+    description: "Interested in becoming a MEAL05 vendor? Start here.",
+    tag: "Sell on MEAL05",
     items: [
       {
-        question: "Who can apply to sell on MealKit?",
+        question: "Who can apply to sell on MEAL05?",
         answer:
           "We work with farmers, aggregators, and verified food brands that meet our safety and quality benchmarks. Both local producers and importers are welcome to apply.",
       },
@@ -289,12 +259,12 @@ const faqSections = [
       {
         question: "What fees or commissions should I expect?",
         answer:
-          "MealKit charges a commission per sale that depends on the category. We provide detailed rates during onboarding and issue payments to vendors every Monday.",
+          "MEAL05 charges a commission per sale that depends on the category. We provide detailed rates during onboarding and issue payments to vendors every Monday.",
       },
       {
-        question: "Will MealKit handle delivery and packaging?",
+        question: "Will MEAL05 handle delivery and packaging?",
         answer:
-          "You can choose to fulfil orders yourself or opt into MealKit Fulfilment, where we store, package, and deliver your products for a logistics fee.",
+          "You can choose to fulfil orders yourself or opt into MEAL05 Fulfilment, where we store, package, and deliver your products for a logistics fee.",
       },
       {
         question: "How do I keep track of my performance?",
@@ -310,7 +280,7 @@ const faqSections = [
     tag: "Pickup Stations",
     items: [
       {
-        question: "Where are MealKit pickup stations located?",
+        question: "Where are MEAL05 pickup stations located?",
         answer:
           "Pickup stations operate across major Ibadan districts. Check the app for the station closest to you.",
       },
@@ -350,36 +320,13 @@ export default function HelpCenterPage() {
       <main>
         <section id="heroHelpCenter" className={styles.heroHelpCenter}>
           <div className={styles.heroBoard}>
-            <div className={styles.heroText}>
-              <h3 className={styles.heroEyebrow}>Help Center</h3>
-              <h2 className={styles.heroTitle}>Hi, how can we help you?</h2>
-              <p className={styles.heroSubtitle}>
-                Select a quick action to jump straight to detailed answers.
-              </p>
-            </div>
-            <div className={styles.heroCards}>
-              {heroCards.map((card) => (
-                <a
-                  key={card.label}
-                  className={styles.heroCard}
-                  href="#searchQnAAgent"
-                  aria-label={card.aria}
-                >
-                  <span className={styles.heroCardText}>{card.label}</span>
-                  <span className={styles.heroCardIcon}>
-                    <span className={styles.heroCardBadge}>
-                      <i className={`fa-solid ${card.icon}`} aria-hidden="true" />
-                    </span>
-                  </span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="searchQnAAgent" className={styles.searchQnAAgent}>
-          <div className={styles.searchQnAAgentInner}>
+            <p className={styles.heroEyebrow}>Help Center</p>
+            <h1 className={styles.heroTitle}>How can we help you?</h1>
+            <p className={styles.heroSubtitle}>Search our FAQs or browse topics to get the answers you need.</p>
             <form className={styles.searchBarShell} onSubmit={handleSearchSubmit}>
+              <span className={styles.searchIcon} aria-hidden="true">
+                <i className="fa-solid fa-magnifying-glass" />
+              </span>
               <input
                 type="search"
                 id="help-search"
@@ -391,10 +338,14 @@ export default function HelpCenterPage() {
               />
               <button type="submit" className={styles.searchButton}>
                 <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
-                <span className="sr-only">Search help center</span>
+                <span>Search</span>
               </button>
             </form>
+          </div>
+        </section>
 
+        <section id="searchQnAAgent" className={styles.searchQnAAgent}>
+          <div className={styles.searchQnAAgentInner}>
             <HelpCenterFaqs sidebarTopics={sidebarTopics} sections={faqSections} searchQuery={searchValue} />
           </div>
         </section>
@@ -410,47 +361,49 @@ export default function HelpCenterPage() {
             </header>
             <div className={styles.talkToAgentGrid}>
               <article className={styles.agentCard}>
-                <span className={styles.agentIcon}>
-                  <i className="fa-solid fa-comments" aria-hidden="true" />
+                <span className={`${styles.agentIcon} ${styles.agentIconChat}`}>
+                  <i className="fa-brands fa-whatsapp" aria-hidden="true" />
                 </span>
                 <h3>Live Chat</h3>
                 <p>
-                  Send a quick message and get real-time support for orders, payments, or product questions.
+                  Chat with support in real time. Usually replies in under 2 minutes.
                 </p>
-                <ul className={styles.agentList}>
-                  <li>Available daily from 7:00am - 10:00pm WAT</li>
-                  <li>Average response time under 2 minutes</li>
-                </ul>
-                <a className={styles.agentCta} href="tel:+2349129296433">
-                  Call support
+                <a className={`${styles.agentCta} ${styles.agentCtaChat}`} href="https://wa.me/2349129296433">
+                  Start chat
+                  <i className="fa-solid fa-arrow-right" aria-hidden="true" />
                 </a>
               </article>
 
-              <article className={`${styles.agentCard} ${styles.agentCardCall}`}>
-                <span className={styles.agentIcon}>
+              <article className={styles.agentCard}>
+                <span className={`${styles.agentIcon} ${styles.agentIconCall}`}>
                   <i className="fa-solid fa-phone" aria-hidden="true" />
                 </span>
-                <h3>Call Customer Care</h3>
+                <h3>Call Us</h3>
                 <p>
-                  Prefer to speak with someone? Reach a MealKit specialist for urgent assistance.
+                  Speak to an agent directly. Lines open 8am - 9pm, every day.
                 </p>
-                <ul className={styles.agentList}>
-                  <li>
-                    <a href="tel:+2349129296433">+(234) 91 2929 6433</a>
-                  </li>
-                  <li>
-                    <a href="tel:+2348118287047">+(234) 81 1828 7047</a>
-                  </li>
-                </ul>
-                <span className={styles.agentNote}>
-                  Lines open Monday - Saturday, 8:00am - 8:00pm WAT.
+                <a className={styles.agentCta} href="tel:08118287047">
+                  08118287047
+                  <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+                </a>
+              </article>
+
+              <article className={styles.agentCard}>
+                <span className={`${styles.agentIcon} ${styles.agentIconEmail}`}>
+                  <i className="fa-regular fa-envelope" aria-hidden="true" />
                 </span>
+                <h3>Email</h3>
+                <p>
+                  Send us a message and we will get back within a few hours.
+                </p>
+                <a className={`${styles.agentCta} ${styles.agentCtaEmail}`} href="mailto:support@meal05.com">
+                  support@meal05.com
+                  <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+                </a>
               </article>
             </div>
           </div>
         </section>
-
-        <AppComingSoonSection />
       </main>
     </div>
   );

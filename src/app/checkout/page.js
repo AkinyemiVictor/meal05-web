@@ -18,6 +18,7 @@ export default function CheckoutPage() {
           <p>{copy.checkout.subtitle}</p>
         </div>
         <Link href="/cart" className="checkout-back-link">
+          <i className="fa-solid fa-arrow-left" aria-hidden="true" />
           {copy.checkout.backToCart}
         </Link>
       </header>

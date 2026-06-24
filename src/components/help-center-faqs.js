@@ -59,6 +59,7 @@ export default function HelpCenterFaqs({ sidebarTopics, sections, searchQuery = 
     sectionsToDisplay.find((section) => section.slug === activeSlug) ??
     sectionsToDisplay[0] ??
     null;
+  const activeTopic = sidebarTopics.find((topic) => topic.slug === activeSection?.slug);
 
   // Do not auto-open any question on first load
   const [activeQuestion, setActiveQuestion] = useState(null);
@@ -128,6 +129,9 @@ export default function HelpCenterFaqs({ sidebarTopics, sections, searchQuery = 
 
       <div className={styles.qnaContent}>
         <header className={styles.qnaContentHeader}>
+          <span className={styles.qnaContentIcon} aria-hidden="true">
+            <i className={`fa-solid ${activeTopic?.icon || "fa-circle-question"}`} />
+          </span>
           {isSearching ? (
             <>
               <h3>{hasResults ? `Results for "${searchQuery.trim()}"` : "No results found"}</h3>

@@ -387,8 +387,12 @@
 .auth-phone-group {
   position: relative;
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-columns: 118px minmax(0, 1fr);
   gap: 0.7rem;
+}
+
+.auth-phone-group--login {
+  grid-template-columns: 118px minmax(0, 1fr);
 }
 
 .auth-phone-select {
@@ -399,12 +403,14 @@
     linear-gradient(to right, rgba(209, 221, 234, 0.86), rgba(209, 221, 234, 0.86)) right 2.35rem center / 1px 1.45rem no-repeat,
     var(--auth-field);
   cursor: pointer;
-  padding-left: 1.05rem;
+  padding-left: 0.95rem;
   padding-right: 2.85rem;
-  font-size: 0.87rem;
-  font-weight: 800;
+  font-size: 0.82rem;
+  font-weight: 900;
   letter-spacing: 0;
   line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .auth-phone-select:focus {
@@ -481,10 +487,47 @@
 }
 
 .auth-remember input {
-  width: 1.05rem;
-  height: 1.05rem;
-  accent-color: var(--auth-orange);
+  appearance: none;
+  position: relative;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  border: 1.5px solid #cdd7e4;
+  border-radius: 0.35rem;
+  background: var(--auth-field);
   cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-remember input::after {
+  content: "";
+  position: absolute;
+  left: 0.34rem;
+  top: 0.16rem;
+  width: 0.34rem;
+  height: 0.62rem;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: rotate(45deg) scale(0.75);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.auth-remember input:checked {
+  border-color: var(--auth-orange);
+  background: var(--auth-orange);
+  box-shadow: 0 8px 16px rgba(255, 75, 22, 0.18);
+}
+
+.auth-remember input:checked::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+
+.auth-remember input:focus-visible {
+  outline: none;
+  border-color: var(--auth-orange);
+  box-shadow: 0 0 0 4px rgba(255, 75, 22, 0.13);
 }
 
 .auth-login-options a,
@@ -801,9 +844,20 @@
     border-radius: 7px;
   }
 
-  .auth-field--split,
-  .auth-phone-group {
+  .auth-field--split {
     grid-template-columns: 1fr;
+  }
+
+  .auth-phone-group,
+  .auth-phone-group--login {
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 0.55rem;
+  }
+
+  .auth-phone-select {
+    padding-left: 0.75rem;
+    padding-right: 2.55rem;
+    font-size: 0.76rem;
   }
 
   .auth-login-options {

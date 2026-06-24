@@ -56,8 +56,8 @@ const PAYMENT_METHOD_LABELS = copy.checkout.paymentMethods.reduce((accumulator, 
   return accumulator;
 }, {});
 
-const ENABLE_PALMPAY = process.env.NEXT_PUBLIC_ENABLE_PALMPAY === "true";
-const ENABLE_OPAY = process.env.NEXT_PUBLIC_ENABLE_OPAY === "true";
+const ENABLE_PALMPAY = process.env.NEXT_PUBLIC_ENABLE_PALMPAY !== "false";
+const ENABLE_OPAY = process.env.NEXT_PUBLIC_ENABLE_OPAY !== "false";
 
 const isPaymentMethodEnabled = (method, paystackKey = "") => {
   if (method === "paystack") return /^pk_(test|live)_/.test(paystackKey || "");
@@ -430,6 +430,10 @@ export default function CheckoutForm({
   const enabledPaymentMethods = useMemo(
     () => copy.checkout.paymentMethods.filter((method) => isPaymentMethodEnabled(method.value, paystackKey)),
     [paystackKey]
+  );
+  const acceptedBadges = useMemo(
+    () => copy.checkout.paymentMethods.find((method) => method.value === "paystack")?.badges || [],
+    []
   );
 
   useEffect(() => {
@@ -1183,6 +1187,7 @@ export default function CheckoutForm({
 
   return (
     <form
+      id="checkout-order-form"
       ref={formRef}
       className="checkout-card"
       aria-describedby="checkout-payment-description"
@@ -1197,8 +1202,16 @@ export default function CheckoutForm({
       ) : null}
 
       <section className="checkout-section">
-        <h2>{copy.checkout.deliveryDetails}</h2>
-        <p className="checkout-section__hint">{sameDayNotice}</p>
+        <div className="checkout-section__heading">
+          <span className="checkout-section__icon" aria-hidden="true">
+            <i className="fa-solid fa-location-dot" />
+          </span>
+          <h2>{copy.checkout.deliveryDetails}</h2>
+        </div>
+        <p className="checkout-section__hint checkout-section__notice">
+          <i className="fa-solid fa-circle-info" aria-hidden="true" />
+          <span>{sameDayNotice}</span>
+        </p>
         <div className="checkout-field-grid">
           <label className={errors.fullName ? "checkout-field has-error" : "checkout-field"}>
             <span>{copy.checkout.labels.fullName}</span>
@@ -1414,7 +1427,12 @@ export default function CheckoutForm({
       </section>
 
       <section className="checkout-section">
-        <h2>{copy.checkout.paymentHeading}</h2>
+        <div className="checkout-section__heading">
+          <span className="checkout-section__icon" aria-hidden="true">
+            <i className="fa-regular fa-credit-card" />
+          </span>
+          <h2>{copy.checkout.paymentHeading}</h2>
+        </div>
         <p id="checkout-payment-description" className="checkout-section__hint">
           {paymentHint}
         </p>
@@ -1433,6 +1451,19 @@ export default function CheckoutForm({
                 checked={formState.paymentMethod === method.value}
                 onChange={handleChange}
               />
+              <span className="checkout-payment-icon" aria-hidden="true">
+                <i
+                  className={
+                    method.value === "delivery"
+                      ? "fa-solid fa-money-bill-wave"
+                      : method.value === "opay"
+                        ? "fa-solid fa-qrcode"
+                        : method.value === "palmpay"
+                          ? "fa-regular fa-wallet"
+                          : "fa-regular fa-credit-card"
+                  }
+                />
+              </span>
               <div>
                 <span className="checkout-payment-title">{method.title}</span>
                 <span className="checkout-payment-subtitle">{method.subtitle}</span>
@@ -1555,12 +1586,19 @@ export default function CheckoutForm({
             </label>
           </div>
         ) : null}
+        {acceptedBadges.length ? (
+          <div className="checkout-accepted-row" aria-label="Accepted payment cards">
+            <span>We accept</span>
+            {acceptedBadges.map((badge, index) => (
+              <span key={`${badge.label}-${index}`} className="checkout-payment-badge checkout-payment-badge--text">
+                {badge.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </section>
 
-      <div className="checkout-submit-wrap" ref={submitFeedbackRef}>
-        <button type="submit" className="checkout-submit" disabled={isProcessing}>
-          {isProcessing ? copy.checkout.status.processingTitle : copy.checkout.completeOrder}
-        </button>
+      <div className="checkout-submit-wrap" ref={submitFeedbackRef} data-processing={isProcessing ? "true" : "false"}>
         {formError ? (
           <p className="checkout-submit-error" role="alert">
             {formError}

@@ -20,7 +20,7 @@ const formatNaira = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 
-function ProductImage({ product }) {
+function ProductImage({ product, showSeasonBadge = true }) {
   const src = resolveProductImage(product.image, product.mainImageUrl);
   const unavailable = resolveStockClass(product.stock) === "is-unavailable";
   const shouldOptimize = canUseNextImageOptimization(src);
@@ -39,7 +39,7 @@ function ProductImage({ product }) {
         ) : (
           <span className="min-w-0" aria-hidden="true" />
         )}
-        {product.inSeason ? (
+        {showSeasonBadge && product.inSeason ? (
           <span className="ml-auto max-w-[calc(50%-0.25rem)] shrink truncate rounded-lg bg-meal-green/20 px-2 py-1 text-[10px] font-medium uppercase leading-none tracking-wider text-meal-text sm:px-2.5 sm:text-[11px]">
             In season
           </span>
@@ -66,7 +66,7 @@ function ProductImage({ product }) {
   );
 }
 
-export default function ProductCard({ product, onAdd, onQuickAdd, className }) {
+export default function ProductCard({ product, onAdd, onQuickAdd, className, showSeasonBadge = true }) {
   const stockClass = resolveStockClass(product.stock);
   const unavailable = stockClass === "is-unavailable";
   const productHref = getProductHref(product);
@@ -78,7 +78,7 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className }) {
 
   return (
     <article className={classNames("meal05-product-card relative z-10 min-w-0 rounded-[28px] bg-meal-paper p-4 shadow-meal", className)}>
-      <ProductImage product={product} />
+      <ProductImage product={product} showSeasonBadge={showSeasonBadge} />
       <div className="grid min-h-[188px] grid-rows-[auto_1fr_auto] pt-4">
         <div className="relative min-w-0 pr-12">
           <div className="min-w-0">

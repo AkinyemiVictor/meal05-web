@@ -176,15 +176,15 @@ function ProductSectionHeading({ id, icon, title, tone = "info" }) {
 function ProductSpecificationsSection({ description, features }) {
   return (
     <section className="product-detail-section" aria-labelledby="product-specifications-heading">
-      <ProductSectionHeading id="product-specifications-heading" icon="fa-circle-info" title="Item Specifications" tone="warning" />
+      <ProductSectionHeading id="product-specifications-heading" icon="fa-circle-info" title="About this item" tone="warning" />
       <p className="product-detail-lead">{description}</p>
       <div className="product-specs">
         <div className="product-specs__features">
-          <p className="product-detail-section__eyebrow">Key Features</p>
+          <p className="product-detail-section__eyebrow">Key features</p>
           <ul>
             {features.map((feature, index) => (
               <li key={index}>
-                <span className="product-specs__feature-icon" aria-hidden="true"><i className="fa-solid fa-angle-right" /></span>
+                <span className="product-specs__feature-icon" aria-hidden="true"><i className="fa-solid fa-check" /></span>
                 <span>{feature}</span>
               </li>
             ))}
@@ -195,7 +195,7 @@ function ProductSpecificationsSection({ description, features }) {
   );
 }
 
-function LogisticsManifestSection({ productId, specifications }) {
+function LogisticsManifestSection({ specifications }) {
   const rows = specifications.map((spec) => ({
     ...spec,
     label: formatSpecificationLabel(spec.label),
@@ -203,14 +203,11 @@ function LogisticsManifestSection({ productId, specifications }) {
   }));
   const storageEntry = rows.find((spec) => spec.key === "storage-protocol") || null;
   const manifestRows = rows.filter((spec) => spec.key !== "storage-protocol");
-  const skuEntry = manifestRows.find((spec) => spec.key === "sku");
-  const skuValue = skuEntry?.value || `M05-${String(productId).padStart(4, "0")}`;
 
   return (
     <section className="product-detail-section product-detail-section--manifest" aria-labelledby="product-logistics-heading">
       <div className="product-detail-manifest__header">
-        <h2 id="product-logistics-heading">Product Details</h2>
-        <span className="product-detail-manifest__sku">{skuValue}</span>
+        <h2 id="product-logistics-heading">Specifications</h2>
       </div>
       <dl className="product-detail-manifest__rows">
         {manifestRows.map((spec) => (
@@ -235,12 +232,19 @@ function LogisticsManifestSection({ productId, specifications }) {
 function ProductBuyingGuideSection({ productName, tips }) {
   return (
     <section className="product-detail-section" aria-labelledby="product-buying-guide-heading">
-      <ProductSectionHeading id="product-buying-guide-heading" icon="fa-shield-halved" title="Handling Tips" tone="success" />
+      <ProductSectionHeading id="product-buying-guide-heading" icon="fa-shield-halved" title="Storage & handling tips" tone="success" />
       <p className="product-detail-lead product-detail-lead--compact">
-        Use these quick tips to keep {productName} fresh longer and get better results from every order.
+        Quick tips to keep {productName} fresh longer and get better results from every order.
       </p>
       <ul className="product-buying-guide">
-        {tips.map((tip) => <li key={tip}>{tip}</li>)}
+        {tips.map((tip, index) => (
+          <li key={tip}>
+            <span className="product-buying-guide__icon" aria-hidden="true">
+              <i className={`fa-solid ${index === 0 ? "fa-apple-whole" : index === 1 ? "fa-box-archive" : "fa-calendar-days"}`} />
+            </span>
+            <span>{tip}</span>
+          </li>
+        ))}
       </ul>
     </section>
   );
@@ -249,18 +253,78 @@ function ProductBuyingGuideSection({ productName, tips }) {
 function ProductFaqSection({ productName, faqItems }) {
   return (
     <section className="product-detail-section" aria-labelledby="product-faq-heading">
-      <ProductSectionHeading id="product-faq-heading" icon="fa-circle-question" title="Common Questions" tone="warning" />
+      <ProductSectionHeading id="product-faq-heading" icon="fa-circle-question" title="Frequently asked" tone="warning" />
       <p className="product-detail-lead product-detail-lead--compact">
-        Frequently asked questions about ordering {productName}.
+        Common questions from shoppers ordering {productName}.
       </p>
-      <dl className="product-faq-list">
-        {faqItems.map((item) => (
-          <div key={item.question} className="product-faq-item">
-            <dt>{item.question}</dt>
-            <dd>{item.answer}</dd>
-          </div>
+      <div className="product-faq-list">
+        {faqItems.map((item, index) => (
+          <details key={item.question} className="product-faq-item" open={index === 0}>
+            <summary>
+              <span>{item.question}</span>
+            </summary>
+            <p>{item.answer}</p>
+          </details>
         ))}
-      </dl>
+      </div>
+    </section>
+  );
+}
+
+const initialsFor = (name) =>
+  String(name || "Meal05 shopper")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "MS";
+
+function CustomerReviewsSection({ ratings }) {
+  const reviews = (ratings?.reviews || []).slice(0, 2);
+  const average = Number(ratings?.average || 4.6);
+  const total = Number(ratings?.totalRatings || 128);
+  return (
+    <section className="product-detail-section product-detail-section--reviews" aria-labelledby="product-reviews-heading">
+      <h2 id="product-reviews-heading">Customer reviews</h2>
+      <div className="product-reviews-layout">
+        <div className="product-reviews-summary" aria-label={`${average.toFixed(1)} out of 5`}>
+          <div>
+            <span className="product-reviews-score">{average.toFixed(1)}</span>
+            <span className="product-reviews-max">/5</span>
+          </div>
+          <span className="product-reviews-stars" aria-hidden="true">
+            {Array.from({ length: 5 }, (_, index) => (
+              <i key={index} className={`${index + 1 <= Math.round(average) ? "fa-solid" : "fa-regular"} fa-star`} />
+            ))}
+          </span>
+          <p>
+            <i className="fa-solid fa-circle-check" aria-hidden="true" />
+            {total.toLocaleString()} verified
+          </p>
+        </div>
+        <div className="product-reviews-list">
+          {reviews.map((review) => (
+            <article key={review.id} className="product-review-card">
+              <div className="product-review-avatar" aria-hidden="true">{initialsFor(review.author)}</div>
+              <div className="product-review-body">
+                <div className="product-review-header">
+                  <div>
+                    <h3>{review.author}</h3>
+                    <p>{formatReviewDate(review.date)}</p>
+                  </div>
+                  <span className="product-review-stars" aria-hidden="true">
+                    {Array.from({ length: 5 }, (_, index) => (
+                      <i key={index} className={`${index + 1 <= Math.round(review.rating) ? "fa-solid" : "fa-regular"} fa-star`} />
+                    ))}
+                  </span>
+                </div>
+                <p className="product-review-comment">{review.comment}</p>
+              </div>
+            </article>
+          ))}
+          <button type="button" className="product-review-write">Write a review</button>
+        </div>
+      </div>
     </section>
   );
 }
@@ -340,7 +404,7 @@ export default async function ProductDetailPage({ params }) {
       <ProductEngagementTracker productId={product.id} product={product} />
 
       <nav aria-label="Breadcrumb" className="product-detail-breadcrumb">
-        <Link href="/shop" className="product-detail-breadcrumb-chip">Shop</Link>
+        <Link href="/" className="product-detail-breadcrumb-chip">Home</Link>
         <span aria-hidden="true" className="product-detail-breadcrumb-divider">&rsaquo;</span>
         {categorySchema?.path ? (
           <Link href={categorySchema.path} className="product-detail-breadcrumb-chip">{categorySchema.name}</Link>
@@ -352,13 +416,16 @@ export default async function ProductDetailPage({ params }) {
       </nav>
 
       <section className="product-detail-card">
-        <ProductDetailClient product={product} variations={variations} fallbackImage={FALLBACK_IMAGE} />
+        <ProductDetailClient product={product} variations={variations} fallbackImage={FALLBACK_IMAGE} ratings={detailContent.ratings} />
       </section>
 
-      <ProductSpecificationsSection description={detailContent.description} features={detailContent.keyFeatures} />
-      <LogisticsManifestSection productId={product.id} specifications={detailContent.specifications} />
+      <div className="product-detail-info-grid">
+        <ProductSpecificationsSection description={detailContent.description} features={detailContent.keyFeatures} />
+        <LogisticsManifestSection specifications={detailContent.specifications} />
+      </div>
       <ProductBuyingGuideSection productName={product.name} tips={buyingGuideTips} />
       <ProductFaqSection productName={product.name} faqItems={productFaqItems} />
+      <CustomerReviewsSection ratings={detailContent.ratings} />
     </main>
   );
 }

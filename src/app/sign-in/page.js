@@ -27,6 +27,16 @@ const PASSWORD_REGEX = new RegExp(`^${PASSWORD_PATTERN}$`);
 const PHONE_NUMBER_REGEX = new RegExp(`^${PHONE_NUMBER_PATTERN}$`);
 const PHONE_INPUT_REGEX = new RegExp(`^${PHONE_INPUT_PATTERN}$`);
 
+const normalizeLoginPhone = (value, countryCode = DEFAULT_PHONE_COUNTRY_CODE) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  const normalizedCountry = String(countryCode || DEFAULT_PHONE_COUNTRY_CODE).trim() || DEFAULT_PHONE_COUNTRY_CODE;
+  const countryDigits = normalizedCountry.replace(/\D/g, "");
+  if (countryDigits && digits.startsWith(countryDigits)) return `+${digits}`;
+  if (digits.startsWith("0")) return `${normalizedCountry}${digits.replace(/^0+/, "")}`;
+  return `${normalizedCountry}${digits}`;
+};
+
 const TAB_OPTIONS = [
   { key: "login", label: "Sign in", hash: "#loginForm" },
   { key: "signup", label: "Create account", hash: "#signupForm" },
@@ -81,6 +91,8 @@ function SignInPageContent() {
   const [isSavingRecoveryPassword, setIsSavingRecoveryPassword] = useState(false);
   const [recoveryError, setRecoveryError] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  const [loginIdentifier, setLoginIdentifier] = useState("");
+  const [loginPhoneCountry, setLoginPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const { showNotice } = useNotice();
   const clearLoginInlineHint = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -250,11 +262,8 @@ function SignInPageContent() {
     try {
       const rememberedEmail = window.localStorage.getItem(REMEMBERED_LOGIN_EMAIL_KEY) || "";
       if (!rememberedEmail) return;
-      const emailInput = document.getElementById("login-email");
-      if (emailInput instanceof HTMLInputElement && !emailInput.value) {
-        emailInput.value = rememberedEmail;
-        setRememberMe(true);
-      }
+      setLoginIdentifier((current) => current || rememberedEmail);
+      setRememberMe(true);
     } catch {}
   }, []);
 
@@ -281,7 +290,10 @@ function SignInPageContent() {
     const formData = new FormData(form);
     const emailInput = form.elements.namedItem("login-email");
     const passwordInput = form.elements.namedItem("login-password");
-    const email = String(formData.get("login-email") || "").trim();
+    const identifier = String(formData.get("login-email") || "").trim();
+    const phoneCountry =
+      String(formData.get("login-phone-country") || loginPhoneCountry || DEFAULT_PHONE_COUNTRY_CODE).trim() ||
+      DEFAULT_PHONE_COUNTRY_CODE;
     const password = String(formData.get("login-password") || "").trim();
 
     if (emailInput instanceof HTMLInputElement) {
@@ -291,7 +303,7 @@ function SignInPageContent() {
       passwordInput.setCustomValidity("");
     }
 
-    if (!email || !password) return;
+    if (!identifier || !password) return;
 
     try {
       // Clear any previous inline hint
@@ -301,10 +313,42 @@ function SignInPageContent() {
       } catch {}
 
       const supabase = getBrowserSupabaseClient();
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
+      const isEmailLogin = identifier.includes("@");
+      let email = isEmailLogin ? identifier.toLowerCase() : "";
+      const phone = isEmailLogin ? "" : normalizeLoginPhone(identifier, phoneCountry);
+      let loginData = null;
+      let loginError = null;
+
+      if (!isEmailLogin) {
+        const response = await fetch("/api/auth/resolve-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: phone || identifier, password }),
+        });
+        const payload = response.ok ? await response.json().catch(() => ({})) : {};
+        if (!response.ok || !payload?.session?.access_token || !payload?.session?.refresh_token) {
+          const hint = document.getElementById("login-inline-hint");
+          if (hint) {
+            hint.textContent = "Incorrect login details. Please try again or use your email address.";
+          }
+          return;
+        }
+        const sessionResult = await supabase.auth.setSession({
+          access_token: payload.session.access_token,
+          refresh_token: payload.session.refresh_token,
+        });
+        loginData = sessionResult.data;
+        loginError = sessionResult.error;
+        email = String(loginData?.user?.email || payload?.user?.email || "").trim().toLowerCase();
+      } else {
+        const result = await supabase.auth.signInWithPassword({ email, password });
+        loginData = result.data;
+        loginError = result.error;
+      }
+
+      if (loginError) {
         // Use generic credential messaging to avoid exposing account existence.
-        const msg = String(error.message || "").toLowerCase();
+        const msg = String(loginError.message || "").toLowerCase();
         if (msg.includes("invalid") && msg.includes("credentials")) {
           const hint = document.getElementById("login-inline-hint");
           if (hint) {
@@ -315,7 +359,7 @@ function SignInPageContent() {
         await showNotice({
           tone: "error",
           title: "Login failed",
-          message: error.message || "Incorrect login details",
+          message: loginError.message || "Incorrect login details",
           autoClose: false,
           actions: [
             {
@@ -342,11 +386,11 @@ function SignInPageContent() {
       const firstName = (parts[0] || "Meal05").toUpperCase();
       const lastName = (parts[1] || "Friend").toUpperCase();
       const fullName = `${firstName} ${lastName}`.trim();
-      const user = { firstName, lastName, fullName, email };
+      const user = { firstName, lastName, fullName, email, ...(phone ? { phone } : {}) };
       persistStoredUser(user);
       try {
         if (rememberMe) {
-          window.localStorage.setItem(REMEMBERED_LOGIN_EMAIL_KEY, email);
+          window.localStorage.setItem(REMEMBERED_LOGIN_EMAIL_KEY, identifier);
         } else {
           window.localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
         }
@@ -364,7 +408,7 @@ function SignInPageContent() {
       console.error("Supabase login error", e);
       await showNotice({ tone: "error", title: "Login error", message: "Unexpected error during login. Please try again." });
     }
-  }, [fallbackAfterAuth, getLoginResetRedirect, rememberMe, showNotice]);
+  }, [fallbackAfterAuth, getLoginResetRedirect, loginPhoneCountry, rememberMe, showNotice]);
 
   const handleForgotPassword = useCallback(async (event) => {
     try {
@@ -377,7 +421,7 @@ function SignInPageContent() {
         await showNotice({
           tone: "info",
           title: "Enter your email",
-          message: "Enter the email for your account to receive a reset link.",
+          message: "Password reset links are sent by email. Enter your account email to receive a reset link.",
         });
         if (emailInput instanceof HTMLInputElement) {
           emailInput.focus();
@@ -423,6 +467,7 @@ function SignInPageContent() {
       DEFAULT_PHONE_COUNTRY_CODE;
     const phoneRaw = String(formData.get("signup-phone") || "").trim();
     const phoneDigits = phoneRaw.replace(/\D/g, "");
+    const phone = `${phoneCountry}${phoneDigits.replace(/^0+/, "")}`;
     const password = String(formData.get("signup-password") || "");
     const confirm = String(formData.get("signup-confirm-password") || "");
 
@@ -522,7 +567,7 @@ function SignInPageContent() {
             name: fullName,
             first_name: firstName,
             last_name: lastName,
-            phone: `${phoneCountry}${phoneDigits}`,
+            phone,
           },
         },
       });
@@ -560,7 +605,7 @@ function SignInPageContent() {
         return;
       }
 
-      const user = { firstName, lastName, fullName, email, phone: `${phoneCountry}${phoneDigits}` };
+      const user = { firstName, lastName, fullName, email, phone };
       if (!data?.session) {
         await showNotice({
           tone: "success",
@@ -579,7 +624,7 @@ function SignInPageContent() {
           await fetch("/api/users/sync", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ first_name: firstName, last_name: lastName }),
+            body: JSON.stringify({ first_name: firstName, last_name: lastName, phone }),
           });
         }
       } catch {}
@@ -801,17 +846,41 @@ function SignInPageContent() {
             >
               <div className="auth-field">
                 <label className="auth-label" htmlFor="login-email">
-                  Email address
+                  Email or phone number
                 </label>
-                <input
-                  id="login-email"
-                  type="email"
-                  name="login-email"
-                  placeholder="Email"
-                  required
-                  autoComplete="email"
-                  onInput={clearLoginInlineHint}
-                />
+                <div className="auth-phone-group auth-phone-group--login">
+                  <label className="sr-only" htmlFor="login-phone-country">
+                    Country code
+                  </label>
+                  <select
+                    id="login-phone-country"
+                    name="login-phone-country"
+                    className="auth-phone-select"
+                    value={loginPhoneCountry}
+                    onChange={(event) => setLoginPhoneCountry(event.target.value)}
+                    aria-label="Phone country code"
+                  >
+                    {PHONE_COUNTRY_OPTIONS.map((option) => (
+                      <option key={option.iso} value={option.code}>
+                        {`${option.iso} ${option.code}`}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    id="login-email"
+                    type="text"
+                    name="login-email"
+                    className="auth-phone-input"
+                    placeholder="Email or phone number"
+                    required
+                    autoComplete="username"
+                    value={loginIdentifier}
+                    onChange={(event) => {
+                      setLoginIdentifier(event.target.value);
+                      clearLoginInlineHint();
+                    }}
+                  />
+                </div>
               </div>
               <div className="auth-field">
                 <label className="auth-label" htmlFor="login-password">
@@ -946,7 +1015,7 @@ function SignInPageContent() {
                   >
                     {PHONE_COUNTRY_OPTIONS.map((option) => (
                       <option key={option.iso} value={option.code}>
-                        {`${option.flag} ${option.iso} ${option.code} ${option.label}`}
+                        {`${option.iso} ${option.code}`}
                       </option>
                     ))}
                   </select>
