@@ -1,4 +1,5 @@
 const CUSTOMER_CHROME_HIDDEN_EXACT_PATHS = new Set([
+  "/",
   "/sign-in",
   "/signup",
 ]);
@@ -10,6 +11,7 @@ const CUSTOMER_CHROME_HIDDEN_PREFIXES = [
 ];
 
 const FOOTER_HIDDEN_EXACT_PATHS = new Set([
+  "/",
   "/account",
   "/sign-in",
   "/signup",

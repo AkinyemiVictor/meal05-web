@@ -25,22 +25,20 @@ export default async function CategoriesPage() {
   const { categories, error } = await getCategories();
 
   return (
-    <main>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "2rem 1.5rem" }}>
-        <nav aria-label="Breadcrumb" style={{ marginBottom: "1.5rem", fontSize: "0.875rem", color: "var(--mk-text-subtle)" }}>
+    <main className="categories-page">
+      <div className="categories-page__inner">
+        <nav className="categories-page__breadcrumb" aria-label="Breadcrumb">
           <Link href="/">Home</Link>
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span>Shop</span>
         </nav>
 
-        <header style={{ marginBottom: "2rem" }}>
-          <p style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--mk-accent)", marginBottom: "0.4rem" }}>
+        <header className="categories-page__header">
+          <p>
             Browse
           </p>
-          <h1 style={{ fontSize: "clamp(1.6rem, 3vw, 2.2rem)", fontWeight: 800, color: "var(--mk-text)" }}>
-            Shop by category
-          </h1>
-          <p style={{ color: "var(--mk-text-subtle)", marginTop: "0.5rem" }}>
+          <h1>Explore categories <i aria-hidden="true" /></h1>
+          <p>
             Farm-sourced and delivered fresh to your door in Ibadan.
           </p>
         </header>
@@ -62,7 +60,8 @@ export default async function CategoriesPage() {
                   <i className={`fa-solid ${cat.icon}`} />
                 </span>
                 <span className="categories-grid__label">{cat.label}</span>
-                <span className="categories-grid__desc">{cat.description}</span>
+                <span className="categories-grid__divider" aria-hidden="true" />
+                <span className="categories-grid__count">{Number(cat.count ?? cat.product_count ?? 0)} items</span>
               </Link>
             ))}
           </div>

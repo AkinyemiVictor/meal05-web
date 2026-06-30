@@ -1,514 +1,84 @@
-﻿"use client";
-
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  IconBasketCheck,
-  IconArrowRight,
-  IconArrowUpLeft,
-  IconCarrot,
-  IconCherry,
-  IconChefHat,
-  IconClock,
-  IconFlame,
-  IconHelpCircle,
-  IconHome,
-  IconLayoutGrid,
-  IconLeaf,
-  IconMapPin,
-  IconPackage,
-  IconPepper,
-  IconShoppingBag,
-  IconShoppingCart,
+  IconArrowRight, IconBolt, IconBrandInstagram,
+  IconBrandWhatsapp, IconBrandX, IconDiscount2,
+  IconLeaf, IconLock, IconMapPin,
+  IconSearch, IconShieldCheck, IconShoppingCart, IconStarFilled,
   IconTruckDelivery,
-  IconUser,
 } from "@tabler/icons-react";
-import {
-  pickInSeasonProducts,
-  pickMostPopularProducts,
-  pickNewestProducts,
-  resolveStockClass,
-} from "@/lib/catalogue";
-import AppComingSoonSection from "@/components/app-coming-soon-section";
-import {
-  DesktopCategorySidebar,
-  MobileCategories,
-  TabletCategoryTabs,
-} from "@/components/home-category-navigation";
-import FilterChips from "@/components/filter-chips";
-import HomeProductCollection from "@/components/home-product-collection";
-import { readCartItems } from "@/lib/cart-storage";
-import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
-import useCategories from "@/lib/use-categories";
-import useProducts from "@/lib/use-products";
+import styles from "./landing.module.css";
+import WaitlistForm from "@/components/waitlist-form";
+import LandingPopularPreview from "@/components/landing-popular-preview";
+import LandingCategories from "@/components/landing-categories";
 
-const DESKTOP_NAVBAR_HEIGHT = 81;
-const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
-
-const filters = [
-  { value: "popular", label: "Popular", icon: IconFlame },
-  { value: "under-15m", label: "Under 15m", icon: IconClock },
-  { value: "bundles", label: "MealKit", icon: IconPackage },
-  { value: "chef-choice", label: "Chef Choice", icon: IconChefHat },
-  { value: "fresh-in-stock", label: "Fresh In Stock", icon: IconBasketCheck },
-  { value: "in-season", label: "In Season", icon: IconLeaf },
+const values = [
+  [IconBolt, "Same-day delivery", "Order before 2pm", "orange"],
+  [IconLeaf, "Farm fresh", "Picked each morning", "green"],
+  [IconDiscount2, "Fair market prices", "No middleman markup", "blue"],
+  [IconShieldCheck, "Secure checkout", "Pay your way, safely", "purple"],
+];
+const steps = [
+  ["01", IconSearch, "Browse & pick", "Search fresh items or shop curated bundles by category."],
+  ["02", IconShoppingCart, "Build your basket", "Choose pack sizes, then check out securely in seconds."],
+  ["03", IconTruckDelivery, "Same-day delivery", "We pick it fresh and bring it straight to your door."],
+];
+const products = [
+  ["Vegetables", "Fresh Tomatoes", "1 basket", "₦1,500", "Fresh", "green", "vegetables.jpg"],
+  ["Fruits", "Apple (Red)", "4 pieces", "₦1,000", "-17%", "orange", "Download AI generated Colorful Fruit Assortment for free.jpeg"],
+  ["Fruits", "Sheri Mango", "1 pack", "₦1,000", "", "dark", "Achieve Inner Balance with Superfoods and Calming Teas.jpeg"],
+  ["Vegetables", "Red Onions", "1 kg", "₦1,200", "Popular", "dark", "top-fresh-herbs-vegetables-colorful-bell-peppers-tarragonnd-parsley-with-copy-space-grey.jpg"],
+];
+const reviews = [
+  ["“The tomatoes and peppers arrived the same morning I ordered — genuinely fresher than my local market. This is my weekly run now.”", "TA", "Temi Adeyemi", "Bodija, Ibadan"],
+  ["“Prices are fair and the delivery is fast. I love that I can pick what I need and the whole experience is effortless.”", "KO", "Kunle Ogunbiyi", "Akobo, Ibadan"],
+  ["“Ordered a full bundle for a family event and everything came chilled and well-packed. Customer support is responsive too.”", "BF", "Bisi Falade", "Dugbe, Ibadan"],
 ];
 
-const COLLECTION_COPY = {
-  popular: {
-    eyebrow: "Top picks",
-    title: "Popular Items",
-    emptyMessage: "No popular products are available yet.",
-    seeAllHref: "/section/popular",
-  },
-  "under-15m": {
-    eyebrow: "Quick picks",
-    title: "Under 15m",
-    emptyMessage: "No under-15m products or bundles are available yet.",
-  },
-  bundles: {
-    eyebrow: "Curated packs",
-    title: "MealKit",
-    emptyMessage: "No bundle products are available yet.",
-    seeAllHref: "/section/bundle-plans",
-  },
-  "chef-choice": {
-    eyebrow: "Chef picks",
-    title: "Chef Choice",
-    emptyMessage: "No chef choice products are available yet.",
-  },
-  "fresh-in-stock": {
-    eyebrow: "Fresh arrivals",
-    title: "Fresh In Stock",
-    emptyMessage: "No fresh in-stock products are available yet.",
-    seeAllHref: "/section/new",
-  },
-  "in-season": {
-    eyebrow: "Seasonal picks",
-    title: "In Season",
-    emptyMessage: "No in-season products are available yet.",
-    seeAllHref: "/section/in-season",
-  },
-};
+export const metadata = { title: "Meal05 — Market-fresh groceries, delivered", description: "Fresh groceries delivered same-day across Ibadan." };
+const Stars = () => <div className={styles.stars}>{Array.from({length:5},(_,i)=><IconStarFilled key={i}/>)}</div>;
 
-const classNames = (...items) => items.filter(Boolean).join(" ");
+export default function LandingPage() {
+  return <main className={styles.page}>
+    <header className={styles.header}><div className={styles.navbar}>
+      <Link href="/" className={styles.logo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={142} height={50} priority /></Link>
+      <nav><a href="#categories">Categories</a><a href="#how">How it works</a><a href="#popular">Shop</a><a href="#reviews">Reviews</a><a href="#waitlist">Waitlist</a></nav>
+      <div className={styles.navActions}><span className={styles.location}><IconMapPin/> Bodija, Ibadan</span><Link href="/sign-in" className={styles.signin}>Sign in</Link><Link href="/shop" className={styles.orangeButton}>Start shopping <IconArrowRight/></Link></div>
+    </div></header>
 
-// MobileHeader and TopNav are now in src/components/meal05-header.js (rendered by layout)
-
-function PromoBanner() {
-  return (
-    <section className="welcome-banner" aria-labelledby="welcome-banner-title">
-      <div className="welcome-banner__wash welcome-banner__wash--top" />
-      <div className="welcome-banner__wash welcome-banner__wash--bottom" />
-      <div className="welcome-banner__halftone" aria-hidden="true" />
-      <span className="welcome-banner__dash welcome-banner__dash--one" aria-hidden="true" />
-      <span className="welcome-banner__dash welcome-banner__dash--two" aria-hidden="true" />
-
-      <span className="welcome-banner__float welcome-banner__float--leaf" aria-hidden="true">
-        <IconLeaf />
-      </span>
-      <span className="welcome-banner__float welcome-banner__float--pepper" aria-hidden="true">
-        <IconPepper />
-      </span>
-      <span className="welcome-banner__float welcome-banner__float--carrot" aria-hidden="true">
-        <IconCarrot />
-      </span>
-      <span className="welcome-banner__float welcome-banner__float--cherry" aria-hidden="true">
-        <IconCherry />
-      </span>
-
-      <div className="welcome-banner__inner">
-        <div className="welcome-banner__copy">
-          <div className="welcome-banner__topline">
-            <span className="welcome-banner__brand-chip">
-              <IconChefHat aria-hidden="true" />
-              <strong>MEAL<span>05</span></strong>
-            </span>
-            <span className="welcome-banner__farm-note">fresh from the farm</span>
-          </div>
-
-          <p className="welcome-banner__eyebrow">Hello &amp; welcome to</p>
-          <h2 id="welcome-banner-title" className="welcome-banner__title">
-            MEAL<span>05</span>
-          </h2>
-          <p className="welcome-banner__accent">Shop super fresh &amp; affordable</p>
-          <p className="welcome-banner__description">
-            Hand-picked groceries, straight from the farm to you. Quality you can taste, prices you&apos;ll love.
-          </p>
-
-          <div className="welcome-banner__actions">
-            <Link href="/shop" className="welcome-banner__cta">
-              <span><IconArrowRight aria-hidden="true" /></span>
-              Start shopping
-            </Link>
-            <span className="welcome-banner__delivery">
-              <IconTruckDelivery aria-hidden="true" />
-              Same-day delivery in Ibadan
-            </span>
-          </div>
-        </div>
-
-        <div className="welcome-banner__art" aria-hidden="true">
-          <div className="welcome-banner__stamp">
-            <strong>100%</strong>
-            <span>FARM FRESH</span>
-          </div>
-          <div className="welcome-banner__frame" />
-          <Image
-            src="/assets/billboard/welcome-produce.png"
-            alt=""
-            fill
-            priority
-            sizes="(max-width: 767px) 0px, (max-width: 1279px) 230px, 300px"
-            className="welcome-banner__produce"
-          />
-          <span className="welcome-banner__picked-note">picked this morning!</span>
-          <IconArrowUpLeft className="welcome-banner__note-arrow" />
-        </div>
+    <section className={styles.hero}>
+      <div className={styles.heroCopy}><span className={styles.pill}><i/> Same-day delivery across Ibadan</span>
+        <h1>Market-fresh<br/>groceries, <em>delivered.</em></h1>
+        <p>Meat, fish, vegetables, fruits and pantry staples — handpicked from the market each morning and at your door within hours.</p>
+        <form action="/search" className={styles.search}><IconSearch/><input name="q" placeholder="Search tomatoes, yam, fish…"/><button>Search</button></form>
+        <div className={styles.stats}><div><b>50k+</b><span>happy households</span></div><i/><div><b>1,200+</b><span>fresh products</span></div><i/><div><b className={styles.rating}><IconStarFilled/> 4.9</b><span>avg. rating</span></div></div>
+      </div>
+      <div className={styles.heroArt}><Image src="/assets/billboard/landing-hero-template.jpg" alt="Fresh market vegetables" fill priority sizes="(max-width:980px) 0px, 46vw"/><div className={styles.heroShade}/>
+        <div className={styles.delivery}><i><IconTruckDelivery/></i><span><b>Out for delivery</b><small>Arriving in 35 mins</small></span></div><div className={styles.discount}><b>50%</b><span>1st order</span></div>
       </div>
     </section>
-  );
-}
 
-const BOTTOM_NAV_ITEMS = [
-  { label: "Home", icon: IconHome, href: "/" },
-  { label: "Browse", icon: IconLayoutGrid, href: "/shop" },
-  { label: "Orders", icon: IconShoppingBag, href: "/account?tab=orders" },
-  { label: "Profile", icon: IconUser, href: "/account" },
-];
+    <section className={styles.trust}><div>{values.map(([Icon,title,sub,tone])=><article key={title}><i className={styles[tone]}><Icon/></i><span><b>{title}</b><small>{sub}</small></span></article>)}</div></section>
 
-function BottomNav({ cartCount }) {
-  return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-meal-line bg-meal-paper px-5 py-2 shadow-meal md:hidden">
-      <div className="grid grid-cols-4 overflow-hidden">
-        {BOTTOM_NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isHome = item.href === "/";
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={classNames(
-                "relative flex min-w-0 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] font-medium",
-                isHome ? "text-meal-pepper" : "text-meal-muted"
-              )}
-            >
-              <Icon size={22} stroke={1.8} />
-              <span className="truncate">{item.label}</span>
-              {item.label === "Orders" && cartCount ? (
-                <span className="absolute right-5 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-meal-pepper px-1 text-[9px] text-meal-paper">
-                  {cartCount}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
+    <section id="categories" className={styles.section}><LandingCategories/></section>
 
-export default function Home() {
-  const contentBoundaryRef = useRef(null);
-  const footerBoundaryRef = useRef(null);
-  const sidebarRef = useRef(null);
-  const [activeCollection, setActiveCollection] = useState("popular");
-  const [cartItems, setCartItems] = useState([]);
-  const [quickAddProduct, setQuickAddProduct] = useState(null);
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
-  const { categories } = useCategories();
-  const { ordered: products, status: productsStatus } = useProducts();
+    <section id="how" className={styles.how}><div className={styles.inner}><div className={styles.centerHead}><span>How it works</span><h2>Fresh food in three steps</h2></div><div className={styles.steps}>{steps.map(([num,Icon,title,desc])=><article key={num}><strong>{num}</strong><i><Icon/></i><h3>{title}</h3><p>{desc}</p></article>)}</div></div></section>
 
-  useEffect(() => {
-    let cancelled = false;
-    const updateLocalCart = () => {
-      if (!cancelled) setCartItems(readCartItems());
-    };
-    updateLocalCart();
-    const syncServerCart = () => {
-      if (!readStoredUser()) return;
-      fetch("/api/cart", { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((items) => {
-          if (!cancelled && Array.isArray(items)) setCartItems(items);
-        })
-        .catch(() => {
-          updateLocalCart();
-        });
-    };
-    syncServerCart();
-    window.addEventListener("cart-updated", updateLocalCart);
-    window.addEventListener("storage", updateLocalCart);
-    window.addEventListener(AUTH_EVENT, syncServerCart);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("cart-updated", updateLocalCart);
-      window.removeEventListener("storage", updateLocalCart);
-      window.removeEventListener(AUTH_EVENT, syncServerCart);
-    };
-  }, []);
+    <section id="popular" className={`${styles.section} ${styles.popularPreview}`}><LandingPopularPreview fallbackProducts={products}/></section>
 
-  const counts = useMemo(() => {
-    return categories.reduce((next, category) => {
-      next[category.slug] = Number(
-        category.product_count ?? category.available_product_count ?? category.count ?? 0
-      ) || 0;
-      return next;
-    }, {});
-  }, [categories]);
+    <section className={styles.promoWrap}><div className={styles.promo}><i/><div><span>Flash deal</span><h2>50% off your first order</h2><p>Plus free delivery on baskets above ₦5,000. New customers only — use code <b>FRESH50</b> at checkout.</p><Link href="/shop">Claim the deal <IconArrowRight/></Link></div><IconShoppingCart className={styles.cartArt}/></div></section>
 
-  useEffect(() => {
-    let frame = null;
+    <section id="reviews" className={styles.reviews}><div className={styles.inner}><div className={styles.centerHead}><span>Loved in Ibadan</span><h2>What our customers say</h2></div><div className={styles.reviewGrid}>{reviews.map(([quote,initials,name,area])=><article key={name}><Stars/><p>{quote}</p><footer><b>{initials}</b><span><strong>{name}</strong><small>{area}</small></span></footer></article>)}</div></div></section>
 
-    const measureSidebarHeight = (sidebar) => {
-      const previousHeight = sidebar.style.height;
-      const previousMaxHeight = sidebar.style.maxHeight;
-      const maxHeight = Math.max(0, window.innerHeight - DESKTOP_NAVBAR_HEIGHT);
+    <section id="waitlist" className={styles.waitlist}><div className={styles.waitlistInner}><div className={styles.waitlistCopy}><span>Early access</span><h2>Be first in line for what’s next.</h2><p>Join the Meal05 waitlist for priority access to new delivery areas, fresh features and member-only launch offers.</p><ul><li><IconStarFilled/> Priority access</li><li><IconDiscount2/> Early-member offers</li><li><IconMapPin/> New-area alerts</li></ul></div><WaitlistForm classNames={{form:styles.waitlistForm,fields:styles.waitlistFields,consent:styles.waitlistConsent,error:styles.waitlistError,privacy:styles.waitlistPrivacy,success:styles.waitlistSuccess}}/></div></section>
 
-      sidebar.style.height = "auto";
-      sidebar.style.maxHeight = `${maxHeight}px`;
-      const height = sidebar.getBoundingClientRect().height;
-      sidebar.style.height = previousHeight;
-      sidebar.style.maxHeight = previousMaxHeight;
+    <section className={styles.finalWrap}><div className={styles.final}><i/><i/><h2>Your market run,<br/>handled.</h2><p>Create a free account and get your first basket delivered today.</p><div><Link href="/shop">Start shopping <IconArrowRight/></Link><Link href="/categories">Browse categories</Link></div></div></section>
 
-      return height;
-    };
-
-    const applyFixed = (sidebar, height) => {
-      sidebar.style.position = "fixed";
-      sidebar.style.left = "max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem))";
-      sidebar.style.top = `${DESKTOP_NAVBAR_HEIGHT}px`;
-      sidebar.style.bottom = "";
-      sidebar.style.height = `${height}px`;
-      sidebar.style.maxHeight = `${height}px`;
-    };
-
-    const applyAbsolute = (sidebar, boundary, height) => {
-      const top = Math.max(0, boundary.getBoundingClientRect().height - height);
-
-      sidebar.style.position = "absolute";
-      sidebar.style.left = "1.5rem";
-      sidebar.style.top = `${top}px`;
-      sidebar.style.bottom = "";
-      sidebar.style.height = `${height}px`;
-      sidebar.style.maxHeight = `${height}px`;
-    };
-
-    const updateSidebarMode = () => {
-      frame = null;
-      const sidebar = sidebarRef.current;
-      const boundary = contentBoundaryRef.current;
-      const footerBoundary = footerBoundaryRef.current;
-
-      if (!sidebar || !boundary || !footerBoundary || window.innerWidth < 1024) {
-        if (sidebar) {
-          sidebar.style.position = "";
-          sidebar.style.left = "";
-          sidebar.style.top = "";
-          sidebar.style.bottom = "";
-          sidebar.style.height = "";
-          sidebar.style.maxHeight = "";
-        }
-        return;
-      }
-
-      const footerTop = footerBoundary.getBoundingClientRect().top;
-      const boundaryHeight = boundary.getBoundingClientRect().height;
-      const height = Math.min(measureSidebarHeight(sidebar), boundaryHeight);
-      const shouldRelease = footerTop <= DESKTOP_NAVBAR_HEIGHT + height;
-
-      if (shouldRelease) {
-        applyAbsolute(sidebar, boundary, height);
-      } else {
-        applyFixed(sidebar, height);
-      }
-    };
-
-    const scheduleSidebarMode = () => {
-      if (frame != null) return;
-      frame = window.requestAnimationFrame(updateSidebarMode);
-    };
-
-    updateSidebarMode();
-    window.addEventListener("scroll", scheduleSidebarMode, { passive: true });
-    window.addEventListener("resize", scheduleSidebarMode);
-
-    const observer = typeof ResizeObserver === "function"
-      ? new ResizeObserver(() => {
-          scheduleSidebarMode();
-        })
-      : null;
-    if (observer && contentBoundaryRef.current) observer.observe(contentBoundaryRef.current);
-    if (observer && footerBoundaryRef.current) observer.observe(footerBoundaryRef.current);
-
-    return () => {
-      if (frame != null) window.cancelAnimationFrame(frame);
-      observer?.disconnect();
-      window.removeEventListener("scroll", scheduleSidebarMode);
-      window.removeEventListener("resize", scheduleSidebarMode);
-    };
-  }, []);
-
-  const availableProducts = useMemo(
-    () => products.filter((product) => resolveStockClass(product.stock) !== "is-unavailable"),
-    [products]
-  );
-
-  const collectionProducts = useMemo(() => {
-    if (activeCollection === "popular") {
-      const databasePopular = availableProducts.filter(
-        (product) => product.isPopular || product.isBestseller || product.isHomepagePick || product.isFeatured
-      );
-      return databasePopular.length ? databasePopular : pickMostPopularProducts(availableProducts, new Set(), 12);
-    }
-    if (activeCollection === "fresh-in-stock") {
-      const databaseFresh = availableProducts.filter((product) => product.isNewArrival);
-      return databaseFresh.length ? databaseFresh : pickNewestProducts(availableProducts, new Set(), 12);
-    }
-    if (activeCollection === "in-season") {
-      return pickInSeasonProducts(availableProducts.filter((product) => product.inSeason === true), new Set(), 12);
-    }
-    if (activeCollection === "bundles") {
-      return availableProducts.filter((product) => product.isBundleEligible);
-    }
-    if (activeCollection === "chef-choice") {
-      return availableProducts.filter(
-        (product) => product.isChefChoice || product.collectionSlug === "chef-choice"
-      );
-    }
-    if (activeCollection === "under-15m") {
-      return availableProducts.filter(
-        (product) =>
-          product.isUnder15m ||
-          product.isUnder15Minutes ||
-          product.collectionSlug === "under-15m" ||
-          (Number.isFinite(Number(product.prepMinutes)) && Number(product.prepMinutes) <= 15)
-      );
-    }
-    return [];
-  }, [activeCollection, availableProducts]);
-
-  const activeCollectionCopy = COLLECTION_COPY[activeCollection] || COLLECTION_COPY.popular;
-
-  const handleQuickAddClose = () => {
-    setQuickAddOpen(false);
-    setQuickAddProduct(null);
-    setQuickAddAnchorEl(null);
-  };
-
-  const handleQuickAdd = (product, anchorEl) => {
-    if (!product) return;
-    if (quickAddOpen && quickAddProduct?.id === product.id) {
-      handleQuickAddClose();
-      return;
-    }
-    setQuickAddAnchorEl(anchorEl || null);
-    setQuickAddProduct(product);
-    setQuickAddOpen(true);
-  };
-
-  const cartCount = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  const sidebarStyle = {
-    position: "fixed",
-    top: DESKTOP_NAVBAR_HEIGHT,
-    left: "max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem))",
-    height: `calc(100dvh - ${DESKTOP_NAVBAR_HEIGHT}px)`,
-  };
-
-  return (
-    <main className="relative z-0 min-h-screen bg-meal-mist text-meal-text">
-      <div className="mx-auto max-w-[1440px] pb-24 md:pb-0">
-        {/* Mobile hero visible below the shared fixed header */}
-        <section className="px-5 pb-4 pt-3 md:hidden" aria-label="Meal05 homepage hero">
-          <div className="flex items-center gap-2 text-left text-xs font-medium uppercase tracking-[0.18em] text-meal-pepper">
-            <IconMapPin size={15} stroke={1.8} />
-            Delivery to
-          </div>
-          <p className="mt-1 text-[15px] font-medium text-meal-text">Office, 456 Culinary Blvd</p>
-          <h1 className="mt-5 max-w-[15rem] text-4xl font-bold leading-[0.98] tracking-tight text-meal-text">
-            Fresh food, fast delivery.
-          </h1>
-        </section>
-
-        <TabletCategoryTabs
-          categories={categories}
-          activeCategory=""
-          counts={counts}
-        />
-
-        <div
-          ref={contentBoundaryRef}
-          className="home-content-boundary relative z-0 flex overflow-visible lg:pl-72"
-          style={{ minHeight: `calc(100dvh - ${DESKTOP_NAVBAR_HEIGHT}px)` }}
-        >
-          <DesktopCategorySidebar
-            categories={categories}
-            activeCategory=""
-            counts={counts}
-            sidebarRef={sidebarRef}
-            style={sidebarStyle}
-          />
-
-          <div className="relative z-10 min-w-0 flex-1 overflow-hidden">
-            <div className="md:hidden">
-              <MobileCategories
-                categories={categories}
-                activeCategory=""
-                counts={counts}
-              />
-            </div>
-
-          <section className="px-5 pt-5 md:px-6 md:py-8 lg:pl-8 lg:pr-8">
-            <div className="md:hidden">
-              <FilterChips filters={filters} activeValue={activeCollection} onSelect={setActiveCollection} />
-            </div>
-
-            <div className="mt-1 md:mt-0">
-              <PromoBanner />
-            </div>
-
-            <div className="hidden md:mt-6 md:block">
-              <FilterChips filters={filters} activeValue={activeCollection} onSelect={setActiveCollection} />
-            </div>
-
-            <HomeProductCollection
-              eyebrow={activeCollectionCopy.eyebrow}
-              title={activeCollectionCopy.title}
-              products={collectionProducts}
-              status={productsStatus}
-              emptyMessage={activeCollectionCopy.emptyMessage}
-              seeAllHref={activeCollectionCopy.seeAllHref}
-              onAdd={handleQuickAdd}
-              showSeasonBadge={activeCollection !== "in-season"}
-            />
-          </section>
-          </div>
-      </div>
-      </div>
-
-      <div ref={footerBoundaryRef}>
-        <AppComingSoonSection />
-      </div>
-      <Link
-        href="/help-center"
-        aria-label="Help Center"
-        className="fixed bottom-24 right-5 z-40 grid h-12 w-12 place-items-center rounded-full border border-meal-line bg-meal-paper text-meal-pepper shadow-meal transition hover:border-meal-pepper hover:bg-meal-pepper hover:text-meal-paper md:bottom-6 md:right-6"
-      >
-        <IconHelpCircle size={24} stroke={1.8} />
-      </Link>
-      <BottomNav cartCount={cartCount} />
-      {quickAddProduct ? (
-        <QuickAddDrawer
-          product={quickAddProduct}
-          isOpen={quickAddOpen}
-          onClose={handleQuickAddClose}
-          variant="dropdown"
-          anchorEl={quickAddAnchorEl}
-        />
-      ) : null}
-    </main>
-  );
+    <footer className={styles.footer}><div className={styles.footerGrid}><div><Link href="/" className={styles.footerLogo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={145} height={52}/></Link><p>Market-fresh groceries delivered same-day across Ibadan. Handpicked each morning, priced fairly, at your door in hours.</p><div className={styles.socials}><a href="#" aria-label="Instagram"><IconBrandInstagram/></a><a href="#" aria-label="X"><IconBrandX/></a><a href="#" aria-label="WhatsApp"><IconBrandWhatsapp/></a></div></div>
+      <div><b>Shop</b><Link href="/categories">Categories</Link><Link href="/section/bundle-plans">Bundles</Link><Link href="/shop">Flash deals</Link><Link href="/section/new">New arrivals</Link></div>
+      <div><b>Company</b><Link href="/about-us">About us</Link><a href="#how">How it works</a><Link href="/contact-us">Delivery areas</Link><Link href="/career">Careers</Link></div>
+      <div><b>Support</b><Link href="/help-center">Help centre</Link><Link href="/account?tab=orders">Track order</Link><Link href="/help-center">Returns</Link><Link href="/contact-us">Contact us</Link></div></div>
+      <div className={styles.footerBottom}><span>© 2026 MEAL05. All rights reserved.</span><div><a href="#">Terms</a><a href="#">Privacy</a><span><IconLock/> Secure payments</span></div></div>
+    </footer>
+  </main>;
 }

@@ -2812,6 +2812,7 @@ main > section:not(.home-hero) {
 }
 
 /* removed header responsiveness at 500px */
+.category-carousel__card.is-active,.category-carousel--compact .category-carousel__card.is-active{background:#effaf1;border-color:rgba(0,172,17,.42);box-shadow:0 10px 24px rgba(0,172,17,.11);color:#0f172a}.category-carousel__card.is-active .category-carousel__card-icon,.category-carousel--compact .category-carousel__card.is-active .category-carousel__card-icon{background:#0f172a;color:#00c96b}.category-carousel__card.is-active .category-carousel__card-icon i{color:#00c96b;-webkit-text-stroke-color:#00c96b;-webkit-text-fill-color:transparent}.category-carousel__card.is-active .category-carousel__card-label,.category-carousel--compact .category-carousel__card.is-active .category-carousel__card-label{color:#087a35}
 
 
 .bestSellingSec {
