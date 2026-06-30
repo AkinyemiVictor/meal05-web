@@ -15,10 +15,10 @@ export const getSupabaseRouteClient = (cookieStore) => {
       getAll: async () => {
         try {
           const store = await resolveCookieStore();
-          if (!store?.getAll) return null;
+          if (!store?.getAll) return [];
           return store.getAll();
         } catch {
-          return null;
+          return [];
         }
       },
       setAll: async (cookiesToSet) => {

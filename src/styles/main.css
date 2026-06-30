@@ -9897,3 +9897,346 @@ main > section:not(.home-hero) {
     justify-content: center;
   }
 }
+
+/* Keep four homepage cards in constrained desktop layouts without horizontal scrolling.
+   The entire card is scaled proportionally; tablet layouts use their normal sizing. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .home-content-boundary {
+    min-height: 0 !important;
+  }
+
+  .home-product-collection__card {
+    --home-card-scale: clamp(0.66, calc((100vw - 446px) / 880px), 0.95);
+    zoom: var(--home-card-scale);
+  }
+}
+
+/* Homepage welcome billboard */
+.welcome-banner {
+  container-type: inline-size;
+  position: relative;
+  z-index: 10;
+  overflow: hidden;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #ff8a4d 0%, #f0571f 50%, #d23c0e 100%);
+  color: #ffffff;
+  box-shadow: 0 30px 70px -32px rgba(240, 87, 31, 0.6);
+  isolation: isolate;
+}
+
+.welcome-banner__wash {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.welcome-banner__wash--top {
+  top: -130px;
+  left: -90px;
+  width: 360px;
+  height: 360px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.welcome-banner__wash--bottom {
+  right: 80px;
+  bottom: -160px;
+  width: 340px;
+  height: 340px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.welcome-banner__halftone {
+  position: absolute;
+  top: 30px;
+  right: 46px;
+  width: 170px;
+  height: 96px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2.4px);
+  background-size: 15px 15px;
+  opacity: 0.55;
+}
+
+.welcome-banner__dash {
+  position: absolute;
+  z-index: 1;
+  width: 28px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  transform: rotate(38deg);
+}
+
+.welcome-banner__dash--one { top: 150px; left: 40px; }
+.welcome-banner__dash--two { top: 168px; left: 58px; width: 20px; }
+
+.welcome-banner__inner {
+  position: relative;
+  z-index: 5;
+  min-height: 280px;
+  padding: 20px 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+}
+
+.welcome-banner__copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.welcome-banner__topline,
+.welcome-banner__actions,
+.welcome-banner__brand-chip,
+.welcome-banner__delivery,
+.welcome-banner__cta {
+  display: flex;
+  align-items: center;
+}
+
+.welcome-banner__topline {
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.welcome-banner__brand-chip {
+  gap: 7px;
+  padding: 5px 10px;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(4px);
+}
+
+.welcome-banner__brand-chip svg { width: 16px; height: 16px; }
+.welcome-banner__brand-chip strong {
+  font-family: "Work Sans", var(--mk-font-sans);
+  font-size: 14px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.04em;
+}
+.welcome-banner__brand-chip strong span,
+.welcome-banner__title span { color: #15161f; font-style: normal; }
+
+.welcome-banner__farm-note,
+.welcome-banner__eyebrow,
+.welcome-banner__picked-note {
+  font-family: "Caveat", "Segoe Print", cursive;
+}
+
+.welcome-banner__farm-note {
+  font-size: 17px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.92);
+  transform: rotate(-2deg);
+}
+
+.welcome-banner__eyebrow {
+  margin: 0 0 2px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: #15161f;
+  transform: rotate(-2deg);
+  transform-origin: left center;
+}
+
+.welcome-banner__title {
+  font-family: "Work Sans", var(--mk-font-sans);
+  margin: 0 0 6px;
+  font-size: clamp(2.75rem, 5vw, 3.25rem);
+  font-weight: 900;
+  font-style: italic;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
+  text-shadow: 0 4px 18px rgba(21, 22, 31, 0.18);
+}
+
+.welcome-banner__accent {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.025em;
+  color: #15161f;
+}
+
+.welcome-banner__description {
+  display: none;
+  max-width: 440px;
+  margin: 0 0 14px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.welcome-banner__actions {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.welcome-banner__cta {
+  gap: 12px;
+  padding: 6px 18px 6px 6px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #15161f;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 16px 30px -12px rgba(21, 22, 31, 0.4);
+  transition: transform 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.welcome-banner__cta:hover {
+  transform: translateY(-2px);
+  background: #15161f;
+  color: #ffffff;
+}
+
+.welcome-banner__cta > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  background: #f04e1f;
+  color: #ffffff;
+}
+
+.welcome-banner__cta svg { width: 21px; height: 21px; }
+.welcome-banner__delivery { gap: 7px; font-size: 12px; font-weight: 700; }
+.welcome-banner__delivery svg { width: 20px; height: 20px; flex: none; }
+
+.welcome-banner__art {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  flex: none;
+}
+
+.welcome-banner__frame {
+  position: absolute;
+  inset: 14px;
+  border: 6px solid #ffffff;
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: 0 28px 56px -22px rgba(21, 22, 31, 0.45);
+  transform: rotate(-4deg);
+}
+
+.welcome-banner__produce {
+  z-index: 6;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 26px rgba(21, 22, 31, 0.4));
+  transform: scale(1.18) rotate(-2deg);
+}
+
+.welcome-banner__stamp {
+  position: absolute;
+  z-index: 8;
+  top: -16px;
+  left: -18px;
+  width: 68px;
+  height: 68px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  background: rgba(21, 22, 31, 0.14);
+  color: #ffffff;
+  transform: rotate(-10deg);
+  backdrop-filter: blur(2px);
+}
+
+.welcome-banner__stamp strong { font-size: 18px; font-style: italic; line-height: 1; }
+.welcome-banner__stamp span { font-size: 8px; font-weight: 800; letter-spacing: 0.06em; }
+.welcome-banner__picked-note {
+  position: absolute;
+  z-index: 8;
+  bottom: -20px;
+  left: -6px;
+  color: #15161f;
+  font-size: 18px;
+  font-weight: 700;
+  transform: rotate(-7deg);
+}
+.welcome-banner__note-arrow {
+  position: absolute;
+  z-index: 8;
+  bottom: 4px;
+  left: 96px;
+  width: 24px;
+  height: 24px;
+  color: #15161f;
+  transform: rotate(20deg);
+}
+
+.welcome-banner__float {
+  position: absolute;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 14px 26px -10px rgba(21, 22, 31, 0.35);
+}
+.welcome-banner__float svg { width: 54%; height: 54%; }
+.welcome-banner__float--leaf { top: 30px; left: 50%; width: 60px; height: 60px; color: #2fa14d; animation: welcomeSwayA 6s ease-in-out infinite; }
+.welcome-banner__float--pepper { top: 64px; right: 300px; width: 68px; height: 68px; color: #e23b1a; animation: welcomeSwayB 7s ease-in-out infinite; }
+.welcome-banner__float--carrot { right: 286px; bottom: 42px; width: 58px; height: 58px; color: #ef7a1a; animation: welcomeSwayA 6.5s ease-in-out 0.4s infinite; }
+.welcome-banner__float--cherry { right: 28px; bottom: 72px; width: 50px; height: 50px; color: #e2342b; animation: welcomeSwayB 6.2s ease-in-out 0.3s infinite; }
+
+@keyframes welcomeSwayA {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-12px) rotate(4deg); }
+}
+@keyframes welcomeSwayB {
+  0%, 100% { transform: translateY(0) rotate(8deg); }
+  50% { transform: translateY(-10px) rotate(-5deg); }
+}
+
+@container (max-width: 860px) {
+  .welcome-banner__inner { min-height: 280px; padding: 20px 28px; gap: 22px; }
+  .welcome-banner__title { font-size: 48px; }
+  .welcome-banner__eyebrow { font-size: 23px; }
+  .welcome-banner__accent { font-size: 17px; }
+  .welcome-banner__delivery { display: none; }
+  .welcome-banner__art { width: 170px; height: 170px; }
+  .welcome-banner__halftone,
+  .welcome-banner__float { display: none; }
+}
+
+@container (max-width: 560px) {
+  .welcome-banner__inner {
+    min-height: 0;
+    padding: 26px 24px 28px;
+    display: block;
+  }
+  .welcome-banner__art { display: none; }
+  .welcome-banner__topline { margin-bottom: 14px; }
+  .welcome-banner__farm-note { font-size: 16px; }
+  .welcome-banner__eyebrow { font-size: 22px; }
+  .welcome-banner__title { font-size: clamp(40px, 15cqw, 48px); }
+  .welcome-banner__accent { max-width: 280px; font-size: 17px; margin-bottom: 16px; }
+  .welcome-banner__description { max-width: 34rem; }
+  .welcome-banner__cta { justify-content: flex-start; }
+  .welcome-banner__delivery { width: 100%; }
+  .welcome-banner__dash { display: none; }
+}
+
+@container (max-width: 380px) {
+  .welcome-banner__inner { padding-inline: 22px; }
+  .welcome-banner__farm-note { display: none; }
+  .welcome-banner__cta { width: 100%; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-banner__float { animation: none; }
+  .welcome-banner__cta { transition: none; }
+}

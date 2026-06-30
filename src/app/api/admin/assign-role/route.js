@@ -12,6 +12,8 @@ import { respondZodError } from "@/lib/api/validate";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const toDatabaseRole = (role) => (role === "super_admin" ? "superadmin" : role);
+
 export async function POST(req) {
   const rl = await checkRateLimit({ request: req, id: "admin:assign-role", limit: 30, windowMs: 60_000 });
   const auth = getSupabaseRouteClient(await cookies());
@@ -72,7 +74,7 @@ export async function POST(req) {
   }
 
   const admin = getSupabaseAdminClient();
-  const { data, error } = await admin.rpc("assign_role", { user_id, role_name: normalizedRole });
+  const { data, error } = await admin.rpc("assign_role", { user_id, role_name: toDatabaseRole(normalizedRole) });
   if (error) {
     await logAdminError(error, { route: "/api/admin/assign-role", actor: user.email, user_id, role });
     return applyRateLimitHeaders(NextResponse.json({ error: error.message }, { status: 400 }), rl);

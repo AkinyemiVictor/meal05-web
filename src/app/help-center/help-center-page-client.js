@@ -117,7 +117,7 @@ const faqSections = [
       {
         question: "How long will it take to receive my MEAL05 order?",
         answer:
-          "Same-day delivery is available for orders placed before 2pm within Ibadan, Nigeria. Outside Ibadan, delivery typically takes 24-72 hours depending on your location and preferred slot.",
+          "Same-day delivery is available for orders placed before 4pm within Ibadan, Nigeria. Outside Ibadan, delivery typically takes 24-72 hours depending on your location and preferred slot.",
       },
       {
         question: "How do I track the status of my delivery?",

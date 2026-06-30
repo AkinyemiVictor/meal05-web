@@ -8,7 +8,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 
 import styles from "./cart.module.css";
 
-import AppComingSoonSection from "@/components/app-coming-soon-section";
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import ProductCard from "@/components/product-card";
@@ -894,7 +893,7 @@ function CartPageContent() {
         </CartProductSection>
       ) : null}
 
-      {/* Category aisle just above the Download App section */}
+      {/* Category aisle */}
       <CategoryCarousel
         cards={CATEGORY_CARDS}
         heading="Browse categories"
@@ -902,9 +901,6 @@ function CartPageContent() {
         className="category-carousel--compact"
       />
     </div>
-
-    {/* Full-bleed Download App section (outside the page container to avoid side/bottom gutters) */}
-    <AppComingSoonSection />
     {quickAddProduct ? (
       <QuickAddDrawer
         product={quickAddProduct}

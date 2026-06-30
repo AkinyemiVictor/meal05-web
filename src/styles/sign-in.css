@@ -574,6 +574,14 @@
   outline: none;
 }
 
+.auth-primary-btn:disabled,
+.auth-primary-btn[aria-busy="true"] {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+  box-shadow: none;
+}
+
 .auth-divider {
   position: relative;
   display: flex;

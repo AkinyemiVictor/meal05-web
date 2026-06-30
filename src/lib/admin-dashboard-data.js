@@ -1,6 +1,5 @@
 import "server-only";
 
-import { isAdminEmail } from "@/lib/admin";
 import {
   getAdminRoleLabel,
   getAdminRoleRank,
@@ -2430,27 +2429,14 @@ export async function loadAdminStaffControlData({ page = 1, pageSize = 20, query
   const normalizedFilter = normalizeAdminStaffFilter(filter);
 
   const userSelectCandidates = [
-    "id, auth_id, user_id, email, first_name, last_name, name, role, is_admin, is_active, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, role, is_admin, is_active, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, role, is_admin, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, role, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, is_admin, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, created_at, updated_at",
-    "id, email, first_name, last_name, name, created_at, updated_at",
-  ];
-  const profileSelectCandidates = [
-    "id, auth_id, user_id, email, first_name, last_name, name, role, is_admin, is_active, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, role, is_admin, is_active, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, role, is_admin, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, role, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, is_admin, created_at, updated_at",
-    "id, user_id, email, first_name, last_name, name, created_at, updated_at",
-    "id, email, first_name, last_name, name, created_at, updated_at",
+    "id, auth_id, email, first_name, last_name, name, role, is_active, created_at, updated_at",
+    "id, email, first_name, last_name, name, role, is_active, created_at, updated_at",
+    "id, auth_id, email, first_name, last_name, name, role, created_at, updated_at",
+    "id, email, first_name, last_name, name, role, created_at, updated_at",
   ];
 
-  const [usersRes, profilesRes, logsRes] = await Promise.all([
+  const [usersRes, logsRes] = await Promise.all([
     selectRowsWithFallback(admin, "users", userSelectCandidates),
-    selectRowsWithFallback(admin, "profiles", profileSelectCandidates),
     admin
       .from("admin_logs")
       .select("type, route, actor, message, metadata, created_at")
@@ -2461,20 +2447,14 @@ export async function loadAdminStaffControlData({ page = 1, pageSize = 20, query
   if (usersRes.error && !usersRes.rows.length) {
     warnings.push(`Users staff lookup failed: ${usersRes.error.message}`);
   }
-  if (profilesRes.error && !profilesRes.rows.length) {
-    warnings.push(`Profiles staff lookup failed: ${profilesRes.error.message}`);
-  }
   if (logsRes.error) {
     warnings.push(`Admin audit lookup failed: ${logsRes.error.message}`);
   }
 
-  const roleSchemaAvailable = [
-    ...parseSelectFields(usersRes.matchedSelect),
-    ...parseSelectFields(profilesRes.matchedSelect),
-  ].some((field) => field === "role" || field === "is_admin");
+  const roleSchemaAvailable = parseSelectFields(usersRes.matchedSelect).some((field) => field === "role");
 
   if (!roleSchemaAvailable) {
-    warnings.push("Role fields are unavailable until the users or profiles tables expose role or is_admin.");
+    warnings.push("Role fields are unavailable until the users table exposes role.");
   }
 
   const activityByEmail = new Map();
@@ -2490,7 +2470,7 @@ export async function loadAdminStaffControlData({ page = 1, pageSize = 20, query
   const mergedByKey = new Map();
   const mergeRows = (rows, source) => {
     rows.forEach((row, index) => {
-      const key = firstNonEmptyText(row?.auth_id, row?.user_id, row?.id, row?.email, `${source}:${index}`);
+      const key = firstNonEmptyText(row?.id, row?.auth_id, row?.email, `${source}:${index}`);
       const existing = mergedByKey.get(key) || {
         key,
         actionUserId: "",
@@ -2508,13 +2488,12 @@ export async function loadAdminStaffControlData({ page = 1, pageSize = 20, query
 
       mergedByKey.set(key, {
         ...existing,
-        actionUserId: firstNonEmptyText(existing.actionUserId, row?.auth_id, row?.user_id, row?.id),
+        actionUserId: firstNonEmptyText(existing.actionUserId, row?.id, row?.auth_id),
         email: firstNonEmptyText(existing.email, row?.email),
         firstName: firstNonEmptyText(existing.firstName, row?.first_name),
         lastName: firstNonEmptyText(existing.lastName, row?.last_name),
         name: firstNonEmptyText(existing.name, row?.name),
         roleRaw: firstNonEmptyText(existing.roleRaw, row?.role),
-        isAdminRaw: firstDefinedValue(existing.isAdminRaw, row?.is_admin),
         isActiveRaw: firstDefinedValue(existing.isActiveRaw, row?.is_active),
         createdAt: firstNonEmptyText(existing.createdAt, row?.created_at),
         updatedAt: firstNonEmptyText(existing.updatedAt, row?.updated_at),
@@ -2524,19 +2503,18 @@ export async function loadAdminStaffControlData({ page = 1, pageSize = 20, query
   };
 
   mergeRows(Array.isArray(usersRes.rows) ? usersRes.rows : [], "users");
-  mergeRows(Array.isArray(profilesRes.rows) ? profilesRes.rows : [], "profiles");
 
   const records = Array.from(mergedByKey.values())
     .map((row) => {
       const rawEmail = String(row.email || "").trim();
       const email = rawEmail.toLowerCase();
-      const dbRole = normalizeAdminRole(row.roleRaw, row.isAdminRaw);
-      const role = dbRole || (isAdminEmail(email) ? "owner" : null);
-      const roleSource = dbRole ? (hasNonEmptyText(row.roleRaw) ? "db_role" : "db_is_admin") : role ? "email_fallback" : null;
+      const dbRole = normalizeAdminRole(row.roleRaw);
+      const role = dbRole === "admin" || dbRole === "super_admin" ? dbRole : null;
+      const roleSource = role && hasNonEmptyText(row.roleRaw) ? "db_role" : null;
       const displayName =
         firstNonEmptyText(`${row.firstName} ${row.lastName}`.trim(), row.name, rawEmail) ||
         (row.actionUserId ? `User ${row.actionUserId.slice(0, 8)}...` : "Unknown User");
-      const isActive = row.isActiveRaw !== false && String(row.isActiveRaw || "").trim().toLowerCase() !== "false";
+      const isActive = row.isActiveRaw === true;
       const activity = activityByEmail.get(email) || { count: 0, lastAt: "" };
 
       return {
@@ -2547,7 +2525,7 @@ export async function loadAdminStaffControlData({ page = 1, pageSize = 20, query
         role,
         roleLabel: getAdminRoleLabel(role),
         roleSource,
-        hasWorkspaceAccess: role != null,
+        hasWorkspaceAccess: role != null && isActive,
         isActive,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -2585,14 +2563,13 @@ export async function loadAdminStaffControlData({ page = 1, pageSize = 20, query
     totalPages,
     totalUsers: records.length,
     workspaceAccessCount: records.filter((row) => row.hasWorkspaceAccess).length,
-    ownerCount: records.filter((row) => row.role === "owner").length,
     superAdminCount: records.filter((row) => row.role === "super_admin").length,
     adminCount: records.filter((row) => row.role === "admin").length,
     inactiveCount: records.filter((row) => row.isActive === false).length,
     recentActorCount: records.filter((row) => row.recentAdminActivityCount > 0).length,
     roleSchemaAvailable,
     auditAvailable: !logsRes.error,
-    schemaAvailable: !(usersRes.error && !usersRes.rows.length && profilesRes.error && !profilesRes.rows.length),
+    schemaAvailable: !(usersRes.error && !usersRes.rows.length),
     warnings,
   };
 }

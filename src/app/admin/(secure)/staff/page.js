@@ -128,7 +128,7 @@ export default async function AdminStaffPage({ searchParams }) {
           padding: "10px 12px",
         }}
       >
-        <strong>Role safety.</strong> Owners can assign any role except other owners. Super Admins can only grant Admin and cannot deactivate Owners or Super Admins.
+        <strong>Role safety.</strong> Workspace access now follows the Supabase users.role rule. Active Super Admins can grant Admin or Super Admin roles and can deactivate Admin users.
       </section>
 
       {warnings.length ? (
@@ -162,10 +162,6 @@ export default async function AdminStaffPage({ searchParams }) {
         <article style={{ border: "1px solid #e2e8f0", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
           <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>Workspace Access</p>
           <p style={{ margin: "4px 0 0", fontWeight: 700 }}>{data.workspaceAccessCount} / {data.totalUsers}</p>
-        </article>
-        <article style={{ border: "1px solid #e2e8f0", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
-          <p style={{ margin: 0, color: "#111827", fontSize: 12 }}>Owners</p>
-          <p style={{ margin: "4px 0 0", fontWeight: 700 }}>{data.ownerCount}</p>
         </article>
         <article style={{ border: "1px solid #e2e8f0", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
           <p style={{ margin: 0, color: "#0f172a", fontSize: 12 }}>Super Admins</p>

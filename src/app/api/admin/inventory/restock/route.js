@@ -93,32 +93,28 @@ const restockViaDirectUpdate = async ({ admin, user, variantId, quantity, reason
     return { response: NextResponse.json({ error: "Restock completed but response was empty." }, { status: 500 }) };
   }
 
-  let movementId = null;
-  let movementWarning = "";
-  const movementRes = await admin
-    .from("stock_movements")
+  let ledgerWarning = "";
+  const ledgerRes = await admin
+    .from("stock_ledger")
     .insert({
       variant_id: variantId,
-      change_quantity: quantity,
+      change_qty: quantity,
       reason,
+      source: "admin_restock",
       note,
-    })
-    .select("id")
-    .maybeSingle();
+    });
 
-  if (movementRes.error) {
-    movementWarning = "Stock updated, but stock movement log could not be recorded.";
-    await logAdminError(movementRes.error, {
+  if (ledgerRes.error) {
+    ledgerWarning = "Stock updated, but stock ledger entry could not be recorded.";
+    await logAdminError(ledgerRes.error, {
       route: "/api/admin/inventory/restock",
       actor: user.email,
       variant_id: variantId,
       quantity,
       reason,
       note,
-      stage: "fallback:insert-stock-movement",
+      stage: "fallback:insert-stock-ledger",
     });
-  } else {
-    movementId = movementRes.data?.id ?? null;
   }
 
   await logAdminEvent({
@@ -126,14 +122,16 @@ const restockViaDirectUpdate = async ({ admin, user, variantId, quantity, reason
     actor: user.email,
     variant_id: variantId,
     product_id: updatedVariant.product_id ?? variant.product_id ?? null,
-    movement_id: movementId,
+    movement_id: null,
+    ledger_recorded: !ledgerRes.error,
     before_stock: beforeStock,
     added_stock: quantity,
     after_stock: updatedVariant.stock_count ?? afterStock,
     reason,
     note: note || undefined,
     fallback: true,
-    movement_log_failed: Boolean(movementRes.error),
+    movement_log_failed: Boolean(ledgerRes.error),
+    ledger_log_failed: Boolean(ledgerRes.error),
     ok: true,
   });
 
@@ -141,14 +139,15 @@ const restockViaDirectUpdate = async ({ admin, user, variantId, quantity, reason
     response: NextResponse.json({
       ok: true,
       fallback: true,
-      warning: movementWarning || undefined,
+      warning: ledgerWarning || undefined,
       variant: {
         id: updatedVariant.id ?? variantId,
         product_id: updatedVariant.product_id ?? variant.product_id ?? null,
         name: updatedVariant.name || variant.name || "",
         stock_count: updatedVariant.stock_count ?? afterStock,
       },
-      movementId,
+      movementId: null,
+      ledgerRecorded: !ledgerRes.error,
       beforeStock,
       added: quantity,
       afterStock: updatedVariant.stock_count ?? afterStock,

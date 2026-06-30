@@ -81,18 +81,21 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
       <ProductImage product={product} showSeasonBadge={showSeasonBadge} />
       <div className="grid min-h-[188px] grid-rows-[auto_1fr_auto] pt-4">
         <div className="relative min-w-0 pr-12">
-          <div className="min-w-0">
+          <Link
+            href={productHref}
+            className="block min-w-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-meal-pepper/60"
+            aria-label={`View ${product.name}`}
+          >
             <p className="w-full truncate text-[11px] font-medium uppercase tracking-[0.16em] text-meal-muted">
               {product.category || "Fresh market"}
             </p>
-            <Link
-              href={productHref}
+            <span
               className="mt-2 block h-6 w-full truncate text-base font-medium leading-6 text-meal-text"
               title={product.name}
             >
               {product.name}
-            </Link>
-          </div>
+            </span>
+          </Link>
           <Link
             href={productHref}
             className="absolute right-0 top-0 grid h-10 w-10 place-items-center rounded-full border border-meal-line text-meal-muted"
@@ -102,7 +105,11 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
           </Link>
         </div>
         <div className="self-end">
-          <div>
+          <Link
+            href={productHref}
+            className="block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-meal-pepper/60"
+            aria-label={`View ${product.name} details`}
+          >
             <p className="text-xl font-medium tracking-tight text-meal-text">
               {formatProductPrice(product.price, product.unit)}
             </p>
@@ -112,7 +119,7 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
                 {product.unit ? `/${product.unit}` : ""}
               </p>
             ) : null}
-          </div>
+          </Link>
           <button
             type="button"
             disabled={unavailable}

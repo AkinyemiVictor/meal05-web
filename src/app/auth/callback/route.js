@@ -12,22 +12,34 @@ export async function GET(request) {
   const error = url.searchParams.get("error");
   const desc = url.searchParams.get("error_description");
   const nextPath = sanitizeReturnPath(url.searchParams.get("next") || "", "");
+  let callbackError = error || "";
+  let callbackDescription = desc || "";
 
-  try {
-    if (code) {
+  if (code) {
+    try {
       const supabase = getSupabaseRouteClient(await cookies());
-      await supabase.auth.exchangeCodeForSession(code);
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      if (exchangeError) {
+        callbackError = "oauth_exchange_failed";
+        callbackDescription = exchangeError.message || "Could not complete Google sign-in.";
+      }
+    } catch (exchangeError) {
+      callbackError = "oauth_exchange_failed";
+      callbackDescription = exchangeError?.message || "Could not complete Google sign-in.";
     }
-  } catch {}
+  } else if (!callbackError) {
+    callbackError = "missing_oauth_code";
+    callbackDescription = "Google did not return a valid sign-in code.";
+  }
 
-  const target = error
+  const target = callbackError
     ? new URL(buildSignInHref({ tab: "login", next: nextPath, hash: "loginForm" }), request.url)
     : new URL("/auth/complete", request.url);
-  if (nextPath && !error) {
+  if (nextPath && !callbackError) {
     target.searchParams.set("next", nextPath);
   }
-  if (error && desc) {
-    target.searchParams.set("oauth_error", desc);
+  if (callbackError && callbackDescription) {
+    target.searchParams.set("oauth_error", callbackDescription);
   }
   return NextResponse.redirect(target);
 }

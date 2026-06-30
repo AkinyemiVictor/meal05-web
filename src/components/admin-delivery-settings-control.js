@@ -77,7 +77,7 @@ export default function AdminDeliverySettingsControl({
   deliveryFee = 1500,
   freeDeliveryThreshold = 40000,
   sameDayEnabled = true,
-  sameDayCutoffTime = "14:00",
+  sameDayCutoffTime = "16:00",
   serviceZones = DEFAULT_SERVICE_ZONE_FEES.map((zone) => zone.name),
   serviceZoneFees = DEFAULT_SERVICE_ZONE_FEES,
   sameDayNotice = "",
@@ -92,7 +92,7 @@ export default function AdminDeliverySettingsControl({
     deliveryFee: String(deliveryFee),
     freeDeliveryThreshold: String(freeDeliveryThreshold),
     sameDayEnabled: sameDayEnabled !== false,
-    sameDayCutoffTime: String(sameDayCutoffTime || "14:00"),
+    sameDayCutoffTime: String(sameDayCutoffTime || "16:00"),
     sameDayNotice: String(sameDayNotice || ""),
   });
   const [zoneRows, setZoneRows] = useState(() => buildZoneRows(serviceZoneFees || serviceZones, deliveryFee));
@@ -102,7 +102,7 @@ export default function AdminDeliverySettingsControl({
       deliveryFee: String(deliveryFee),
       freeDeliveryThreshold: String(freeDeliveryThreshold),
       sameDayEnabled: sameDayEnabled !== false,
-      sameDayCutoffTime: String(sameDayCutoffTime || "14:00"),
+      sameDayCutoffTime: String(sameDayCutoffTime || "16:00"),
       sameDayNotice: String(sameDayNotice || ""),
     });
     setZoneRows(buildZoneRows(serviceZoneFees || serviceZones, deliveryFee));

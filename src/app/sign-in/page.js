@@ -37,6 +37,14 @@ const normalizeLoginPhone = (value, countryCode = DEFAULT_PHONE_COUNTRY_CODE) =>
   return `${normalizedCountry}${digits}`;
 };
 
+const withTimeout = (promise, ms, message) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
+
 const TAB_OPTIONS = [
   { key: "login", label: "Sign in", hash: "#loginForm" },
   { key: "signup", label: "Create account", hash: "#signupForm" },
@@ -91,6 +99,7 @@ function SignInPageContent() {
   const [isSavingRecoveryPassword, setIsSavingRecoveryPassword] = useState(false);
   const [recoveryError, setRecoveryError] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  const [isLoginSubmitting, setIsLoginSubmitting] = useState(false);
   const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPhoneCountry, setLoginPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const { showNotice } = useNotice();
@@ -139,10 +148,13 @@ function SignInPageContent() {
         callbackUrl.searchParams.set("next", requestedNext);
       }
       const supabase = getBrowserSupabaseClient();
-      await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: callbackUrl.toString() },
       });
+      if (error) {
+        throw error;
+      }
     } catch (e) {
       await showNotice({ tone: "error", title: "Google sign-in failed", message: e?.message || "Please try again." });
     }
@@ -222,6 +234,17 @@ function SignInPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
+    const oauthError = searchParams?.get("oauth_error");
+    if (!oauthError) return;
+    showNotice({
+      tone: "error",
+      title: "Google sign-in failed",
+      message: oauthError,
+      autoClose: false,
+    });
+  }, [searchParams, showNotice]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -286,6 +309,7 @@ function SignInPageContent() {
 
   const handleLoginSubmit = useCallback(async (event) => {
     event.preventDefault();
+    if (isLoginSubmitting) return;
     const form = event.currentTarget;
     const formData = new FormData(form);
     const emailInput = form.elements.namedItem("login-email");
@@ -305,6 +329,7 @@ function SignInPageContent() {
 
     if (!identifier || !password) return;
 
+    setIsLoginSubmitting(true);
     try {
       // Clear any previous inline hint
       try {
@@ -320,11 +345,11 @@ function SignInPageContent() {
       let loginError = null;
 
       if (!isEmailLogin) {
-        const response = await fetch("/api/auth/resolve-login", {
+        const response = await withTimeout(fetch("/api/auth/resolve-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ identifier: phone || identifier, password }),
-        });
+        }), 12000, "Login took too long. Please try again.");
         const payload = response.ok ? await response.json().catch(() => ({})) : {};
         if (!response.ok || !payload?.session?.access_token || !payload?.session?.refresh_token) {
           const hint = document.getElementById("login-inline-hint");
@@ -333,15 +358,19 @@ function SignInPageContent() {
           }
           return;
         }
-        const sessionResult = await supabase.auth.setSession({
+        const sessionResult = await withTimeout(supabase.auth.setSession({
           access_token: payload.session.access_token,
           refresh_token: payload.session.refresh_token,
-        });
+        }), 10000, "Login session took too long. Please try again.");
         loginData = sessionResult.data;
         loginError = sessionResult.error;
         email = String(loginData?.user?.email || payload?.user?.email || "").trim().toLowerCase();
       } else {
-        const result = await supabase.auth.signInWithPassword({ email, password });
+        const result = await withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          12000,
+          "Login took too long. Please try again."
+        );
         loginData = result.data;
         loginError = result.error;
       }
@@ -397,18 +426,20 @@ function SignInPageContent() {
       } catch {}
       migrateGuestCartToUser(user);
       try {
-        await fetch("/api/users/sync", {
+        await withTimeout(fetch("/api/users/sync", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ first_name: firstName, last_name: lastName }),
-        });
+        }), 8000, "Profile sync took too long.");
       } catch {}
       window.location.replace(fallbackAfterAuth);
     } catch (e) {
       console.error("Supabase login error", e);
-      await showNotice({ tone: "error", title: "Login error", message: "Unexpected error during login. Please try again." });
+      await showNotice({ tone: "error", title: "Login error", message: e?.message || "Unexpected error during login. Please try again." });
+    } finally {
+      setIsLoginSubmitting(false);
     }
-  }, [fallbackAfterAuth, getLoginResetRedirect, loginPhoneCountry, rememberMe, showNotice]);
+  }, [fallbackAfterAuth, getLoginResetRedirect, isLoginSubmitting, loginPhoneCountry, rememberMe, showNotice]);
 
   const handleForgotPassword = useCallback(async (event) => {
     try {
@@ -920,8 +951,8 @@ function SignInPageContent() {
                 </label>
                 <Link href="#" onClick={handleForgotPassword}>Forgot password?</Link>
               </div>
-              <button type="submit" className="auth-primary-btn">
-                <span>Sign in</span>
+              <button type="submit" className="auth-primary-btn" disabled={isLoginSubmitting} aria-busy={isLoginSubmitting}>
+                <span>{isLoginSubmitting ? "Signing in..." : "Sign in"}</span>
                 <i className="fa-solid fa-chevron-right" aria-hidden="true" />
               </button>
 

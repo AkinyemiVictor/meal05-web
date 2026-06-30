@@ -7,6 +7,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { logAdminEvent, logAdminError } from "@/lib/api/log";
 import { respondZodError } from "@/lib/api/validate";
+import { insertOrderStatusHistory } from "@/lib/order-status-history";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -270,6 +271,27 @@ export async function POST(req) {
     return applyRateLimitHeaders(NextResponse.json({ error: updateErr.message }, { status: 400 }), rl);
   }
 
+  const updatedStatus = updated?.status ?? patch.status ?? existingOrder.status;
+  if (nextStatus && String(updatedStatus || "").toLowerCase() !== currentStatus) {
+    const statusHistoryRes = await insertOrderStatusHistory(admin, {
+      orderId,
+      fromStatus: existingOrder.status,
+      toStatus: updatedStatus,
+      changedBy: user.id,
+      note,
+    });
+    if (statusHistoryRes.error) {
+      await logAdminError(statusHistoryRes.error, {
+        route: "/api/admin/orders/status",
+        stage: "insert:order_status_history",
+        actor: user.email,
+        order_id: orderId,
+        before_status: existingOrder.status,
+        after_status: updatedStatus,
+      });
+    }
+  }
+
   await logAdminEvent({
     route: "/api/admin/orders/status",
     actor: user.email,
@@ -277,7 +299,7 @@ export async function POST(req) {
     before_status: existingOrder.status,
     before_payment_status: existingOrder.payment_status,
     before_delivery_status: existingOrder.delivery_status,
-    after_status: updated?.status ?? patch.status ?? existingOrder.status,
+    after_status: updatedStatus,
     after_payment_status: updated?.payment_status ?? patch.payment_status ?? existingOrder.payment_status,
     after_delivery_status: updated?.delivery_status ?? patch.delivery_status ?? existingOrder.delivery_status,
     note: note || undefined,

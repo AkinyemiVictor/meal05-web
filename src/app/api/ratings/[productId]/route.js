@@ -39,19 +39,27 @@ export async function GET(req, { params }) {
   }
 
   const { data: { user } } = await supabase.auth.getUser();
-  const { data, error } = await supabase
+  const { data: approvedRows, error } = await supabase
     .from("product_ratings")
     .select("rating, user_id")
-    .eq("product_id", productId);
+    .eq("product_id", productId)
+    .eq("is_approved", true);
 
   if (error) {
     return applyRateLimitHeaders(new Response(JSON.stringify({ error: error.message || error }), { status: 400 }), rl);
   }
 
-  const summary = buildSummary(data);
-  const userRating = user?.id
-    ? (data || []).find((row) => row.user_id === user.id)?.rating ?? null
-    : null;
+  const summary = buildSummary(approvedRows);
+  let userRating = null;
+  if (user?.id) {
+    const { data: ownRating } = await supabase
+      .from("product_ratings")
+      .select("rating")
+      .eq("product_id", productId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    userRating = ownRating?.rating ?? null;
+  }
 
   return applyRateLimitHeaders(
     new Response(JSON.stringify({ ...summary, userRating }), { status: 200 }),

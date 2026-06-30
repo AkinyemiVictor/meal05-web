@@ -9,7 +9,6 @@ const ROLE_ALIASES = new Map([
   ["admin", "admin"],
   ["super_admin", "super_admin"],
   ["superadmin", "super_admin"],
-  ["owner", "owner"],
 ]);
 
 export const ADMIN_PERMISSION_DEFINITIONS = [
@@ -18,7 +17,6 @@ export const ADMIN_PERMISSION_DEFINITIONS = [
   { value: "view_admin_logs", label: "Admin Logs" },
   { value: "manage_roles", label: "Assign Roles" },
   { value: "manage_staff", label: "Deactivate Users" },
-  { value: "assign_owner", label: "Promote Owners" },
 ];
 
 export const ADMIN_ROLE_DEFINITIONS = [
@@ -34,12 +32,6 @@ export const ADMIN_ROLE_DEFINITIONS = [
     rank: 2,
     permissions: ["view_admin_workspace", "view_staff_directory", "view_admin_logs", "manage_roles", "manage_staff"],
   },
-  {
-    value: "owner",
-    label: "Owner",
-    rank: 3,
-    permissions: ["view_admin_workspace", "view_staff_directory", "view_admin_logs", "manage_roles", "manage_staff", "assign_owner"],
-  },
 ];
 
 export const ADMIN_ROLE_OPTIONS = ADMIN_ROLE_DEFINITIONS.map((definition) => ({
@@ -50,7 +42,6 @@ export const ADMIN_ROLE_OPTIONS = ADMIN_ROLE_DEFINITIONS.map((definition) => ({
 export const ADMIN_STAFF_FILTER_OPTIONS = [
   { value: "all", label: "All Users" },
   { value: "workspace", label: "Workspace Access" },
-  { value: "owner", label: "Owners" },
   { value: "super_admin", label: "Super Admins" },
   { value: "admin", label: "Admins" },
   { value: "inactive", label: "Inactive Users" },
@@ -118,15 +109,9 @@ export const canAssignAdminRole = ({
   if (!next) return false;
   if (actorId && targetId && actorId === targetId) return false;
 
-  if (actor === "owner") {
-    if (target === "owner") return false;
-    if (next === "owner") return hasAdminRolePermission(actor, "assign_owner");
-    return true;
-  }
-
   if (actor === "super_admin") {
-    if (target === "owner" || target === "super_admin") return false;
-    return next === "admin";
+    if (target === "super_admin") return false;
+    return next === "admin" || next === "super_admin";
   }
 
   return false;
@@ -147,10 +132,6 @@ export const canDeactivateAdminUser = ({
   if (!hasAdminRolePermission(actor, "manage_staff")) return false;
   if (actorId && targetId && actorId === targetId) return false;
   if (targetIsActive === false) return false;
-
-  if (actor === "owner") {
-    return target !== "owner";
-  }
 
   if (actor === "super_admin") {
     return target == null || target === "admin";

@@ -1,10 +1,15 @@
 ﻿"use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconBasketCheck,
+  IconArrowRight,
+  IconArrowUpLeft,
+  IconCarrot,
+  IconCherry,
   IconChefHat,
   IconClock,
   IconFlame,
@@ -14,8 +19,10 @@ import {
   IconLeaf,
   IconMapPin,
   IconPackage,
+  IconPepper,
   IconShoppingBag,
   IconShoppingCart,
+  IconTruckDelivery,
   IconUser,
 } from "@tabler/icons-react";
 import {
@@ -92,23 +99,75 @@ const classNames = (...items) => items.filter(Boolean).join(" ");
 
 function PromoBanner() {
   return (
-    <section className="relative z-10 overflow-hidden rounded-[28px] bg-meal-green p-8 text-meal-paper shadow-meal md:min-h-56 md:p-10">
-      <div className="absolute inset-y-0 right-0 hidden w-1/2 skew-x-[-18deg] bg-meal-paper/10 md:block" />
-      <div className="relative z-10 max-w-sm">
-        <p className="text-xs font-medium uppercase tracking-[0.28em] text-meal-paper/80">Flash deal</p>
-        <h2 className="mt-4 text-3xl font-bold uppercase italic leading-tight md:text-4xl">
-          50% off your first kit
-        </h2>
-        <button className="mt-5 rounded-2xl bg-meal-paper px-7 py-3 text-sm font-medium text-meal-green">
-          Claim now
-        </button>
+    <section className="welcome-banner" aria-labelledby="welcome-banner-title">
+      <div className="welcome-banner__wash welcome-banner__wash--top" />
+      <div className="welcome-banner__wash welcome-banner__wash--bottom" />
+      <div className="welcome-banner__halftone" aria-hidden="true" />
+      <span className="welcome-banner__dash welcome-banner__dash--one" aria-hidden="true" />
+      <span className="welcome-banner__dash welcome-banner__dash--two" aria-hidden="true" />
+
+      <span className="welcome-banner__float welcome-banner__float--leaf" aria-hidden="true">
+        <IconLeaf />
+      </span>
+      <span className="welcome-banner__float welcome-banner__float--pepper" aria-hidden="true">
+        <IconPepper />
+      </span>
+      <span className="welcome-banner__float welcome-banner__float--carrot" aria-hidden="true">
+        <IconCarrot />
+      </span>
+      <span className="welcome-banner__float welcome-banner__float--cherry" aria-hidden="true">
+        <IconCherry />
+      </span>
+
+      <div className="welcome-banner__inner">
+        <div className="welcome-banner__copy">
+          <div className="welcome-banner__topline">
+            <span className="welcome-banner__brand-chip">
+              <IconChefHat aria-hidden="true" />
+              <strong>MEAL<span>05</span></strong>
+            </span>
+            <span className="welcome-banner__farm-note">fresh from the farm</span>
+          </div>
+
+          <p className="welcome-banner__eyebrow">Hello &amp; welcome to</p>
+          <h2 id="welcome-banner-title" className="welcome-banner__title">
+            MEAL<span>05</span>
+          </h2>
+          <p className="welcome-banner__accent">Shop super fresh &amp; affordable</p>
+          <p className="welcome-banner__description">
+            Hand-picked groceries, straight from the farm to you. Quality you can taste, prices you&apos;ll love.
+          </p>
+
+          <div className="welcome-banner__actions">
+            <Link href="/shop" className="welcome-banner__cta">
+              <span><IconArrowRight aria-hidden="true" /></span>
+              Start shopping
+            </Link>
+            <span className="welcome-banner__delivery">
+              <IconTruckDelivery aria-hidden="true" />
+              Same-day delivery in Ibadan
+            </span>
+          </div>
+        </div>
+
+        <div className="welcome-banner__art" aria-hidden="true">
+          <div className="welcome-banner__stamp">
+            <strong>100%</strong>
+            <span>FARM FRESH</span>
+          </div>
+          <div className="welcome-banner__frame" />
+          <Image
+            src="/assets/billboard/welcome-produce.png"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 767px) 0px, (max-width: 1279px) 230px, 300px"
+            className="welcome-banner__produce"
+          />
+          <span className="welcome-banner__picked-note">picked this morning!</span>
+          <IconArrowUpLeft className="welcome-banner__note-arrow" />
+        </div>
       </div>
-      <IconShoppingCart
-        aria-hidden="true"
-        size={126}
-        stroke={1.2}
-        className="absolute bottom-6 right-6 text-meal-paper/25 md:right-12 md:top-1/2 md:-translate-y-1/2"
-      />
     </section>
   );
 }
@@ -203,29 +262,39 @@ export default function Home() {
 
   useEffect(() => {
     let frame = null;
-    let lastMode = "";
 
-    const sidebarHeight = () => `calc(100dvh - ${DESKTOP_NAVBAR_HEIGHT}px)`;
+    const measureSidebarHeight = (sidebar) => {
+      const previousHeight = sidebar.style.height;
+      const previousMaxHeight = sidebar.style.maxHeight;
+      const maxHeight = Math.max(0, window.innerHeight - DESKTOP_NAVBAR_HEIGHT);
 
-    const applyFixed = (sidebar) => {
+      sidebar.style.height = "auto";
+      sidebar.style.maxHeight = `${maxHeight}px`;
+      const height = sidebar.getBoundingClientRect().height;
+      sidebar.style.height = previousHeight;
+      sidebar.style.maxHeight = previousMaxHeight;
+
+      return height;
+    };
+
+    const applyFixed = (sidebar, height) => {
       sidebar.style.position = "fixed";
       sidebar.style.left = "max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem))";
       sidebar.style.top = `${DESKTOP_NAVBAR_HEIGHT}px`;
       sidebar.style.bottom = "";
-      sidebar.style.height = sidebarHeight();
-      lastMode = "fixed";
+      sidebar.style.height = `${height}px`;
+      sidebar.style.maxHeight = `${height}px`;
     };
 
-    const applyAbsolute = (sidebar, boundary) => {
-      const boundaryTop = boundary.getBoundingClientRect().top + window.scrollY;
-      const top = Math.max(0, window.scrollY + DESKTOP_NAVBAR_HEIGHT - boundaryTop);
+    const applyAbsolute = (sidebar, boundary, height) => {
+      const top = Math.max(0, boundary.getBoundingClientRect().height - height);
 
       sidebar.style.position = "absolute";
       sidebar.style.left = "1.5rem";
       sidebar.style.top = `${top}px`;
       sidebar.style.bottom = "";
-      sidebar.style.height = sidebarHeight();
-      lastMode = "absolute";
+      sidebar.style.height = `${height}px`;
+      sidebar.style.maxHeight = `${height}px`;
     };
 
     const updateSidebarMode = () => {
@@ -241,18 +310,20 @@ export default function Home() {
           sidebar.style.top = "";
           sidebar.style.bottom = "";
           sidebar.style.height = "";
+          sidebar.style.maxHeight = "";
         }
-        lastMode = "";
         return;
       }
 
       const footerTop = footerBoundary.getBoundingClientRect().top;
-      const shouldRelease = footerTop <= window.innerHeight;
+      const boundaryHeight = boundary.getBoundingClientRect().height;
+      const height = Math.min(measureSidebarHeight(sidebar), boundaryHeight);
+      const shouldRelease = footerTop <= DESKTOP_NAVBAR_HEIGHT + height;
 
       if (shouldRelease) {
-        if (lastMode !== "absolute") applyAbsolute(sidebar, boundary);
-      } else if (lastMode !== "fixed") {
-        applyFixed(sidebar);
+        applyAbsolute(sidebar, boundary, height);
+      } else {
+        applyFixed(sidebar, height);
       }
     };
 
@@ -267,7 +338,6 @@ export default function Home() {
 
     const observer = typeof ResizeObserver === "function"
       ? new ResizeObserver(() => {
-          lastMode = "";
           scheduleSidebarMode();
         })
       : null;
@@ -349,8 +419,8 @@ export default function Home() {
   };
 
   return (
-    <main className="relative z-0 min-h-screen bg-meal-mist pb-24 text-meal-text md:pb-0">
-      <div className="mx-auto max-w-[1440px]">
+    <main className="relative z-0 min-h-screen bg-meal-mist text-meal-text">
+      <div className="mx-auto max-w-[1440px] pb-24 md:pb-0">
         {/* Mobile hero visible below the shared fixed header */}
         <section className="px-5 pb-4 pt-3 md:hidden" aria-label="Meal05 homepage hero">
           <div className="flex items-center gap-2 text-left text-xs font-medium uppercase tracking-[0.18em] text-meal-pepper">
@@ -371,7 +441,7 @@ export default function Home() {
 
         <div
           ref={contentBoundaryRef}
-          className="relative z-0 flex overflow-visible lg:pl-72"
+          className="home-content-boundary relative z-0 flex overflow-visible lg:pl-72"
           style={{ minHeight: `calc(100dvh - ${DESKTOP_NAVBAR_HEIGHT}px)` }}
         >
           <DesktopCategorySidebar

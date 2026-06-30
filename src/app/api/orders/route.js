@@ -13,6 +13,7 @@ import { DEFAULT_DISPATCH_OPTION_ID, resolveDispatchOption } from "@/lib/dispatc
 import { buildCityServiceMessage, getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
 import { loadDeliverySettings } from "@/lib/delivery-settings-server";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
+import { insertOrderStatusHistory } from "@/lib/order-status-history";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -598,6 +599,22 @@ export async function POST(request) {
     try { await admin.from("orders").delete().eq("id", orderId); } catch {}
     await logAdminError(oiErr, { route: "/api/orders", stage: "insert:order_items", order_id: orderId, user_id: user.id });
     return applyRateLimitHeaders(NextResponse.json({ error: oiErr.message }, { status: 400 }), rl);
+  }
+
+  const statusHistoryRes = await insertOrderStatusHistory(admin, {
+    orderId,
+    fromStatus: null,
+    toStatus: orderRow.status,
+    changedBy: user.id,
+    note: "Order created",
+  });
+  if (statusHistoryRes.error) {
+    await logAdminError(statusHistoryRes.error, {
+      route: "/api/orders",
+      stage: "insert:order_status_history",
+      order_id: orderId,
+      user_id: user.id,
+    });
   }
 
   if (promoValidation?.ok && promoValidation?.promo?.id != null) {
