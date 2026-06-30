@@ -4,6 +4,7 @@ import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
 
 const pickFirst = (row, fields = []) => {
   for (const key of fields) {
@@ -256,6 +257,10 @@ const mapRow = (row) => {
   return {
     id: String(row.id ?? ""),
     name: row.name || "Fresh produce",
+    marketId: row.market_id || "",
+    currencyCode: row.currency_code || "",
+    currencySymbol: row.currency_symbol || "",
+    locale: row.locale || "",
     image: mainImageUrl,
     mainImageUrl,
     galleryImageUrls,
@@ -280,10 +285,11 @@ const mapRow = (row) => {
 
 export const fetchAllProducts = async () => {
   const admin = getSupabaseAdminClient();
+  const catalog = await loadMarketCatalog(admin);
   const { data, error } = await admin.from("products").select("*", { head: false });
   if (error) throw error;
 
-  const rows = Array.isArray(data) ? data : [];
+  const rows = (Array.isArray(data) ? data : []).map((row) => applyMarketListing(row, catalog)).filter(Boolean);
   let imageIndex = {};
   try {
     const ids = rows.map((r) => r.id).filter(Boolean);
@@ -310,6 +316,7 @@ export const fetchAllProducts = async () => {
 
 const fetchProductByIdUncached = async (id) => {
   const admin = getSupabaseAdminClient();
+  const catalog = await loadMarketCatalog(admin);
   const { data, error } = await admin
     .from("products")
     .select("*", { head: false })
@@ -317,14 +324,15 @@ const fetchProductByIdUncached = async (id) => {
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return { product: null, raw: null };
-  if (normalizeProductMerchandisingRecord(data).isHidden) {
+  const marketData = data ? applyMarketListing(data, catalog) : null;
+  if (!marketData) return { product: null, raw: null };
+  if (normalizeProductMerchandisingRecord(marketData).isHidden) {
     return { product: null, raw: null };
   }
 
   const [imageResult, variantsResult] = await Promise.allSettled([
     admin.from("product_images").select("*").eq("product_id", id),
-    admin.from("product_variants").select("*", { head: false }).eq("product_id", id).order("id", { ascending: true }),
+    admin.from("product_variants").select("*", { head: false }).eq("product_id", id).eq("market_id", catalog.market.id).order("id", { ascending: true }),
   ]);
 
   let imageIndex = {};
@@ -335,7 +343,7 @@ const fetchProductByIdUncached = async (id) => {
     }
   }
   const gallery = imageIndex[id] || [];
-  const mainImageUrl = resolveProductImage(gallery[0], data.image, data.image_url);
+  const mainImageUrl = resolveProductImage(gallery[0], marketData.image, marketData.image_url);
   const galleryImageUrls = gallery.length ? gallery : mainImageUrl ? [mainImageUrl] : [];
 
   // Try to load structured variations from a dedicated variants table if present
@@ -379,7 +387,8 @@ const fetchProductByIdUncached = async (id) => {
           packaging: row.packaging || undefined,
           price: variantPrice != null ? variantPrice : undefined,
           oldPrice: variantOldPrice != null ? variantOldPrice : undefined,
-          unit: pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) || data.unit || undefined,
+          unit: pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) || marketData.unit || undefined,
+          currencyCode: row.currency_code || catalog.market.currencyCode,
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
@@ -409,8 +418,8 @@ const fetchProductByIdUncached = async (id) => {
   const defaultVariantId = defaultVariation?.variationId ? String(defaultVariation.variationId) : null;
 
   const raw = variations.length
-    ? { ...data, variations, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls }
-    : { ...data, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls };
+    ? { ...marketData, variations, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls }
+    : { ...marketData, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls };
   const baseProduct = mapRow({ ...raw, mainImageUrl, galleryImageUrls });
   const effectiveStock = variations.length && !selectableVariations.length ? 0 : defaultVariation?.stock ?? baseProduct.stock;
   const effectivePrice = defaultVariation?.price ?? baseProduct.price;

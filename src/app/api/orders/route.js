@@ -14,6 +14,7 @@ import { buildCityServiceMessage, getDeliverySummaryConfig, resolveDeliveryArea 
 import { loadDeliverySettings } from "@/lib/delivery-settings-server";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
 import { insertOrderStatusHistory } from "@/lib/order-status-history";
+import { loadMarketCatalog } from "@/lib/market-catalog-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -178,17 +179,12 @@ export async function POST(request) {
   ];
   const payloadCartItems = normalizePayloadCartItems(parsed.data.items);
   let cart = payloadCartItems;
-  let cartShape = {
-    hasVariant: payloadCartItems.some((row) => row?.variant_id != null),
-  };
   let cartErr = null;
   if (!cart.length) {
-    cartShape = cartSelectCandidates[cartSelectCandidates.length - 1];
     for (const candidate of cartSelectCandidates) {
       const result = await admin.from("cart_items").select(candidate.select).eq("user_id", user.id);
       if (!result.error) {
         cart = Array.isArray(result.data) ? result.data : [];
-        cartShape = candidate;
         cartErr = null;
         break;
       }
@@ -201,6 +197,8 @@ export async function POST(request) {
   if (cart.length === 0) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Cart is empty" }, { status: 400 }), rl);
   }
+
+  const catalog = await loadMarketCatalog(admin);
 
   const productIds = Array.from(
     new Set(
@@ -219,40 +217,39 @@ export async function POST(request) {
     )
   );
   const hasMissingVariantIds = cart.some((row) => row?.variant_id == null);
-  const needsProductNames = cart.some((row) => !(row?.product_name || row?.variant_name));
   let productNameIndex = new Map();
-
-  const variantSelectCandidates = [
-    "id, product_id, name, price, unit, stock_count, stock, is_default",
-    "id, product_id, name, price, unit, stock_count, is_default",
-    "id, product_id, name, price, unit, stock, is_default",
-    "id, product_id, name, price, unit, is_default",
-    "id, product_id, name, price, unit",
-    "id, product_id, name, price",
-    "id, product_id, name",
-    "id, product_id",
-  ];
   let variantRows = [];
   if (payloadVariantIds.length || productIds.length) {
-    for (const select of variantSelectCandidates) {
-      const result = !hasMissingVariantIds && payloadVariantIds.length
-        ? await admin.from("product_variants").select(select).in("id", payloadVariantIds)
-        : await admin.from("product_variants").select(select).in("product_id", productIds);
-      if (!result.error) {
-        variantRows = Array.isArray(result.data) ? result.data : [];
-        break;
-      }
-      if (isUnknownColumnError(result.error.message)) continue;
-      break;
+    const query = !hasMissingVariantIds && payloadVariantIds.length
+      ? admin
+          .from("product_variants")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code")
+          .in("id", payloadVariantIds)
+      : admin
+          .from("product_variants")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code")
+          .in("product_id", productIds);
+    const result = await query.eq("market_id", catalog.market.id);
+    if (result.error) {
+      return applyRateLimitHeaders(NextResponse.json({ error: result.error.message }, { status: 400 }), rl);
     }
+    variantRows = Array.isArray(result.data) ? result.data : [];
   }
 
-  if (needsProductNames && productIds.length) {
+  const resolvedProductIds = Array.from(
+    new Set([...productIds, ...variantRows.map((row) => String(row.product_id)).filter(Boolean)])
+  );
+  if (resolvedProductIds.length) {
     const { data: productRows } = await admin
       .from("products")
       .select("id, name")
-      .in("id", productIds);
-    productNameIndex = new Map((Array.isArray(productRows) ? productRows : []).map((row) => [String(row.id), row?.name || ""]));
+      .in("id", resolvedProductIds);
+    productNameIndex = new Map(
+      (Array.isArray(productRows) ? productRows : []).map((row) => {
+        const listing = catalog.listings.get(String(row.id));
+        return [String(row.id), listing?.local_name || row?.name || ""];
+      })
+    );
   }
   const variantIndex = new Map(variantRows.map((row) => [String(row.id), row]));
   const variantsByProduct = new Map();
@@ -289,7 +286,7 @@ export async function POST(request) {
   const resolveCartItemName = (row) => {
     const productId = row?.product_id != null ? String(row.product_id) : "";
     const variant = resolveCartVariant(row);
-    return row?.variant_name || variant?.name || row?.product_name || productNameIndex.get(productId) || "";
+    return variant?.name || productNameIndex.get(String(variant?.product_id ?? productId)) || "";
   };
   const cartVariantNames = new Map();
   const cartProductNames = new Map();
@@ -301,7 +298,7 @@ export async function POST(request) {
     if (variantId != null && name && !cartVariantNames.has(String(variantId))) {
       cartVariantNames.set(String(variantId), name);
     }
-    const productName = row?.product_name || (productId != null ? productNameIndex.get(String(productId)) : "") || name;
+    const productName = (variant?.product_id != null ? productNameIndex.get(String(variant.product_id)) : "") || name;
     if (productId != null && productName && !cartProductNames.has(String(productId))) {
       cartProductNames.set(String(productId), productName);
     }
@@ -310,17 +307,34 @@ export async function POST(request) {
   // 1b) Aggregate quantities per variant for stock validation
   const variantQuantities = new Map();
   const issues = [];
-  if (cartShape.hasVariant) {
-    cart.forEach((row) => {
+  cart.forEach((row) => {
       const qty = Number(row?.quantity) || 0;
-      if (qty <= 0) return;
+      if (qty <= 0) {
+        issues.push({ message: "Cart contains an invalid quantity" });
+        return;
+      }
       const variant = resolveCartVariant(row);
       const variantId = variant?.id != null ? String(variant.id) : "";
-      if (!variantId) return;
+      if (!variantId) {
+        issues.push({ variantId: row?.variant_id ?? null, message: "Product option is unavailable in this market" });
+        return;
+      }
+      const suppliedProductId = row?.product_id != null ? String(row.product_id) : "";
+      if (suppliedProductId && suppliedProductId !== String(variant.product_id)) {
+        issues.push({ variantId, productId: suppliedProductId, message: "Product and variant do not match" });
+        return;
+      }
+      if (!catalog.listings.has(String(variant.product_id))) {
+        issues.push({ variantId, productId: variant.product_id, message: "Product is not listed in this market" });
+        return;
+      }
+      if (variant.is_active === false || variant.currency_code !== catalog.market.currencyCode) {
+        issues.push({ variantId, productId: variant.product_id, message: "Product option is unavailable in this market" });
+        return;
+      }
       variantQuantities.set(variantId, (variantQuantities.get(variantId) || 0) + qty);
-    });
-  }
-  if (cartShape.hasVariant && variantQuantities.size) {
+  });
+  if (variantQuantities.size) {
     variantQuantities.forEach((requested, variantId) => {
       const row = variantIndex.get(variantId);
       if (!row) {
@@ -395,17 +409,14 @@ export async function POST(request) {
   }
 
   const resolveUnitPrice = (row) => {
-    const stored = Number(row?.unit_price_at_add);
-    if (Number.isFinite(stored) && stored >= 0) return stored;
     const variant = resolveCartVariant(row);
     const price = Number(variant?.price);
-    if (Number.isFinite(price)) return price;
-    return 0;
+    return Number.isFinite(price) && price >= 0 ? price : 0;
   };
 
   const resolveItemName = (row) => {
-    const productId = row?.product_id != null ? String(row.product_id) : "";
-    return row?.variant_name || row?.product_name || productNameIndex.get(productId) || "";
+    const variant = resolveCartVariant(row);
+    return variant?.name || productNameIndex.get(String(variant?.product_id || "")) || "";
   };
 
   const resolveUnit = (row) => {
@@ -463,6 +474,7 @@ export async function POST(request) {
         subtotal: baseSummary.subtotal,
         itemsCount: baseSummary.itemsCount,
         deliveryFee: baseSummary.deliveryFee,
+        marketId: catalog.market.id,
       });
     } catch (promoError) {
       const schemaMissing = isMissingPromoCodeSchemaError(promoError?.message);
@@ -497,6 +509,9 @@ export async function POST(request) {
   const finalSummary = promoValidation?.ok ? applyPromoToOrderSummary(baseSummary, promoValidation) : baseSummary;
   const orderTotal = finalSummary.total;
   const requestedPaymentMethod = String(parsed.data.paymentMethod || "").trim().toLowerCase() || "paystack";
+  if (!["paystack", "delivery", "opay", "palmpay"].includes(requestedPaymentMethod)) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Unsupported payment method" }, { status: 400 }), rl);
+  }
 
   // 2) Create order row
   const orderRow = {
@@ -509,91 +524,32 @@ export async function POST(request) {
     discount_total: finalSummary.discountTotal,
     promo_code: finalSummary.promoCode || null,
     promo_description: finalSummary.promoDescription || null,
-    status: "processing",
+    status: "pending",
     payment_status: "pending",
+    payment_method: requestedPaymentMethod,
+    market_id: catalog.market.id,
+    currency_code: catalog.market.currencyCode,
     delivery_address: parsed.data.deliveryAddress || "",
-    note: [
-      parsed.data.note,
-      `Dispatch: ${dispatchOption.name} (${dispatchOption.id}) - ${dispatchOption.eta}`,
-    ].filter(Boolean).join("\n"),
+    customer_note: parsed.data.note || null,
+    delivery_instructions: `Dispatch: ${dispatchOption.name} (${dispatchOption.id}) - ${dispatchOption.eta}`,
   };
   const orderSelect =
     "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, created_at";
-  const orderInsertCandidates = [
-    {
-      ...orderRow,
-      payment_method: requestedPaymentMethod,
-      authentication_method: requestedPaymentMethod,
-      auth_method: requestedPaymentMethod,
-    },
-    {
-      ...orderRow,
-      payment_method: requestedPaymentMethod,
-      authentication_method: requestedPaymentMethod,
-    },
-    {
-      ...orderRow,
-      payment_method: requestedPaymentMethod,
-      auth_method: requestedPaymentMethod,
-    },
-    {
-      ...orderRow,
-      authentication_method: requestedPaymentMethod,
-      auth_method: requestedPaymentMethod,
-    },
-    { ...orderRow, payment_method: requestedPaymentMethod },
-    { ...orderRow, authentication_method: requestedPaymentMethod },
-    { ...orderRow, auth_method: requestedPaymentMethod },
-    { ...orderRow },
-  ];
-  const uniqueOrderInsertCandidates = [];
-  const seenCandidateShapes = new Set();
-  orderInsertCandidates.forEach((candidate) => {
-    const shape = Object.keys(candidate).sort().join(",");
-    if (seenCandidateShapes.has(shape)) return;
-    seenCandidateShapes.add(shape);
-    uniqueOrderInsertCandidates.push(candidate);
-  });
-
-  let orderIns = null;
-  let orderErr = null;
-  for (const candidate of uniqueOrderInsertCandidates) {
-    const inserted = await admin.from("orders").insert(candidate).select(orderSelect).single();
-    if (!inserted.error) {
-      orderIns = inserted.data;
-      orderErr = null;
-      break;
-    }
-    orderErr = inserted.error;
-    if (!isUnknownColumnError(inserted.error.message)) break;
-  }
+  const { data: orderIns, error: orderErr } = await admin.from("orders").insert(orderRow).select(orderSelect).single();
   if (orderErr) return applyRateLimitHeaders(NextResponse.json({ error: orderErr.message }, { status: 400 }), rl);
 
   // 3) Insert order_items
   const orderId = orderIns.id;
   const orderItemsWithVariant = cart.map((c) => ({
     order_id: orderId,
-    product_id: c.product_id,
+    product_id: resolveCartVariant(c)?.product_id,
     variant_id: resolveVariantIdForOrderItem(c),
     quantity: c.quantity,
-    unit_price: resolveUnitPrice(c),
+    price: resolveUnitPrice(c),
+    currency_code: catalog.market.currencyCode,
   }));
-  const orderItemsWithoutVariant = orderItemsWithVariant.map(({ variant_id, ...row }) => row);
-  const orderItemCandidates = [orderItemsWithVariant, orderItemsWithoutVariant];
   let orderItems = orderItemsWithVariant;
-  let oiErr = null;
-  for (let index = 0; index < orderItemCandidates.length; index += 1) {
-    const candidate = orderItemCandidates[index];
-    const result = await admin.from("order_items").insert(candidate);
-    if (!result.error) {
-      orderItems = candidate;
-      oiErr = null;
-      break;
-    }
-    oiErr = result.error;
-    if (index === 0 && isUnknownColumnError(result.error.message)) continue;
-    break;
-  }
+  const { error: oiErr } = await admin.from("order_items").insert(orderItemsWithVariant);
   if (oiErr) {
     // Roll back the order row when items fail (e.g., stock trigger)
     try { await admin.from("orders").delete().eq("id", orderId); } catch {}
@@ -755,8 +711,8 @@ export async function GET(request) {
 
   const routeClient = getSupabaseRouteClient(await cookies());
   const orderSelects = [
-    "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, unit_price, products(name, unit, image_url))",
-    "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, unit_price, products(name, unit, image_url))",
+    "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price, products(name, unit, image_url))",
+    "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, price, products(name, unit, image_url))",
   ];
   let data = [];
   let error = null;
@@ -787,7 +743,7 @@ export async function GET(request) {
       deliveryAddress: row.delivery_address || "",
       createdAt: row.created_at,
       items: items.map((it) => {
-        const unit = Number(it?.unit_price) || 0;
+        const unit = Number(it?.price ?? it?.unit_price) || 0;
         const qty = Number(it?.quantity) || 0;
         const prod = it?.products || {};
         return {

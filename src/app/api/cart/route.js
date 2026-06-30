@@ -1,70 +1,26 @@
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
+import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { respondZodError } from "@/lib/api/validate";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
+import { loadMarketCatalog } from "@/lib/market-catalog-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const isUnknownColumnError = (message) => {
-  const errorText = String(message || "");
-  return (
-    /schema cache/i.test(errorText) ||
-    /column .* does not exist/i.test(errorText) ||
-    /could not find the .* column/i.test(errorText)
-  );
-};
-
-const loadVariantStock = async (client, variantId) => {
+const loadVariantStock = async (client, variantId, marketId) => {
   const id = String(variantId || "").trim();
   if (!id) return { row: null, error: null };
 
-  const selects = [
-    "id, stock_count, stock, is_active",
-    "id, stock_count, is_active",
-    "id, stock, is_active",
-    "id, stock_count",
-    "id, stock",
-    "id",
-  ];
-
-  let lastError = null;
-  for (const select of selects) {
-    const result = await client.from("product_variants").select(select).eq("id", id).maybeSingle();
-    if (!result.error) return { row: result.data, error: null };
-    lastError = result.error;
-    if (isUnknownColumnError(result.error.message)) continue;
-    break;
-  }
-
-  return { row: null, error: lastError };
-};
-
-const loadProductStock = async (client, productId) => {
-  const id = String(productId || "").trim();
-  if (!id) return { row: null, error: null };
-
-  const selects = [
-    "id, stock_count, stock, is_active",
-    "id, stock_count, is_active",
-    "id, stock, is_active",
-    "id, stock_count",
-    "id, stock",
-    "id",
-  ];
-
-  let lastError = null;
-  for (const select of selects) {
-    const result = await client.from("products").select(select).eq("id", id).maybeSingle();
-    if (!result.error) return { row: result.data, error: null };
-    lastError = result.error;
-    if (isUnknownColumnError(result.error.message)) continue;
-    break;
-  }
-
-  return { row: null, error: lastError };
+  const result = await client
+    .from("product_variants")
+    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code")
+    .eq("id", id)
+    .eq("market_id", marketId)
+    .maybeSingle();
+  return { row: result.data, error: result.error };
 };
 
 export async function GET(req) {
@@ -80,7 +36,34 @@ export async function GET(req) {
     .order("id", { ascending: true });
 
   if (error) return new Response(JSON.stringify({ error }), { status: 400 });
-  return applyRateLimitHeaders(new Response(JSON.stringify(data || []), { status: 200 }), rl);
+
+  const admin = getSupabaseAdminClient();
+  const catalog = await loadMarketCatalog(admin);
+  const rows = Array.isArray(data) ? data : [];
+  const variantIds = rows.map((row) => row?.variant_id).filter(Boolean);
+  if (!variantIds.length) return applyRateLimitHeaders(new Response(JSON.stringify([]), { status: 200 }), rl);
+  const { data: variants, error: variantError } = await admin
+    .from("product_variants")
+    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code")
+    .in("id", variantIds)
+    .eq("market_id", catalog.market.id)
+    .eq("is_active", true);
+  if (variantError) return new Response(JSON.stringify({ error: variantError.message }), { status: 400 });
+  const variantIndex = new Map((variants || []).map((variant) => [String(variant.id), variant]));
+  const validRows = rows.flatMap((row) => {
+    const variant = variantIndex.get(String(row.variant_id));
+    if (!variant || !catalog.listings.has(String(variant.product_id))) return [];
+    const listing = catalog.listings.get(String(variant.product_id));
+    return [{
+      ...row,
+      product_id: variant.product_id,
+      variant_name: variant.name,
+      product_name: listing?.local_name || row?.products?.name || row?.product_name || "",
+      unit_price_at_add: Number(variant.price),
+      currency_code: catalog.market.currencyCode,
+    }];
+  });
+  return applyRateLimitHeaders(new Response(JSON.stringify(validRows), { status: 200 }), rl);
 }
 
 export async function POST(req) {
@@ -88,6 +71,8 @@ export async function POST(req) {
   const rl = await checkRateLimit({ request: req, id: "cart:add", limit: 60, windowMs: 60_000 });
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return new Response(JSON.stringify({ error: "Not logged in" }), { status: 401 });
+  const admin = getSupabaseAdminClient();
+  const catalog = await loadMarketCatalog(admin);
 
   let body;
   try {
@@ -107,19 +92,22 @@ export async function POST(req) {
   if (!parsed.success) {
     return respondZodError(parsed.error);
   }
-  const { product_id, variant_id, variant_name, product_name, unit_price_at_add, quantity } = parsed.data;
+  const { product_id, variant_id, product_name, quantity } = parsed.data;
 
   const variantKey = String(variant_id);
-  const { row: variantStock, error: stockError } = await loadVariantStock(authClient, variantKey);
+  const { row: variantStock, error: stockError } = await loadVariantStock(admin, variantKey, catalog.market.id);
   if (stockError) return new Response(JSON.stringify({ error: stockError.message || "Unable to validate stock" }), { status: 400 });
-  const { row: productStock, error: productStockError } = variantStock
-    ? { row: null, error: null }
-    : await loadProductStock(authClient, product_id);
-  if (productStockError) {
-    return new Response(JSON.stringify({ error: productStockError.message || "Unable to validate stock" }), { status: 400 });
-  }
-  const stockSource = variantStock || productStock;
+  const stockSource = variantStock;
   if (!stockSource) return new Response(JSON.stringify({ error: "Product option not found" }), { status: 404 });
+  if (!catalog.listings.has(String(stockSource.product_id))) {
+    return new Response(JSON.stringify({ error: "Product is not listed in this market" }), { status: 409 });
+  }
+  if (stockSource.currency_code !== catalog.market.currencyCode) {
+    return new Response(JSON.stringify({ error: "Product currency does not match this market" }), { status: 409 });
+  }
+  if (product_id != null && String(product_id) !== String(stockSource.product_id)) {
+    return new Response(JSON.stringify({ error: "Product and variant do not match" }), { status: 400 });
+  }
   if (stockSource.is_active === false) {
     return new Response(JSON.stringify({ error: "This option is out of stock", available: 0 }), { status: 409 });
   }
@@ -152,11 +140,11 @@ export async function POST(req) {
   }
 
   const payload = {
-    product_id: product_id ?? null,
+    product_id: stockSource.product_id,
     variant_id: variantKey,
-    variant_name: variant_name ?? null,
-    product_name: product_name ?? null,
-    unit_price_at_add: unit_price_at_add ?? null,
+    variant_name: stockSource.name,
+    product_name: catalog.listings.get(String(stockSource.product_id))?.local_name || product_name || stockSource.name,
+    unit_price_at_add: Number(stockSource.price),
   };
 
   const writeRequest = existing?.id

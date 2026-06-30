@@ -1,3 +1,5 @@
+import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
+
 export const toCategorySlug = (value) =>
   String(value || "")
     .trim()
@@ -67,6 +69,7 @@ export const loadCategoryRows = async (supabase) => {
 
 export const loadCategoryCounts = async (supabase) => {
   try {
+    const catalog = await loadMarketCatalog(supabase);
     const [categoryResult, productResult] = await Promise.all([
       supabase.from("product_categories").select("*"),
       supabase.from("products").select("*"),
@@ -83,14 +86,18 @@ export const loadCategoryCounts = async (supabase) => {
       return acc;
     }, {});
 
-    const products = (Array.isArray(productResult.data) ? productResult.data : []).filter(isActiveRow);
+    const products = (Array.isArray(productResult.data) ? productResult.data : [])
+      .filter(isActiveRow)
+      .map((row) => applyMarketListing(row, catalog))
+      .filter(Boolean);
     const productIds = products.map((row) => row?.id ?? row?.product_id).filter(Boolean);
     let variantRows = [];
     if (productIds.length) {
       const { data: variants, error: variantsError } = await supabase
         .from("product_variants")
         .select("*")
-        .in("product_id", productIds);
+        .in("product_id", productIds)
+        .eq("market_id", catalog.market.id);
       if (!variantsError && Array.isArray(variants)) {
         variantRows = variants.filter(isActiveRow);
       }

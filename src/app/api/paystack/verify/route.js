@@ -156,28 +156,21 @@ async function applyVerifiedPayment({ reference, providedOrderId }) {
     return { ok: false, status: 409, error: "Payment amount does not match order total", verified: false };
   }
 
-  if (order?.payment_status === "paid") {
+  const currencyCode = normaliseText(tx?.currency || "NGN").toUpperCase();
+  const { data: paymentResult, error: paymentErr } = await admin.rpc("mark_paystack_order_paid", {
+    p_order_id: Number(orderId),
+    p_transaction_ref: txReference,
+    p_amount: Number(tx?.amount) / 100,
+    p_currency_code: currencyCode,
+  });
+  if (paymentErr) {
     return {
-      ok: true,
-      status: 200,
-      body: { verified: true, stockUpdated: false, alreadyPaid: true, data: tx, orderId },
+      ok: false,
+      status: /insufficient stock|different market|invalid item|has no items/i.test(paymentErr.message || "") ? 409 : 500,
+      error: paymentErr.message || "Unable to finalize payment",
+      verified: true,
+      stockUpdated: false,
     };
-  }
-
-  const { error: updateErr } = await admin
-    .from("orders")
-    .update({ payment_status: "paid", status: "processing" })
-    .eq("id", orderId);
-  if (updateErr) {
-    return { ok: false, status: 500, error: updateErr.message || "Unable to update order payment status", verified: false };
-  }
-
-  const { error: stockErr } = await admin.rpc("deduct_stock_for_order", { order_id_input: orderId });
-  if (stockErr) {
-    try {
-      await admin.from("orders").update({ status: "stock_failed" }).eq("id", orderId);
-    } catch {}
-    return { ok: false, status: 409, error: stockErr.message || "Stock deduction failed", verified: true, stockUpdated: false };
   }
 
   try {
@@ -187,7 +180,13 @@ async function applyVerifiedPayment({ reference, providedOrderId }) {
   return {
     ok: true,
     status: 200,
-    body: { verified: true, stockUpdated: true, data: tx, orderId },
+    body: {
+      verified: true,
+      stockUpdated: paymentResult?.stock_updated === true,
+      alreadyPaid: paymentResult?.already_processed === true,
+      data: tx,
+      orderId,
+    },
   };
 }
 

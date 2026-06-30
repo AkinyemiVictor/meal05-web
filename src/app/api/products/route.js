@@ -10,6 +10,7 @@ import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -282,6 +283,10 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
     variantId: variantId ? String(variantId) : String(productId ?? ""),
     variantName: chosenVariant ? pickVariantLabel(chosenVariant) : row.size_label || "",
     name: row.product_name || row.name || "Fresh produce",
+    marketId: row.market_id || "",
+    currencyCode: chosenVariant?.currency_code || row.currency_code || "",
+    currencySymbol: row.currency_symbol || "",
+    locale: row.locale || "",
     image: mainImageUrl,
     mainImageUrl,
     galleryImageUrls,
@@ -364,6 +369,7 @@ export async function GET() {
     let variantIndex = {};
     let productMetaIndex = {};
     let loadedFromBaseProductsTable = false;
+    const catalog = await loadMarketCatalog(getSupabaseAdminClient());
 
     try {
       const res = await supabase.from("products_cards_view").select("*", { head: false });
@@ -430,6 +436,8 @@ export async function GET() {
       }));
     }
 
+    data = (Array.isArray(data) ? data : []).map((row) => applyMarketListing(row, catalog)).filter(Boolean);
+
     // Fetch associated product images (optional table)
     try {
       const productIds = data.map((r) => r.product_id ?? r.id).filter(Boolean);
@@ -482,7 +490,7 @@ export async function GET() {
           const chunkSize = 200;
           for (let i = 0; i < productIds.length; i += chunkSize) {
             const slice = productIds.slice(i, i + chunkSize);
-            const res = await supabase.from("product_variants").select("*", { head: false }).in("product_id", slice);
+            const res = await supabase.from("product_variants").select("*", { head: false }).in("product_id", slice).eq("market_id", catalog.market.id);
             if (res?.error) throw res.error;
             if (Array.isArray(res?.data)) variants.push(...res.data);
           }
@@ -495,7 +503,7 @@ export async function GET() {
               const chunkSize = 200;
               for (let i = 0; i < productIds.length; i += chunkSize) {
                 const slice = productIds.slice(i, i + chunkSize);
-                const res = await admin.from("product_variants").select("*", { head: false }).in("product_id", slice);
+                const res = await admin.from("product_variants").select("*", { head: false }).in("product_id", slice).eq("market_id", catalog.market.id);
                 if (res?.error) throw res.error;
                 if (Array.isArray(res?.data)) variants.push(...res.data);
               }
@@ -528,7 +536,7 @@ export async function GET() {
     );
 
     return NextResponse.json(
-      { grouped, flat: mapped },
+      { grouped, flat: mapped, market: publicMarket(catalog.market) },
       {
         status: 200,
         headers: PUBLIC_CATALOG_CACHE_HEADERS,

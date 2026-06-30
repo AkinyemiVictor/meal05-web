@@ -5,6 +5,7 @@ import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -242,10 +243,12 @@ export async function GET(_request, { params }) {
   const { id } = (await params) || {};
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const admin = getSupabaseAdminClient();
+  const catalog = await loadMarketCatalog(admin);
   const { data, error } = await admin.from("products").select("*", { head: false }).eq("id", id).maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  const merchandising = normalizeProductMerchandisingRecord(data);
+  const marketData = data ? applyMarketListing(data, catalog) : null;
+  if (!marketData) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  const merchandising = normalizeProductMerchandisingRecord(marketData);
   if (merchandising.isHidden) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
@@ -264,7 +267,7 @@ export async function GET(_request, { params }) {
   }
 
   const galleryImageUrls = imageIndex[id] || [];
-  const mainImageUrl = resolveProductImage(galleryImageUrls[0], data.image_url, data.image);
+  const mainImageUrl = resolveProductImage(galleryImageUrls[0], marketData.image_url, marketData.image);
 
   // Try to include variants if table exists
   let variations = [];
@@ -273,6 +276,7 @@ export async function GET(_request, { params }) {
       .from("product_variants")
       .select("*", { head: false })
       .eq("product_id", id)
+      .eq("market_id", catalog.market.id)
       .order("id", { ascending: true });
     if (!vError && Array.isArray(variants)) {
       variations = variants.map((row) => {
@@ -311,7 +315,8 @@ export async function GET(_request, { params }) {
           packaging: row.packaging || undefined,
           price: variantPrice != null ? variantPrice : undefined,
           oldPrice: variantOldPrice != null ? variantOldPrice : undefined,
-          unit: pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) || data.unit || undefined,
+          unit: pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) || marketData.unit || undefined,
+          currencyCode: row.currency_code || catalog.market.currencyCode,
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
@@ -339,20 +344,24 @@ export async function GET(_request, { params }) {
     null;
   const defaultVariantId = defaultVariation?.variationId ? String(defaultVariation.variationId) : String(id);
 
-  const pricing = resolvePricing(defaultVariation || data);
+  const pricing = resolvePricing(defaultVariation || marketData);
   const unitValue =
     pickFirst(defaultVariation || {}, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) ||
-    pickFirst(data, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) ||
-    data.unit ||
+    pickFirst(marketData, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) ||
+    marketData.unit ||
     "";
-  const stockValue = defaultVariation ? defaultVariation.stock : resolveStockValueFromRow(data);
+  const stockValue = defaultVariation ? defaultVariation.stock : resolveStockValueFromRow(marketData);
   const effectiveStock = variations.length && !selectableVariations.length ? 0 : stockValue;
 
   return NextResponse.json(
     {
       product: {
-        ...data,
-        id: String(data.id),
+        ...marketData,
+        id: String(marketData.id),
+        marketId: catalog.market.id,
+        currencyCode: defaultVariation?.currencyCode || catalog.market.currencyCode,
+        currencySymbol: catalog.market.currencySymbol,
+        locale: catalog.market.locale,
         image: mainImageUrl,
         main_image_url: mainImageUrl,
         gallery_image_urls: galleryImageUrls,
@@ -362,15 +371,16 @@ export async function GET(_request, { params }) {
         discount: pricing.discount,
         unit: unitValue,
         stock: effectiveStock,
-        category: pickFirst(data, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
-        categorySlug: pickFirst(data, ["category_slug", "categorySlug"]),
-        promoTagEnabled: normalizePromoEnabled(data.promo_tag_enabled ?? data.promoTagEnabled),
-        promoTagText: normalizePromoText(data.promo_tag_text ?? data.promoTagText),
-        promoTagExpiresAt: parsePromoExpiry(data.promo_tag_expires_at ?? data.promoTagExpiresAt),
+        category: pickFirst(marketData, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
+        categorySlug: pickFirst(marketData, ["category_slug", "categorySlug"]),
+        promoTagEnabled: normalizePromoEnabled(marketData.promo_tag_enabled ?? marketData.promoTagEnabled),
+        promoTagText: normalizePromoText(marketData.promo_tag_text ?? marketData.promoTagText),
+        promoTagExpiresAt: parsePromoExpiry(marketData.promo_tag_expires_at ?? marketData.promoTagExpiresAt),
         ...merchandising,
       },
       variations,
       defaultVariantId,
+      market: publicMarket(catalog.market),
     },
     {
       headers: PUBLIC_PRODUCT_DETAIL_CACHE_HEADERS,

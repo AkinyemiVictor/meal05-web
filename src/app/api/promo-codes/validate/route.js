@@ -5,6 +5,7 @@ import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
 import { respondZodError } from "@/lib/api/validate";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
+import { getDefaultMarket } from "@/lib/market-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,12 +39,14 @@ export async function POST(request) {
   }
 
   try {
+    const market = await getDefaultMarket();
     const result = await validatePromoCode({
       admin: getSupabaseAdminClient(),
       code: parsed.data.code,
       subtotal: parsed.data.subtotal,
       itemsCount: parsed.data.items_count,
       deliveryFee: parsed.data.delivery_fee,
+      marketId: market.id,
     });
 
     if (!result.ok) {

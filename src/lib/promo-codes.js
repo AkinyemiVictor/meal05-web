@@ -174,17 +174,18 @@ export const evaluatePromoCode = ({
   };
 };
 
-export const fetchPromoCodeByCode = async ({ admin, code }) => {
+export const fetchPromoCodeByCode = async ({ admin, code, marketId = null }) => {
   const normalizedCode = normalizePromoCode(code);
   if (!normalizedCode) return { promo: null, error: null };
 
-  const result = await admin
+  let query = admin
     .from("promo_codes")
     .select(
-      "id, code, description, discount_type, discount_value, min_subtotal, max_discount, starts_at, expires_at, usage_limit, usage_count, is_active"
+      "id, code, description, discount_type, discount_value, min_subtotal, max_discount, starts_at, expires_at, usage_limit, usage_count, is_active, market_id"
     )
-    .eq("code", normalizedCode)
-    .maybeSingle();
+    .eq("code", normalizedCode);
+  if (marketId) query = query.eq("market_id", marketId);
+  const result = await query.maybeSingle();
 
   if (result.error) {
     return { promo: null, error: result.error };
@@ -203,13 +204,14 @@ export const validatePromoCode = async ({
   itemsCount = 0,
   deliveryFee = 0,
   now = new Date(),
+  marketId = null,
 } = {}) => {
   const normalizedCode = normalizePromoCode(code);
   if (!normalizedCode) {
     return { ok: false, status: 400, error: "Enter a promo code." };
   }
 
-  const { promo, error } = await fetchPromoCodeByCode({ admin, code: normalizedCode });
+  const { promo, error } = await fetchPromoCodeByCode({ admin, code: normalizedCode, marketId });
   if (error) throw error;
 
   return evaluatePromoCode({

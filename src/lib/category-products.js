@@ -4,6 +4,7 @@ import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { loadCategoryCounts, loadCategoryRows, mapCategoryRows, toCategorySlug } from "@/lib/categories-server";
+import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
 
 const bucketName =
   process.env.NEXT_PUBLIC_SUPABASE_PRODUCT_IMAGE_BUCKET ||
@@ -182,6 +183,10 @@ const mapProductRow = (row, category, imageIndex, variantIndex) => {
     variantId: chosenVariant?.id ? String(chosenVariant.id) : String(productId ?? ""),
     variantName: chosenVariant ? pickVariantLabel(chosenVariant) : "",
     name: row?.product_name || row?.name || "Fresh produce",
+    marketId: row?.market_id || "",
+    currencyCode: chosenVariant?.currency_code || row?.currency_code || "",
+    currencySymbol: row?.currency_symbol || "",
+    locale: row?.locale || "",
     image: mainImageUrl,
     mainImageUrl,
     galleryImageUrls: gallery.length ? gallery.map((image) => resolveProductImage(image, mainImageUrl)) : [mainImageUrl],
@@ -212,6 +217,7 @@ const mapProductRow = (row, category, imageIndex, variantIndex) => {
 };
 
 export const loadCategoryProductsPayload = async (supabase, slug) => {
+  const catalog = await loadMarketCatalog(supabase);
   const requestedSlug = toCategorySlug(slug);
   const rows = await loadCategoryRows(supabase);
   const counts = await loadCategoryCounts(supabase);
@@ -223,6 +229,8 @@ export const loadCategoryProductsPayload = async (supabase, slug) => {
   if (error) throw error;
   const products = (Array.isArray(productRows) ? productRows : [])
     .filter(isActiveRow)
+    .map((row) => applyMarketListing(row, catalog))
+    .filter(Boolean)
     .filter((row) => productMatchesCategory(row, category));
   const productIds = products.map((row) => row?.id ?? row?.product_id).filter(Boolean);
 
@@ -231,7 +239,7 @@ export const loadCategoryProductsPayload = async (supabase, slug) => {
   if (productIds.length) {
     const [imageResult, variantResult] = await Promise.allSettled([
       supabase.from("product_images").select("*").in("product_id", productIds),
-      supabase.from("product_variants").select("*").in("product_id", productIds),
+      supabase.from("product_variants").select("*").in("product_id", productIds).eq("market_id", catalog.market.id),
     ]);
     if (imageResult.status === "fulfilled" && !imageResult.value?.error) {
       imageIndex = buildImageIndex(imageResult.value?.data, supabase.storage);
@@ -244,6 +252,7 @@ export const loadCategoryProductsPayload = async (supabase, slug) => {
   return {
     category,
     categories,
+    market: catalog.market,
     products: products
       .map((row) => mapProductRow(row, category, imageIndex, variantIndex))
       .filter((product) => product?.id && product.isHidden !== true),

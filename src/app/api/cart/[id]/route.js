@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
+import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { respondZodError } from "@/lib/api/validate";
+import { getAvailableCount } from "@/lib/stock";
+import { loadMarketCatalog } from "@/lib/market-catalog-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +36,34 @@ export async function PATCH(req, { params }) {
   const quantityNum = parsed.data.quantity;
 
   const routeClient = getSupabaseRouteClient(await cookies());
+  const { data: cartItem, error: cartError } = await routeClient
+    .from("cart_items")
+    .select("id, variant_id")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (cartError) return applyRateLimitHeaders(NextResponse.json({ error: cartError.message }, { status: 400 }), rl);
+  if (!cartItem) return applyRateLimitHeaders(NextResponse.json({ error: "Item not found" }, { status: 404 }), rl);
+
+  const admin = getSupabaseAdminClient();
+  const catalog = await loadMarketCatalog(admin);
+  const { data: variant, error: variantError } = await admin
+    .from("product_variants")
+    .select("id, product_id, stock_count, is_active")
+    .eq("id", cartItem.variant_id)
+    .eq("market_id", catalog.market.id)
+    .maybeSingle();
+  if (variantError) return applyRateLimitHeaders(NextResponse.json({ error: variantError.message }, { status: 400 }), rl);
+  if (!variant || variant.is_active === false || !catalog.listings.has(String(variant.product_id))) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Product option is unavailable in this market" }, { status: 409 }), rl);
+  }
+  const available = getAvailableCount(variant.stock_count);
+  if (Number.isFinite(available) && quantityNum > available) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: `Only ${available} item${available === 1 ? "" : "s"} available`, available, requested: quantityNum }, { status: 409 }),
+      rl
+    );
+  }
   const { data, error } = await routeClient
     .from("cart_items")
     .update({ quantity: quantityNum })
