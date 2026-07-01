@@ -8,7 +8,7 @@ import {
   IconBell,
   IconChevronDown,
   IconHelpCircle,
-  IconHeart,
+  IconSparkles,
   IconLogin2,
   IconLogout,
   IconMapPin,
@@ -148,7 +148,7 @@ function AccountMenu({ user }) {
   const items = [
     { label: "My Account", href: protect("/account"), icon: IconUserCircle },
     { label: "Orders", href: protect("/account?tab=orders"), icon: IconPackage },
-    { label: "Wishlist", href: protect("/account?tab=wishlist"), icon: IconHeart },
+    { label: "Wishlist", href: protect("/account?tab=wishlist"), icon: IconSparkles },
     { label: "Help", href: "/help-center", icon: IconHelpCircle },
   ];
 

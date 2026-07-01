@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  IconArrowRight, IconBolt, IconBrandInstagram,
-  IconBrandWhatsapp, IconBrandX, IconDiscount2,
+  IconArrowRight, IconBolt,
+  IconBrandWhatsapp, IconDiscount2,
   IconLeaf, IconLock, IconMapPin,
   IconSearch, IconShieldCheck, IconShoppingCart, IconStarFilled,
   IconTruckDelivery,
@@ -50,7 +50,7 @@ export default function LandingPage() {
       <div className={styles.heroCopy}><span className={styles.pill}><i/> Same-day delivery across Ibadan</span>
         <h1>Market-fresh<br/>groceries, <em>delivered.</em></h1>
         <p>Meat, fish, vegetables, fruits and pantry staples — handpicked from the market each morning and at your door within hours.</p>
-        <form action="/search" className={styles.search}><IconSearch/><input name="q" placeholder="Search tomatoes, yam, fish…"/><button>Search</button></form>
+        <form action="/search" method="get" className={styles.search}><IconSearch/><input name="q" aria-label="Search products" required placeholder="Search tomatoes, yam, fish…"/><button type="submit">Search</button></form>
         <div className={styles.stats}><div><b>50k+</b><span>happy households</span></div><i/><div><b>1,200+</b><span>fresh products</span></div><i/><div><b className={styles.rating}><IconStarFilled/> 4.9</b><span>avg. rating</span></div></div>
       </div>
       <div className={styles.heroArt}><Image src="/assets/billboard/landing-hero-template.jpg" alt="Fresh market vegetables" fill priority sizes="(max-width:980px) 0px, 46vw"/><div className={styles.heroShade}/>
@@ -66,7 +66,7 @@ export default function LandingPage() {
 
     <section id="popular" className={`${styles.section} ${styles.popularPreview}`}><LandingPopularPreview fallbackProducts={products}/></section>
 
-    <section className={styles.promoWrap}><div className={styles.promo}><i/><div><span>Flash deal</span><h2>50% off your first order</h2><p>Plus free delivery on baskets above ₦5,000. New customers only — use code <b>FRESH50</b> at checkout.</p><Link href="/shop">Claim the deal <IconArrowRight/></Link></div><IconShoppingCart className={styles.cartArt}/></div></section>
+    <section className={styles.promoWrap}><div className={styles.promo}><i/><div><span>Flash deal</span><h2>50% off your first order</h2><p>Plus free delivery on baskets above ₦5,000. New customers only — use code <b>FRESH50</b> at checkout.</p><Link href="/shop">Shop the deal <IconArrowRight/></Link></div><IconShoppingCart className={styles.cartArt}/></div></section>
 
     <section id="reviews" className={styles.reviews}><div className={styles.inner}><div className={styles.centerHead}><span>Loved in Ibadan</span><h2>What our customers say</h2></div><div className={styles.reviewGrid}>{reviews.map(([quote,initials,name,area])=><article key={name}><Stars/><p>{quote}</p><footer><b>{initials}</b><span><strong>{name}</strong><small>{area}</small></span></footer></article>)}</div></div></section>
 
@@ -74,11 +74,11 @@ export default function LandingPage() {
 
     <section className={styles.finalWrap}><div className={styles.final}><i/><i/><h2>Your market run,<br/>handled.</h2><p>Create a free account and get your first basket delivered today.</p><div><Link href="/shop">Start shopping <IconArrowRight/></Link><Link href="/categories">Browse categories</Link></div></div></section>
 
-    <footer className={styles.footer}><div className={styles.footerGrid}><div><Link href="/" className={styles.footerLogo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={145} height={52}/></Link><p>Market-fresh groceries delivered same-day across Ibadan. Handpicked each morning, priced fairly, at your door in hours.</p><div className={styles.socials}><a href="#" aria-label="Instagram"><IconBrandInstagram/></a><a href="#" aria-label="X"><IconBrandX/></a><a href="#" aria-label="WhatsApp"><IconBrandWhatsapp/></a></div></div>
+    <footer className={styles.footer}><div className={styles.footerGrid}><div><Link href="/" className={styles.footerLogo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={145} height={52}/></Link><p>Market-fresh groceries delivered same-day across Ibadan. Handpicked each morning, priced fairly, at your door in hours.</p><div className={styles.socials}><a href="https://wa.me/2349129296433" target="_blank" rel="noreferrer" aria-label="Chat with Meal05 on WhatsApp"><IconBrandWhatsapp/></a></div></div>
       <div><b>Shop</b><Link href="/categories">Categories</Link><Link href="/section/bundle-plans">Bundles</Link><Link href="/shop">Flash deals</Link><Link href="/section/new">New arrivals</Link></div>
       <div><b>Company</b><Link href="/about-us">About us</Link><a href="#how">How it works</a><Link href="/contact-us">Delivery areas</Link><Link href="/career">Careers</Link></div>
-      <div><b>Support</b><Link href="/help-center">Help centre</Link><Link href="/account?tab=orders">Track order</Link><Link href="/help-center">Returns</Link><Link href="/contact-us">Contact us</Link></div></div>
-      <div className={styles.footerBottom}><span>© 2026 MEAL05. All rights reserved.</span><div><a href="#">Terms</a><a href="#">Privacy</a><span><IconLock/> Secure payments</span></div></div>
+      <div><b>Support</b><Link href="/help-center">Help centre</Link><Link href="/account?tab=orders">Track order</Link><Link href="/help-center#searchQnAAgent">Returns</Link><Link href="/contact-us">Contact us</Link></div></div>
+      <div className={styles.footerBottom}><span>© 2026 MEAL05. All rights reserved.</span><div><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link><span><IconLock/> Secure payments</span></div></div>
     </footer>
   </main>;
 }

@@ -1148,9 +1148,9 @@ function SignInPageContent() {
 
           <p className="auth-disclaimer">
             By using Meal05 you agree to our{' '}
-            <Link href="#">Terms and Conditions</Link>
+            <Link href="/terms">Terms and Conditions</Link>
             {' '}and{' '}
-            <Link href="#">Privacy Policy</Link>.
+            <Link href="/privacy">Privacy Policy</Link>.
           </p>
         </section>
       </div>

@@ -19,5 +19,5 @@ export default function WaitlistForm({ classNames }) {
     <label><span>Phone number <small>(optional)</small></span><input name="phone" type="tel" autoComplete="tel" maxLength={24} placeholder="+234 800 000 0000"/></label>
     <label><span>City</span><input name="city" autoComplete="address-level2" required maxLength={80} defaultValue="Ibadan"/></label>
   </div><label className={classNames.consent}><input name="marketingConsent" type="checkbox"/><span>Send me Meal05 offers, product news and launch updates. I can unsubscribe at any time.</span></label>
-  <button disabled={status==="loading"}>{status==="loading"?"Joining…":<>Join the waitlist <IconArrowRight/></>}</button>{status==="error"&&<p className={classNames.error} role="alert">{message}</p>}<p className={classNames.privacy}>We’ll only use your details for early access and the updates you choose above. No spam.</p></form>;
+  <button type="submit" disabled={status==="loading"}>{status==="loading"?"Joining…":<>Join the waitlist <IconArrowRight/></>}</button>{status==="error"&&<p className={classNames.error} role="alert">{message}</p>}<p className={classNames.privacy}>We’ll only use your details for early access and the updates you choose above. No spam.</p></form>;
 }

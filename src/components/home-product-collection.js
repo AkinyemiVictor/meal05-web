@@ -12,6 +12,7 @@ export default function HomeProductCollection({
   seeAllHref,
   onAdd,
   showSeasonBadge = true,
+  actionLabel,
 }) {
   const isLoading = status === "loading";
   const hasError = status === "error";
@@ -40,7 +41,7 @@ export default function HomeProductCollection({
             <div className="-mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-3 [scrollbar-width:none]">
               {products.slice(0, 8).map((product) => (
                 <div key={product.variantId || product.id} className="w-[82vw] max-w-[340px] shrink-0 snap-start">
-                  <ProductCard product={product} onAdd={onAdd} showSeasonBadge={showSeasonBadge} />
+                  <ProductCard product={product} onAdd={onAdd} showSeasonBadge={showSeasonBadge} actionLabel={actionLabel} />
                 </div>
               ))}
             </div>
@@ -49,7 +50,7 @@ export default function HomeProductCollection({
           <div className="mt-6 hidden min-w-0 grid-cols-[repeat(3,minmax(0,1fr))] gap-6 md:grid lg:grid-cols-[repeat(4,minmax(0,1fr))]">
             {products.slice(0, 12).map((product) => (
               <div key={product.variantId || product.id} className="home-product-collection__card min-w-0">
-                <ProductCard product={product} onAdd={onAdd} showSeasonBadge={showSeasonBadge} />
+                <ProductCard product={product} onAdd={onAdd} showSeasonBadge={showSeasonBadge} actionLabel={actionLabel} />
               </div>
             ))}
           </div>

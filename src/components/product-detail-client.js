@@ -7,6 +7,7 @@ import AddToCartForm from "@/components/add-to-cart-form";
 import VariantPicker from "@/components/variant-picker";
 import { resolveProductImage } from "@/lib/product-image";
 import { formatMoney } from "@/lib/region";
+import { IconSparkles } from "@tabler/icons-react";
 
 const isVariantInactive = (variant) => {
   if (!variant || typeof variant !== "object") return true;
@@ -236,7 +237,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
           onClick={() => setSaved((current) => !current)}
           aria-pressed={saved}
         >
-          <i className={`${saved ? "fa-solid" : "fa-regular"} fa-heart`} aria-hidden="true" />
+          <IconSparkles size={19} stroke={saved ? 2.4 : 1.8} aria-hidden="true" />
           <span>{saved ? "Saved for later" : "Save for later"}</span>
         </button>
 

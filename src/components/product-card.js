@@ -57,8 +57,8 @@ function ProductImage({ product, showSeasonBadge = true }) {
       </div>
       {unavailable ? (
         <div className="absolute inset-0 z-20 grid place-items-center bg-meal-paper/50">
-          <span className="-rotate-6 whitespace-nowrap bg-meal-ink px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-meal-paper sm:px-5 sm:text-sm">
-            Out of stock
+          <span className="product-card__depleted-stamp">
+            Depleted
           </span>
         </div>
       ) : null}
@@ -66,7 +66,7 @@ function ProductImage({ product, showSeasonBadge = true }) {
   );
 }
 
-export default function ProductCard({ product, onAdd, onQuickAdd, className, showSeasonBadge = true }) {
+export default function ProductCard({ product, onAdd, onQuickAdd, className, showSeasonBadge = true, actionLabel = "Add to order" }) {
   const stockClass = resolveStockClass(product.stock);
   const unavailable = stockClass === "is-unavailable";
   const productHref = getProductHref(product);
@@ -132,7 +132,7 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
             )}
           >
             <IconShoppingCart size={17} stroke={1.8} />
-            {unavailable ? "Out of stock" : "Add to order"}
+            {unavailable ? "Out of stock" : actionLabel}
           </button>
         </div>
       </div>

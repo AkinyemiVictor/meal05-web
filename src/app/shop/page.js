@@ -34,9 +34,30 @@ const SORT_OPTIONS = [
   { value: "name-asc", label: "Name: A–Z" },
 ];
 
+const interleaveByCategory = (items = []) => {
+  const groups = new Map();
+  items.forEach((item) => {
+    const key = item.categorySlug || item.category || "other";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+  const queues = [...groups.values()];
+  const mixed = [];
+  let remaining = true;
+  while (remaining) {
+    remaining = false;
+    queues.forEach((queue) => {
+      if (queue.length) {
+        mixed.push(queue.shift());
+        remaining = true;
+      }
+    });
+  }
+  return mixed;
+};
+
 export default function ShopPage() {
   const pageRef = useRef(null);
-  const [activeSlug, setActiveSlug] = useState("all");
   const [sort, setSort] = useState("default");
   const [currentPage, setCurrentPage] = useState(1);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
@@ -61,25 +82,21 @@ export default function ShopPage() {
   );
 
   const catalogItems = useMemo(() => {
-    return buildCatalogItems(ordered);
+    return interleaveByCategory(buildCatalogItems(ordered));
   }, [ordered]);
 
   const filteredProducts = useMemo(() => {
     if (!ordered) return [];
-    let list = activeSlug === "all"
-      ? catalogItems
-      : ordered
-          .filter((product) => product.categorySlug === activeSlug)
-          .map((product) => ({ type: "product", id: `product-${product.id}`, product }));
+    let list = catalogItems;
     if (sort === "price-asc") list = [...list].sort((a, b) => getCatalogItemPrice(a) - getCatalogItemPrice(b));
     else if (sort === "price-desc") list = [...list].sort((a, b) => getCatalogItemPrice(b) - getCatalogItemPrice(a));
     else if (sort === "name-asc") list = [...list].sort((a, b) => getCatalogItemName(a).localeCompare(getCatalogItemName(b)));
     return list;
-  }, [ordered, activeSlug, sort, catalogItems]);
+  }, [ordered, sort, catalogItems]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
 
-  useEffect(() => { setCurrentPage(1); }, [activeSlug, sort]);
+  useEffect(() => { setCurrentPage(1); }, [sort]);
 
   const pagedProducts = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -114,62 +131,20 @@ export default function ShopPage() {
   const end = Math.min(currentPage * PAGE_SIZE, filteredProducts.length);
 
   return (
-    <main ref={pageRef} className="category-page">
+    <main ref={pageRef} className="category-page shop-page">
       <div className="category-page__header">
         <div className="category-page__title">
           <span className="categoryCard__icon" aria-hidden="true">
             <i className="fa-solid fa-basket-shopping" />
           </span>
           <div>
-            <h1 className="categoryCard__label">Shop</h1>
+            <span className="category-page__eyebrow">The Meal05 market</span>
+            <h1 className="shop-page__heading">Shop fresh groceries</h1>
             <p className="category-page__description">
               Farm-sourced produce, proteins, grains, and more — delivered fresh in Ibadan.
             </p>
           </div>
         </div>
-      </div>
-
-      {/* Category filter tabs */}
-      {hasCategoriesError ? (
-        <PageState title="Category filters are unavailable right now.">
-          <p>You can still browse all products below.</p>
-        </PageState>
-      ) : null}
-      {!hasCategoriesError ? (
-        <div style={{ overflowX: "auto", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
-          <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content", padding: "0 0.25rem" }}>
-            <button
-              type="button"
-              onClick={() => setActiveSlug("all")}
-              className={`category-carousel__card${activeSlug === "all" ? " is-active" : ""}`}
-              style={{ flexShrink: 0, padding: "0.5rem 1rem", borderRadius: "999px", border: "1.5px solid var(--mk-border)", background: activeSlug === "all" ? "var(--mk-accent)" : "var(--mk-surface)", color: activeSlug === "all" ? "#fff" : "var(--mk-text)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", whiteSpace: "nowrap" }}
-            >
-              All products
-            </button>
-            {categories.map((cat) => (
-              <Link
-                key={cat.slug}
-                href={`/categories/${cat.slug}`}
-                style={{ flexShrink: 0, padding: "0.5rem 1rem", borderRadius: "999px", border: "1.5px solid var(--mk-border)", background: activeSlug === cat.slug ? "var(--mk-accent)" : "var(--mk-surface)", color: activeSlug === cat.slug ? "#fff" : "var(--mk-text)", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", whiteSpace: "nowrap" }}
-              >
-                {cat.label || cat.name}
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Sort bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.5rem" }}>
-        <p style={{ color: "var(--mk-text-subtle)", fontSize: "0.875rem" }}>
-          {isLoading ? "Loading..." : `${filteredProducts.length} item${filteredProducts.length === 1 ? "" : "s"}`}
-        </p>
-        <SortSelect
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          options={SORT_OPTIONS}
-          selectStyle={{ padding: "0.4rem 0.8rem", borderRadius: "8px", border: "1.5px solid var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-text)", fontSize: "0.875rem", fontWeight: 500, cursor: "pointer" }}
-        />
       </div>
 
       {/* Product grid */}
@@ -193,7 +168,7 @@ export default function ShopPage() {
           />
         ) : (
           <PageState title="No products in this category right now.">
-            <Link href="/shop" style={{ marginTop: "0.75rem", display: "inline-block" }} onClick={() => setActiveSlug("all")}>
+            <Link href="/shop" style={{ marginTop: "0.75rem", display: "inline-block" }}>
               View all products
             </Link>
           </PageState>
@@ -229,7 +204,6 @@ export default function ShopPage() {
           cards={categoryCards}
           heading="Browse by category"
           eyebrow="Shop by aisle"
-          activeSlug={activeSlug !== "all" ? activeSlug : undefined}
           className="category-carousel--compact"
         />
       )}

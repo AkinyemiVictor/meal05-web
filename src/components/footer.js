@@ -110,10 +110,10 @@ export default function Footer() {
             <h3>Our Information</h3>
             <ul>
               <li>
-                <Link href="#">Privacy</Link>
+                <Link href="/privacy">Privacy</Link>
               </li>
               <li>
-                <Link href="#">Terms &amp; Conditions</Link>
+                <Link href="/terms">Terms &amp; Conditions</Link>
               </li>
               <li>
                 <Link href="/help-center#searchQnAAgent">Return Policy</Link>
