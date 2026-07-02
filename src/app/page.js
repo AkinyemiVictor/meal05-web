@@ -36,7 +36,7 @@ const reviews = [
   ["“Ordered a full bundle for a family event and everything came chilled and well-packed. Customer support is responsive too.”", "BF", "Bisi Falade", "Dugbe, Ibadan"],
 ];
 
-export const metadata = { title: "Meal05 — Market-fresh groceries, delivered", description: "Fresh groceries delivered same-day across Ibadan." };
+export const metadata = { title: "Meal05 — Market-fresh groceries, delivered", description: "Fresh groceries delivered within Meal05's Ibadan launch area." };
 const Stars = () => <div className={styles.stars}>{Array.from({length:5},(_,i)=><IconStarFilled key={i}/>)}</div>;
 
 export default function LandingPage() {
@@ -48,18 +48,16 @@ export default function LandingPage() {
     </div></header>
 
     <section className={styles.hero}>
-      <div className={styles.heroCopy}><span className={styles.pill}><i/> Same-day delivery across Ibadan</span>
+      <div className={styles.heroCopy}><span className={styles.pill}><i/> Now live in Ibadan!</span>
         <h1>Market-fresh<br/>groceries, <em>delivered.</em></h1>
         <p>Meat, fish, vegetables, fruits and pantry staples — handpicked from the market each morning and at your door within hours.</p>
         <form action="/search" method="get" className={styles.search}><IconSearch/><input name="q" aria-label="Search products" required placeholder="Search tomatoes, yam, fish…"/><button type="submit">Search</button></form>
-        <div className={styles.stats}><div><b>50k+</b><span>happy households</span></div><i/><div><b>1,200+</b><span>fresh products</span></div><i/><div><b className={styles.rating}><IconStarFilled/> 4.9</b><span>avg. rating</span></div></div>
+        <div className={styles.heroValues}>{values.map(([Icon,title,sub,tone])=><article key={title}><i className={styles[tone]}><Icon/></i><span><b>{title}</b><small>{sub}</small></span></article>)}</div>
       </div>
       <div className={styles.heroArt}><Image src="/assets/billboard/landing-hero-template.jpg" alt="Fresh market vegetables" fill priority sizes="(max-width:980px) 0px, 46vw"/><div className={styles.heroShade}/>
-        <div className={styles.delivery}><i><IconTruckDelivery/></i><span><b>Out for delivery</b><small>Arriving in 35 mins</small></span></div><div className={styles.discount}><b>FREE</b><span>1st delivery</span></div>
+        <div className={styles.delivery}><i><IconLeaf/></i><span><b>Fresh market picks</b><small>Selected with care</small></span></div><div className={styles.discount}><b>FREE</b><span>1st delivery</span></div>
       </div>
     </section>
-
-    <section className={styles.trust}><div>{values.map(([Icon,title,sub,tone])=><article key={title}><i className={styles[tone]}><Icon/></i><span><b>{title}</b><small>{sub}</small></span></article>)}</div></section>
 
     <section id="categories" className={styles.section}><LandingCategories/></section>
 
@@ -75,7 +73,7 @@ export default function LandingPage() {
 
     <section className={styles.finalWrap}><div className={styles.final}><i/><i/><h2>Your market run,<br/>handled.</h2><p>Create a free account and get your first basket delivered today.</p><div><Link href="/shop">Start shopping <IconArrowRight/></Link><Link href="/categories">Browse categories</Link></div></div></section>
 
-    <footer className={styles.footer}><div className={styles.footerGrid}><div><Link href="/" className={styles.footerLogo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={145} height={52}/></Link><p>Market-fresh groceries delivered same-day across Ibadan. Handpicked each morning, priced fairly, at your door in hours.</p><div className={styles.socials}><a href="https://wa.me/2349129296433" target="_blank" rel="noreferrer" aria-label="Chat with Meal05 on WhatsApp"><IconBrandWhatsapp/></a></div></div>
+    <footer className={styles.footer}><div className={styles.footerGrid}><div><Link href="/" className={styles.footerLogo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={145} height={52}/></Link><p>Market-fresh groceries delivered within our Ibadan launch area. Handpicked each morning, priced fairly, at your door in hours.</p><div className={styles.socials}><a href="https://wa.me/2349129296433" target="_blank" rel="noreferrer" aria-label="Chat with Meal05 on WhatsApp"><IconBrandWhatsapp/></a></div></div>
       <div><b>Shop</b><Link href="/categories">Categories</Link><Link href="/section/bundle-plans">Bundles</Link><Link href="/shop">Flash deals</Link><Link href="/section/new">New arrivals</Link></div>
       <div><b>Company</b><Link href="/about-us">About us</Link><a href="#how">How it works</a><Link href="/contact-us">Delivery areas</Link><Link href="/career">Careers</Link></div>
       <div><b>Support</b><Link href="/help-center">Help centre</Link><Link href="/account?tab=orders">Track order</Link><Link href="/help-center#searchQnAAgent">Returns</Link><Link href="/contact-us">Contact us</Link></div></div>

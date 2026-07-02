@@ -77,6 +77,12 @@ export async function POST(request) {
 
   const schema = z.object({
     deliveryAddress: z.string().max(500).optional().default(""),
+    deliveryHouseNumber: z.string().trim().max(80).optional().default(""),
+    deliveryStreet: z.string().trim().max(500).optional().default(""),
+    deliveryLandmark: z.string().trim().max(300).optional().default(""),
+    deliveryAddressLabel: z.string().trim().max(40).optional().default("Home"),
+    deliveryContactName: z.string().trim().max(120).optional().default(""),
+    deliveryContactPhone: z.string().trim().max(30).optional().default(""),
     deliveryCity: z.string().max(120).optional().default(""),
     deliveryLatitude: z.number().finite().min(-90).max(90).optional(),
     deliveryLongitude: z.number().finite().min(-180).max(180).optional(),
@@ -452,6 +458,7 @@ export async function POST(request) {
     if (error || !data) return applyRateLimitHeaders(NextResponse.json({ error: "That pickup location is unavailable." }, { status: 400 }), rl);
     pickupLocation = data;
   } else {
+  if (!parsed.data.deliveryHouseNumber || !parsed.data.deliveryStreet || !parsed.data.deliveryContactPhone) return applyRateLimitHeaders(NextResponse.json({ error: "House number, street address and contact phone are required for delivery." }, { status: 400 }), rl);
   if (parsed.data.deliveryLatitude == null || parsed.data.deliveryLongitude == null) return applyRateLimitHeaders(NextResponse.json({ error: "Confirm a delivery location." }, { status: 400 }), rl);
   const { data: resolvedZones, error: zoneError } = await admin.rpc("resolve_delivery_zone", {
     p_lat: parsed.data.deliveryLatitude,
@@ -566,7 +573,13 @@ export async function POST(request) {
     payment_method: requestedPaymentMethod,
     market_id: catalog.market.id,
     currency_code: catalog.market.currencyCode,
-    delivery_address: parsed.data.deliveryAddress || "",
+    delivery_address: isPickup ? pickupLocation.address : [parsed.data.deliveryHouseNumber, parsed.data.deliveryStreet].filter(Boolean).join(", "),
+    delivery_house_number: isPickup ? null : parsed.data.deliveryHouseNumber,
+    delivery_street: isPickup ? null : parsed.data.deliveryStreet,
+    delivery_landmark: isPickup ? null : parsed.data.deliveryLandmark || null,
+    delivery_address_label: isPickup ? null : parsed.data.deliveryAddressLabel || "Home",
+    delivery_contact_name: parsed.data.deliveryContactName || null,
+    delivery_contact_phone: parsed.data.deliveryContactPhone || null,
     fulfillment_type: parsed.data.fulfillmentType,
     pickup_location_id: pickupLocation?.id || null,
     delivery_latitude: isPickup ? null : parsed.data.deliveryLatitude,
@@ -577,10 +590,10 @@ export async function POST(request) {
     partner_cost: isPickup ? 0 : partnerCost,
     delivery_subsidy: Math.max(0, partnerCost - finalSummary.deliveryFee),
     customer_note: parsed.data.note || null,
-    delivery_instructions: isPickup ? `Pickup: ${pickupLocation.name} - ${pickupLocation.hours || "Time confirmed after payment"}` : `Dispatch: ${dispatchOption.name} (${dispatchOption.id}) - ${dispatchOption.eta}`,
+    delivery_instructions: isPickup ? `Pickup: ${pickupLocation.name} - ${pickupLocation.hours || "Time confirmed after payment"}` : parsed.data.deliveryLandmark || "Call the customer when outside.",
   };
   const orderSelect =
-    "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at";
+    "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at";
   const { data: orderIns, error: orderErr } = await admin.from("orders").insert(orderRow).select(orderSelect).single();
   if (orderErr) return applyRateLimitHeaders(NextResponse.json({ error: orderErr.message }, { status: 400 }), rl);
 
@@ -601,6 +614,35 @@ export async function POST(request) {
     try { await admin.from("orders").delete().eq("id", orderId); } catch {}
     await logAdminError(oiErr, { route: "/api/orders", stage: "insert:order_items", order_id: orderId, user_id: user.id });
     return applyRateLimitHeaders(NextResponse.json({ error: oiErr.message }, { status: 400 }), rl);
+  }
+
+  if (!isPickup) {
+    try {
+      const addressRecord = {
+        label: parsed.data.deliveryAddressLabel || "Home",
+        full_name: parsed.data.deliveryContactName || null,
+        phone: parsed.data.deliveryContactPhone || null,
+        line1: parsed.data.deliveryStreet,
+        line2: parsed.data.deliveryLandmark || null,
+        house_number: parsed.data.deliveryHouseNumber,
+        landmark: parsed.data.deliveryLandmark || null,
+        city: "Ibadan",
+        state: "Oyo",
+        country: "Nigeria",
+        latitude: parsed.data.deliveryLatitude,
+        longitude: parsed.data.deliveryLongitude,
+        formatted_address: [parsed.data.deliveryHouseNumber, parsed.data.deliveryStreet].filter(Boolean).join(", "),
+        delivery_zone_id: deliveryArea.zone_id,
+        geocoding_provider: "customer-confirmed",
+        location_validated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const { data: savedAddress } = await admin.from("user_addresses").select("id").eq("user_id", user.id).eq("line1", parsed.data.deliveryStreet).limit(1).maybeSingle();
+      if (savedAddress?.id) await admin.from("user_addresses").update(addressRecord).eq("id", savedAddress.id).throwOnError();
+      else await admin.from("user_addresses").insert({ ...addressRecord, user_id: user.id }).throwOnError();
+    } catch (addressError) {
+      await logAdminError(addressError, { route: "/api/orders", stage: "save:user_address", order_id: orderId, user_id: user.id });
+    }
   }
 
   const statusHistoryRes = await insertOrderStatusHistory(admin, {

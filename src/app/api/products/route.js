@@ -341,7 +341,7 @@ const mapAndGroup = (rows, imageIndex = {}, variantIndex = {}, productMetaIndex 
   return { mapped, grouped };
 };
 
-export async function GET() {
+export async function GET(request) {
   try {
     if (!supabasePublicConfig?.url || !supabasePublicConfig?.anonKey) {
       return NextResponse.json(
@@ -369,10 +369,44 @@ export async function GET() {
     let variantIndex = {};
     let productMetaIndex = {};
     let loadedFromBaseProductsTable = false;
-    const catalog = await loadMarketCatalog(getSupabaseAdminClient());
+    const adminClient = getSupabaseAdminClient();
+    const catalog = await loadMarketCatalog(adminClient);
+    const isLandingPreview = new URL(request.url).searchParams.get("view") === "landing";
+    let previewProductIds = [];
+    if (isLandingPreview) {
+      try {
+        const { data: previewRows, error: previewError } = await adminClient
+          .from("products")
+          .select("id,is_featured,is_hidden,is_bestseller,is_homepage_pick,created_at")
+          .in("id", catalog.productIds)
+          .eq("is_active", true);
+        if (previewError) throw previewError;
+        previewProductIds = (previewRows || [])
+          .filter((row) => row.is_hidden !== true)
+          .sort((left, right) => {
+            const score = (row) => (row.is_homepage_pick ? 0 : row.is_featured ? 1 : row.is_bestseller ? 2 : 3);
+            return score(left) - score(right) || String(right.created_at || "").localeCompare(String(left.created_at || ""));
+          })
+          .slice(0, 12)
+          .map((row) => row.id);
+        productMetaIndex = (previewRows || []).reduce((index, row) => {
+          index[String(row.id)] = {
+            is_featured: row.is_featured === true,
+            is_hidden: row.is_hidden === true,
+            is_bestseller: row.is_bestseller === true,
+            is_homepage_pick: row.is_homepage_pick === true,
+          };
+          return index;
+        }, {});
+      } catch {
+        previewProductIds = catalog.productIds.slice(0, 12);
+      }
+    }
 
     try {
-      const res = await supabase.from("products_cards_view").select("*", { head: false });
+      let query = supabase.from("products_cards_view").select("*", { head: false });
+      if (isLandingPreview && previewProductIds.length) query = query.in("product_id", previewProductIds);
+      const res = await query;
       data = res.data ?? [];
       error = res.error;
     } catch (err) {
@@ -383,7 +417,9 @@ export async function GET() {
     if (error && process.env.NODE_ENV !== "production") {
       try {
         const admin = getSupabaseAdminClient();
-        const res = await admin.from("products_cards_view").select("*", { head: false });
+        let query = admin.from("products_cards_view").select("*", { head: false });
+        if (isLandingPreview && previewProductIds.length) query = query.in("product_id", previewProductIds);
+        const res = await query;
         data = res.data ?? [];
         error = res.error;
         supabase = admin;
@@ -395,7 +431,9 @@ export async function GET() {
     // Fallback for broken/stale DB view definitions (for example, removed columns like products.in_stock).
     if (error) {
       try {
-        const res = await supabase.from("products").select("*", { head: false });
+        let query = supabase.from("products").select("*", { head: false });
+        if (isLandingPreview && previewProductIds.length) query = query.in("id", previewProductIds);
+        const res = await query;
         data = Array.isArray(res?.data) ? res.data : [];
         error = res?.error || null;
         loadedFromBaseProductsTable = !error;
@@ -408,7 +446,9 @@ export async function GET() {
     if (error && process.env.NODE_ENV !== "production") {
       try {
         const admin = getSupabaseAdminClient();
-        const res = await admin.from("products").select("*", { head: false });
+        let query = admin.from("products").select("*", { head: false });
+        if (isLandingPreview && previewProductIds.length) query = query.in("id", previewProductIds);
+        const res = await query;
         data = Array.isArray(res?.data) ? res.data : [];
         error = res?.error || null;
         if (!error) {
@@ -442,7 +482,10 @@ export async function GET() {
     try {
       const productIds = data.map((r) => r.product_id ?? r.id).filter(Boolean);
       if (productIds.length) {
-        try {
+        const imageRowsPromise = Promise.resolve(
+          supabase.from("product_images").select("*").in("product_id", productIds)
+        );
+        if (!isLandingPreview) try {
           const metadataRows = [];
           const chunkSize = 200;
           const metadataSelectCandidates = [
@@ -516,10 +559,7 @@ export async function GET() {
           }
         }
 
-        const { data: imageRows, error: imgError } = await supabase
-          .from("product_images")
-          .select("*")
-          .in("product_id", productIds);
+        const { data: imageRows, error: imgError } = await imageRowsPromise;
         if (!imgError && Array.isArray(imageRows)) {
           imageIndex = buildImageIndex(imageRows, supabase.storage);
         }

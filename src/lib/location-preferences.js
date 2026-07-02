@@ -263,8 +263,8 @@ export const requestCurrentLocationPreference = () =>
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000,
+        timeout: 20000,
+        maximumAge: 0,
       }
     );
   });

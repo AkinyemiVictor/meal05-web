@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import LocationPicker from "@/components/location-picker";
 
 import copy from "@/data/copy";
 import {
@@ -30,13 +31,16 @@ import {
   normalizeServiceZoneFees,
   resolveDeliveryArea,
 } from "@/lib/delivery-settings";
-import { readStoredLocationPreference } from "@/lib/location-preferences";
+import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
 
 const INITIAL_FORM_STATE = {
   fullName: "",
   email: "",
   phone: "",
   address: "",
+  houseNumber: "",
+  landmark: "",
+  addressLabel: "Home",
   city: "",
   deliverySlot: "morning",
   paymentMethod: "paystack",
@@ -94,6 +98,8 @@ const createInitialFormState = (user) => ({
   email: user?.email ?? "",
   phone: user?.phone ?? "",
   address: user?.address ?? "",
+  houseNumber: user?.houseNumber ?? "",
+  landmark: user?.landmark ?? "",
   city: user?.city ?? "",
 });
 
@@ -111,6 +117,8 @@ const normalizeSavedAddresses = (user, defaultCity) => {
       id: entry.id || createAddressId(),
       label: entry.label || entry.title || "Saved address",
       line,
+      houseNumber: String(entry.houseNumber || entry.house_number || "").trim(),
+      landmark: String(entry.landmark || entry.line2 || "").trim(),
       city: (entry.city || defaultCity).trim() || defaultCity,
       createdAt: entry.createdAt || new Date().toISOString(),
     });
@@ -292,6 +300,7 @@ export default function CheckoutForm({
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
   const [overlayStatus, setOverlayStatus] = useState(null); // "success" | "failure" | null
   const [overlayMessage, setOverlayMessage] = useState("");
+  const [checkoutLocation, setCheckoutLocation] = useState(() => typeof window !== "undefined" ? readStoredLocationPreference() : null);
   const deliveryArea = useMemo(
     () => resolveDeliveryArea(deliverySettings, formState.city),
     [deliverySettings, formState.city]
@@ -338,6 +347,12 @@ export default function CheckoutForm({
       return { ...prev, city: nextCity };
     });
   }, [defaultServiceCity, deliverySettings, serviceZoneOptions]);
+
+  useEffect(() => {
+    const syncLocation = (event) => setCheckoutLocation(event?.detail?.preference ?? readStoredLocationPreference());
+    window.addEventListener(LOCATION_EVENT, syncLocation);
+    return () => window.removeEventListener(LOCATION_EVENT, syncLocation);
+  }, []);
 
   useEffect(() => {
     if (typeof onCityChange === "function") {
@@ -401,6 +416,9 @@ export default function CheckoutForm({
             return {
               ...prev,
               address: match.line,
+              houseNumber: match.houseNumber || "",
+              landmark: match.landmark || "",
+              addressLabel: match.label || "Home",
               city: resolveCitySelection(match.city || defaultServiceCity, defaultServiceCity, serviceZoneOptions, deliverySettings),
             };
           });
@@ -521,6 +539,9 @@ export default function CheckoutForm({
     setFormState((prev) => ({
       ...prev,
       address: match.line,
+      houseNumber: match.houseNumber || prev.houseNumber,
+      landmark: match.landmark || prev.landmark,
+      addressLabel: match.label || prev.addressLabel,
       city: resolveCitySelection(match.city || defaultServiceCity, defaultServiceCity, serviceZoneOptions, deliverySettings),
     }));
     setErrors((prev) => {
@@ -558,6 +579,7 @@ export default function CheckoutForm({
       nextErrors.phone = validation.phone;
     }
     if (fulfillmentType === "delivery") {
+      if (!state.houseNumber.trim()) nextErrors.houseNumber = "Enter the house, flat, shop or gate number.";
       const addressTrimmed = state.address.trim();
       if (!addressTrimmed) nextErrors.address = validation.required;
       else if (addressTrimmed.length < ADDRESS_MIN_LENGTH) nextErrors.address = validation.addressLength ?? validation.required;
@@ -809,7 +831,7 @@ export default function CheckoutForm({
 
       // Improve UX: scroll to the first invalid field and focus it
       try {
-        const order = ["fullName", "email", "phone", "address", "city", ...CARD_FIELDS];
+        const order = ["fullName", "email", "phone", "houseNumber", "address", "city", ...CARD_FIELDS];
         const firstInvalid = order.find((key) => fieldErrors[key]);
         const formEl = formRef.current;
         if (formEl && firstInvalid) {
@@ -914,6 +936,9 @@ export default function CheckoutForm({
       email: formState.email.trim().toLowerCase(),
       phone: formState.phone.trim().replace(/\s+/g, ""),
       address: formState.address.trim(),
+      houseNumber: formState.houseNumber.trim(),
+      landmark: formState.landmark.trim(),
+      addressLabel: formState.addressLabel.trim() || "Home",
       city: canonicalCity,
       notes: formState.notes.trim(),
       cardName: formState.cardName.trim(),
@@ -938,15 +963,17 @@ export default function CheckoutForm({
           const existing = baseAddresses[matchIndex];
           nextAddresses = baseAddresses.map((addr, index) =>
             index === matchIndex
-              ? { ...existing, line: normalizedForm.address, city: canonicalCity || existing.city || defaultServiceCity }
+              ? { ...existing, line: normalizedForm.address, houseNumber: normalizedForm.houseNumber, landmark: normalizedForm.landmark, label: normalizedForm.addressLabel, city: canonicalCity || existing.city || defaultServiceCity }
               : addr
           );
           defaultAddressId = existing.id;
         } else {
           const entry = {
             id: createAddressId(),
-            label: "Checkout address",
+            label: normalizedForm.addressLabel || "Home",
             line: normalizedForm.address,
+            houseNumber: normalizedForm.houseNumber,
+            landmark: normalizedForm.landmark,
             city: canonicalCity || defaultServiceCity,
             createdAt: new Date().toISOString(),
           };
@@ -961,6 +988,8 @@ export default function CheckoutForm({
         email: normalizedForm.email,
         phone: normalizedForm.phone || base.phone || "",
         address: normalizedForm.address || base.address || "",
+        houseNumber: normalizedForm.houseNumber || base.houseNumber || "",
+        landmark: normalizedForm.landmark || base.landmark || "",
         city: canonicalCity || base.city || "",
         addresses: nextAddresses,
         defaultAddressId: defaultAddressId || undefined,
@@ -995,6 +1024,12 @@ export default function CheckoutForm({
           cache: "no-store",
           body: JSON.stringify({
             deliveryAddress: order.address,
+            deliveryHouseNumber: order.houseNumber,
+            deliveryStreet: order.address,
+            deliveryLandmark: order.landmark,
+            deliveryAddressLabel: order.addressLabel,
+            deliveryContactName: order.fullName,
+            deliveryContactPhone: order.phone,
             deliveryCity: canonicalCity,
             deliveryLatitude: fulfillmentType === "delivery" ? deliveryLatitude : undefined,
             deliveryLongitude: fulfillmentType === "delivery" ? deliveryLongitude : undefined,
@@ -1076,6 +1111,12 @@ export default function CheckoutForm({
           cache: "no-store",
           body: JSON.stringify({
             deliveryAddress: order.address,
+            deliveryHouseNumber: order.houseNumber,
+            deliveryStreet: order.address,
+            deliveryLandmark: order.landmark,
+            deliveryAddressLabel: order.addressLabel,
+            deliveryContactName: order.fullName,
+            deliveryContactPhone: order.phone,
             deliveryCity: canonicalCity,
             deliveryLatitude: fulfillmentType === "delivery" ? deliveryLatitude : undefined,
             deliveryLongitude: fulfillmentType === "delivery" ? deliveryLongitude : undefined,
@@ -1292,9 +1333,18 @@ export default function CheckoutForm({
           </label>
         </div>
         {fulfillmentType === "pickup" ? <label className={errors.pickupLocation ? "checkout-field has-error" : "checkout-field"}><span>Pickup location</span><select value={pickupLocationId} onChange={event => onPickupLocationChange?.(event.target.value)}><option value="">Select a pickup point</option>{pickupLocations.map(location => <option key={location.id} value={location.id}>{location.name} — {location.address}</option>)}</select>{errors.pickupLocation ? <span className="checkout-field__error">{errors.pickupLocation}</span> : null}<small>Your order must be paid before collection.</small></label> : <>
+        <div className="checkout-pin-confirmation">
+          <span className="checkout-pin-confirmation__icon"><i className="fa-solid fa-location-dot" /></span>
+          <div><small>Confirmed delivery pin</small><strong>{checkoutLocation?.serviceable ? (checkoutLocation.line || checkoutLocation.zone?.name || "Location confirmed") : "Confirm the pin at your gate"}</strong><p>The rider will navigate to this pin. Adjust it if it is not on your entrance.</p></div>
+          <LocationPicker />
+        </div>
+        <div className="checkout-field-grid checkout-field-grid--address-meta">
+          <label className={errors.houseNumber ? "checkout-field has-error" : "checkout-field"}><span>House / flat / shop number</span><input name="houseNumber" value={formState.houseNumber} onChange={handleChange} placeholder="e.g. No. 8 or Flat 2B" autoComplete="address-line1" required aria-invalid={Boolean(errors.houseNumber)}/>{errors.houseNumber ? <span className="checkout-field__error">{errors.houseNumber}</span> : null}</label>
+          <label className="checkout-field"><span>Save address as</span><select name="addressLabel" value={formState.addressLabel} onChange={handleChange}><option>Home</option><option>Office</option><option>Shop</option><option>Other</option></select></label>
+        </div>
         <label className={errors.address ? "checkout-textarea has-error" : "checkout-textarea"}>
           <div className="checkout-address-row">
-            <span>{copy.checkout.labels.address}</span>
+            <span>Street, estate and area</span>
             {savedAddresses.length ? (
               <div className="checkout-address-picker">
                 <label className="sr-only" htmlFor="checkout-saved-address">
@@ -1319,7 +1369,7 @@ export default function CheckoutForm({
             value={formState.address}
             onChange={handleChange}
             rows={3}
-            placeholder={copy.checkout.placeholders.address}
+            placeholder="Street name, estate, area and closest junction"
             minLength={ADDRESS_MIN_LENGTH}
             title={`Address should be at least ${ADDRESS_MIN_LENGTH} characters.`}
             required
@@ -1332,6 +1382,7 @@ export default function CheckoutForm({
             </span>
           ) : null}
         </label>
+        <label className="checkout-textarea"><span>Landmark / directions for the rider <small>(recommended)</small></span><textarea name="landmark" value={formState.landmark} onChange={handleChange} rows={2} placeholder="e.g. White gate opposite Peace Model School; call when outside" maxLength={300}/></label>
         <div className="checkout-field-grid">
           <label className={cityFieldHasError ? "checkout-field has-error" : "checkout-field"}>
             <span>{copy.checkout.labels.city}</span>

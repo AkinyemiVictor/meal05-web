@@ -1,14 +1,23 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HomeProductCollection from "@/components/home-product-collection";
-import { pickMostPopularProducts, resolveStockClass } from "@/lib/catalogue";
-import useProducts from "@/lib/use-products";
+import { normaliseProductCatalogue, pickMostPopularProducts, resolveStockClass } from "@/lib/catalogue";
 import { getProductHref } from "@/lib/products";
 
 export default function LandingPopularPreview() {
   const router = useRouter();
-  const { ordered: products, status } = useProducts();
+  const [catalogue, setCatalogue] = useState({});
+  const [status, setStatus] = useState("loading");
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/products?view=landing", { cache: "default" })
+      .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+      .then(payload => { if (!cancelled) { setCatalogue(payload?.grouped || {}); setStatus("ready"); } })
+      .catch(() => { if (!cancelled) setStatus("error"); });
+    return () => { cancelled = true; };
+  }, []);
+  const products = useMemo(() => normaliseProductCatalogue(catalogue).ordered, [catalogue]);
   const popular = useMemo(() => {
     const available = (products || []).filter((product) => resolveStockClass(product.stock) !== "is-unavailable");
     const featured = available.filter((product) => product.isPopular || product.isBestseller || product.isHomepagePick || product.isFeatured);
