@@ -7,7 +7,7 @@ import CheckoutForm from "@/components/checkout-form";
 import CheckoutSummary from "@/components/checkout-summary";
 import copy from "@/data/copy";
 import { readStoredCart } from "@/lib/checkout";
-import { DEFAULT_DISPATCH_OPTION_ID } from "@/lib/dispatch-partners";
+import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
 import useDeliverySettings from "@/lib/use-delivery-settings";
 
 export default function CheckoutExperience() {
@@ -15,7 +15,11 @@ export default function CheckoutExperience() {
   const [hasItems, setHasItems] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
   const [deliveryCity, setDeliveryCity] = useState("");
-  const [dispatchOptionId, setDispatchOptionId] = useState(DEFAULT_DISPATCH_OPTION_ID);
+  const [fulfillmentType, setFulfillmentType] = useState("delivery");
+  const [dispatchOptions, setDispatchOptions] = useState([]);
+  const [dispatchOptionId, setDispatchOptionId] = useState("");
+  const [pickupLocations, setPickupLocations] = useState([]);
+  const [pickupLocationId, setPickupLocationId] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -38,6 +42,21 @@ export default function CheckoutExperience() {
       window.removeEventListener("storage", handleCartUpdated);
       window.removeEventListener("cart-updated", handleCartUpdated);
     };
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/fulfillment/options", { cache: "no-store" }).then(r => r.json()).then(data => {
+      const locations = data.pickupLocations || []; setPickupLocations(locations);
+      if (locations[0]) setPickupLocationId(String(locations[0].id));
+    }).catch(() => {});
+    const loadQuotes = () => {
+      const location = readStoredLocationPreference();
+      if (!location?.serviceable || !location?.coords) { setDispatchOptions([]); setDispatchOptionId(""); return; }
+      fetch("/api/fulfillment/options", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(location.coords) })
+        .then(r => r.json()).then(data => { const quotes = data.quotes || []; setDispatchOptions(quotes); setDispatchOptionId(String((quotes.find(q => q.recommended) || quotes[0])?.id || "")); }).catch(() => setDispatchOptions([]));
+    };
+    loadQuotes(); window.addEventListener(LOCATION_EVENT, loadQuotes);
+    return () => window.removeEventListener(LOCATION_EVENT, loadQuotes);
   }, []);
 
   if (!isHydrated) {
@@ -71,6 +90,12 @@ export default function CheckoutExperience() {
       <CheckoutForm
         deliverySettings={deliverySettings}
         selectedDispatchOptionId={dispatchOptionId}
+        dispatchOptions={dispatchOptions}
+        fulfillmentType={fulfillmentType}
+        onFulfillmentChange={setFulfillmentType}
+        pickupLocations={pickupLocations}
+        pickupLocationId={pickupLocationId}
+        onPickupLocationChange={setPickupLocationId}
         onCityChange={setDeliveryCity}
         onDispatchChange={setDispatchOptionId}
       />
@@ -78,6 +103,8 @@ export default function CheckoutExperience() {
         deliverySettings={deliverySettings}
         deliveryCity={deliveryCity}
         selectedDispatchOptionId={dispatchOptionId}
+        dispatchOptions={dispatchOptions}
+        fulfillmentType={fulfillmentType}
         submitFormId="checkout-order-form"
       />
     </div>

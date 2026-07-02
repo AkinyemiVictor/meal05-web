@@ -121,7 +121,17 @@ export const getUserLocationAddresses = (user) => {
 };
 
 export const readStoredLocationPreference = () => {
-  return null;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch (error) {
+    console.warn("Unable to read stored location preference", error);
+    return null;
+  }
 };
 
 export const dispatchLocationChanged = (detail) => {
@@ -136,7 +146,22 @@ export const dispatchLocationChanged = (detail) => {
 
 export const persistLocationPreference = (preference) => {
   if (typeof window === "undefined" || !preference) return;
-  dispatchLocationChanged({ preference });
+  try {
+    window.localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(preference));
+    dispatchLocationChanged({ preference });
+  } catch (error) {
+    console.warn("Unable to persist location preference", error);
+  }
+};
+
+export const clearLocationPreference = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(LOCATION_STORAGE_KEY);
+    dispatchLocationChanged({ preference: null });
+  } catch (error) {
+    console.warn("Unable to clear location preference", error);
+  }
 };
 
 export const buildLocationOptions = (user, preference = readStoredLocationPreference()) => [
@@ -145,6 +170,9 @@ export const buildLocationOptions = (user, preference = readStoredLocationPrefer
 ];
 
 export const resolveSelectedLocation = (user, preference = readStoredLocationPreference()) => {
+  if (preference?.type === "resolved" && preference?.coords) {
+    return { ...preference, shortLabel: shortenLabel(preference.line || preference.label || preference.zone?.name) };
+  }
   const options = buildLocationOptions(user, preference);
   const addressOptions = options.filter((option) => option.type === "address");
 

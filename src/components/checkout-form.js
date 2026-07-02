@@ -23,11 +23,6 @@ import { addUserOrder } from "@/lib/orders";
 import { trackPurchase } from "@/lib/analytics";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import {
-  DEFAULT_DISPATCH_OPTION_ID,
-  getDispatchOptions,
-  resolveDispatchOption,
-} from "@/lib/dispatch-partners";
-import {
   buildCityServiceMessage,
   buildSameDayDeliveryNotice,
   findMatchingServiceZone,
@@ -35,6 +30,7 @@ import {
   normalizeServiceZoneFees,
   resolveDeliveryArea,
 } from "@/lib/delivery-settings";
+import { readStoredLocationPreference } from "@/lib/location-preferences";
 
 const INITIAL_FORM_STATE = {
   fullName: "",
@@ -272,7 +268,13 @@ function CheckoutConfirmation({ order }) {
 
 export default function CheckoutForm({
   deliverySettings,
-  selectedDispatchOptionId = DEFAULT_DISPATCH_OPTION_ID,
+  selectedDispatchOptionId = "",
+  dispatchOptions = [],
+  fulfillmentType = "delivery",
+  onFulfillmentChange,
+  pickupLocations = [],
+  pickupLocationId = "",
+  onPickupLocationChange,
   onCityChange,
   onDispatchChange,
 }) {
@@ -297,22 +299,15 @@ export default function CheckoutForm({
   const deliverySummaryConfig = useMemo(
     () => {
       const config = getDeliverySummaryConfig(deliverySettings, formState.city);
-      if (!deliveryArea.available || deliveryArea.fee == null) return config;
-      const dispatchOption = resolveDispatchOption(deliveryArea.fee, selectedDispatchOptionId);
-      return { ...config, deliveryFee: dispatchOption.fee };
+      if (fulfillmentType === "pickup") return { ...config, deliveryFee: 0 };
+      const dispatchOption = dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId));
+      return { ...config, deliveryFee: Number(dispatchOption?.fee || 0) };
     },
-    [deliveryArea, deliverySettings, formState.city, selectedDispatchOptionId]
-  );
-  const dispatchOptions = useMemo(
-    () => getDispatchOptions(deliveryArea.available && deliveryArea.fee != null ? deliveryArea.fee : deliverySummaryConfig.deliveryFee),
-    [deliveryArea.available, deliveryArea.fee, deliverySummaryConfig.deliveryFee]
+    [deliverySettings, formState.city, selectedDispatchOptionId, dispatchOptions, fulfillmentType]
   );
   const selectedDispatchOption = useMemo(
-    () => resolveDispatchOption(
-      deliveryArea.available && deliveryArea.fee != null ? deliveryArea.fee : deliverySummaryConfig.deliveryFee,
-      selectedDispatchOptionId
-    ),
-    [deliveryArea.available, deliveryArea.fee, deliverySummaryConfig.deliveryFee, selectedDispatchOptionId]
+    () => dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId)) || null,
+    [dispatchOptions, selectedDispatchOptionId]
   );
   const serviceZoneOptions = useMemo(() => {
     const zones = normalizeServiceZoneFees(
@@ -352,7 +347,7 @@ export default function CheckoutForm({
 
   useEffect(() => {
     if (!dispatchOptions.some((option) => option.id === selectedDispatchOptionId)) {
-      onDispatchChange?.(DEFAULT_DISPATCH_OPTION_ID);
+      onDispatchChange?.(String((dispatchOptions.find(option => option.recommended) || dispatchOptions[0])?.id || ""));
     }
   }, [dispatchOptions, onDispatchChange, selectedDispatchOptionId]);
 
@@ -562,18 +557,17 @@ export default function CheckoutForm({
     } else if (!PHONE_REGEX.test(phoneDigits)) {
       nextErrors.phone = validation.phone;
     }
-    const addressTrimmed = state.address.trim();
-    if (!addressTrimmed) {
-      nextErrors.address = validation.required;
-    } else if (addressTrimmed.length < ADDRESS_MIN_LENGTH) {
-      nextErrors.address = validation.addressLength ?? validation.required;
-    }
-    const cityTrimmed = state.city.trim();
-    const resolvedArea = resolveDeliveryArea(deliverySettings, cityTrimmed);
-    if (!cityTrimmed) {
-      nextErrors.city = validation.required;
-    } else if (!resolvedArea.available) {
-      nextErrors.city = cityServiceMessage || validation.required;
+    if (fulfillmentType === "delivery") {
+      const addressTrimmed = state.address.trim();
+      if (!addressTrimmed) nextErrors.address = validation.required;
+      else if (addressTrimmed.length < ADDRESS_MIN_LENGTH) nextErrors.address = validation.addressLength ?? validation.required;
+      const cityTrimmed = state.city.trim();
+      const resolvedArea = resolveDeliveryArea(deliverySettings, cityTrimmed);
+      if (!cityTrimmed) nextErrors.city = validation.required;
+      else if (!resolvedArea.available) nextErrors.city = cityServiceMessage || validation.required;
+      if (!selectedDispatchOption) nextErrors.dispatchPartner = "Select an available delivery partner.";
+    } else if (!pickupLocationId) {
+      nextErrors.pickupLocation = "Select a pickup location.";
     }
 
     if (showCardFields) {
@@ -888,6 +882,14 @@ export default function CheckoutForm({
     setErrors({});
     setFormError(null);
 
+    const deliveryLocation = readStoredLocationPreference();
+    const deliveryLatitude = Number(deliveryLocation?.coords?.latitude);
+    const deliveryLongitude = Number(deliveryLocation?.coords?.longitude);
+    if (fulfillmentType === "delivery" && (!deliveryLocation?.serviceable || !Number.isFinite(deliveryLatitude) || !Number.isFinite(deliveryLongitude))) {
+      showSubmitError("Select and confirm a supported delivery location before placing your order.");
+      return;
+    }
+
     const baseSummary = computeCartSummary(cartItems, {
       freeDeliveryThreshold: deliverySummaryConfig.freeDeliveryThreshold,
       deliveryFee: deliverySummaryConfig.deliveryFee,
@@ -895,9 +897,7 @@ export default function CheckoutForm({
     const summary = applyStoredPromoToSummary(baseSummary, readStoredPromo());
 
     const status =
-      formState.paymentMethod === "delivery"
-        ? "awaiting delivery"
-        : formState.paymentMethod === "palmpay" || formState.paymentMethod === "opay"
+      formState.paymentMethod === "palmpay" || formState.paymentMethod === "opay"
           ? "awaiting payment"
           : "processing";
     const storedUser = readStoredUser();
@@ -996,7 +996,11 @@ export default function CheckoutForm({
           body: JSON.stringify({
             deliveryAddress: order.address,
             deliveryCity: canonicalCity,
-            dispatchOptionId: selectedDispatchOption.id,
+            deliveryLatitude: fulfillmentType === "delivery" ? deliveryLatitude : undefined,
+            deliveryLongitude: fulfillmentType === "delivery" ? deliveryLongitude : undefined,
+            fulfillmentType,
+            pickupLocationId: fulfillmentType === "pickup" ? pickupLocationId : undefined,
+            deliveryPartnerId: fulfillmentType === "delivery" ? selectedDispatchOption?.id : undefined,
             note: order.notes,
             paymentMethod: order.paymentMethod,
             promo_code: summary.promoCode || undefined,
@@ -1073,7 +1077,11 @@ export default function CheckoutForm({
           body: JSON.stringify({
             deliveryAddress: order.address,
             deliveryCity: canonicalCity,
-            dispatchOptionId: selectedDispatchOption.id,
+            deliveryLatitude: fulfillmentType === "delivery" ? deliveryLatitude : undefined,
+            deliveryLongitude: fulfillmentType === "delivery" ? deliveryLongitude : undefined,
+            fulfillmentType,
+            pickupLocationId: fulfillmentType === "pickup" ? pickupLocationId : undefined,
+            deliveryPartnerId: fulfillmentType === "delivery" ? selectedDispatchOption?.id : undefined,
             note: order.notes,
             paymentMethod: order.paymentMethod,
             promo_code: summary.promoCode || undefined,
@@ -1202,6 +1210,13 @@ export default function CheckoutForm({
       ) : null}
 
       <section className="checkout-section">
+        <div className="checkout-section__heading"><span className="checkout-section__icon"><i className="fa-solid fa-box" /></span><h2>How would you like to receive your order?</h2></div>
+        <div className="checkout-payment-options">
+          {[{ value: "pickup", title: "Pickup", subtitle: "Collect your prepaid order from a Meal05 pickup point." }, { value: "delivery", title: "Delivery", subtitle: "Choose an available delivery company after confirming your location." }].map(option => <label key={option.value} className={`checkout-payment-tile${fulfillmentType === option.value ? " checkout-payment-tile--active" : ""}`}><input type="radio" name="fulfillmentType" value={option.value} checked={fulfillmentType === option.value} onChange={event => onFulfillmentChange?.(event.target.value)} /><span className="checkout-payment-icon"><i className={option.value === "pickup" ? "fa-solid fa-store" : "fa-solid fa-truck"} /></span><div><span className="checkout-payment-title">{option.title}</span><span className="checkout-payment-subtitle">{option.subtitle}</span></div></label>)}
+        </div>
+      </section>
+
+      <section className="checkout-section">
         <div className="checkout-section__heading">
           <span className="checkout-section__icon" aria-hidden="true">
             <i className="fa-solid fa-location-dot" />
@@ -1276,6 +1291,7 @@ export default function CheckoutForm({
             ) : null}
           </label>
         </div>
+        {fulfillmentType === "pickup" ? <label className={errors.pickupLocation ? "checkout-field has-error" : "checkout-field"}><span>Pickup location</span><select value={pickupLocationId} onChange={event => onPickupLocationChange?.(event.target.value)}><option value="">Select a pickup point</option>{pickupLocations.map(location => <option key={location.id} value={location.id}>{location.name} — {location.address}</option>)}</select>{errors.pickupLocation ? <span className="checkout-field__error">{errors.pickupLocation}</span> : null}<small>Your order must be paid before collection.</small></label> : <>
         <label className={errors.address ? "checkout-textarea has-error" : "checkout-textarea"}>
           <div className="checkout-address-row">
             <span>{copy.checkout.labels.address}</span>
@@ -1378,6 +1394,7 @@ export default function CheckoutForm({
             ) : null}
           </div>
           <div className="checkout-dispatch__list">
+            {!dispatchOptions.length ? <div className="checkout-field__notice checkout-field__notice--error">No delivery company is currently active for this location. Choose pickup or check again later.</div> : null}
             {dispatchOptions.map((option) => (
               <label
                 key={option.id}
@@ -1395,7 +1412,7 @@ export default function CheckoutForm({
                 />
                 <span className="checkout-dispatch-card__body">
                   <span className="checkout-dispatch-card__topline">
-                    <span className="checkout-dispatch-card__name">{option.name}</span>
+                    <span className="checkout-dispatch-card__name">{option.logoUrl ? <Image src={option.logoUrl} alt="" width={32} height={32} style={{ objectFit: "contain", marginRight: 8, verticalAlign: "middle" }} /> : null}{option.name}</span>
                     {option.recommended ? (
                       <span className="checkout-dispatch-card__badge">Recommended</span>
                     ) : (
@@ -1414,6 +1431,7 @@ export default function CheckoutForm({
             ))}
           </div>
         </div>
+        </>}
         <label className="checkout-textarea">
           <span>{copy.checkout.labels.notes}</span>
           <textarea
@@ -1454,9 +1472,7 @@ export default function CheckoutForm({
               <span className="checkout-payment-icon" aria-hidden="true">
                 <i
                   className={
-                    method.value === "delivery"
-                      ? "fa-solid fa-money-bill-wave"
-                      : method.value === "opay"
+                    method.value === "opay"
                         ? "fa-solid fa-qrcode"
                         : method.value === "palmpay"
                           ? "fa-regular fa-wallet"

@@ -52,7 +52,6 @@ const copy = {
           { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/verve card.png", label: "Verve" },
         ],
       },
-      { value: "delivery", title: "Pay on delivery", subtitle: "Cash or POS when your order arrives." },
       {
         value: "palmpay",
         title: "Pay with PalmPay",

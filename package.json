@@ -19,6 +19,7 @@
         "@upstash/redis": "^1.33.0",
         "axios": "^1.13.5",
         "dotenv": "^17.2.3",
+        "leaflet": "^1.9.4",
         "next": "^15.5.12",
         "node-rsa": "^1.1.1",
         "nodemailer": "^8.0.1",

@@ -9,8 +9,7 @@ import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { sendAdminOrderAlertEmail, sendOrderConfirmationEmail } from "@/lib/notify";
 import { resolveProductImage } from "@/lib/product-image";
 import { applyPromoToOrderSummary, computeOrderSummary } from "@/lib/order-pricing";
-import { DEFAULT_DISPATCH_OPTION_ID, resolveDispatchOption } from "@/lib/dispatch-partners";
-import { buildCityServiceMessage, getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
+import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
 import { loadDeliverySettings } from "@/lib/delivery-settings-server";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
 import { insertOrderStatusHistory } from "@/lib/order-status-history";
@@ -79,7 +78,11 @@ export async function POST(request) {
   const schema = z.object({
     deliveryAddress: z.string().max(500).optional().default(""),
     deliveryCity: z.string().max(120).optional().default(""),
-    dispatchOptionId: z.string().max(80).optional().default(DEFAULT_DISPATCH_OPTION_ID),
+    deliveryLatitude: z.number().finite().min(-90).max(90).optional(),
+    deliveryLongitude: z.number().finite().min(-180).max(180).optional(),
+    fulfillmentType: z.enum(["delivery", "pickup"]).default("delivery"),
+    deliveryPartnerId: z.string().uuid().optional(),
+    pickupLocationId: z.coerce.number().int().positive().optional(),
     note: z.string().max(500).optional(),
     paymentMethod: z.string().max(64).optional().default("paystack"),
     promo_code: z.string().trim().max(64).optional(),
@@ -438,15 +441,33 @@ export async function POST(request) {
   );
 
   const deliverySettings = await loadDeliverySettings();
-  const deliveryCity = String(parsed.data.deliveryCity || "").trim();
-  const deliveryArea = resolveDeliveryArea(deliverySettings, deliveryCity);
-  if (!deliveryArea.available) {
+  const isPickup = parsed.data.fulfillmentType === "pickup";
+  let pickupLocation = null;
+  let deliveryArea = null;
+  let dispatchOption = null;
+  let partnerCost = 0;
+  if (isPickup) {
+    if (!parsed.data.pickupLocationId) return applyRateLimitHeaders(NextResponse.json({ error: "Select a pickup location." }, { status: 400 }), rl);
+    const { data, error } = await admin.from("pickup_locations").select("id,name,address,hours").eq("id", parsed.data.pickupLocationId).eq("market_id", catalog.market.id).eq("is_active", true).maybeSingle();
+    if (error || !data) return applyRateLimitHeaders(NextResponse.json({ error: "That pickup location is unavailable." }, { status: 400 }), rl);
+    pickupLocation = data;
+  } else {
+  if (parsed.data.deliveryLatitude == null || parsed.data.deliveryLongitude == null) return applyRateLimitHeaders(NextResponse.json({ error: "Confirm a delivery location." }, { status: 400 }), rl);
+  const { data: resolvedZones, error: zoneError } = await admin.rpc("resolve_delivery_zone", {
+    p_lat: parsed.data.deliveryLatitude,
+    p_lng: parsed.data.deliveryLongitude,
+    p_market_id: catalog.market.id,
+  });
+  if (zoneError) {
+    await logAdminError(zoneError, { route: "/api/orders", stage: "resolve_delivery_zone", user_id: user.id });
+    return applyRateLimitHeaders(NextResponse.json({ error: "Delivery-zone validation is unavailable.", code: "delivery_zone_error" }, { status: 503 }), rl);
+  }
+  deliveryArea = Array.isArray(resolvedZones) ? resolvedZones[0] : null;
+  if (!deliveryArea) {
     return applyRateLimitHeaders(
       NextResponse.json(
         {
-          error: deliveryArea.reason === "missing_city"
-            ? "Select a delivery area before placing your order."
-            : buildCityServiceMessage(deliverySettings),
+          error: "This exact location is outside our current delivery area. Select another location or join the waitlist.",
           code: "delivery_area_unavailable",
         },
         { status: 400 }
@@ -454,11 +475,27 @@ export async function POST(request) {
       rl
     );
   }
+  if (!parsed.data.deliveryPartnerId) return applyRateLimitHeaders(NextResponse.json({ error: "Select a delivery partner." }, { status: 400 }), rl);
+  const { data: service, error: serviceError } = await admin.from("delivery_partner_services")
+    .select("base_fee,eta_note,partner_id,delivery_partners!inner(id,name,status,market_id)")
+    .eq("zone_id", deliveryArea.zone_id).eq("partner_id", parsed.data.deliveryPartnerId).eq("is_active", true)
+    .eq("delivery_partners.status", "active").eq("delivery_partners.market_id", catalog.market.id).maybeSingle();
+  if (serviceError || !service) return applyRateLimitHeaders(NextResponse.json({ error: "That delivery partner is unavailable for this location." }, { status: 400 }), rl);
+  partnerCost = Number(service.base_fee || 0);
+  dispatchOption = { id: service.partner_id, name: service.delivery_partners.name, fee: partnerCost, eta: service.eta_note || "Timing confirmed after booking" };
+  }
+  const { data: priorOrders, error: priorOrdersError } = await admin
+    .from("orders")
+    .select("id")
+    .eq("user_id", user.id)
+    .neq("status", "cancelled")
+    .limit(1);
+  if (priorOrdersError) await logAdminError(priorOrdersError, { route: "/api/orders", stage: "first_order_check", user_id: user.id });
+  const firstOrderFreeDelivery = !priorOrdersError && !(priorOrders || []).length;
   const deliverySummaryConfig = {
-    ...getDeliverySummaryConfig(deliverySettings, deliveryCity),
-    deliveryFee: resolveDispatchOption(deliveryArea.fee, parsed.data.dispatchOptionId).fee,
+    ...getDeliverySummaryConfig(deliverySettings, "Ibadan"),
+    deliveryFee: isPickup || firstOrderFreeDelivery ? 0 : partnerCost,
   };
-  const dispatchOption = resolveDispatchOption(deliveryArea.fee, parsed.data.dispatchOptionId);
   const pricingItems = cart.map((row) => ({
     quantity: Number(row?.quantity || 0),
     unit_price_at_add: resolveUnitPrice(row),
@@ -509,7 +546,7 @@ export async function POST(request) {
   const finalSummary = promoValidation?.ok ? applyPromoToOrderSummary(baseSummary, promoValidation) : baseSummary;
   const orderTotal = finalSummary.total;
   const requestedPaymentMethod = String(parsed.data.paymentMethod || "").trim().toLowerCase() || "paystack";
-  if (!["paystack", "delivery", "opay", "palmpay"].includes(requestedPaymentMethod)) {
+  if (!["paystack", "opay", "palmpay"].includes(requestedPaymentMethod)) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Unsupported payment method" }, { status: 400 }), rl);
   }
 
@@ -530,11 +567,20 @@ export async function POST(request) {
     market_id: catalog.market.id,
     currency_code: catalog.market.currencyCode,
     delivery_address: parsed.data.deliveryAddress || "",
+    fulfillment_type: parsed.data.fulfillmentType,
+    pickup_location_id: pickupLocation?.id || null,
+    delivery_latitude: isPickup ? null : parsed.data.deliveryLatitude,
+    delivery_longitude: isPickup ? null : parsed.data.deliveryLongitude,
+    delivery_zone_id: deliveryArea?.zone_id || null,
+    delivery_zone_name: deliveryArea?.zone_name || null,
+    delivery_partner_id: dispatchOption?.id || null,
+    partner_cost: isPickup ? 0 : partnerCost,
+    delivery_subsidy: Math.max(0, partnerCost - finalSummary.deliveryFee),
     customer_note: parsed.data.note || null,
-    delivery_instructions: `Dispatch: ${dispatchOption.name} (${dispatchOption.id}) - ${dispatchOption.eta}`,
+    delivery_instructions: isPickup ? `Pickup: ${pickupLocation.name} - ${pickupLocation.hours || "Time confirmed after payment"}` : `Dispatch: ${dispatchOption.name} (${dispatchOption.id}) - ${dispatchOption.eta}`,
   };
   const orderSelect =
-    "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, created_at";
+    "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at";
   const { data: orderIns, error: orderErr } = await admin.from("orders").insert(orderRow).select(orderSelect).single();
   if (orderErr) return applyRateLimitHeaders(NextResponse.json({ error: orderErr.message }, { status: 400 }), rl);
 
@@ -607,8 +653,8 @@ export async function POST(request) {
     delivery_fee: finalSummary.deliveryFee,
       discount_total: finalSummary.discountTotal,
       promo_code: finalSummary.promoCode || undefined,
-      dispatch_partner: dispatchOption.name,
-      dispatch_option_id: dispatchOption.id,
+      dispatch_partner: dispatchOption?.name || null,
+      dispatch_option_id: dispatchOption?.id || null,
       dispatch_fee: finalSummary.deliveryFee,
     });
 

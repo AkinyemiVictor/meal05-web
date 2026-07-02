@@ -11,6 +11,7 @@ import styles from "./landing.module.css";
 import WaitlistForm from "@/components/waitlist-form";
 import LandingPopularPreview from "@/components/landing-popular-preview";
 import LandingCategories from "@/components/landing-categories";
+import LocationPicker from "@/components/location-picker";
 
 const values = [
   [IconBolt, "Same-day delivery", "Order before 2pm", "orange"],
@@ -43,7 +44,7 @@ export default function LandingPage() {
     <header className={styles.header}><div className={styles.navbar}>
       <Link href="/" className={styles.logo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={142} height={50} priority /></Link>
       <nav><a href="#categories">Categories</a><a href="#how">How it works</a><a href="#popular">Shop</a><a href="#reviews">Reviews</a><a href="#waitlist">Waitlist</a></nav>
-      <div className={styles.navActions}><span className={styles.location}><IconMapPin/> Bodija, Ibadan</span><Link href="/sign-in" className={styles.signin}>Sign in</Link><Link href="/shop" className={styles.orangeButton}>Start shopping <IconArrowRight/></Link></div>
+      <div className={styles.navActions}><LocationPicker landing/><Link href="/sign-in" className={styles.signin}>Sign in</Link><Link href="/shop" className={styles.orangeButton}>Start shopping <IconArrowRight/></Link></div>
     </div></header>
 
     <section className={styles.hero}>
@@ -54,7 +55,7 @@ export default function LandingPage() {
         <div className={styles.stats}><div><b>50k+</b><span>happy households</span></div><i/><div><b>1,200+</b><span>fresh products</span></div><i/><div><b className={styles.rating}><IconStarFilled/> 4.9</b><span>avg. rating</span></div></div>
       </div>
       <div className={styles.heroArt}><Image src="/assets/billboard/landing-hero-template.jpg" alt="Fresh market vegetables" fill priority sizes="(max-width:980px) 0px, 46vw"/><div className={styles.heroShade}/>
-        <div className={styles.delivery}><i><IconTruckDelivery/></i><span><b>Out for delivery</b><small>Arriving in 35 mins</small></span></div><div className={styles.discount}><b>50%</b><span>1st order</span></div>
+        <div className={styles.delivery}><i><IconTruckDelivery/></i><span><b>Out for delivery</b><small>Arriving in 35 mins</small></span></div><div className={styles.discount}><b>FREE</b><span>1st delivery</span></div>
       </div>
     </section>
 
@@ -66,7 +67,7 @@ export default function LandingPage() {
 
     <section id="popular" className={`${styles.section} ${styles.popularPreview}`}><LandingPopularPreview fallbackProducts={products}/></section>
 
-    <section className={styles.promoWrap}><div className={styles.promo}><i/><div><span>Flash deal</span><h2>50% off your first order</h2><p>Plus free delivery on baskets above ₦5,000. New customers only — use code <b>FRESH50</b> at checkout.</p><Link href="/shop">Shop the deal <IconArrowRight/></Link></div><IconShoppingCart className={styles.cartArt}/></div></section>
+    <section className={styles.promoWrap}><div className={styles.promo}><i/><div><span>New customer benefit</span><h2>Free delivery on your first order</h2><p>Fill your first Meal05 basket and we’ll bring it to your door without a delivery charge. Available within supported delivery areas.</p><Link href="/shop">Start your first order <IconArrowRight/></Link></div><IconTruckDelivery className={styles.cartArt}/></div></section>
 
     <section id="reviews" className={styles.reviews}><div className={styles.inner}><div className={styles.centerHead}><span>Loved in Ibadan</span><h2>What our customers say</h2></div><div className={styles.reviewGrid}>{reviews.map(([quote,initials,name,area])=><article key={name}><Stars/><p>{quote}</p><footer><b>{initials}</b><span><strong>{name}</strong><small>{area}</small></span></footer></article>)}</div></div></section>
 

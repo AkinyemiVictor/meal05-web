@@ -12,10 +12,6 @@ import {
   readStoredCart,
   readStoredPromo,
 } from "@/lib/checkout";
-import {
-  DEFAULT_DISPATCH_OPTION_ID,
-  resolveDispatchOption,
-} from "@/lib/dispatch-partners";
 import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
 import { resolveProductImage } from "@/lib/product-image";
 import useProducts from "@/lib/use-products";
@@ -23,7 +19,9 @@ import useProducts from "@/lib/use-products";
 export default function CheckoutSummary({
   deliverySettings,
   deliveryCity,
-  selectedDispatchOptionId = DEFAULT_DISPATCH_OPTION_ID,
+  selectedDispatchOptionId = "",
+  dispatchOptions = [],
+  fulfillmentType = "delivery",
   submitFormId,
 }) {
   const { index: productIndex } = useProducts();
@@ -41,18 +39,15 @@ export default function CheckoutSummary({
       if (String(deliveryCity || "").trim() && !deliveryArea.available) {
         return { ...config, deliveryFee: 0 };
       }
-      if (!deliveryArea.available || deliveryArea.fee == null) return config;
-      const dispatchOption = resolveDispatchOption(deliveryArea.fee, selectedDispatchOptionId);
-      return { ...config, deliveryFee: dispatchOption.fee };
+      if (fulfillmentType === "pickup") return { ...config, deliveryFee: 0 };
+      const dispatchOption = dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId));
+      return { ...config, deliveryFee: Number(dispatchOption?.fee || 0) };
     },
-    [deliveryArea, deliverySettings, deliveryCity, selectedDispatchOptionId]
+    [deliveryArea, deliverySettings, deliveryCity, selectedDispatchOptionId, dispatchOptions, fulfillmentType]
   );
   const selectedDispatchOption = useMemo(
-    () => resolveDispatchOption(
-      deliveryArea.available && deliveryArea.fee != null ? deliveryArea.fee : summaryConfig.deliveryFee,
-      selectedDispatchOptionId
-    ),
-    [deliveryArea.available, deliveryArea.fee, selectedDispatchOptionId, summaryConfig.deliveryFee]
+    () => dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId)) || null,
+    [dispatchOptions, selectedDispatchOptionId]
   );
   const deliveryUnavailable = Boolean(String(deliveryCity || "").trim()) && !deliveryArea.available;
 
@@ -160,12 +155,12 @@ export default function CheckoutSummary({
         <div>
           <span>
             {copy.checkout.labels.delivery}
-            {deliveryUnavailable ? null : (
-              <small className="checkout-summary__dispatch">{selectedDispatchOption.name}</small>
+            {fulfillmentType === "pickup" ? <small className="checkout-summary__dispatch">Customer pickup</small> : deliveryUnavailable ? null : (
+              <small className="checkout-summary__dispatch">{selectedDispatchOption?.name || "Select a partner"}</small>
             )}
           </span>
           <span>
-            {deliveryUnavailable
+            {fulfillmentType === "pickup" ? "Free" : deliveryUnavailable
               ? "Unavailable"
               : summary.deliveryFee === 0
               ? copy.checkout.freeDeliveryLabel

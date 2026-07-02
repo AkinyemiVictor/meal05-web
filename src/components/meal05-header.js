@@ -11,7 +11,6 @@ import {
   IconSparkles,
   IconLogin2,
   IconLogout,
-  IconMapPin,
   IconPackage,
   IconSearch,
   IconShoppingBag,
@@ -28,6 +27,7 @@ import {
   getUnreadNotificationCount,
   syncDerivedNotifications,
 } from "@/lib/notifications";
+import LocationPicker from "@/components/location-picker";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 const ACCOUNT_MENU_ID = "meal05-account-menu";
@@ -362,14 +362,7 @@ export default function Meal05Header() {
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-3 lg:flex-none">
-            <Link
-              href="/account?tab=addresses"
-              className="flex h-11 shrink-0 items-center gap-2 rounded-2xl border border-meal-line bg-meal-paper px-4 text-sm font-extrabold text-meal-text shadow-sm transition hover:border-meal-pepper hover:text-meal-pepper"
-            >
-              <IconMapPin size={18} stroke={1.8} className="text-meal-pepper" />
-              <span className="hidden sm:inline">Bodija, Ibadan</span>
-              <span className="sm:hidden">Bodija</span>
-            </Link>
+            <LocationPicker />
 
             <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} badgeCount={unreadNotifications}>
               <IconBell size={21} stroke={1.8} />

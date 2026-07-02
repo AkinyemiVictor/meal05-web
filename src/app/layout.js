@@ -3,6 +3,7 @@ import "@/styles/main.css";
 import "@/styles/meal05-footer-download.css";
 import "@/styles/notice.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
+import "leaflet/dist/leaflet.css";
 import localFont from "next/font/local";
 
 import Footer from "@/components/footer";

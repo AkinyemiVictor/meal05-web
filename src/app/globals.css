@@ -132,3 +132,6 @@ select {
 .layout-main {
   min-height: 100vh;
 }
+
+.meal05-map-pin{display:grid!important;place-items:center;background:#071426;border:3px solid #fff;border-radius:50%;box-shadow:0 4px 12px #07142655}
+.meal05-map-pin span{color:#00c968;font-size:25px;line-height:1;transform:translateY(-1px)}

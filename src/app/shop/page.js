@@ -19,6 +19,7 @@ import {
 } from "@/lib/catalog-items";
 import useCategories from "@/lib/use-categories";
 import useProducts from "@/lib/use-products";
+import LocationPicker from "@/components/location-picker";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
   loading: () => <CategoryCarouselSkeleton />,
@@ -132,6 +133,7 @@ export default function ShopPage() {
 
   return (
     <main ref={pageRef} className="category-page shop-page">
+      <LocationPicker autoOpen hideTrigger />
       <div className="category-page__header">
         <div className="category-page__title">
           <span className="categoryCard__icon" aria-hidden="true">
