@@ -16,7 +16,7 @@ export function renderReceiptHtml(order, options = {}) {
   const baseUrl = options.baseUrl || process.env.APP_BASE_URL || "";
   const logoPath = options.logoPath || "/assets/logo/MEAL05%20NEW%20ICON%20LOGO-05.png";
   const logoUrl = baseUrl ? `${baseUrl.replace(/\/$/, "")}${logoPath}` :
-    (options.logoUrl || process.env.APP_LOGO_URL || "https://www.meal05.com.ng/assets/logo/MEAL05%20NEW%20ICON%20LOGO-05.png");
+    (options.logoUrl || process.env.APP_LOGO_URL || "https://meal05.com/assets/logo/MEAL05%20NEW%20ICON%20LOGO-05.png");
 
   const items = Array.isArray(order?.items) ? order.items : [];
   const summary = order?.summary || { subtotal: 0, deliveryFee: 0, total: 0 };

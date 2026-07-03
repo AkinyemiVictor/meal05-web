@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "meal05-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-07-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/*",
+      "!/_next/static/*",
+      "!/assets/*",
+      "!/favicon.ico"
+    ]
+  },
+  "routes": [
+    {
+      "pattern": "meal05.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.meal05.com",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
