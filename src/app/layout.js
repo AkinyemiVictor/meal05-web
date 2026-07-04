@@ -10,6 +10,7 @@ import Footer from "@/components/footer";
 import Meal05Header from "@/components/meal05-header";
 import NoticeProvider from "@/components/notice-provider";
 import RoutePrefetcher from "@/components/route-prefetcher";
+import PageScaler from "@/components/page-scaler";
 
 const geistSans = localFont({
   src: "../fonts/geist-latin.woff2",
@@ -31,14 +32,16 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <NoticeProvider>
-          <Meal05Header />
-          <RoutePrefetcher />
-          <div className="layout-main">
-            {children}
-          </div>
-          <Footer />
-        </NoticeProvider>
+        <PageScaler>
+          <NoticeProvider>
+            <Meal05Header />
+            <RoutePrefetcher />
+            <div className="layout-main">
+              {children}
+            </div>
+            <Footer />
+          </NoticeProvider>
+        </PageScaler>
       </body>
     </html>
   );

@@ -9979,6 +9979,20 @@ main > section:not(.home-hero) {
 
 /* Keep four homepage cards in constrained desktop layouts without horizontal scrolling.
    The entire card is scaled proportionally; tablet layouts use their normal sizing. */
+@media (max-width: 900px) {
+  .home-product-collection--single-row {
+    gap: 1rem;
+  }
+
+}
+
+@media (max-width: 720px) {
+  .home-product-collection--single-row {
+    gap: 0.75rem;
+  }
+
+}
+
 @media (min-width: 1024px) and (max-width: 1279px) {
   .home-content-boundary {
     min-height: 0 !important;

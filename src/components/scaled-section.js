@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 // - Prevents upscaling beyond 1x by default.
 export default function ScaledSection({
   baseWidth = 1440,
-  baseHeight = 400,
+  baseHeight = null,
   maxScale = 1,
   className = "",
   style = {},
@@ -29,7 +29,8 @@ export default function ScaledSection({
       const raw = w / baseWidth;
       const s = clamp(raw, 0, maxScale ?? 1);
       inner.style.setProperty("--s", String(s));
-      wrapper.style.height = `${Math.round(baseHeight * s)}px`;
+      const contentHeight = baseHeight ?? inner.scrollHeight;
+      wrapper.style.height = `${Math.ceil(contentHeight * s)}px`;
     }
 
     // Initial paint
@@ -38,6 +39,7 @@ export default function ScaledSection({
     // Observe wrapper size
     const ro = new ResizeObserver(applyScale);
     ro.observe(wrapper);
+    ro.observe(inner);
 
     // Fallback on window resize
     window.addEventListener("resize", applyScale);
@@ -49,7 +51,7 @@ export default function ScaledSection({
 
   return (
     <div ref={wrapperRef} className={`scale-wrapper ${className}`} style={style}>
-      <div ref={innerRef} className="scale-inner" style={{ width: baseWidth, height: baseHeight }}>
+      <div ref={innerRef} className="scale-inner" style={{ width: baseWidth, ...(baseHeight ? { height: baseHeight } : {}) }}>
         {children}
       </div>
     </div>

@@ -12,6 +12,7 @@ import WaitlistForm from "@/components/waitlist-form";
 import LandingPopularPreview from "@/components/landing-popular-preview";
 import LandingCategories from "@/components/landing-categories";
 import LandingHeader from "@/components/landing-header";
+import LandingSeasonalBanner from "@/components/landing-seasonal-banner";
 
 const values = [
   [IconBolt, "Same-day delivery", "Order before 2pm", "orange"],
@@ -55,11 +56,13 @@ export default function LandingPage() {
       </div>
     </section>
 
-    <section id="categories" className={styles.section}><LandingCategories/></section>
+    <section id="categories" className={`${styles.section} ${styles.compactLandingGrid}`}><LandingCategories/></section>
 
     <section id="how" className={styles.how}><div className={styles.inner}><div className={styles.centerHead}><span>How it works</span><h2>Fresh food in three steps</h2></div><div className={styles.steps}>{steps.map(([num,Icon,title,desc])=><article key={num}><strong>{num}</strong><i><Icon/></i><h3>{title}</h3><p>{desc}</p></article>)}</div></div></section>
 
-    <section id="popular" className={`${styles.section} ${styles.popularPreview}`}><LandingPopularPreview fallbackProducts={products}/></section>
+    <section id="popular" className={`${styles.section} ${styles.popularPreview} ${styles.compactLandingGrid}`}><LandingPopularPreview fallbackProducts={products}/></section>
+
+    <LandingSeasonalBanner />
 
     <section className={styles.promoWrap}><div className={styles.promo}><i/><div><span>New customer benefit</span><h2>Free delivery on your first order</h2><p>Fill your first Meal05 basket and we’ll bring it to your door without a delivery charge. Available within supported delivery areas.</p><Link href="/home">Start your first order <IconArrowRight/></Link></div><IconTruckDelivery className={styles.cartArt}/></div></section>
 
