@@ -892,7 +892,7 @@ function AccountPageContent() {
           <Link href="/account?tab=orders" className={styles.cardAction}>
             Track recent orders
           </Link>
-          <Link href="/shop" className={styles.cardAction}>
+          <Link href="/home" className={styles.cardAction}>
             Continue shopping
           </Link>
           <Link href="/checkout" className={styles.cardAction}>

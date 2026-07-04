@@ -85,7 +85,7 @@ export default async function BundlePlanDetailPage({ params }) {
   return (
     <main className="bundle-plan-page">
       <nav className="page-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
+        <Link href="/home">Home</Link>
         <span aria-hidden="true" className="page-breadcrumb-divider">
           /
         </span>

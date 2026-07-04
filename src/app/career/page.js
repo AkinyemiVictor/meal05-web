@@ -9,7 +9,7 @@ export default function CareerPage() {
   return (
     <main style={{ maxWidth: 1200, margin: "2rem auto 4rem", padding: "0 1rem" }}>
       <nav className="page-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
+        <Link href="/home">Home</Link>
         <span aria-hidden="true" className="page-breadcrumb-divider">/</span>
         <span className="page-breadcrumb-current">Career</span>
       </nav>

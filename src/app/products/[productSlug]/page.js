@@ -404,7 +404,7 @@ export default async function ProductDetailPage({ params }) {
       <ProductEngagementTracker productId={product.id} product={product} />
 
       <nav aria-label="Breadcrumb" className="product-detail-breadcrumb">
-        <Link href="/" className="product-detail-breadcrumb-chip">Home</Link>
+        <Link href="/home" className="product-detail-breadcrumb-chip">Home</Link>
         <span aria-hidden="true" className="product-detail-breadcrumb-divider">&rsaquo;</span>
         {categorySchema?.path ? (
           <Link href={categorySchema.path} className="product-detail-breadcrumb-chip">{categorySchema.name}</Link>

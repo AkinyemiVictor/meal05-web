@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { checkRateLimit, applyRateLimitHeaders } from './src/lib/api/rate-limit';
+import { checkRateLimit, applyRateLimitHeaders } from './lib/api/rate-limit';
 
 // Common security headers
 const securityHeaders = {
@@ -55,7 +55,7 @@ export async function middleware(request) {
   const { pathname } = request.nextUrl || {};
   const isHealth = pathname === '/api/health';
   const url = request.nextUrl.clone();
-  const host = request.headers.get('host') || '';
+  const host = request.headers.get('x-forwarded-host') || request.nextUrl.hostname || request.headers.get('host') || '';
   const normalizedHost = host.toLowerCase().split(':')[0];
 
   if (normalizedHost === 'www.meal05.com') {

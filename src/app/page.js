@@ -40,11 +40,11 @@ export const metadata = { title: "Meal05 — Market-fresh groceries, delivered",
 const Stars = () => <div className={styles.stars}>{Array.from({length:5},(_,i)=><IconStarFilled key={i}/>)}</div>;
 
 export default function LandingPage() {
-  return <main className={styles.page}>
+  return <main id="top" className={styles.page}>
     <header className={styles.header}><div className={styles.navbar}>
-      <Link href="/" className={styles.logo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={142} height={50} priority /></Link>
-      <nav><a href="#categories">Categories</a><a href="#how">How it works</a><a href="#popular">Shop</a><a href="#reviews">Reviews</a><a href="#waitlist">Waitlist</a></nav>
-      <div className={styles.navActions}><LocationPicker landing/><Link href="/sign-in" className={styles.signin}>Sign in</Link><Link href="/shop" className={styles.orangeButton}>Start shopping <IconArrowRight/></Link></div>
+      <Link href="#top" className={styles.logo} aria-label="Back to the top of the Meal05 landing page"><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={142} height={50} priority /></Link>
+      <nav><a href="#categories">Categories</a><a href="#how">How it works</a><Link href="/shop">Shop</Link><a href="#reviews">Reviews</a><a href="#waitlist">Waitlist</a></nav>
+      <div className={styles.navActions}><LocationPicker landing/><Link href="/sign-in" className={styles.signin}>Sign in</Link><Link href="/home" className={styles.orangeButton}>Start shopping <IconArrowRight/></Link></div>
     </div></header>
 
     <section className={styles.hero}>
@@ -55,7 +55,7 @@ export default function LandingPage() {
         <div className={styles.heroValues}>{values.map(([Icon,title,sub,tone])=><article key={title}><i className={styles[tone]}><Icon/></i><span><b>{title}</b><small>{sub}</small></span></article>)}</div>
       </div>
       <div className={styles.heroArt}><Image src="/assets/billboard/landing-hero-template.jpg" alt="Fresh market vegetables" fill priority sizes="(max-width:980px) 0px, 46vw"/><div className={styles.heroShade}/>
-        <div className={styles.delivery}><i><IconLeaf/></i><span><b>Fresh market picks</b><small>Selected with care</small></span></div><div className={styles.discount}><b>FREE</b><span>1st delivery</span></div>
+        <div className={styles.delivery}><i><IconShoppingCart/></i><span><b>Your market run</b><small>Handled in one basket</small></span></div><div className={styles.discount}><b>FREE</b><span>1st delivery</span></div>
       </div>
     </section>
 
@@ -65,13 +65,13 @@ export default function LandingPage() {
 
     <section id="popular" className={`${styles.section} ${styles.popularPreview}`}><LandingPopularPreview fallbackProducts={products}/></section>
 
-    <section className={styles.promoWrap}><div className={styles.promo}><i/><div><span>New customer benefit</span><h2>Free delivery on your first order</h2><p>Fill your first Meal05 basket and we’ll bring it to your door without a delivery charge. Available within supported delivery areas.</p><Link href="/shop">Start your first order <IconArrowRight/></Link></div><IconTruckDelivery className={styles.cartArt}/></div></section>
+    <section className={styles.promoWrap}><div className={styles.promo}><i/><div><span>New customer benefit</span><h2>Free delivery on your first order</h2><p>Fill your first Meal05 basket and we’ll bring it to your door without a delivery charge. Available within supported delivery areas.</p><Link href="/home">Start your first order <IconArrowRight/></Link></div><IconTruckDelivery className={styles.cartArt}/></div></section>
 
     <section id="reviews" className={styles.reviews}><div className={styles.inner}><div className={styles.centerHead}><span>Loved in Ibadan</span><h2>What our customers say</h2></div><div className={styles.reviewGrid}>{reviews.map(([quote,initials,name,area])=><article key={name}><Stars/><p>{quote}</p><footer><b>{initials}</b><span><strong>{name}</strong><small>{area}</small></span></footer></article>)}</div></div></section>
 
     <section id="waitlist" className={styles.waitlist}><div className={styles.waitlistInner}><div className={styles.waitlistCopy}><span>Early access</span><h2>Be first in line for what’s next.</h2><p>Join the Meal05 waitlist for priority access to new delivery areas, fresh features and member-only launch offers.</p><ul><li><IconStarFilled/> Priority access</li><li><IconDiscount2/> Early-member offers</li><li><IconMapPin/> New-area alerts</li></ul></div><WaitlistForm classNames={{form:styles.waitlistForm,fields:styles.waitlistFields,consent:styles.waitlistConsent,error:styles.waitlistError,privacy:styles.waitlistPrivacy,success:styles.waitlistSuccess}}/></div></section>
 
-    <section className={styles.finalWrap}><div className={styles.final}><i/><i/><h2>Your market run,<br/>handled.</h2><p>Create a free account and get your first basket delivered today.</p><div><Link href="/shop">Start shopping <IconArrowRight/></Link><Link href="/categories">Browse categories</Link></div></div></section>
+    <section className={styles.finalWrap}><div className={styles.final}><i/><i/><h2>Your market run,<br/>handled.</h2><p>Create a free account and get your first basket delivered today.</p><div><Link href="/home">Start shopping <IconArrowRight/></Link><Link href="/categories">Browse categories</Link></div></div></section>
 
     <footer className={styles.footer}><div className={styles.footerGrid}><div><Link href="/" className={styles.footerLogo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={145} height={52}/></Link><p>Market-fresh groceries delivered within our Ibadan launch area. Handpicked each morning, priced fairly, at your door in hours.</p><div className={styles.socials}><a href="https://wa.me/2349129296433" target="_blank" rel="noreferrer" aria-label="Chat with Meal05 on WhatsApp"><IconBrandWhatsapp/></a></div></div>
       <div><b>Shop</b><Link href="/categories">Categories</Link><Link href="/section/bundle-plans">Bundles</Link><Link href="/shop">Flash deals</Link><Link href="/section/new">New arrivals</Link></div>

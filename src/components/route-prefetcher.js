@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 const CUSTOMER_PREFETCH_ROUTES = [
+  "/home",
   "/shop",
   "/categories",
   "/cart",

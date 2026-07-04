@@ -135,7 +135,7 @@ export default function CategoryPage({
     <main ref={pageRef} className="category-page" data-category-slug={category.slug}>
       <PageBreadcrumbs
         items={[
-          { label: "Home", href: "/" },
+          { label: "Home", href: "/home" },
           { label: "Shop", href: "/shop" },
           { label: category.label },
         ]}

@@ -28,7 +28,7 @@ export default async function CategoriesPage() {
     <main className="categories-page">
       <div className="categories-page__inner">
         <nav className="categories-page__breadcrumb" aria-label="Breadcrumb">
-          <Link href="/">Home</Link>
+          <Link href="/home">Home</Link>
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span>Shop</span>
         </nav>
