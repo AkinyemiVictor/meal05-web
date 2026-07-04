@@ -7,13 +7,11 @@ import { loadCategoryCounts, loadCategoryRows, mapCategoryRows } from "@/lib/cat
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 300;
-export const fetchCache = "default-cache";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 const PUBLIC_CATEGORY_CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=1800",
-  "CDN-Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800",
-  "Vercel-CDN-Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800",
+  "Cache-Control": "no-store, max-age=0",
 };
 
 export async function GET() {
@@ -52,7 +50,11 @@ export async function GET() {
       );
     }
 
-    const counts = await loadCategoryCounts(supabase);
+    let countClient = supabase;
+    try {
+      countClient = getSupabaseAdminClient();
+    } catch {}
+    const counts = await loadCategoryCounts(countClient);
     const categories = mapCategoryRows(rows, counts).map((category) => ({
       id: category.id,
       name: category.name || category.label,

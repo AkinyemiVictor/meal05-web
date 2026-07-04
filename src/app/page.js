@@ -11,7 +11,7 @@ import styles from "./landing.module.css";
 import WaitlistForm from "@/components/waitlist-form";
 import LandingPopularPreview from "@/components/landing-popular-preview";
 import LandingCategories from "@/components/landing-categories";
-import LocationPicker from "@/components/location-picker";
+import LandingHeader from "@/components/landing-header";
 
 const values = [
   [IconBolt, "Same-day delivery", "Order before 2pm", "orange"],
@@ -41,11 +41,7 @@ const Stars = () => <div className={styles.stars}>{Array.from({length:5},(_,i)=>
 
 export default function LandingPage() {
   return <main id="top" className={styles.page}>
-    <header className={styles.header}><div className={styles.navbar}>
-      <Link href="#top" className={styles.logo} aria-label="Back to the top of the Meal05 landing page"><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={142} height={50} priority /></Link>
-      <nav><a href="#categories">Categories</a><a href="#how">How it works</a><Link href="/shop">Shop</Link><a href="#reviews">Reviews</a><a href="#waitlist">Waitlist</a></nav>
-      <div className={styles.navActions}><LocationPicker landing/><Link href="/sign-in" className={styles.signin}>Sign in</Link><Link href="/home" className={styles.orangeButton}>Start shopping <IconArrowRight/></Link></div>
-    </div></header>
+    <LandingHeader />
 
     <section className={styles.hero}>
       <div className={styles.heroCopy}><span className={styles.pill}><i/> Now live in Ibadan!</span>

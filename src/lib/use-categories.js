@@ -8,13 +8,14 @@ let categoriesValueCache = null;
 const fetchCategories = async ({ refresh = false } = {}) => {
   if (!refresh && categoriesValueCache) return categoriesValueCache;
   if (!refresh && categoriesRequestCache) return categoriesRequestCache;
-  categoriesRequestCache = fetch("/api/categories")
+  categoriesRequestCache = fetch("/api/categories", { cache: "no-store" })
     .then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     })
     .then((payload) => {
       categoriesValueCache = Array.isArray(payload?.categories) ? payload.categories : [];
+      categoriesRequestCache = null;
       return categoriesValueCache;
     })
     .catch((error) => {
@@ -32,7 +33,7 @@ export default function useCategories() {
   useEffect(() => {
     let cancelled = false;
     setStatus(categoriesValueCache ? "ready" : "loading");
-    fetchCategories()
+    const load = (refresh = false) => fetchCategories({ refresh })
       .then((nextCategories) => {
         if (cancelled) return;
         setCategories(nextCategories);
@@ -44,8 +45,11 @@ export default function useCategories() {
         setError(err);
         setStatus("error");
       });
+    load();
+    const refreshTimer = window.setInterval(() => load(true), 60_000);
     return () => {
       cancelled = true;
+      window.clearInterval(refreshTimer);
     };
   }, []);
 
