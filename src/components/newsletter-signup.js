@@ -10,8 +10,10 @@ export default function NewsletterSignup({
       <h3>{title}</h3>
       <p>{description}</p>
       <div className="newsletter-field">
-        <input type="email" name="newsletter-email" placeholder="Enter" aria-label="Email address" required />
-        <button type="submit">Subscribe</button>
+        <div className="newsletter-field__control">
+          <input type="email" name="newsletter-email" placeholder="Enter your email" aria-label="Email address" required />
+          <button type="submit">Subscribe</button>
+        </div>
       </div>
       {note ? <small>{note}</small> : null}
     </form>

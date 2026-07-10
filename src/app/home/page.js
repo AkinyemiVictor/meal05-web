@@ -1,11 +1,13 @@
 ﻿"use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconBasketCheck,
   IconArrowRight,
+  IconArrowUpLeft,
   IconCarrot,
   IconCherry,
   IconChefHat,
@@ -16,10 +18,10 @@ import {
   IconLayoutGrid,
   IconLeaf,
   IconMapPin,
-  IconPackage,
   IconPepper,
   IconShoppingBag,
   IconShoppingCart,
+  IconTruckDelivery,
   IconUser,
 } from "@tabler/icons-react";
 import {
@@ -47,7 +49,6 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { 
 const filters = [
   { value: "popular", label: "Popular", icon: IconFlame },
   { value: "under-15m", label: "Under 15m", icon: IconClock },
-  { value: "bundles", label: "MealKit", icon: IconPackage },
   { value: "chef-choice", label: "Chef Choice", icon: IconChefHat },
   { value: "fresh-in-stock", label: "Fresh In Stock", icon: IconBasketCheck },
   { value: "in-season", label: "In Season", icon: IconLeaf },
@@ -63,13 +64,7 @@ const COLLECTION_COPY = {
   "under-15m": {
     eyebrow: "Quick picks",
     title: "Under 15m",
-    emptyMessage: "No under-15m products or bundles are available yet.",
-  },
-  bundles: {
-    eyebrow: "Curated packs",
-    title: "MealKit",
-    emptyMessage: "No bundle products are available yet.",
-    seeAllHref: "/section/bundle-plans",
+    emptyMessage: "No under-15m products are available yet.",
   },
   "chef-choice": {
     eyebrow: "Chef picks",
@@ -95,13 +90,6 @@ const classNames = (...items) => items.filter(Boolean).join(" ");
 // MobileHeader and TopNav are now in src/components/meal05-header.js (rendered by layout)
 
 function PromoBanner() {
-  const picks = [
-    [IconPepper, "Sweet Peppers", "Peak season", "N900", "pepper"],
-    [IconLeaf, "Fresh Herbs", "Just in", "N600", "leaf"],
-    [IconCherry, "Ripe Fruits", "Peak season", "N1,500", "cherry"],
-    [IconCarrot, "Garden Carrots", "Just in", "N800", "carrot"],
-  ];
-
   return (
     <section className="welcome-banner" aria-labelledby="welcome-banner-title">
       <div className="welcome-banner__wash welcome-banner__wash--top" />
@@ -127,46 +115,49 @@ function PromoBanner() {
         <div className="welcome-banner__copy">
           <div className="welcome-banner__topline">
             <span className="welcome-banner__brand-chip">
-              <IconLeaf aria-hidden="true" />
-              <strong>IN<span> SEASON</span></strong>
+              <IconChefHat aria-hidden="true" />
+              <strong>MEAL<span>05</span></strong>
             </span>
-            <span className="welcome-banner__farm-note">weekly harvest</span>
+            <span className="welcome-banner__farm-note">...fresh from the farm</span>
           </div>
 
-          <p className="welcome-banner__eyebrow">Just harvested</p>
+          <p className="welcome-banner__eyebrow">Hello &amp; welcome to</p>
           <h2 id="welcome-banner-title" className="welcome-banner__title">
-            Now in<span> season.</span>
+            MEAL<span>05</span>
           </h2>
-          <p className="welcome-banner__accent">Peak-season produce, picked fresh.</p>
+          <p className="welcome-banner__accent">Shop super fresh &amp; affordable</p>
           <p className="welcome-banner__description">
-            This week&apos;s basket is bursting with produce picked at its sweetest and rushed from farm to your door.
+            Hand-picked groceries from trusted vendors. Quality you can taste, prices you&apos;ll love.
           </p>
 
           <div className="welcome-banner__actions">
-            <Link href="/section/in-season" className="welcome-banner__cta">
+            <Link href="/shop" className="welcome-banner__cta">
               <span><IconArrowRight aria-hidden="true" /></span>
-              Shop seasonal picks
+              Start shopping
             </Link>
             <span className="welcome-banner__delivery">
-              <IconClock aria-hidden="true" />
-              New harvest every Monday
+              <IconTruckDelivery aria-hidden="true" />
+              Same-day delivery in Ibadan
             </span>
           </div>
         </div>
 
-        <div className="welcome-banner__art welcome-banner__art--cards" aria-hidden="true">
-          {picks.map(([Icon, name, status, price, tone], index) => (
-            <article key={name} className={`welcome-banner__pick welcome-banner__pick--${index + 1}`}>
-              <i className={`welcome-banner__pick-icon welcome-banner__pick-icon--${tone}`}>
-                <Icon />
-              </i>
-              <b>{name}</b>
-              <footer>
-                <span>{status}</span>
-                <strong>{price}</strong>
-              </footer>
-            </article>
-          ))}
+        <div className="welcome-banner__art" aria-hidden="true">
+          <div className="welcome-banner__stamp">
+            <strong>100%</strong>
+            <span>MARKET FRESH</span>
+          </div>
+          <div className="welcome-banner__frame" />
+          <Image
+            src="/assets/billboard/welcome-produce.png"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 767px) 0px, (max-width: 1279px) 230px, 300px"
+            className="welcome-banner__produce"
+          />
+          <span className="welcome-banner__picked-note">picked this morning!</span>
+          <IconArrowUpLeft className="welcome-banner__note-arrow" />
         </div>
       </div>
     </section>
@@ -182,7 +173,7 @@ const BOTTOM_NAV_ITEMS = [
 
 function BottomNav({ cartCount }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-meal-line bg-meal-paper px-5 py-2 shadow-meal md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-[120] border-t border-meal-line bg-meal-paper px-5 py-2 shadow-meal md:hidden">
       <div className="grid grid-cols-4 overflow-hidden">
         {BOTTOM_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -372,9 +363,6 @@ export default function Home() {
     if (activeCollection === "in-season") {
       return pickInSeasonProducts(availableProducts.filter((product) => product.inSeason === true), new Set(), 12);
     }
-    if (activeCollection === "bundles") {
-      return availableProducts.filter((product) => product.isBundleEligible);
-    }
     if (activeCollection === "chef-choice") {
       return availableProducts.filter(
         (product) => product.isChefChoice || product.collectionSlug === "chef-choice"
@@ -420,7 +408,7 @@ export default function Home() {
   };
 
   return (
-    <main className="relative z-0 min-h-screen bg-meal-mist text-meal-text">
+    <main className="relative min-h-screen bg-meal-mist text-meal-text">
       <div className="mx-auto max-w-[1440px] pb-24 md:pb-0">
         {/* Mobile hero visible below the shared fixed header */}
         <section className="px-5 pb-4 pt-3 md:hidden" aria-label="Meal05 homepage hero">

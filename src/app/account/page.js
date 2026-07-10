@@ -40,7 +40,7 @@ const ACCOUNT_TABS = [
 const ACCOUNT_SUBTITLES = {
   overview: "Manage deliveries, preferences, and saved details from one place.",
   orders: "Track active deliveries and quickly reorder previous market runs.",
-  wishlist: "Saved bundles and treats - ready to reorder in a tap.",
+  wishlist: "Saved items and treats - ready to reorder in a tap.",
   voucher: "Your store credit and available discount codes live here.",
   recent: "Pick up where you left off with items you recently browsed.",
   management: "Update your personal details, contact info, and password.",
@@ -1213,7 +1213,7 @@ function AccountPageContent() {
           </div>
         ) : renderEmptyState(
           "Wishlist",
-          "Save seasonal bundles or special treats to your wishlist for easy reordering.",
+          "Save seasonal favorites or special treats to your wishlist for easy reordering.",
           "/shop",
           "Browse catalogue"
         );
@@ -1567,7 +1567,7 @@ function AccountPageContent() {
                 <i className="fa-solid fa-percent" aria-hidden="true" />
                 <div>
                   <strong>Weekly offers & flash sales</strong>
-                  <span>Deals, price drops and limited-time bundles</span>
+                  <span>Deals, price drops and limited-time offers</span>
                 </div>
                 <button type="button" className={`${styles.toggle} ${styles.toggleOn}`} aria-pressed="true" aria-label="Weekly offers subscribed" />
               </div>

@@ -20,7 +20,7 @@ const values = [
   [IconShieldCheck, "Secure checkout", "Pay your way, safely", "purple"],
 ];
 const steps = [
-  ["01", IconSearch, "Browse & pick", "Search fresh items or shop curated bundles by category."],
+  ["01", IconSearch, "Browse & pick", "Search fresh items and shop by category."],
   ["02", IconShoppingCart, "Build your basket", "Choose pack sizes, then check out securely in seconds."],
   ["03", IconTruckDelivery, "Same-day delivery", "We pick it fresh and bring it straight to your door."],
 ];
@@ -33,7 +33,7 @@ const products = [
 const reviews = [
   ["“The tomatoes and peppers arrived the same morning I ordered — genuinely fresher than my local market. This is my weekly run now.”", "TA", "Temi Adeyemi", "Bodija, Ibadan"],
   ["“Prices are fair and the delivery is fast. I love that I can pick what I need and the whole experience is effortless.”", "KO", "Kunle Ogunbiyi", "Akobo, Ibadan"],
-  ["“Ordered a full bundle for a family event and everything came chilled and well-packed. Customer support is responsive too.”", "BF", "Bisi Falade", "Dugbe, Ibadan"],
+  ["“Ordered for a family event and everything came chilled and well-packed. Customer support is responsive too.”", "BF", "Bisi Falade", "Dugbe, Ibadan"],
 ];
 
 export const metadata = { title: "Meal05 — Market-fresh groceries, delivered", description: "Fresh groceries delivered within Meal05's Ibadan launch area." };
@@ -68,7 +68,7 @@ export default function LandingPage() {
     <section className={styles.finalWrap}><div className={styles.final}><i/><i/><h2>Your market run,<br/>handled.</h2><p>Create a free account and get your first basket delivered today.</p><div><Link href="/home">Start shopping <IconArrowRight/></Link><Link href="/categories">Browse categories</Link></div></div></section>
 
     <footer className={styles.footer}><div className={styles.footerGrid}><div><Link href="/" className={styles.footerLogo}><Image src="/assets/logo/MEAL05 NEW LOGO-01.png" alt="Meal05" width={145} height={52}/></Link><p>Market-fresh groceries delivered within our Ibadan launch area. Handpicked each morning, priced fairly, at your door in hours.</p><div className={styles.socials}><a href="https://wa.me/2349129296433" target="_blank" rel="noreferrer" aria-label="Chat with Meal05 on WhatsApp"><IconBrandWhatsapp/></a></div></div>
-      <div><b>Shop</b><Link href="/categories">Categories</Link><Link href="/section/bundle-plans">Bundles</Link><Link href="/shop">Flash deals</Link><Link href="/section/new">New arrivals</Link></div>
+      <div><b>Shop</b><Link href="/categories">Categories</Link><Link href="/shop">Flash deals</Link><Link href="/section/new">New arrivals</Link></div>
       <div><b>Company</b><Link href="/about-us">About us</Link><a href="#how">How it works</a><Link href="/contact-us">Delivery areas</Link><Link href="/career">Careers</Link></div>
       <div><b>Support</b><Link href="/help-center">Help centre</Link><Link href="/account?tab=orders">Track order</Link><Link href="/help-center#searchQnAAgent">Returns</Link><Link href="/contact-us">Contact us</Link></div></div>
       <div className={styles.footerBottom}><span>© 2026 MEAL05. All rights reserved.</span><div><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link><span><IconLock/> Secure payments</span></div></div>

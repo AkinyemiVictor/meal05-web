@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
-import BUNDLE_PLANS from "@/data/bundle-plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,13 +76,11 @@ export async function GET() {
         .map((row) => String(row.product_id))
         .filter((id) => activeProductIds.has(id))
     );
-    const totalBundlePlans = BUNDLE_PLANS.length;
-
     return NextResponse.json(
       {
-        totalCatalogItems: totalActiveProducts + totalBundlePlans,
+        totalCatalogItems: totalActiveProducts,
         totalActiveProducts,
-        totalBundlePlans,
+        totalBundlePlans: 0,
         totalCategories,
         totalAvailableProducts: availableProductIds.size,
         totalVariants,

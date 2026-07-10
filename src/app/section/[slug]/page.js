@@ -1,20 +1,19 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 
 import CategoryCarousel from "@/components/category-carousel";
-import BundlePlanCard from "@/components/bundle-plan-card";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
 import ProductCard from "@/components/product-card";
 import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
-import BUNDLE_PLANS from "@/data/bundle-plans";
 import categories, { getCategoryHref } from "@/data/categories";
 import useProducts from "@/lib/use-products";
-import { buildCatalogItems, isBundleCatalogItem } from "@/lib/catalog-items";
+import { buildCatalogItems } from "@/lib/catalog-items";
 import {
   pickMostPopularProducts,
   pickNewestProducts,
@@ -47,7 +46,7 @@ export default function SectionViewPage() {
   const catalogItems = useMemo(() => buildCatalogItems(allProducts), [allProducts]);
 
   const pageRef = useRef(null);
-  const [items, setItems] = useState(() => (isBundlePlansSlug ? BUNDLE_PLANS : []));
+  const [items, setItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -56,7 +55,7 @@ export default function SectionViewPage() {
 
   useEffect(() => {
     if (isBundlePlansSlug) {
-      setItems(BUNDLE_PLANS);
+      setItems([]);
       return;
     }
     if (!isProductsReady) {
@@ -98,7 +97,7 @@ export default function SectionViewPage() {
       setItems(pickInSeasonProducts(seasonal, new Set(), 48));
       return;
     }
-    // Fallback: show full catalogue, including MealKit bundle plans.
+    // Fallback: show the full product catalogue.
     setItems(catalogItems.slice(0, 48));
   }, [isBundlePlansSlug, slug, allProducts, catalogItems, productIndex, isProductsReady]);
 
@@ -182,16 +181,16 @@ export default function SectionViewPage() {
       : slug === "cross-sell"
       ? "Suggested for You"
       : slug === "popular"
-      ? "Popular Combo Packs"
+      ? "Popular Picks"
       : slug === "new"
       ? "Fresh In Stock"
       : slug === "in-season"
       ? "In Season"
       : slug === "bundle-plans"
-      ? "Bundle Plans"
+      ? "Combo packs unavailable"
       : "Products";
   const sectionDescription = isBundlePlansSlug
-    ? "Choose a curated plan for fast, convenient shopping."
+    ? "Combo pack plans are not available during the current launch phase."
     : "Browse all items in this section.";
 
   return (
@@ -215,31 +214,30 @@ export default function SectionViewPage() {
       <section className="category-products" aria-live="polite">
         {isLoadingProducts ? (
           <ProductGridSkeleton count={12} />
+        ) : isBundlePlansSlug ? (
+          <PageState title="Combo packs are coming later.">
+            <p>We are focusing on core groceries first. Browse the main shop for currently available items.</p>
+            <Link href="/shop" className="section-view-button">Browse products</Link>
+          </PageState>
         ) : pagedItems.length ? (
           <ProductGrid role="list">
-            {isBundlePlansSlug
-              ? pagedItems.map((plan) => (
-                  <BundlePlanCard key={plan.id || plan.slug} plan={plan} />
-                ))
-              : pagedItems.map((item) => (
-                  isBundleCatalogItem(item) ? (
-                    <BundlePlanCard key={item.id} plan={item.plan} />
-                  ) : item.product ? (
-                    <ProductCard
-                      key={item.id}
-                      product={item.product}
-                      onQuickAdd={handleQuickAdd}
-                      showSeasonBadge={slug !== "in-season"}
-                    />
-                  ) : (
-                    <ProductCard
-                      key={item.id}
-                      product={item}
-                      onQuickAdd={handleQuickAdd}
-                      showSeasonBadge={slug !== "in-season"}
-                    />
-                  )
-                ))}
+            {pagedItems.map((item) => (
+              item.product ? (
+                <ProductCard
+                  key={item.id}
+                  product={item.product}
+                  onQuickAdd={handleQuickAdd}
+                  showSeasonBadge={slug !== "in-season"}
+                />
+              ) : (
+                <ProductCard
+                  key={item.id}
+                  product={item}
+                  onQuickAdd={handleQuickAdd}
+                  showSeasonBadge={slug !== "in-season"}
+                />
+              )
+            ))}
           </ProductGrid>
         ) : hasProductsError ? (
           <PageState title="We couldn't load this section right now.">

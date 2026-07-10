@@ -7,7 +7,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import ProductCard from "@/components/product-card";
-import BundlePlanCard from "@/components/bundle-plan-card";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
 import SortSelect from "@/components/sort-select";
@@ -15,7 +14,6 @@ import {
   buildCatalogItems,
   getCatalogItemName,
   getCatalogItemPrice,
-  isBundleCatalogItem,
 } from "@/lib/catalog-items";
 import useCategories from "@/lib/use-categories";
 import useProducts from "@/lib/use-products";
@@ -161,11 +159,7 @@ export default function ShopPage() {
           <ProductGrid
             products={pagedProducts}
             renderProduct={(item) => (
-              isBundleCatalogItem(item) ? (
-                <BundlePlanCard key={item.id} plan={item.plan} />
-              ) : (
-                <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
-              )
+              <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
             )}
           />
         ) : (

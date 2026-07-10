@@ -728,7 +728,7 @@ function SignInPageContent() {
                 </li>
                 <li>
                   <i className="fa-solid fa-check" aria-hidden="true" />
-                  <span><strong>Chef-picked seasonal bundles</strong></span>
+                  <span><strong>Chef-picked seasonal essentials</strong></span>
                 </li>
                 <li>
                   <i className="fa-solid fa-check" aria-hidden="true" />

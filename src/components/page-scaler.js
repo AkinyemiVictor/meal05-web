@@ -7,6 +7,7 @@ const SCALE_BASE_WIDTH = 620;
 const SCALE_BASE_HEIGHT = 900;
 const MIN_SCALE = 0.35;
 const MAX_SCALE = 1;
+const MAX_FOOTER_OFFSET = 56;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
 
@@ -14,6 +15,7 @@ export default function PageScaler({ children }) {
   const [scale, setScale] = useState(1);
   const [isScaling, setIsScaling] = useState(false);
   const [scaledMinHeight, setScaledMinHeight] = useState(SCALE_BASE_HEIGHT);
+  const [footerOffset, setFooterOffset] = useState(0);
   const [supportsZoom, setSupportsZoom] = useState(false);
 
   useEffect(() => {
@@ -31,16 +33,22 @@ export default function PageScaler({ children }) {
         setIsScaling(false);
         setScale(1);
         setScaledMinHeight(SCALE_BASE_HEIGHT);
+        setFooterOffset(0);
         return;
       }
 
       const widthScale = w / SCALE_BASE_WIDTH;
       const nextScale = clamp(Math.min(widthScale, MAX_SCALE), MIN_SCALE, MAX_SCALE);
       const nextMinHeight = Math.max(SCALE_BASE_HEIGHT, Math.ceil(h / nextScale));
+      const nextFooterOffset = Math.min(
+        MAX_FOOTER_OFFSET,
+        Math.max(0, Math.round((1 - nextScale) * 60))
+      );
 
       setIsScaling(true);
       setScale(nextScale);
       setScaledMinHeight(nextMinHeight);
+      setFooterOffset(nextFooterOffset);
     };
 
     updateScale();
@@ -52,7 +60,8 @@ export default function PageScaler({ children }) {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
     root.style.setProperty("--page-scale", isScaling ? String(scale) : "1");
-  }, [isScaling, scale]);
+    root.style.setProperty("--page-scale-footer-offset", isScaling ? `${footerOffset}px` : "0px");
+  }, [footerOffset, isScaling, scale]);
 
   return (
     <div

@@ -116,6 +116,9 @@ export default function Footer() {
                 <Link href="/terms">Terms &amp; Conditions</Link>
               </li>
               <li>
+                <Link href="/delivery-policy">Delivery Policy</Link>
+              </li>
+              <li>
                 <Link href="/help-center#searchQnAAgent">Return Policy</Link>
               </li>
             </ul>
@@ -124,12 +127,12 @@ export default function Footer() {
             <h3>Contact</h3>
             <ul>
               <li>
-                <a href="tel:+2349129296433">+234-91-2929-6433</a>
+                <a href="tel:+23408118287047">+234 (0) 811 828 7047</a>
               </li>
               <li>
-                <a href="mailto:hello@meal05.ng">hello@meal05.ng</a>
+                <a href="mailto:hello@meal05.com">hello@meal05.com</a>
               </li>
-              <li>No 8, Bell Air Estate<br />Akala Expressway, Ibadan</li>
+              <li>No 8, Bel Air Estate<br />Akala Expressway, Ibadan</li>
             </ul>
           </div>
         </div>

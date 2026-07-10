@@ -7,7 +7,6 @@ import { use, useEffect, useMemo, useState } from "react";
 import SearchHistoryRecorder from "@/components/search-history-recorder";
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
 import ProductCard from "@/components/product-card";
-import BundlePlanCard from "@/components/bundle-plan-card";
 import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
@@ -15,7 +14,6 @@ import copy from "@/data/copy";
 import {
   buildCatalogItems,
   getCatalogItemName,
-  isBundleCatalogItem,
 } from "@/lib/catalog-items";
 import useProducts from "@/lib/use-products";
 
@@ -66,10 +64,6 @@ const SEARCH_SYNONYMS = {
   legumes: ["beans"],
   yam: ["tubers"],
   yams: ["yam", "tubers"],
-  mealkit: ["meal kit", "bundle", "bundles", "pack"],
-  "meal kit": ["mealkit", "bundle", "bundles", "pack"],
-  bundle: ["bundles", "mealkit", "meal kit", "pack"],
-  bundles: ["bundle", "mealkit", "meal kit", "pack"],
 };
 
 const fieldValues = (item) => [
@@ -87,10 +81,6 @@ const fieldValues = (item) => [
   item.product?.isPopular ? "popular bestseller best seller" : "",
   item.product?.isChefChoice ? "chef choice recommended" : "",
   item.product?.isUnder15m ? "quick fast under 15 minutes" : "",
-  item.product?.isBundleEligible ? "bundle mealkit meal kit pack" : "",
-  item.plan?.description,
-  ...(Array.isArray(item.plan?.keyFeatures) ? item.plan.keyFeatures : []),
-  isBundleCatalogItem(item) ? "bundle bundles mealkit meal kit pack combo plans" : "",
 ];
 
 const buildCatalogIndex = (item) => {
@@ -277,8 +267,6 @@ export default function SearchPage({ searchParams }) {
             .flatMap((item) => [
               item.category,
               item.product?.promoTagText,
-              item.product?.isBundleEligible ? "MealKits" : "",
-              isBundleCatalogItem(item) ? "MealKits" : "",
             ])
             .map((value) => String(value || "").trim())
             .filter(Boolean)
@@ -380,11 +368,7 @@ export default function SearchPage({ searchParams }) {
                   <ProductGrid
                     products={group.items}
                     renderProduct={(item) => (
-                      isBundleCatalogItem(item) ? (
-                        <BundlePlanCard key={item.id} plan={item.plan} />
-                      ) : (
-                        <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
-                      )
+                      <ProductCard key={item.id} product={item.product} onQuickAdd={handleQuickAdd} />
                     )}
                   />
                 </section>

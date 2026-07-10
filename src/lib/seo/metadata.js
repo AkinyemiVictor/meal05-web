@@ -1,12 +1,11 @@
 import { toAbsoluteUrl } from "@/lib/seo/schema";
-import { getBundlePlanBySlug } from "@/data/bundle-plans";
 
 const SITE_NAME = "Meal05";
 const DEFAULT_SOCIAL_IMAGE = "/assets/favicon/android-chrome-512x512.png";
 const DEFAULT_SECTION_DESCRIPTION =
   "Discover curated Meal05 selections, from popular packs to seasonal produce and fresh new arrivals.";
 const DEFAULT_BUNDLE_PLAN_DESCRIPTION =
-  "Explore this Meal05 pack plan. Plan details and pricing are being prepared.";
+  "Combo pack plans are not part of the current Meal05 launch catalogue.";
 
 const SECTION_METADATA = {
   popular: {
@@ -28,10 +27,9 @@ const SECTION_METADATA = {
     indexable: true,
   },
   "bundle-plans": {
-    title: "Bundle Plans | Meal05 Fast Convenience Packs",
-    description:
-      "Shop Meal05 bundle plans for faster, convenient grocery purchases with curated combo packs.",
-    indexable: true,
+    title: "Combo Packs Unavailable | Meal05",
+    description: "Combo pack plans are not part of the current Meal05 launch catalogue.",
+    indexable: false,
   },
   "recently-viewed": {
     title: "Recently Viewed Products | Meal05",
@@ -255,15 +253,10 @@ export const buildSectionPageMetadata = (slug) => {
 };
 
 export const buildBundlePlanPageMetadata = (planSlug) => {
-  const plan = getBundlePlanBySlug(planSlug);
-  const canonicalPath = plan ? `/bundle-plans/${plan.slug}` : "/bundle-plans";
+  const canonicalPath = planSlug ? `/bundle-plans/${planSlug}` : "/bundle-plans";
   const canonicalUrl = toAbsoluteUrl(canonicalPath);
-  const title = plan
-    ? `${plan.name} | Meal05 Pack Plan`
-    : "Pack Plan | Meal05";
-  const description = plan
-    ? `${plan.description || `${plan.name} by Meal05.`} ${DEFAULT_BUNDLE_PLAN_DESCRIPTION}`
-    : DEFAULT_BUNDLE_PLAN_DESCRIPTION;
+  const title = "Combo Pack Unavailable | Meal05";
+  const description = DEFAULT_BUNDLE_PLAN_DESCRIPTION;
 
   return {
     title,

@@ -68,6 +68,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function BundlePlanDetailPage({ params }) {
+  notFound();
   const { planSlug } = (await params) || {};
   const plan = getBundlePlanBySlug(planSlug);
 

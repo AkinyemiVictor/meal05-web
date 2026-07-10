@@ -14,7 +14,6 @@ const CUSTOMER_PREFETCH_ROUTES = [
   "/help-center",
   "/section/popular",
   "/section/new",
-  "/section/bundle-plans",
 ];
 
 const scheduleIdleTask = (callback) => {

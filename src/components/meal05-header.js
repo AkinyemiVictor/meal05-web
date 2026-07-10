@@ -381,7 +381,7 @@ export default function Meal05Header() {
           <SearchForm id="header-search-tablet" compact />
         </div>
       </header>
-      <div aria-hidden="true" className="h-32 md:h-[145px] lg:h-[81px]" />
+      <div aria-hidden="true" className="h-36 md:h-[145px] lg:h-[81px]" />
     </>
   );
 }

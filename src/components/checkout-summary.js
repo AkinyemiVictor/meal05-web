@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import copy from "@/data/copy";
@@ -204,6 +205,30 @@ export default function CheckoutSummary({
           </p>
         </div>
       ) : null}
+
+      <details className="checkout-summary__policy">
+        <summary>
+          <span>Delivery policy</span>
+          <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+        </summary>
+        <div className="checkout-summary__policy-body">
+          <p>
+            Meal05 currently delivers within the Akala Express Launch Zone in Ibadan, including Elebu, Akala Express,
+            Oluyole Estate, New Garage, Challenge, Ring Road and Odo-Ona.
+          </p>
+          <p>
+            Orders placed by <strong>4:00 PM</strong> are targeted for same-day delivery between <strong>4:00 PM and
+            7:00 PM</strong>. Orders placed after cut-off usually move to the next delivery cycle.
+          </p>
+          <p>
+            Delivery and packaging fees are shown separately at checkout. If an item becomes unavailable during
+            same-day sourcing, we may offer a replacement or refund the affected item.
+          </p>
+          <p>
+            Review the full <Link href="/delivery-policy">Delivery Policy</Link>.
+          </p>
+        </div>
+      </details>
     </aside>
   );
 }
