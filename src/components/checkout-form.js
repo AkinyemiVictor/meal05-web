@@ -22,6 +22,7 @@ import { formatProductPrice } from "@/lib/catalogue";
 import { AUTH_EVENT, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { addUserOrder } from "@/lib/orders";
 import { trackPurchase } from "@/lib/analytics";
+import { isCheckoutPaymentMethodEnabled } from "@/lib/payments/payment-methods";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import {
   buildCityServiceMessage,
@@ -55,16 +56,6 @@ const PAYMENT_METHOD_LABELS = copy.checkout.paymentMethods.reduce((accumulator, 
   accumulator[method.value] = method.title;
   return accumulator;
 }, {});
-
-const ENABLE_PALMPAY = process.env.NEXT_PUBLIC_ENABLE_PALMPAY !== "false";
-const ENABLE_OPAY = process.env.NEXT_PUBLIC_ENABLE_OPAY !== "false";
-
-const isPaymentMethodEnabled = (method, paystackKey = "") => {
-  if (method === "paystack") return /^pk_(test|live)_/.test(paystackKey || "");
-  if (method === "palmpay") return ENABLE_PALMPAY;
-  if (method === "opay") return ENABLE_OPAY;
-  return true;
-};
 
 const DELIVERY_SLOT_LABELS = { ...copy.checkout.deliverySlots };
 
@@ -441,8 +432,8 @@ export default function CheckoutForm({
   const showCardFields = false;
   const isProcessing = status === "processing";
   const enabledPaymentMethods = useMemo(
-    () => copy.checkout.paymentMethods.filter((method) => isPaymentMethodEnabled(method.value, paystackKey)),
-    [paystackKey]
+    () => copy.checkout.paymentMethods.filter((method) => isCheckoutPaymentMethodEnabled(method.value)),
+    []
   );
   const acceptedBadges = useMemo(
     () => copy.checkout.paymentMethods.find((method) => method.value === "paystack")?.badges || [],
@@ -881,7 +872,7 @@ export default function CheckoutForm({
       showSubmitError(copy.checkout.emptyDescription);
       return;
     }
-    if (!isPaymentMethodEnabled(formState.paymentMethod, paystackKey)) {
+    if (!isCheckoutPaymentMethodEnabled(formState.paymentMethod)) {
       showSubmitError("That payment method is not available right now. Please choose another option.");
       return;
     }

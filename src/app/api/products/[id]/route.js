@@ -3,8 +3,10 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { pickFirstNumber } from "@/lib/number";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { resolveProductImage } from "@/lib/product-image";
+import { toCategorySlug } from "@/lib/categories-server";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 
 export const runtime = "nodejs";
@@ -268,6 +270,33 @@ export async function GET(_request, { params }) {
 
   const galleryImageUrls = imageIndex[id] || [];
   const mainImageUrl = resolveProductImage(galleryImageUrls[0], marketData.image_url, marketData.image);
+  let categoryMeta = null;
+  const categoryId = marketData?.category_id ?? marketData?.categoryId ?? marketData?.product_category_id ?? marketData?.productCategoryId;
+  if (categoryId != null) {
+    try {
+      const { data: categoryRow, error: categoryError } = await admin
+        .from("product_categories")
+        .select("*")
+        .eq("id", categoryId)
+        .maybeSingle();
+      if (!categoryError && categoryRow) {
+        const categoryLabel = String(
+          categoryRow.name ||
+            categoryRow.label ||
+            categoryRow.title ||
+            categoryRow.category_name ||
+            categoryRow.categoryName ||
+            ""
+        ).trim();
+        categoryMeta = {
+          category: categoryLabel,
+          categorySlug: toCategorySlug(
+            categoryRow.slug || categoryRow.category_slug || categoryRow.categorySlug || categoryLabel
+          ),
+        };
+      }
+    } catch {}
+  }
 
   // Try to include variants if table exists
   let variations = [];
@@ -321,9 +350,16 @@ export async function GET(_request, { params }) {
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
           image: resolveProductImage(row.variant_image_url, row.image_url, row.image, mainImageUrl),
-          category: pickFirst(row, ["category", "category_name", "categoryName"]) || undefined,
+          category: pickFirst(row, ["category", "category_name", "categoryName"]) || categoryMeta?.category || undefined,
+          categorySlug: categoryMeta?.categorySlug || undefined,
           is_default: row.is_default === true,
           isSelectable: isVariantSelectable({ ...row, stock }),
+          ...buildPackagingMetadata({
+            ...row,
+            name: marketData?.name,
+            category: pickFirst(row, ["category", "category_name", "categoryName"]) || categoryMeta?.category || "",
+            categorySlug: categoryMeta?.categorySlug || "",
+          }),
         };
       });
     }
@@ -357,6 +393,7 @@ export async function GET(_request, { params }) {
     {
       product: {
         ...marketData,
+        ...(categoryMeta || {}),
         id: String(marketData.id),
         marketId: catalog.market.id,
         currencyCode: defaultVariation?.currencyCode || catalog.market.currencyCode,
@@ -371,11 +408,18 @@ export async function GET(_request, { params }) {
         discount: pricing.discount,
         unit: unitValue,
         stock: effectiveStock,
-        category: pickFirst(marketData, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
-        categorySlug: pickFirst(marketData, ["category_slug", "categorySlug"]),
+        category:
+          categoryMeta?.category ||
+          pickFirst(marketData, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
+        categorySlug: categoryMeta?.categorySlug || pickFirst(marketData, ["category_slug", "categorySlug"]),
         promoTagEnabled: normalizePromoEnabled(marketData.promo_tag_enabled ?? marketData.promoTagEnabled),
         promoTagText: normalizePromoText(marketData.promo_tag_text ?? marketData.promoTagText),
         promoTagExpiresAt: parsePromoExpiry(marketData.promo_tag_expires_at ?? marketData.promoTagExpiresAt),
+        ...buildPackagingMetadata({
+          ...marketData,
+          ...(categoryMeta || {}),
+          name: marketData?.name,
+        }),
         ...merchandising,
       },
       variations,

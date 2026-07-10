@@ -56,7 +56,7 @@ export default function CheckoutReceipt({ status = "success", reason }) {
     };
   }, [status]);
 
-  const summary = receipt?.summary ?? { subtotal: 0, total: 0, deliveryFee: 0 };
+  const summary = receipt?.summary ?? { subtotal: 0, total: 0, packagingFee: 0, deliveryFee: 0 };
   const deliverySlot = getDeliverySlotLabel(receipt?.deliverySlot);
   const paymentLabel = getPaymentMethodLabel(receipt?.paymentMethod);
 
@@ -147,6 +147,14 @@ export default function CheckoutReceipt({ status = "success", reason }) {
             <li>
               <span>{copy.checkout.labels.subtotal}</span>
               <span>{formatProductPrice(summary.subtotal)}</span>
+            </li>
+            <li>
+              <span>{copy.checkout.labels.packaging}</span>
+              <span>
+                {Number(summary.packagingFee || 0) === 0
+                  ? copy.checkout.freeDeliveryLabel
+                  : formatProductPrice(summary.packagingFee)}
+              </span>
             </li>
             <li>
               <span>{copy.checkout.labels.delivery}</span>

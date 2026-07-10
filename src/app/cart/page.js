@@ -493,16 +493,30 @@ function CartPageContent() {
 
   const hasCheckoutBlocker = stockStatus.hasError;
   const deliverySummaryConfig = useMemo(() => getDeliverySummaryConfig(deliverySettings), [deliverySettings]);
+  const pricingItems = useMemo(
+    () =>
+      cartItems.map((item) => {
+        const product = productIndex.get(String(item.productId || item.id || ""));
+        return {
+          ...item,
+          category: item.category || product?.category || "",
+          categorySlug: item.categorySlug || product?.categorySlug || "",
+          packaging: item.packaging || product?.packaging || "",
+        };
+      }),
+    [cartItems, productIndex]
+  );
   const baseSummary = useMemo(
     () =>
-      computeOrderSummary(cartItems, deliverySummaryConfig),
-    [cartItems, deliverySummaryConfig]
+      computeOrderSummary(pricingItems, deliverySummaryConfig),
+    [pricingItems, deliverySummaryConfig]
   );
 
   const summary = useMemo(() => {
     const merged = applyStoredPromoToSummary(baseSummary, activePromo);
     return {
       ...merged,
+      packaging: merged.packagingFee,
       discount: merged.discountTotal,
       delivery: merged.deliveryFee,
     };
@@ -826,6 +840,10 @@ function CartPageContent() {
               <div className={styles.summaryRow}>
                 <span>Subtotal</span>
                 <span>{formatCurrency(summary.subtotal)}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>Packaging fee</span>
+                <span>{summary.packaging === 0 ? "Free" : formatCurrency(summary.packaging)}</span>
               </div>
               <div className={styles.summaryRow}>
                 <span>Delivery fee</span>

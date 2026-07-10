@@ -100,9 +100,18 @@ export default function CheckoutSummary({
     if (lastCheckout?.summary) {
       return lastCheckout.summary;
     }
-    const baseSummary = computeCartSummary(items, summaryConfig);
+    const pricingItems = items.map((item) => {
+      const product = productIndex?.get(String(item?.productId ?? item?.id ?? ""));
+      return {
+        ...item,
+        category: item?.category || product?.category || "",
+        categorySlug: item?.categorySlug || product?.categorySlug || "",
+        packaging: item?.packaging || product?.packaging || "",
+      };
+    });
+    const baseSummary = computeCartSummary(pricingItems, summaryConfig);
     return applyStoredPromoToSummary(baseSummary, promoState);
-  }, [items, lastCheckout, promoState, summaryConfig]);
+  }, [items, lastCheckout, productIndex, promoState, summaryConfig]);
 
   return (
     <aside
@@ -151,6 +160,10 @@ export default function CheckoutSummary({
         <div>
           <span>{copy.checkout.labels.subtotal}</span>
           <span>{formatProductPrice(summary.subtotal)}</span>
+        </div>
+        <div>
+          <span>{copy.checkout.labels.packaging}</span>
+          <span>{Number(summary.packagingFee || 0) === 0 ? copy.checkout.freeDeliveryLabel : formatProductPrice(summary.packagingFee)}</span>
         </div>
         <div>
           <span>

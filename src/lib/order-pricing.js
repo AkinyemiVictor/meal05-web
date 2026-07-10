@@ -2,6 +2,7 @@ import {
   DEFAULT_DELIVERY_FEE,
   DEFAULT_FREE_DELIVERY_THRESHOLD,
 } from "@/lib/delivery-settings";
+import { computePackagingFee } from "@/lib/packaging-fees";
 
 export { DEFAULT_FREE_DELIVERY_THRESHOLD, DEFAULT_DELIVERY_FEE };
 
@@ -38,6 +39,7 @@ export const computeOrderSummary = (
   {
     freeDeliveryThreshold = DEFAULT_FREE_DELIVERY_THRESHOLD,
     deliveryFee = DEFAULT_DELIVERY_FEE,
+    packagingFee = null,
   } = {}
 ) => {
   const aggregates = (Array.isArray(items) ? items : []).reduce(
@@ -58,16 +60,21 @@ export const computeOrderSummary = (
     aggregates.itemsCount > 0 && subtotal < threshold
       ? roundMoney(deliveryFee)
       : 0;
+  const normalizedPackaging =
+    packagingFee == null
+      ? computePackagingFee(items).packagingFee
+      : roundMoney(packagingFee);
 
   return {
     itemsCount: Math.max(0, Math.round(aggregates.itemsCount)),
     subtotal,
+    packagingFee: normalizedPackaging,
     deliveryFee: normalizedDelivery,
     itemDiscount: 0,
     deliveryDiscount: 0,
     discountTotal: 0,
     discount: 0,
-    total: subtotal + normalizedDelivery,
+    total: subtotal + normalizedPackaging + normalizedDelivery,
     promoCode: "",
     promoDescription: "",
     promo: null,
@@ -78,12 +85,13 @@ export const applyPromoToOrderSummary = (summary, promoState) => {
   const base = {
     itemsCount: Math.max(0, Math.round(toNumber(summary?.itemsCount, 0))),
     subtotal: roundMoney(summary?.subtotal),
+    packagingFee: roundMoney(summary?.packagingFee),
     deliveryFee: roundMoney(summary?.deliveryFee),
     itemDiscount: 0,
     deliveryDiscount: 0,
     discountTotal: 0,
     discount: 0,
-    total: roundMoney(summary?.subtotal) + roundMoney(summary?.deliveryFee),
+    total: roundMoney(summary?.subtotal) + roundMoney(summary?.packagingFee) + roundMoney(summary?.deliveryFee),
     promoCode: "",
     promoDescription: "",
     promo: null,
@@ -103,7 +111,7 @@ export const applyPromoToOrderSummary = (summary, promoState) => {
     deliveryDiscount,
     discountTotal,
     discount: discountTotal,
-    total: Math.max(0, base.subtotal + base.deliveryFee - discountTotal),
+    total: Math.max(0, base.subtotal + base.packagingFee + base.deliveryFee - discountTotal),
     promoCode: String(promoState?.promo?.code || promoState?.code || "").trim().toUpperCase(),
     promoDescription: String(promoState?.message || promoState?.promo?.description || "").trim(),
     promo: promoState?.promo || null,

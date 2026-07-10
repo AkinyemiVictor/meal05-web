@@ -107,14 +107,6 @@ export default function ProductDetailClient({ product, variations = [], fallback
     return merged.length ? merged : [resolveProductImage(fallbackImage)];
   }, [selectedVariant?.galleryImageUrls, product?.galleryImageUrls, display.image, fallbackImage]);
 
-  const gallerySlots = useMemo(() => {
-    const slots = galleryImages.slice(0, 4).map((src) => ({ src, isPlaceholder: false }));
-    while (slots.length < 4) {
-      slots.push({ src: "", isPlaceholder: true });
-    }
-    return slots;
-  }, [galleryImages]);
-
   const activeImage =
     resolveProductImage(galleryImages[Math.min(activeImageIndex, galleryImages.length - 1)], fallbackImage);
 
@@ -151,34 +143,19 @@ export default function ProductDetailClient({ product, variations = [], fallback
             <div className="product-detail-media__overlay" aria-hidden="true">Out of Stock</div>
           ) : null}
         </div>
-        {gallerySlots.length ? (
+        {galleryImages.length ? (
           <div className="product-detail-thumbs" role="listbox" aria-label="Product images">
-            {gallerySlots.map((slot, idx) => {
-              if (slot.isPlaceholder) {
-                return (
-                  <button
-                    key={`${product.id}-thumb-placeholder-${idx}`}
-                    type="button"
-                    className="product-detail-thumb product-detail-thumb--placeholder"
-                    aria-label={`Gallery placeholder ${idx + 1}`}
-                    disabled
-                  >
-                    <span aria-hidden="true">
-                      <i className="fa-regular fa-image" />
-                    </span>
-                  </button>
-                );
-              }
+            {galleryImages.map((src, idx) => {
               return (
                 <button
-                  key={`${product.id}-thumb-${idx}-${slot.src}`}
+                  key={`${product.id}-thumb-${idx}-${src}`}
                   type="button"
                   className={`product-detail-thumb${idx === activeImageIndex ? " is-active" : ""}`}
                   onClick={() => setActiveImageIndex(idx)}
                   aria-pressed={idx === activeImageIndex}
                 >
                   <Image
-                    src={slot.src}
+                    src={src}
                     alt={`Thumbnail ${idx + 1}`}
                     width={56}
                     height={56}

@@ -14,12 +14,18 @@ import { loadDeliverySettings } from "@/lib/delivery-settings-server";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
 import { insertOrderStatusHistory } from "@/lib/order-status-history";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
+import { toCategorySlug } from "@/lib/categories-server";
+import { isCheckoutPaymentMethodEnabled } from "@/lib/payments/payment-methods";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const allowedMethodsHeader = { Allow: "GET, POST" };
-const tooManyRequests = (rl) => applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rl);
+  const tooManyRequests = (rl) => applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rl);
+const ORDER_SELECT_CANDIDATES = [
+  "id, total, subtotal, packaging_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
+  "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
+];
 const isUnknownColumnError = (message) => {
   const errorText = String(message || "");
   return (
@@ -227,16 +233,17 @@ export async function POST(request) {
   );
   const hasMissingVariantIds = cart.some((row) => row?.variant_id == null);
   let productNameIndex = new Map();
+  let productMetaIndex = new Map();
   let variantRows = [];
   if (payloadVariantIds.length || productIds.length) {
     const query = !hasMissingVariantIds && payloadVariantIds.length
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type")
           .in("id", payloadVariantIds)
       : admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type")
           .in("product_id", productIds);
     const result = await query.eq("market_id", catalog.market.id);
     if (result.error) {
@@ -251,13 +258,50 @@ export async function POST(request) {
   if (resolvedProductIds.length) {
     const { data: productRows } = await admin
       .from("products")
-      .select("id, name")
+      .select("id, name, category_id, packaging, packaging_material_type")
       .in("id", resolvedProductIds);
+    const categoryIds = Array.from(
+      new Set(
+        (Array.isArray(productRows) ? productRows : [])
+          .map((row) => row?.category_id)
+          .filter((id) => id != null)
+      )
+    );
+    let categoryMetaIndex = new Map();
+    if (categoryIds.length) {
+      const { data: categoryRows } = await admin
+        .from("product_categories")
+        .select("id, name, slug")
+        .in("id", categoryIds);
+      categoryMetaIndex = new Map(
+        (Array.isArray(categoryRows) ? categoryRows : []).map((row) => {
+          const categoryName = String(row?.name || "").trim();
+          return [
+            String(row.id),
+            {
+              category: categoryName,
+              categorySlug: toCategorySlug(row?.slug || categoryName),
+            },
+          ];
+        })
+      );
+    }
     productNameIndex = new Map(
       (Array.isArray(productRows) ? productRows : []).map((row) => {
         const listing = catalog.listings.get(String(row.id));
         return [String(row.id), listing?.local_name || row?.name || ""];
       })
+    );
+    productMetaIndex = new Map(
+      (Array.isArray(productRows) ? productRows : []).map((row) => [
+        String(row.id),
+        {
+          categoryId: row?.category_id ?? null,
+          packaging:
+            String(row?.packaging || row?.packaging_material_type || "").trim(),
+          ...(categoryMetaIndex.get(String(row?.category_id ?? "")) || {}),
+        },
+      ])
     );
   }
   const variantIndex = new Map(variantRows.map((row) => [String(row.id), row]));
@@ -433,6 +477,44 @@ export async function POST(request) {
     if (variant?.unit) return variant.unit;
     return "";
   };
+  const resolveProductName = (row) => {
+    const productId = row?.product_id != null ? String(row.product_id) : "";
+    const variant = resolveCartVariant(row);
+    return (
+      String(row?.product_name || "").trim() ||
+      productNameIndex.get(String(variant?.product_id || productId)) ||
+      ""
+    );
+  };
+  const resolveVariantName = (row) => {
+    const variant = resolveCartVariant(row);
+    return String(row?.variant_name || variant?.name || "").trim();
+  };
+  const resolveProductMeta = (row) => {
+    const variant = resolveCartVariant(row);
+    const productId = variant?.product_id ?? row?.product_id;
+    return productMetaIndex.get(String(productId ?? "")) || null;
+  };
+  const resolvePackaging = (row) => {
+    const variant = resolveCartVariant(row);
+    const productMeta = resolveProductMeta(row);
+    return String(
+      variant?.packaging ||
+        variant?.packaging_material_type ||
+        row?.packaging ||
+        row?.packaging_material_type ||
+        productMeta?.packaging ||
+        ""
+    ).trim();
+  };
+  const resolveCategory = (row) => {
+    const productMeta = resolveProductMeta(row);
+    return String(row?.category || row?.category_name || productMeta?.category || "").trim();
+  };
+  const resolveCategorySlug = (row) => {
+    const productMeta = resolveProductMeta(row);
+    return String(row?.categorySlug || row?.category_slug || productMeta?.categorySlug || "").trim();
+  };
   const resolveVariantIdForOrderItem = (row) => {
     const variant = resolveCartVariant(row);
     return variant?.id ?? null;
@@ -506,6 +588,19 @@ export async function POST(request) {
   const pricingItems = cart.map((row) => ({
     quantity: Number(row?.quantity || 0),
     unit_price_at_add: resolveUnitPrice(row),
+    name: resolveProductName(row),
+    variantName: resolveVariantName(row),
+    unit: resolveUnit(row),
+    packaging: resolvePackaging(row),
+    category: resolveCategory(row),
+    categorySlug: resolveCategorySlug(row),
+    packagingMode: String(row?.packagingMode || row?.packaging_mode || "").trim(),
+    isHandled: row?.isHandled === true || row?.is_handled === true,
+    isPackable:
+      row?.isPackable === true ||
+      row?.is_packable === true ||
+      row?.isHandled === false ||
+      row?.is_handled === false,
   }));
   const baseSummary = computeOrderSummary(pricingItems, deliverySummaryConfig);
   const promoCode = String(parsed.data.promo_code || "").trim().toUpperCase();
@@ -553,12 +648,15 @@ export async function POST(request) {
   const finalSummary = promoValidation?.ok ? applyPromoToOrderSummary(baseSummary, promoValidation) : baseSummary;
   const orderTotal = finalSummary.total;
   const requestedPaymentMethod = String(parsed.data.paymentMethod || "").trim().toLowerCase() || "paystack";
-  if (!["paystack", "opay", "palmpay"].includes(requestedPaymentMethod)) {
-    return applyRateLimitHeaders(NextResponse.json({ error: "Unsupported payment method" }, { status: 400 }), rl);
+  if (!isCheckoutPaymentMethodEnabled(requestedPaymentMethod)) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: "Unsupported payment method or payment method is not enabled." }, { status: 400 }),
+      rl
+    );
   }
 
   // 2) Create order row
-  const orderRow = {
+  const orderRowBase = {
     user_id: user.id,
     total: orderTotal,
     subtotal: finalSummary.subtotal,
@@ -592,9 +690,23 @@ export async function POST(request) {
     customer_note: parsed.data.note || null,
     delivery_instructions: isPickup ? `Pickup: ${pickupLocation.name} - ${pickupLocation.hours || "Time confirmed after payment"}` : parsed.data.deliveryLandmark || "Call the customer when outside.",
   };
-  const orderSelect =
-    "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at";
-  const { data: orderIns, error: orderErr } = await admin.from("orders").insert(orderRow).select(orderSelect).single();
+  let orderIns = null;
+  let orderErr = null;
+  for (const select of ORDER_SELECT_CANDIDATES) {
+    const includePackagingFee = select.includes("packaging_fee");
+    const orderRow = includePackagingFee
+      ? { ...orderRowBase, packaging_fee: finalSummary.packagingFee }
+      : orderRowBase;
+    const result = await admin.from("orders").insert(orderRow).select(select).single();
+    if (!result.error) {
+      orderIns = result.data;
+      orderErr = null;
+      break;
+    }
+    orderErr = result.error;
+    if (isUnknownColumnError(result.error.message)) continue;
+    break;
+  }
   if (orderErr) return applyRateLimitHeaders(NextResponse.json({ error: orderErr.message }, { status: 400 }), rl);
 
   // 3) Insert order_items
@@ -648,7 +760,7 @@ export async function POST(request) {
   const statusHistoryRes = await insertOrderStatusHistory(admin, {
     orderId,
     fromStatus: null,
-    toStatus: orderRow.status,
+    toStatus: orderRowBase.status,
     changedBy: user.id,
     note: "Order created",
   });
@@ -692,6 +804,7 @@ export async function POST(request) {
     user_id: user.id,
     total: orderTotal,
     subtotal: finalSummary.subtotal,
+    packaging_fee: finalSummary.packagingFee,
     delivery_fee: finalSummary.deliveryFee,
       discount_total: finalSummary.discountTotal,
       promo_code: finalSummary.promoCode || undefined,
@@ -703,14 +816,18 @@ export async function POST(request) {
   // Fire-and-forget order notifications (if configured)
   try {
     const email = user?.email || null;
+    const customerName = parsed.data.deliveryContactName || null;
     const normalized = {
       orderId: String(orderIns.id),
       createdAt: orderIns.created_at,
       paymentMethod: requestedPaymentMethod,
-      address: orderRow.delivery_address || "",
+      fullName: customerName || "",
+      email: email || "",
+      address: orderRowBase.delivery_address || "",
       summary: {
         total: Math.round(orderIns.total ?? finalSummary.total),
         subtotal: Math.round(orderIns.subtotal ?? finalSummary.subtotal),
+        packagingFee: Math.round(orderIns.packaging_fee ?? finalSummary.packagingFee),
         deliveryFee: Math.round(orderIns.delivery_fee ?? finalSummary.deliveryFee),
         itemDiscount: Math.round(orderIns.item_discount ?? finalSummary.itemDiscount),
         deliveryDiscount: Math.round(orderIns.delivery_discount ?? finalSummary.deliveryDiscount),
@@ -726,7 +843,11 @@ export async function POST(request) {
         quantity: Number(c?.quantity) || 0,
         price: Math.round(resolveUnitPrice(c) || 0),
       })),
-      user: { email, address: orderRow.delivery_address || "" },
+      user: {
+        name: customerName || "",
+        email,
+        address: orderRowBase.delivery_address || "",
+      },
     };
     if (email) {
       sendOrderConfirmationEmail({ to: email, order: normalized }).catch(() => {});
@@ -752,12 +873,13 @@ export async function POST(request) {
         order: orderIns,
         items: orderItems,
         stock: updatedStock,
-        summary: {
-          total: Math.round(orderIns.total ?? finalSummary.total),
-          subtotal: Math.round(orderIns.subtotal ?? finalSummary.subtotal),
-          deliveryFee: Math.round(orderIns.delivery_fee ?? finalSummary.deliveryFee),
-          itemDiscount: Math.round(orderIns.item_discount ?? finalSummary.itemDiscount),
-          deliveryDiscount: Math.round(orderIns.delivery_discount ?? finalSummary.deliveryDiscount),
+      summary: {
+        total: Math.round(orderIns.total ?? finalSummary.total),
+        subtotal: Math.round(orderIns.subtotal ?? finalSummary.subtotal),
+        packagingFee: Math.round(orderIns.packaging_fee ?? finalSummary.packagingFee),
+        deliveryFee: Math.round(orderIns.delivery_fee ?? finalSummary.deliveryFee),
+        itemDiscount: Math.round(orderIns.item_discount ?? finalSummary.itemDiscount),
+        deliveryDiscount: Math.round(orderIns.delivery_discount ?? finalSummary.deliveryDiscount),
           discountTotal: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
           discount: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
           promoCode: orderIns.promo_code ?? finalSummary.promoCode ?? "",

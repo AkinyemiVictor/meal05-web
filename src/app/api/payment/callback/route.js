@@ -1,41 +1,52 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
+import { applyVerifiedPaystackPayment } from "@/lib/payments/paystack-verify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const json = (body, status = 200, headers = {}) => NextResponse.json(body, { status, headers });
+const normaliseText = (value) => String(value ?? "").trim();
 
-const textBody = async (req) => {
-  try { return await req.text(); } catch { return ""; }
-};
-
-function verifyPaystack(bodyRaw, signature) {
+const verifyPaystackSignature = (bodyRaw, signature) => {
   const secret = process.env.PAYSTACK_SECRET_KEY || "";
   if (!secret || !signature) return false;
   const hash = crypto.createHmac("sha512", secret).update(bodyRaw).digest("hex");
   return hash === signature;
-}
+};
 
-function verifyFlutterwave(signature) {
-  const secretHash = process.env.FLW_SECRET_HASH || "";
-  if (!secretHash || !signature) return false;
-  return secretHash === signature;
-}
+const readTextBody = async (request) => {
+  try {
+    return await request.text();
+  } catch {
+    return "";
+  }
+};
 
-function verifySharedSecret(req) {
-  const expected = process.env.PAYMENT_WEBHOOK_SECRET;
-  if (!expected) return false;
-  const got = req.headers.get("x-webhook-secret") || req.headers.get("X-Webhook-Secret") || "";
-  return got && expected && got === expected;
-}
+const resolveOrderId = (payload) =>
+  normaliseText(
+    payload?.orderId ||
+      payload?.order_id ||
+      payload?.data?.metadata?.orderId ||
+      payload?.metadata?.orderId
+  );
 
-export async function POST(req) {
+const resolveReference = (payload) =>
+  normaliseText(
+    payload?.reference ||
+      payload?.data?.reference ||
+      payload?.data?.trxref ||
+      payload?.trxref
+  );
+
+const resolveEvent = (payload) =>
+  normaliseText(payload?.event || payload?.data?.status || payload?.status).toLowerCase();
+
+export async function POST(request) {
   const admin = getSupabaseAdminClient();
-  const bodyRaw = await textBody(req);
+  const bodyRaw = await readTextBody(request);
   let payload;
   try {
     payload = JSON.parse(bodyRaw || "{}");
@@ -43,36 +54,67 @@ export async function POST(req) {
     payload = {};
   }
 
-  const paystackSig = req.headers.get("x-paystack-signature");
-  const flwSig = req.headers.get("verif-hash");
+  const paystackSignature = request.headers.get("x-paystack-signature");
+  const provider = normaliseText(payload?.provider || request.headers.get("x-provider") || (paystackSignature ? "paystack" : "")).toLowerCase();
+  if (provider && provider !== "paystack") {
+    await logAdminEvent({ route: "/api/payment/callback", provider, event: "unsupported_provider" });
+    return json({ error: "Unsupported provider. Use the provider-specific webhook route." }, 410);
+  }
 
-  const provider = (payload?.provider || req.headers.get("x-provider") || "").toString().toLowerCase();
-  const valid = (
-    (provider === "paystack" && verifyPaystack(bodyRaw, paystackSig)) ||
-    (provider === "flutterwave" && verifyFlutterwave(flwSig)) ||
-    verifySharedSecret(req)
-  );
-
-  if (!valid) {
-    await logAdminError("Invalid webhook signature", { route: "/api/payment/callback", provider });
+  if (!verifyPaystackSignature(bodyRaw, paystackSignature)) {
+    await logAdminError("Invalid Paystack webhook signature", { route: "/api/payment/callback", provider: "paystack" });
     return json({ error: "Invalid signature" }, 401);
   }
 
-  const event = payload?.event || payload?.data?.status || payload?.status || "";
-  const schema = z.object({ orderId: z.union([z.string(), z.number()]).optional() }).passthrough();
-  const parsed = schema.safeParse(payload);
-  const orderIdValue = parsed.success ? (parsed.data.orderId ?? payload?.data?.metadata?.orderId) : (payload?.data?.metadata?.orderId);
-  const orderId = String(orderIdValue || "").trim();
+  const orderId = resolveOrderId(payload);
   if (!orderId) return json({ error: "Missing orderId" }, 400);
 
-  const paidStatuses = new Set(["charge.success", "successful", "success", "paid"]);
+  const event = resolveEvent(payload);
+  const paidStatuses = new Set(["charge.success", "success", "successful", "paid"]);
   const failedStatuses = new Set(["failed", "charge.failed", "abandoned", "reversed"]);
-  let payment_status = "pending";
-  if (paidStatuses.has(event)) payment_status = "paid";
-  else if (failedStatuses.has(event)) payment_status = "failed";
-  else {
-    await logAdminEvent({ route: "/api/payment/callback", order_id: orderId, provider, event, payment_status: "ignored" });
+  if (!paidStatuses.has(event) && !failedStatuses.has(event)) {
+    await logAdminEvent({ route: "/api/payment/callback", order_id: orderId, provider: "paystack", event, payment_status: "ignored" });
     return json({ ok: true, order_id: orderId, ignored: true });
+  }
+
+  if (paidStatuses.has(event)) {
+    const reference = resolveReference(payload);
+    if (!reference) {
+      await logAdminError("Missing Paystack reference in webhook payload", { route: "/api/payment/callback", order_id: orderId });
+      return json({ error: "Missing payment reference" }, 400);
+    }
+
+    const result = await applyVerifiedPaystackPayment({ reference, providedOrderId: orderId });
+    if (!result.ok) {
+      await logAdminError(result.error || "Paystack webhook verification failed", {
+        route: "/api/payment/callback",
+        order_id: orderId,
+        reference,
+      });
+      return json(
+        {
+          verified: Boolean(result.verified),
+          stockUpdated: result.stockUpdated ?? false,
+          error: result.error || "Verification failed",
+        },
+        { status: result.status || 400 }
+      );
+    }
+
+    await logAdminEvent({
+      route: "/api/payment/callback",
+      order_id: result.body?.orderId || orderId,
+      provider: "paystack",
+      event,
+      payment_status: "paid",
+    });
+    return json({
+      ok: true,
+      order_id: result.body?.orderId || orderId,
+      payment_status: "paid",
+      verified: true,
+      alreadyPaid: result.body?.alreadyPaid === true,
+    });
   }
 
   const { data: existingOrder, error: findErr } = await admin
@@ -81,41 +123,26 @@ export async function POST(req) {
     .eq("id", orderId)
     .maybeSingle();
   if (findErr) {
-    await logAdminError(findErr, { route: "/api/payment/callback", order_id: orderId, provider, event, stage: "load_order" });
+    await logAdminError(findErr, { route: "/api/payment/callback", order_id: orderId, provider: "paystack", stage: "load_order" });
     return json({ error: "Unable to load order" }, 500);
   }
   if (!existingOrder) return json({ error: "Order not found" }, 404);
 
-  const currentPaymentStatus = String(existingOrder.payment_status || "").toLowerCase();
+  const currentPaymentStatus = normaliseText(existingOrder.payment_status).toLowerCase();
   if (currentPaymentStatus === "paid") {
     return json({ ok: true, order_id: orderId, payment_status: "paid", alreadyPaid: true });
   }
 
-  const patch = { payment_status };
-  if (payment_status === "paid") {
-    patch.status = "processing";
-  } else if (payment_status === "failed") {
-    patch.status = "payment_failed";
-  }
-
-  try {
-    const query = admin.from("orders").update(patch).eq("id", orderId);
-    const { error } = payment_status === "failed" ? await query.neq("payment_status", "paid") : await query;
-    if (error) throw error;
-  } catch (err) {
-    await logAdminError(err, { route: "/api/payment/callback", order_id: orderId, provider, event });
+  const { error: updateErr } = await admin
+    .from("orders")
+    .update({ payment_status: "failed", status: "payment_failed" })
+    .eq("id", orderId)
+    .neq("payment_status", "paid");
+  if (updateErr) {
+    await logAdminError(updateErr, { route: "/api/payment/callback", order_id: orderId, provider: "paystack", stage: "update_order" });
     return json({ error: "Unable to update order" }, 500);
   }
 
-  if (payment_status === "paid") {
-    const { error: stockErr } = await admin.rpc("deduct_stock_for_order", { order_id_input: orderId });
-    if (stockErr) {
-      await logAdminError(stockErr, { route: "/api/payment/callback", order_id: orderId, provider, event, stage: "deduct_stock" });
-      try { await admin.from("orders").update({ status: "stock_failed" }).eq("id", orderId); } catch {}
-      return json({ error: stockErr.message || "Stock deduction failed" }, 409);
-    }
-  }
-
-  await logAdminEvent({ route: "/api/payment/callback", order_id: orderId, provider, event, payment_status });
-  return json({ ok: true, order_id: orderId, payment_status });
+  await logAdminEvent({ route: "/api/payment/callback", order_id: orderId, provider: "paystack", event, payment_status: "failed" });
+  return json({ ok: true, order_id: orderId, payment_status: "failed" });
 }

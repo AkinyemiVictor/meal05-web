@@ -1,9 +1,6 @@
 -- Radius-based delivery serviceability for the Akala Express launch hub.
 -- Coordinates are WGS84 decimal degrees. Distances are calculated in metres.
 
--- Reconcile the earlier live radius prototype before introducing the canonical
--- market-aware resolver. A three-argument function with a default third argument
--- would otherwise make two-argument RPC calls ambiguous.
 do $$
 declare
   legacy_function record;
@@ -21,16 +18,11 @@ begin
 end
 $$;
 
--- Remove only the superseded prototype row. The canonical launch zone is seeded
--- below with the corrected hub coordinates and radius_m as the sole radius unit.
 delete from public.delivery_zones
 where lower(name) in ('ibadan core', 'ibadan core (5km)', 'ibadan core 5km');
 
 alter table public.delivery_zones drop column if exists radius_km;
 
--- The repository baseline has this uniqueness constraint, but some live databases
--- were created before it existed. Fail clearly rather than silently merging
--- unrelated duplicate zones.
 do $$
 begin
   if exists (
@@ -231,8 +223,6 @@ on conflict (zone_id, slug) do update set
   is_active = true,
   updated_at = now();
 
--- Remove suggestions from an earlier draft that are not guaranteed by the 5 km
--- geometry. Area labels are discovery aids; the coordinate check remains final.
 delete from public.delivery_zone_areas a
 using public.delivery_zones z
 where a.zone_id = z.id

@@ -34,9 +34,18 @@ export async function POST(request) {
   if (!to) {
     return jsonWithRateLimit({ error: "Authenticated user email is required" }, 400, rl);
   }
+  const normalizedOrder = {
+    ...order,
+    email: String(order?.email || to).trim(),
+    user: {
+      ...(order?.user && typeof order.user === "object" ? order.user : {}),
+      name: order?.user?.name || order?.fullName || order?.deliveryContactName || "",
+      email: String(order?.user?.email || order?.email || to).trim(),
+    },
+  };
 
   try {
-    await sendOrderReceiptEmail({ to, order });
+    await sendOrderReceiptEmail({ to, order: normalizedOrder });
     return jsonWithRateLimit({ status: "queued", to }, 202, rl);
   } catch (error) {
     console.warn("[receipt] Send error", error);

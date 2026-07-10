@@ -19,7 +19,7 @@ export function renderReceiptHtml(order, options = {}) {
     (options.logoUrl || process.env.APP_LOGO_URL || "https://meal05.com/assets/logo/MEAL05%20NEW%20ICON%20LOGO-05.png");
 
   const items = Array.isArray(order?.items) ? order.items : [];
-  const summary = order?.summary || { subtotal: 0, deliveryFee: 0, total: 0 };
+  const summary = order?.summary || { subtotal: 0, packagingFee: 0, deliveryFee: 0, total: 0 };
   const createdAt = order?.createdAt ? new Date(order.createdAt) : new Date();
   const method = order?.paymentMethod ? String(order.paymentMethod) : "card";
 
@@ -118,6 +118,7 @@ export function renderReceiptHtml(order, options = {}) {
                       <td style="width:30%">
                         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;color:${dark}">
                           <tr><td style="padding:6px 0;color:${muted}">Subtotal:</td><td align="right">${formatNaira(summary?.subtotal)}</td></tr>
+                          <tr><td style="padding:6px 0;color:${muted}">Packaging Fee:</td><td align="right">${summary?.packagingFee === 0 ? 'Free' : formatNaira(summary?.packagingFee)}</td></tr>
                           <tr><td style="padding:6px 0;color:${muted}">Delivery Fee:</td><td align="right">${summary?.deliveryFee === 0 ? 'Free' : formatNaira(summary?.deliveryFee)}</td></tr>
                           ${discount ? `<tr><td style="padding:6px 0;color:${muted}">Discount:</td><td align="right">-${formatNaira(discount)}</td></tr>` : ''}
                           <tr><td style="padding:8px 0;border-top:1px solid #e2e8f0"><strong>Total Paid:</strong></td><td align="right" style="border-top:1px solid #e2e8f0"><strong>${formatNaira(summary?.total)}</strong></td></tr>
@@ -146,7 +147,7 @@ export function renderOrderConfirmationHtml(order, options = {}) {
   const dark = "#0f172a";
   const muted = "#475569";
   const items = Array.isArray(order?.items) ? order.items : [];
-  const summary = order?.summary || { subtotal: 0, deliveryFee: 0, total: 0 };
+  const summary = order?.summary || { subtotal: 0, packagingFee: 0, deliveryFee: 0, total: 0 };
   const baseUrl = options.baseUrl || process.env.APP_BASE_URL || "";
   const orderHref = baseUrl ? `${baseUrl.replace(/\/$/, "")}/account?tab=orders` : "";
 

@@ -82,6 +82,7 @@ const copy = {
       cardExpiry: "Expiry date",
       cardCvc: "CVV",
       subtotal: "Subtotal",
+      packaging: "Packaging",
       delivery: "Delivery",
       total: "Total payable",
       paymentMethod: "Payment method",

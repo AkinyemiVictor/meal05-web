@@ -370,6 +370,9 @@ export async function loadOverviewMetrics() {
 }
 
 const ORDER_SELECT_CANDIDATES = [
+  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
+  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
+  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, delivery_fee, discount_total, promo_code, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, delivery_fee, discount_total, promo_code, status, payment_status, delivery_status, delivery_address, created_at, updated_at",
@@ -591,6 +594,7 @@ const mapOrderRecord = (row, userLookup, nowMs = Date.now()) => {
     customer: userLookup.get(String(row?.user_id || "")) || `User ${String(row?.user_id || "").slice(0, 8)}...`,
     total: toNumber(row.total),
     subtotal: row?.subtotal == null ? null : toNumber(row.subtotal),
+    packagingFee: row?.packaging_fee == null ? null : toNumber(row.packaging_fee),
     deliveryFee: row?.delivery_fee == null ? null : toNumber(row.delivery_fee),
     discountTotal: row?.discount_total == null ? null : toNumber(row.discount_total),
     promoCode: String(row?.promo_code || "").trim(),

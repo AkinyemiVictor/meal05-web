@@ -10,6 +10,7 @@ import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 
 export const runtime = "nodejs";
@@ -252,6 +253,10 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
   const effectiveStock = variants.length && !hasSelectableVariant ? 0 : stockValue;
   const categoryName = row.category_name ?? row.category ?? "";
   const categorySlug = row.category_slug ?? row.categorySlug ?? toSlug(categoryName || "uncategorised");
+  const packaging =
+    pickFirst(chosenVariant || {}, ["packaging", "packaging_material_type", "packagingMaterialType"]) ||
+    pickFirst(row, ["packaging", "packaging_material_type", "packagingMaterialType"]) ||
+    "";
 
   const gallery = imageIndex[String(productId)] || [];
   const fallbackImage =
@@ -301,6 +306,7 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
     discount,
     category: categoryName,
     categorySlug: toSlug(categorySlug || categoryName || "uncategorised") || "uncategorised",
+    packaging,
     promoTagEnabled: normalizePromoEnabled(
       productMeta?.promo_tag_enabled ??
         row.promo_tag_enabled ??
@@ -323,6 +329,14 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
     isPopular: normalizeBoolean(row.is_popular ?? row.isPopular ?? row.popular),
     isChefChoice: normalizeBoolean(row.is_chef_choice ?? row.isChefChoice ?? row.chef_choice ?? row.chefChoice),
     isUnder15m: normalizeBoolean(row.is_under_15m ?? row.isUnder15m ?? row.is_under_15_min ?? row.isUnder15Minutes),
+    ...buildPackagingMetadata({
+      ...row,
+      ...(chosenVariant || {}),
+      category: categoryName,
+      categorySlug: toSlug(categorySlug || categoryName || "uncategorised") || "uncategorised",
+      packaging,
+      name: row.product_name || row.name || "Fresh produce",
+    }),
     ...merchandising,
   };
 };

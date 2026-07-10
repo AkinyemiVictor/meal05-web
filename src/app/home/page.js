@@ -1,13 +1,11 @@
 ﻿"use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconBasketCheck,
   IconArrowRight,
-  IconArrowUpLeft,
   IconCarrot,
   IconCherry,
   IconChefHat,
@@ -22,7 +20,6 @@ import {
   IconPepper,
   IconShoppingBag,
   IconShoppingCart,
-  IconTruckDelivery,
   IconUser,
 } from "@tabler/icons-react";
 import {
@@ -98,6 +95,13 @@ const classNames = (...items) => items.filter(Boolean).join(" ");
 // MobileHeader and TopNav are now in src/components/meal05-header.js (rendered by layout)
 
 function PromoBanner() {
+  const picks = [
+    [IconPepper, "Sweet Peppers", "Peak season", "N900", "pepper"],
+    [IconLeaf, "Fresh Herbs", "Just in", "N600", "leaf"],
+    [IconCherry, "Ripe Fruits", "Peak season", "N1,500", "cherry"],
+    [IconCarrot, "Garden Carrots", "Just in", "N800", "carrot"],
+  ];
+
   return (
     <section className="welcome-banner" aria-labelledby="welcome-banner-title">
       <div className="welcome-banner__wash welcome-banner__wash--top" />
@@ -123,49 +127,46 @@ function PromoBanner() {
         <div className="welcome-banner__copy">
           <div className="welcome-banner__topline">
             <span className="welcome-banner__brand-chip">
-              <IconChefHat aria-hidden="true" />
-              <strong>MEAL<span>05</span></strong>
+              <IconLeaf aria-hidden="true" />
+              <strong>IN<span> SEASON</span></strong>
             </span>
-            <span className="welcome-banner__farm-note">fresh from the market</span>
+            <span className="welcome-banner__farm-note">weekly harvest</span>
           </div>
 
-          <p className="welcome-banner__eyebrow">Hello &amp; welcome to</p>
+          <p className="welcome-banner__eyebrow">Just harvested</p>
           <h2 id="welcome-banner-title" className="welcome-banner__title">
-            MEAL<span>05</span>
+            Now in<span> season.</span>
           </h2>
-          <p className="welcome-banner__accent">Shop super fresh &amp; affordable</p>
+          <p className="welcome-banner__accent">Peak-season produce, picked fresh.</p>
           <p className="welcome-banner__description">
-            Hand-picked groceries from trusted vendors. Quality you can taste, prices you&apos;ll love.
+            This week&apos;s basket is bursting with produce picked at its sweetest and rushed from farm to your door.
           </p>
 
           <div className="welcome-banner__actions">
-            <Link href="/shop" className="welcome-banner__cta">
+            <Link href="/section/in-season" className="welcome-banner__cta">
               <span><IconArrowRight aria-hidden="true" /></span>
-              Start shopping
+              Shop seasonal picks
             </Link>
             <span className="welcome-banner__delivery">
-              <IconTruckDelivery aria-hidden="true" />
-              Delivery within our launch zone
+              <IconClock aria-hidden="true" />
+              New harvest every Monday
             </span>
           </div>
         </div>
 
-        <div className="welcome-banner__art" aria-hidden="true">
-          <div className="welcome-banner__stamp">
-            <strong>100%</strong>
-            <span>MARKET FRESH</span>
-          </div>
-          <div className="welcome-banner__frame" />
-          <Image
-            src="/assets/billboard/welcome-produce.png"
-            alt=""
-            fill
-            priority
-            sizes="(max-width: 767px) 0px, (max-width: 1279px) 230px, 300px"
-            className="welcome-banner__produce"
-          />
-          <span className="welcome-banner__picked-note">picked this morning!</span>
-          <IconArrowUpLeft className="welcome-banner__note-arrow" />
+        <div className="welcome-banner__art welcome-banner__art--cards" aria-hidden="true">
+          {picks.map(([Icon, name, status, price, tone], index) => (
+            <article key={name} className={`welcome-banner__pick welcome-banner__pick--${index + 1}`}>
+              <i className={`welcome-banner__pick-icon welcome-banner__pick-icon--${tone}`}>
+                <Icon />
+              </i>
+              <b>{name}</b>
+              <footer>
+                <span>{status}</span>
+                <strong>{price}</strong>
+              </footer>
+            </article>
+          ))}
         </div>
       </div>
     </section>

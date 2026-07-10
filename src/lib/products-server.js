@@ -2,8 +2,10 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { pickFirstNumber } from "@/lib/number";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { resolveProductImage } from "@/lib/product-image";
+import { toCategorySlug } from "@/lib/categories-server";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
 
 const pickFirst = (row, fields = []) => {
@@ -279,6 +281,7 @@ const mapRow = (row) => {
     promoTagExpiresAt: parsePromoExpiry(
       pickFirst(row, ["promo_tag_expires_at", "promoTagExpiresAt", "promo_expires_at", "promoExpiresAt"])
     ),
+    ...buildPackagingMetadata(row),
     ...merchandising,
   };
 };
@@ -328,6 +331,33 @@ const fetchProductByIdUncached = async (id) => {
   if (!marketData) return { product: null, raw: null };
   if (normalizeProductMerchandisingRecord(marketData).isHidden) {
     return { product: null, raw: null };
+  }
+  let categoryMeta = null;
+  const categoryId = marketData?.category_id ?? marketData?.categoryId ?? marketData?.product_category_id ?? marketData?.productCategoryId;
+  if (categoryId != null) {
+    try {
+      const { data: categoryRow, error: categoryError } = await admin
+        .from("product_categories")
+        .select("*")
+        .eq("id", categoryId)
+        .maybeSingle();
+      if (!categoryError && categoryRow) {
+        const categoryLabel = String(
+          categoryRow.name ||
+            categoryRow.label ||
+            categoryRow.title ||
+            categoryRow.category_name ||
+            categoryRow.categoryName ||
+            ""
+        ).trim();
+        categoryMeta = {
+          category: categoryLabel,
+          categorySlug: toCategorySlug(
+            categoryRow.slug || categoryRow.category_slug || categoryRow.categorySlug || categoryLabel
+          ),
+        };
+      }
+    } catch {}
   }
 
   const [imageResult, variantsResult] = await Promise.allSettled([
@@ -418,8 +448,8 @@ const fetchProductByIdUncached = async (id) => {
   const defaultVariantId = defaultVariation?.variationId ? String(defaultVariation.variationId) : null;
 
   const raw = variations.length
-    ? { ...marketData, variations, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls }
-    : { ...marketData, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls };
+    ? { ...marketData, ...(categoryMeta || {}), variations, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls }
+    : { ...marketData, ...(categoryMeta || {}), main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls };
   const baseProduct = mapRow({ ...raw, mainImageUrl, galleryImageUrls });
   const effectiveStock = variations.length && !selectableVariations.length ? 0 : defaultVariation?.stock ?? baseProduct.stock;
   const effectivePrice = defaultVariation?.price ?? baseProduct.price;
