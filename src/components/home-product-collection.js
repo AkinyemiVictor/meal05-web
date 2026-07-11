@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import ProductCard from "@/components/product-card";
-import ScaledCard from "@/components/scaled-card";
 
 export default function HomeProductCollection({
   eyebrow = "Top picks",
@@ -15,9 +14,13 @@ export default function HomeProductCollection({
   showSeasonBadge = true,
   actionLabel,
   preserveSingleRow = false,
+  variant = "home",
 }) {
   const isLoading = status === "loading";
   const hasError = status === "error";
+  const isLandingVariant = variant === "landing" || preserveSingleRow;
+  const mobileProducts = products.slice(0, isLandingVariant ? 4 : 8);
+  const desktopProducts = products.slice(0, isLandingVariant ? 4 : 12);
 
   return (
     <>
@@ -39,26 +42,47 @@ export default function HomeProductCollection({
         </div>
       ) : products.length ? (
         <>
-          <div className={`mt-6 ${preserveSingleRow ? "hidden" : "md:hidden"}`}>
-            <div className="-mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-3 [scrollbar-width:none]">
-              {products.slice(0, 8).map((product) => (
-                <div key={product.variantId || product.id} className="w-[82vw] max-w-[340px] shrink-0 snap-start">
-                  <ProductCard product={product} onAdd={onAdd} showSeasonBadge={showSeasonBadge} actionLabel={actionLabel} />
+          <div className="mt-6 md:hidden">
+            <div
+              className={`home-product-collection__grid home-product-collection__grid--mobile ${
+                isLandingVariant ? "gap-4 grid grid-cols-2" : "gap-3 grid grid-cols-2"
+              }`}
+            >
+              {mobileProducts.map((product) => (
+                <div key={product.variantId || product.id} className="min-w-0">
+                  <ProductCard
+                    product={product}
+                    onAdd={onAdd}
+                    showSeasonBadge={showSeasonBadge}
+                    actionLabel={actionLabel}
+                    compact
+                    className={
+                      isLandingVariant
+                        ? "home-product-collection__product-card--landing-mobile"
+                        : "home-product-collection__product-card--home-mobile"
+                    }
+                  />
                 </div>
               ))}
             </div>
           </div>
 
-          <div className={`mt-6 min-w-0 gap-6 ${preserveSingleRow ? "home-product-collection--single-row grid grid-cols-[repeat(4,minmax(0,1fr))]" : "hidden grid-cols-[repeat(3,minmax(0,1fr))] md:grid lg:grid-cols-[repeat(4,minmax(0,1fr))]"}`}>
-            {products.slice(0, 12).map((product) => (
+          <div
+            className={`mt-6 min-w-0 gap-6 ${
+              isLandingVariant
+                ? "home-product-collection__grid home-product-collection__grid--landing hidden md:grid md:grid-cols-2 xl:grid-cols-4"
+                : "home-product-collection__grid home-product-collection__grid--home hidden grid-cols-[repeat(3,minmax(0,1fr))] md:grid lg:grid-cols-[repeat(4,minmax(0,1fr))]"
+            }`}
+          >
+            {desktopProducts.map((product) => (
               <div key={product.variantId || product.id} className="home-product-collection__card min-w-0">
-                {preserveSingleRow ? (
-                  <ScaledCard>
-                    <ProductCard product={product} onAdd={onAdd} showSeasonBadge={showSeasonBadge} actionLabel={actionLabel} />
-                  </ScaledCard>
-                ) : (
-                  <ProductCard product={product} onAdd={onAdd} showSeasonBadge={showSeasonBadge} actionLabel={actionLabel} />
-                )}
+                <ProductCard
+                  product={product}
+                  onAdd={onAdd}
+                  showSeasonBadge={showSeasonBadge}
+                  actionLabel={actionLabel}
+                  className={isLandingVariant ? "home-product-collection__product-card--landing" : undefined}
+                />
               </div>
             ))}
           </div>

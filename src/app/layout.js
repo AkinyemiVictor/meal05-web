@@ -26,6 +26,26 @@ export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: "Meal05 - Farm-fresh groceries delivered in Ibadan",
   description: "Order fresh produce, proteins, grains, and pantry staples. Farm-sourced and delivered to your door.",
+  applicationName: "Meal05",
+  icons: {
+    icon: [
+      { url: "/assets/favicon/favicon.ico", sizes: "any" },
+      { url: "/assets/favicon/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+      { url: "/assets/favicon/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/assets/favicon/android-chrome-192x192.png", type: "image/png", sizes: "192x192" },
+      { url: "/assets/favicon/android-chrome-512x512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [
+      { url: "/assets/favicon/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: ["/assets/favicon/favicon.ico"],
+  },
+  manifest: "/assets/favicon/site.webmanifest",
+  themeColor: "#f04e1f",
+  other: {
+    "msapplication-TileColor": "#f04e1f",
+    "msapplication-config": "/assets/favicon/browserconfig.xml",
+  },
 };
 
 export default function RootLayout({ children }) {

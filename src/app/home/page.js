@@ -7,7 +7,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconBasketCheck,
   IconArrowRight,
-  IconArrowUpLeft,
   IconCarrot,
   IconCherry,
   IconChefHat,
@@ -21,7 +20,6 @@ import {
   IconPepper,
   IconShoppingBag,
   IconShoppingCart,
-  IconTruckDelivery,
   IconUser,
 } from "@tabler/icons-react";
 import {
@@ -118,27 +116,18 @@ function PromoBanner() {
               <IconChefHat aria-hidden="true" />
               <strong>MEAL<span>05</span></strong>
             </span>
-            <span className="welcome-banner__farm-note">...fresh from the farm</span>
           </div>
 
-          <p className="welcome-banner__eyebrow">Hello &amp; welcome to</p>
           <h2 id="welcome-banner-title" className="welcome-banner__title">
             MEAL<span>05</span>
           </h2>
-          <p className="welcome-banner__accent">Shop super fresh &amp; affordable</p>
-          <p className="welcome-banner__description">
-            Hand-picked groceries from trusted vendors. Quality you can taste, prices you&apos;ll love.
-          </p>
+          <p className="welcome-banner__accent">Fresh groceries. Fair prices.</p>
 
           <div className="welcome-banner__actions">
             <Link href="/shop" className="welcome-banner__cta">
               <span><IconArrowRight aria-hidden="true" /></span>
               Start shopping
             </Link>
-            <span className="welcome-banner__delivery">
-              <IconTruckDelivery aria-hidden="true" />
-              Same-day delivery in Ibadan
-            </span>
           </div>
         </div>
 
@@ -156,8 +145,6 @@ function PromoBanner() {
             sizes="(max-width: 767px) 0px, (max-width: 1279px) 230px, 300px"
             className="welcome-banner__produce"
           />
-          <span className="welcome-banner__picked-note">picked this morning!</span>
-          <IconArrowUpLeft className="welcome-banner__note-arrow" />
         </div>
       </div>
     </section>

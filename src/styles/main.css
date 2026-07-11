@@ -10007,30 +10007,20 @@ main > section:not(.home-hero) {
   }
 }
 
-/* Keep four homepage cards in constrained desktop layouts without horizontal scrolling.
-   The entire card is scaled proportionally; tablet layouts use their normal sizing. */
-@media (max-width: 900px) {
-  .home-product-collection--single-row {
-    gap: 1rem;
+@media (max-width: 767px) {
+  .home-product-collection__grid--mobile {
+    align-items: stretch;
   }
 
-}
-
-@media (max-width: 720px) {
-  .home-product-collection--single-row {
-    gap: 0.75rem;
+  .home-product-collection__product-card--home-mobile,
+  .home-product-collection__product-card--landing-mobile {
+    min-height: 100%;
   }
-
 }
 
 @media (min-width: 1024px) and (max-width: 1279px) {
   .home-content-boundary {
     min-height: 0 !important;
-  }
-
-  .home-product-collection__card {
-    --home-card-scale: clamp(0.66, calc((100vw - 446px) / 880px), 0.95);
-    zoom: var(--home-card-scale);
   }
 }
 
@@ -10114,12 +10104,12 @@ main > section:not(.home-hero) {
 .welcome-banner__inner {
   position: relative;
   z-index: 5;
-  min-height: 318px;
-  padding: 42px 42px 34px;
+  min-height: 252px;
+  padding: 30px 34px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 34px;
+  gap: 24px;
 }
 
 .welcome-banner__copy {
@@ -10138,7 +10128,7 @@ main > section:not(.home-hero) {
 
 .welcome-banner__topline {
   gap: 18px;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .welcome-banner__brand-chip {
@@ -10162,33 +10152,10 @@ main > section:not(.home-hero) {
 .welcome-banner__brand-chip strong span,
 .welcome-banner__title span { color: #11131f; font-style: normal; }
 
-.welcome-banner__farm-note,
-.welcome-banner__eyebrow,
-.welcome-banner__picked-note {
-  font-family: "Caveat", "Segoe Print", cursive;
-}
-
-.welcome-banner__farm-note {
-  font-size: 27px;
-  line-height: 1;
-  color: rgba(255, 247, 242, 0.96);
-  transform: rotate(-3deg);
-}
-
-.welcome-banner__eyebrow {
-  margin: 0 0 2px;
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1;
-  color: #11131f;
-  transform: rotate(-2deg);
-  transform-origin: left center;
-}
-
 .welcome-banner__title {
   font-family: "Work Sans", var(--mk-font-sans);
-  margin: 0 0 10px;
-  font-size: clamp(68px, 6vw, 94px);
+  margin: 0 0 8px;
+  font-size: clamp(52px, 5vw, 76px);
   font-weight: 900;
   font-style: italic;
   line-height: 0.9;
@@ -10198,35 +10165,27 @@ main > section:not(.home-hero) {
 }
 
 .welcome-banner__accent {
-  margin: 0 0 16px;
-  font-size: 26px;
+  max-width: 360px;
+  margin: 0 0 20px;
+  font-size: 22px;
   font-weight: 800;
   font-style: italic;
   letter-spacing: 0;
   color: #11131f;
 }
 
-.welcome-banner__description {
-  display: block;
-  max-width: 640px;
-  margin: 0 0 26px;
-  color: rgba(255, 249, 246, 0.96);
-  font-size: 16px;
-  line-height: 1.55;
-}
-
 .welcome-banner__actions {
-  gap: 24px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
 .welcome-banner__cta {
   gap: 12px;
-  padding: 14px 28px 14px 14px;
+  padding: 10px 20px 10px 10px;
   border-radius: 999px;
   background: #ffffff;
   color: #15161f;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   box-shadow: none;
   transition: transform 180ms ease, background 180ms ease, color 180ms ease;
@@ -10240,8 +10199,8 @@ main > section:not(.home-hero) {
 
 .welcome-banner__cta > span {
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   flex: none;
   border-radius: 50%;
@@ -10249,19 +10208,12 @@ main > section:not(.home-hero) {
   color: #ffffff;
 }
 
-.welcome-banner__cta svg { width: 24px; height: 24px; }
-.welcome-banner__delivery {
-  gap: 10px;
-  font-size: 15px;
-  font-weight: 800;
-  color: rgba(255, 251, 248, 0.98);
-}
-.welcome-banner__delivery svg { width: 22px; height: 22px; flex: none; }
+.welcome-banner__cta svg { width: 20px; height: 20px; }
 
 .welcome-banner__art {
   position: relative;
-  width: 430px;
-  height: 280px;
+  width: 320px;
+  height: 196px;
   flex: none;
 }
 
@@ -10331,9 +10283,9 @@ main > section:not(.home-hero) {
 
 .welcome-banner__frame {
   position: absolute;
-  inset: 36px 22px 20px 68px;
-  border: 6px solid #ffffff;
-  border-radius: 30px;
+  inset: 22px 18px 18px 54px;
+  border: 5px solid #ffffff;
+  border-radius: 24px;
   background: #ffffff;
   box-shadow: none;
   transform: rotate(-6deg);
@@ -10343,16 +10295,16 @@ main > section:not(.home-hero) {
   z-index: 6;
   object-fit: contain;
   filter: none;
-  transform: scale(1.24) rotate(-2deg) translate(14px, -6px);
+  transform: scale(1.12) rotate(-2deg) translate(10px, -4px);
 }
 
 .welcome-banner__stamp {
   position: absolute;
   z-index: 8;
-  top: 26px;
-  right: 142px;
-  width: 114px;
-  height: 114px;
+  top: 14px;
+  right: 92px;
+  width: 82px;
+  height: 82px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -10364,28 +10316,8 @@ main > section:not(.home-hero) {
   transform: rotate(-8deg);
 }
 
-.welcome-banner__stamp strong { font-size: 28px; font-style: italic; line-height: 1; }
-.welcome-banner__stamp span { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; }
-.welcome-banner__picked-note {
-  position: absolute;
-  z-index: 8;
-  bottom: 2px;
-  left: 132px;
-  color: #15161f;
-  font-size: 28px;
-  font-weight: 700;
-  transform: rotate(-5deg);
-}
-.welcome-banner__note-arrow {
-  position: absolute;
-  z-index: 8;
-  bottom: 44px;
-  left: 274px;
-  width: 30px;
-  height: 30px;
-  color: #15161f;
-  transform: rotate(16deg);
-}
+.welcome-banner__stamp strong { font-size: 21px; font-style: italic; line-height: 1; }
+.welcome-banner__stamp span { font-size: 8px; font-weight: 800; letter-spacing: 0.06em; }
 
 .welcome-banner__float {
   position: absolute;
@@ -10412,19 +10344,10 @@ main > section:not(.home-hero) {
 }
 
 @container (max-width: 860px) {
-  .welcome-banner__inner { min-height: 290px; padding: 28px 28px 26px; gap: 22px; }
-  .welcome-banner__title { font-size: 60px; }
-  .welcome-banner__eyebrow { font-size: 26px; }
-  .welcome-banner__accent { font-size: 22px; }
-  .welcome-banner__delivery { display: none; }
-  .welcome-banner__description { max-width: 420px; font-size: 15px; }
-  .welcome-banner__art { width: 320px; height: 214px; }
-  .welcome-banner__frame { inset: 34px 20px 24px 70px; }
-  .welcome-banner__stamp { top: 24px; right: 96px; width: 92px; height: 92px; }
-  .welcome-banner__stamp strong { font-size: 23px; }
-  .welcome-banner__stamp span { font-size: 9px; }
-  .welcome-banner__picked-note { bottom: 8px; left: 102px; font-size: 22px; }
-  .welcome-banner__note-arrow { bottom: 42px; left: 214px; width: 26px; height: 26px; }
+  .welcome-banner__inner { min-height: 212px; padding: 24px 26px; gap: 18px; }
+  .welcome-banner__title { font-size: 46px; }
+  .welcome-banner__accent { max-width: 280px; font-size: 18px; margin-bottom: 16px; }
+  .welcome-banner__art { display: none; }
   .welcome-banner__halftone,
   .welcome-banner__float { display: none; }
 }
@@ -10432,25 +10355,22 @@ main > section:not(.home-hero) {
 @container (max-width: 560px) {
   .welcome-banner__inner {
     min-height: 0;
-    padding: 26px 24px 28px;
+    padding: 20px 20px 22px;
     display: block;
   }
   .welcome-banner__art { display: none; }
-  .welcome-banner__topline { margin-bottom: 14px; }
-  .welcome-banner__farm-note { font-size: 20px; }
-  .welcome-banner__eyebrow { font-size: 22px; }
-  .welcome-banner__title { font-size: 54px; }
-  .welcome-banner__accent { max-width: 320px; font-size: 20px; margin-bottom: 16px; }
-  .welcome-banner__description { max-width: 34rem; }
+  .welcome-banner__topline { margin-bottom: 10px; }
+  .welcome-banner__title { font-size: 40px; margin-bottom: 6px; }
+  .welcome-banner__accent { max-width: 240px; font-size: 16px; margin-bottom: 14px; }
   .welcome-banner__cta { justify-content: flex-start; }
-  .welcome-banner__delivery { width: 100%; }
   .welcome-banner__dash { display: none; }
 }
 
 @container (max-width: 380px) {
   .welcome-banner__inner { padding-inline: 22px; }
-  .welcome-banner__farm-note { display: none; }
-  .welcome-banner__cta { width: 100%; justify-content: center; }
+  .welcome-banner__title { font-size: 36px; }
+  .welcome-banner__accent { max-width: 210px; font-size: 15px; }
+  .welcome-banner__cta { justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {

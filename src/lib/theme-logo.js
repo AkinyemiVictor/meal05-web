@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export const BRAND_MARK_SRC = "/assets/favicon/favicon-32x32.png";
+export const BRAND_MARK_SRC = "/assets/logo/MEAL05 APP LOGO.png";
 export const BRAND_WORDMARK_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 export const BRAND_WORDMARK_DARK_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 export const LIGHT_THEME_LOGO_SRC = BRAND_MARK_SRC;

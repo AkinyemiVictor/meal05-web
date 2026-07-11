@@ -1,1 +1,21 @@
-{"name":"Meal05","short_name":"Meal05","description":"Fresh groceries, produce, and pantry delivery from Meal05.","start_url":"/","scope":"/","display":"standalone","orientation":"portrait","icons":[{"src":"/assets/favicon/android-chrome-192x192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/assets/favicon/android-chrome-512x512.png","sizes":"512x512","type":"image/png","purpose":"any"}],"theme_color":"#00ac11","background_color":"#ffffff"}
+{
+  "name": "Meal05",
+  "short_name": "Meal05",
+  "description": "Farm-fresh groceries delivered in Ibadan.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f04e1f",
+  "icons": [
+    {
+      "src": "/assets/favicon/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/favicon/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
