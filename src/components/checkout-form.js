@@ -33,6 +33,7 @@ import {
   resolveDeliveryArea,
 } from "@/lib/delivery-settings";
 import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
+import { formatQuantity, roundQuantity } from "@/lib/purchase-quantities";
 
 const INITIAL_FORM_STATE = {
   fullName: "",
@@ -207,7 +208,7 @@ function CheckoutConfirmation({ order }) {
               return (
                 <li key={key}>
                   <span>{item?.name ?? "Fresh produce"}</span>
-                  <span>{`x${quantity.toLocaleString()}`}</span>
+                  <span>{`x${formatQuantity(quantity)}`}</span>
                 </li>
               );
             })}
@@ -884,7 +885,7 @@ export default function CheckoutForm({
         return {
           product_id: productId != null ? String(productId) : null,
           variant_id: variantId != null ? String(variantId) : null,
-          quantity: Number.isFinite(quantity) && quantity > 0 ? Math.round(quantity) : 1,
+          quantity: Number.isFinite(quantity) && quantity > 0 ? roundQuantity(quantity) : 1,
           unit_price_at_add: Number.isFinite(Number(item?.price)) ? Number(item.price) : undefined,
           variant_name: item?.variantName || undefined,
           product_name: item?.name || undefined,

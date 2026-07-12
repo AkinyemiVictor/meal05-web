@@ -12,6 +12,7 @@ import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
+import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -247,6 +248,7 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
   const variants = variantIndex[String(productId)] || [];
   const chosenVariant = pickVariantForCard(variants);
   const variantId = chosenVariant?.id ?? row.variant_id ?? row.variantId ?? null;
+  const purchaseRules = getVariantPurchaseRules(chosenVariant || row);
   const { price, oldPrice, discount } = resolvePricing(chosenVariant || row);
   const stockValue = chosenVariant ? resolveStockValueFromRow(chosenVariant) : resolveStockValueFromRow(row);
   const hasSelectableVariant = variants.some((variant) => isVariantSelectable(variant));
@@ -297,6 +299,10 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
     galleryImageUrls,
     price,
     oldPrice,
+    purchaseMode: purchaseRules.purchaseMode,
+    minQuantity: purchaseRules.minQuantity,
+    maxQuantity: purchaseRules.maxQuantity,
+    stepQuantity: purchaseRules.stepQuantity,
     unit:
       pickFirst(chosenVariant || {}, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) ||
       pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) ||

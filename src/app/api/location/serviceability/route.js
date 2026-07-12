@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
-import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
+import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { getDefaultMarket } from "@/lib/market-server";
 
@@ -53,12 +53,13 @@ export async function GET(request) {
 export async function POST(request) {
   const limit = await checkRateLimit({ request, id: "location:resolve", limit: 30, windowMs: 60_000 });
   if (!limit.allowed) return applyRateLimitHeaders(NextResponse.json({ error: "Too many location checks. Try again shortly." }, { status: 429 }), limit);
-  if (!isTrustedRequestOrigin(request)) return applyRateLimitHeaders(NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 }), limit);
+  const admin = getSupabaseAdminClient();
+  const originTrust = await getOriginTrustContext(request, admin);
+  if (!originTrust.trusted) return applyRateLimitHeaders(NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 }), limit);
   try {
     const parsed = coordinatesSchema.safeParse(await request.json());
     if (!parsed.success) return applyRateLimitHeaders(NextResponse.json({ error: "Valid latitude and longitude are required." }, { status: 400 }), limit);
     const market = await getDefaultMarket();
-    const admin = getSupabaseAdminClient();
     const { data, error } = await admin.rpc("resolve_delivery_zone", {
       p_lat: parsed.data.latitude,
       p_lng: parsed.data.longitude,

@@ -31,6 +31,12 @@ import {
   writeStoredPromo,
 } from "@/lib/checkout";
 import { computeOrderSummary } from "@/lib/order-pricing";
+import {
+  clampQuantityToRules,
+  formatQuantity,
+  roundQuantity,
+  validateVariantQuantity,
+} from "@/lib/purchase-quantities";
 import { requestPromoCodeValidation } from "@/lib/promo-code-client";
 import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
 import useDeliverySettings from "@/lib/use-delivery-settings";
@@ -52,7 +58,7 @@ const normaliseOrderSize = (value, fallback = MIN_ORDER_SIZE) => {
   if (!Number.isFinite(numeric) || numeric <= 0) {
     return fallback;
   }
-  return Math.max(MIN_ORDER_SIZE, Math.round(numeric));
+  return Math.max(MIN_ORDER_SIZE, roundQuantity(numeric));
 };
 
 const normaliseOrderCount = (value, fallback = 1) => {
@@ -60,7 +66,7 @@ const normaliseOrderCount = (value, fallback = 1) => {
   if (!Number.isFinite(numeric) || numeric <= 0) {
     return fallback;
   }
-  return Math.max(1, Math.round(numeric));
+  return Math.max(0.001, roundQuantity(numeric));
 };
 
 const computeQuantity = (orderSize, orderCount) => orderSize * orderCount;
@@ -88,7 +94,7 @@ const hydrateCartItem = (item) => {
   const storedCount = normaliseOrderCount(draft.orderCount ?? 0, 1);
   const fallbackCount = normaliseOrderCount(draft.quantity ?? 0, 0);
   const derivedCount = normaliseOrderCount(storedCount > 0 ? storedCount : fallbackCount, 1);
-  const orderSize = MIN_ORDER_SIZE;
+  const orderSize = normaliseOrderSize(draft.orderSize, MIN_ORDER_SIZE);
   const quantity = computeQuantity(orderSize, derivedCount);
 
   return {
@@ -517,6 +523,7 @@ function CartPageContent() {
     return {
       ...merged,
       packaging: merged.packagingFee,
+      handling: merged.handlingFee,
       discount: merged.discountTotal,
       delivery: merged.deliveryFee,
     };
@@ -582,12 +589,14 @@ function CartPageContent() {
       if (item.id !== id) return item;
       const orderSize = normaliseOrderSize(item.orderSize, MIN_ORDER_SIZE);
       const currentCount = normaliseOrderCount(item.orderCount, 1);
-      const nextCount = Math.max(currentCount + delta, 1);
+      const nextCount = clampQuantityToRules(item, currentCount + delta);
+      const validation = validateVariantQuantity(item, nextCount);
+      if (!validation.ok) return item;
       return {
         ...item,
         orderSize,
-        orderCount: nextCount,
-        quantity: computeQuantity(orderSize, nextCount),
+        orderCount: validation.quantity,
+        quantity: computeQuantity(orderSize, validation.quantity),
       };
     })
   );
@@ -682,7 +691,7 @@ function CartPageContent() {
   }, [promoMessage.tone]);
 
   const totalOrderCount = normaliseOrderCount(summary.itemsCount, 0);
-  const formattedItemsCount = formatOrderCount(totalOrderCount);
+  const formattedItemsCount = formatQuantity(totalOrderCount);
   const itemLabel = totalOrderCount === 1 ? "item" : "items";
   const cartIsEmpty = cartItems.length === 0;
 
@@ -773,7 +782,7 @@ function CartPageContent() {
                           <button
                             type="button"
                             className={styles.qtyButton}
-                            onClick={() => handleQtyChange(item.id, -ORDER_COUNT_STEP)}
+                            onClick={() => handleQtyChange(item.id, -(Number(item.stepQuantity) || ORDER_COUNT_STEP))}
                             aria-label={`Decrease order count for ${item.name}`}
                           >
                             -
@@ -784,7 +793,7 @@ function CartPageContent() {
                           <button
                             type="button"
                             className={styles.qtyButton}
-                            onClick={() => handleQtyChange(item.id, ORDER_COUNT_STEP)}
+                            onClick={() => handleQtyChange(item.id, Number(item.stepQuantity) || ORDER_COUNT_STEP)}
                             aria-label={`Increase order count for ${item.name}`}
                           >
                             +
@@ -845,6 +854,12 @@ function CartPageContent() {
                 <span>Packaging fee</span>
                 <span>{summary.packaging === 0 ? "Free" : formatCurrency(summary.packaging)}</span>
               </div>
+              {summary.handling > 0 ? (
+                <div className={styles.summaryRow}>
+                  <span>Small order handling</span>
+                  <span>{formatCurrency(summary.handling)}</span>
+                </div>
+              ) : null}
               <div className={styles.summaryRow}>
                 <span>Delivery fee</span>
                 <span>{formatCurrency(summary.delivery)}</span>

@@ -8,37 +8,35 @@ import { useNotice } from "@/components/notice-provider";
 import { readStoredUser } from "@/lib/auth";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { formatMoney } from "@/lib/region";
+import {
+  PURCHASE_MODE_LOOSE,
+  clampQuantityToRules,
+  formatQuantity,
+  formatQuantityUnit,
+  getVariantPurchaseRules,
+  validateVariantQuantity,
+} from "@/lib/purchase-quantities";
 
 const RECENTLY_VIEWED_STORAGE_KEY = "meal05_recently_viewed";
-const MIN_QUANTITY = 1;
 
 const formatUnitLabel = (unit) => {
   if (!unit) return "unit";
-  return unit;
-};
-
-const parseWholeQuantity = (value) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < MIN_QUANTITY || !Number.isInteger(parsed)) {
-    return NaN;
-  }
-  return parsed;
-};
-
-const normaliseOrderCount = (value) => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return 1;
-  }
-  return Math.max(1, Math.round(numeric));
+  return String(unit).replace(/^per\s+/i, "") || "unit";
 };
 
 const getLineKey = (item) =>
   String(item?.variantId || item?.id || item?.productId || "").trim();
 
+const normaliseOrderCount = (value, product) => {
+  const validation = validateVariantQuantity(product, value);
+  if (validation.ok) return validation.quantity;
+  return clampQuantityToRules(product, value);
+};
+
 const buildCartItem = (product, quantity, fallbackImage) => {
-  const count = normaliseOrderCount(quantity);
+  const count = normaliseOrderCount(quantity, product);
   const variantId = product.variantId ?? product.id;
+  const purchaseRules = getVariantPurchaseRules(product);
   return {
     id: variantId,
     productId: product.id,
@@ -50,6 +48,10 @@ const buildCartItem = (product, quantity, fallbackImage) => {
     packaging: product.packaging || "",
     unit: product.unit || "unit",
     price: Number(product.price || 0),
+    purchaseMode: purchaseRules.purchaseMode,
+    minQuantity: purchaseRules.minQuantity,
+    maxQuantity: purchaseRules.maxQuantity,
+    stepQuantity: purchaseRules.stepQuantity,
     orderSize: 1,
     orderCount: count,
     quantity: count,
@@ -57,12 +59,6 @@ const buildCartItem = (product, quantity, fallbackImage) => {
     note: "Added from product details",
     image: resolveProductImage(product.image, product.mainImageUrl || fallbackImage),
   };
-};
-
-const formatQuantityLabel = (value) => {
-  const numeric = parseWholeQuantity(value);
-  if (!Number.isFinite(numeric)) return "0";
-  return numeric.toLocaleString();
 };
 
 const updateRecentlyViewed = (id) => {
@@ -80,13 +76,31 @@ const updateRecentlyViewed = (id) => {
 };
 
 export default function AddToCartForm({ product, fallbackImage }) {
-  const [quantityInput, setQuantityInput] = useState("1");
+  const purchaseRules = useMemo(() => getVariantPurchaseRules(product), [product]);
+  const isLoose = purchaseRules.purchaseMode === PURCHASE_MODE_LOOSE;
+  const [quantityInput, setQuantityInput] = useState(() => String(purchaseRules.minQuantity));
   const [feedback, setFeedback] = useState({ tone: "idle", message: "" });
   const unitLabel = useMemo(() => formatUnitLabel(product.unit), [product.unit]);
   const { showNotice } = useNotice();
 
   const availableCount = useMemo(() => getAvailableCount(product?.stock), [product?.stock]);
-  const addLabel = useMemo(() => `Add · ${formatMoney(product?.price || 0)}`, [product?.price]);
+  const quantityValidation = useMemo(
+    () => validateVariantQuantity(product, quantityInput),
+    [product, quantityInput]
+  );
+  const safeQuantity = quantityValidation.ok ? quantityValidation.quantity : purchaseRules.minQuantity;
+  const lineTotal = (Number(product?.price) || 0) * safeQuantity;
+  const addLabel = useMemo(() => `Add - ${formatMoney(lineTotal)}`, [lineTotal]);
+
+  const helperLabel = useMemo(() => {
+    if (!isLoose) return `Quantity in ${unitLabel}`;
+    const parts = [`Min. ${formatQuantityUnit(purchaseRules.minQuantity, unitLabel)}`];
+    if (purchaseRules.maxQuantity != null) {
+      parts.push(`Max. ${formatQuantityUnit(purchaseRules.maxQuantity, unitLabel)}`);
+    }
+    parts.push(`Step ${formatQuantityUnit(purchaseRules.stepQuantity, unitLabel)}`);
+    return `Enter quantity - ${parts.join(", ")}`;
+  }, [isLoose, purchaseRules, unitLabel]);
 
   const isUnavailable = useMemo(() => {
     const stockClass = resolveStockClass(product?.stock);
@@ -97,12 +111,15 @@ export default function AddToCartForm({ product, fallbackImage }) {
     updateRecentlyViewed(product.id);
   }, [product.id]);
 
+  useEffect(() => {
+    setQuantityInput(String(purchaseRules.minQuantity));
+    setFeedback({ tone: "idle", message: "" });
+  }, [product.variantId, purchaseRules.minQuantity]);
+
   const resetFeedback = () => setFeedback({ tone: "idle", message: "" });
-  const parsedQuantity = parseWholeQuantity(quantityInput);
-  const safeQuantity = Number.isFinite(parsedQuantity) ? parsedQuantity : MIN_QUANTITY;
 
   const setNextQuantity = (nextValue) => {
-    const nextCount = Math.max(MIN_QUANTITY, Math.round(Number(nextValue) || MIN_QUANTITY));
+    const nextCount = clampQuantityToRules(product, nextValue);
     setQuantityInput(String(nextCount));
     resetFeedback();
   };
@@ -113,15 +130,16 @@ export default function AddToCartForm({ product, fallbackImage }) {
   };
 
   const handleDecrement = () => {
-    setNextQuantity(safeQuantity - 1);
+    setNextQuantity(safeQuantity - purchaseRules.stepQuantity);
   };
 
   const handleIncrement = () => {
+    const next = safeQuantity + purchaseRules.stepQuantity;
     if (Number.isFinite(availableCount)) {
-      setNextQuantity(Math.min(safeQuantity + 1, availableCount || MIN_QUANTITY));
+      setNextQuantity(Math.min(next, availableCount || purchaseRules.minQuantity));
       return;
     }
-    setNextQuantity(safeQuantity + 1);
+    setNextQuantity(next);
   };
 
   const handleAddToCart = useCallback(async () => {
@@ -131,12 +149,14 @@ export default function AddToCartForm({ product, fallbackImage }) {
       return;
     }
 
-    const parsedQuantity = parseWholeQuantity(quantityInput);
+    const validation = validateVariantQuantity(product, quantityInput);
 
-    if (!Number.isFinite(parsedQuantity)) {
-      setFeedback({ tone: "error", message: "Enter a valid whole number (1 or more)." });
+    if (!validation.ok) {
+      setFeedback({ tone: "error", message: validation.error });
       return;
     }
+
+    const parsedQuantity = validation.quantity;
 
     if (isUnavailable) {
       setFeedback({ tone: "error", message: "This item is out of stock." });
@@ -147,7 +167,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
       showNotice({
         tone: "info",
         title: "Limited stock",
-        message: `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available.`,
+        message: `Only ${formatQuantity(availableCount)} ${unitLabel} available.`,
         autoClose: true,
       });
       return;
@@ -168,12 +188,17 @@ export default function AddToCartForm({ product, fallbackImage }) {
 
     if (index >= 0) {
       const existing = items[index];
-      const nextCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0) + parsedQuantity;
+      const nextCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, product) + parsedQuantity;
+      const nextValidation = validateVariantQuantity(product, nextCount);
+      if (!nextValidation.ok) {
+        setFeedback({ tone: "error", message: nextValidation.error });
+        return;
+      }
       if (Number.isFinite(availableCount) && nextCount > availableCount) {
         showNotice({
           tone: "info",
           title: "Limited stock",
-          message: `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available.`,
+          message: `Only ${formatQuantity(availableCount)} ${unitLabel} available.`,
           autoClose: true,
         });
         return;
@@ -206,27 +231,28 @@ export default function AddToCartForm({ product, fallbackImage }) {
 
     setFeedback({
       tone: "success",
-      message: `${product.name} (${formatQuantityLabel(parsedQuantity)} item${parsedQuantity === 1 ? "" : "s"}) added to cart.`,
+      message: `${product.name} (${formatQuantityUnit(parsedQuantity, unitLabel)}) added to cart.`,
     });
-  }, [availableCount, fallbackImage, isUnavailable, product, quantityInput, showNotice]);
+  }, [availableCount, fallbackImage, isUnavailable, product, quantityInput, showNotice, unitLabel]);
 
   const handleBlur = () => {
-    const parsed = parseWholeQuantity(quantityInput);
-    setQuantityInput(Number.isFinite(parsed) ? String(parsed) : String(MIN_QUANTITY));
+    const validation = validateVariantQuantity(product, quantityInput);
+    setQuantityInput(String(validation.ok ? validation.quantity : clampQuantityToRules(product, quantityInput)));
   };
 
   return (
     <div className="product-detail-actions">
-      <label htmlFor="product-quantity" className="product-detail-actions__label sr-only">
+      <label htmlFor="product-quantity" className="product-detail-actions__label">
         Quantity ({unitLabel})
       </label>
+      <p className="product-detail-actions__hint">{helperLabel}</p>
       <div className="product-detail-actions__controls">
         <div className="product-detail-actions__quantity" role="group" aria-label={`Quantity in ${unitLabel}`}>
           <button
             type="button"
             className="product-detail-actions__stepper"
             onClick={handleDecrement}
-            disabled={safeQuantity <= MIN_QUANTITY}
+            disabled={safeQuantity <= purchaseRules.minQuantity}
             aria-label="Decrease quantity"
           >
             -
@@ -234,9 +260,10 @@ export default function AddToCartForm({ product, fallbackImage }) {
           <input
             id="product-quantity"
             type="number"
-            min={MIN_QUANTITY}
-            step="1"
-            inputMode="numeric"
+            min={purchaseRules.minQuantity}
+            max={purchaseRules.maxQuantity ?? undefined}
+            step={purchaseRules.stepQuantity}
+            inputMode={isLoose ? "decimal" : "numeric"}
             value={quantityInput}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -262,6 +289,11 @@ export default function AddToCartForm({ product, fallbackImage }) {
           <span>{isUnavailable ? "Out of stock" : addLabel}</span>
         </button>
       </div>
+      {isLoose ? (
+        <p className="product-detail-actions__estimate">
+          {formatMoney(product?.price || 0)} per {unitLabel} - total {formatMoney(lineTotal)}
+        </p>
+      ) : null}
       {feedback.message ? (
         <p
           className={`product-detail-actions__feedback product-detail-actions__feedback--${feedback.tone}`.trim()}

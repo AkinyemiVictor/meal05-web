@@ -10,14 +10,24 @@ import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
 import { resolveProductImage } from "@/lib/product-image";
 import { readStoredUser } from "@/lib/auth";
+import {
+  PURCHASE_MODE_FIXED,
+  PURCHASE_MODE_LOOSE,
+  clampQuantityToRules,
+  formatQuantity,
+  getVariantPurchaseRules,
+  normalizePurchaseMode,
+  validateVariantQuantity,
+} from "@/lib/purchase-quantities";
 
-const ORDER_SIZE = 1;
 const CATEGORY_LABELS = new Map(categories.map((category) => [category.slug, category.label]));
 
-const normaliseOrderCount = (value, fallback = 1) => {
+const normaliseOrderCount = (value, variant = {}, fallback = 1) => {
+  const validation = validateVariantQuantity(variant, value);
+  if (validation.ok) return validation.quantity;
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) return fallback;
-  return Math.max(1, Math.round(numeric));
+  return clampQuantityToRules(variant, numeric);
 };
 
 const getLineKey = (item) => String(item?.variantId || item?.id || item?.productId || "");
@@ -91,6 +101,8 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
   const price = getVariantPrice(variant, product);
   const variantName = buildVariantName(variant);
   const stock = variant?.stock ?? product?.stock ?? "In Stock";
+  const purchaseRules = getVariantPurchaseRules(variant);
+  const quantity = normaliseOrderCount(orderCount, variant);
   return {
     id: lineId,
     productId: product?.id,
@@ -102,9 +114,13 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
     packaging: variant?.packaging || product?.packaging || "",
     unit,
     price,
-    orderSize: ORDER_SIZE,
-    orderCount,
-    quantity: orderCount,
+    purchaseMode: purchaseRules.purchaseMode,
+    minQuantity: purchaseRules.minQuantity,
+    maxQuantity: purchaseRules.maxQuantity,
+    stepQuantity: purchaseRules.stepQuantity,
+    orderSize: 1,
+    orderCount: quantity,
+    quantity,
     stock,
     note: "Added from quick add",
     image: getVariantImage(variant, product, fallbackImage),
@@ -121,6 +137,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   const [detail, setDetail] = useState(null);
   const [variations, setVariations] = useState([]);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const [purchaseMode, setPurchaseMode] = useState(PURCHASE_MODE_FIXED);
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState("");
 
@@ -158,6 +175,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setDetail(null);
       setVariations([]);
       setSelectedVariant(null);
+      setPurchaseMode(PURCHASE_MODE_FIXED);
       setQuantity(1);
       return;
     }
@@ -172,6 +190,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     setDetail(null);
     setVariations([]);
     setSelectedVariant(null);
+    setPurchaseMode(PURCHASE_MODE_FIXED);
     setQuantity(1);
 
     const applyData = (payload) => {
@@ -192,6 +211,8 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setDetail(detailProduct);
       setVariations(list);
       setSelectedVariant(defaultVariant);
+      setPurchaseMode(normalizePurchaseMode(defaultVariant?.purchaseMode));
+      setQuantity(getVariantPurchaseRules(defaultVariant).minQuantity);
       setStatus("ready");
       cacheRef.current.set(cacheKey, { product: detailProduct, variations: list });
     };
@@ -218,13 +239,34 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   }, [isOpen, productId]);
 
   const displayProduct = detail || product || null;
-  const effectiveVariant = selectedVariant || pickDefaultVariant(variations, displayProduct);
+  const fixedVariations = useMemo(
+    () => variations.filter((entry) => normalizePurchaseMode(entry?.purchaseMode) === PURCHASE_MODE_FIXED),
+    [variations]
+  );
+  const looseVariations = useMemo(
+    () => variations.filter((entry) => normalizePurchaseMode(entry?.purchaseMode) === PURCHASE_MODE_LOOSE),
+    [variations]
+  );
+  const activeVariations = purchaseMode === PURCHASE_MODE_LOOSE ? looseVariations : fixedVariations;
+  const effectiveVariant = selectedVariant || pickDefaultVariant(activeVariations, displayProduct);
+  const purchaseRules = useMemo(() => getVariantPurchaseRules(effectiveVariant), [effectiveVariant]);
+
+  useEffect(() => {
+    const pool = activeVariations.length ? activeVariations : variations;
+    const currentId = String(selectedVariant?.variationId || selectedVariant?.id || "");
+    const stillValid = currentId && pool.some((entry) => String(entry?.variationId || entry?.id || "") === currentId);
+    if (!stillValid) {
+      const next = pickDefaultVariant(pool, displayProduct);
+      setSelectedVariant(next);
+      setQuantity(getVariantPurchaseRules(next).minQuantity);
+    }
+  }, [activeVariations, displayProduct, selectedVariant?.id, selectedVariant?.variationId, variations]);
   const priceLabel = useMemo(() => {
     if (!displayProduct) return "";
     return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), getVariantUnit(effectiveVariant, displayProduct));
   }, [displayProduct, effectiveVariant]);
   const addTotalLabel = useMemo(() => {
-    const price = getVariantPrice(effectiveVariant, displayProduct) * normaliseOrderCount(quantity, 1);
+    const price = getVariantPrice(effectiveVariant, displayProduct) * normaliseOrderCount(quantity, effectiveVariant, 1);
     return formatProductPrice(price, "").replace(/\/$/, "");
   }, [displayProduct, effectiveVariant, quantity]);
   const categoryLabel = useMemo(() => {
@@ -257,7 +299,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         }
         return;
       }
-      const safeQty = normaliseOrderCount(qty ?? quantity, 1);
+      const validation = validateVariantQuantity(targetVariant, qty ?? quantity);
+      if (!validation.ok) {
+        setError(validation.error);
+        return;
+      }
+      const safeQty = validation.quantity;
       const availableCount = getAvailableCount(getStockValue(targetVariant, baseProduct));
 
       setStatus("adding");
@@ -277,8 +324,14 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
         if (index >= 0) {
           const existing = items[index];
-          const existingCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, 0);
+          const existingCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, targetVariant, 0);
           const nextCount = existingCount + safeQty;
+          const nextValidation = validateVariantQuantity(targetVariant, nextCount);
+          if (!nextValidation.ok) {
+            setError(nextValidation.error);
+            setStatus("ready");
+            return;
+          }
           if (Number.isFinite(availableCount) && nextCount > availableCount) {
             const message = `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available.`;
             if (isDropdown) {
@@ -382,11 +435,38 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       ) : status === "ready" || status === "adding" ? (
         <>
           {variations.length ? (
+            <>
+            {fixedVariations.length && looseVariations.length ? (
+              <div className="product-variant-picker__section">
+                <p className="product-variant-picker__label">Purchase mode</p>
+                <div className="product-variant-picker__options" role="list">
+                  <button
+                    type="button"
+                    className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_FIXED ? " is-active" : ""}`.trim()}
+                    onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
+                    aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
+                  >
+                    <span className="product-variant-picker__option-main">Fixed pack</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_LOOSE ? " is-active" : ""}`.trim()}
+                    onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
+                    aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
+                  >
+                    <span className="product-variant-picker__option-main">Loose quantity</span>
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {purchaseMode === PURCHASE_MODE_FIXED && activeVariations.length ? (
             <VariantPicker
-              variations={variations}
+              variations={activeVariations}
               selectedId={effectiveVariant?.variationId || effectiveVariant?.id}
               onChange={(variant) => setSelectedVariant(variant)}
             />
+            ) : null}
+            </>
           ) : null}
 
           <div className="quick-add-summary">
@@ -397,29 +477,32 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             <div className="quick-add-qty">
               <button
                 type="button"
-                onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                disabled={quantity <= 1}
+                onClick={() => setQuantity((prev) => clampQuantityToRules(effectiveVariant, prev - purchaseRules.stepQuantity))}
+                disabled={quantity <= purchaseRules.minQuantity}
                 aria-label="Decrease quantity"
               >
                 -
               </button>
               <input
                 type="number"
-                min="1"
-                step="1"
+                min={purchaseRules.minQuantity}
+                max={purchaseRules.maxQuantity ?? undefined}
+                step={purchaseRules.stepQuantity}
+                inputMode={purchaseRules.purchaseMode === PURCHASE_MODE_LOOSE ? "decimal" : "numeric"}
                 value={quantity}
                 onChange={(event) => {
                   const next = Number(event.target.value);
-                  setQuantity(Number.isInteger(next) && next >= 1 ? next : 1);
+                  setQuantity(Number.isFinite(next) && next > 0 ? next : purchaseRules.minQuantity);
                 }}
+                onBlur={() => setQuantity(clampQuantityToRules(effectiveVariant, quantity))}
               />
               <button
                 type="button"
                 onClick={() => {
                   const availableCount = getAvailableCount(getStockValue(effectiveVariant, displayProduct));
                   setQuantity((prev) => {
-                    const next = prev + 1;
-                    return Number.isFinite(availableCount) ? Math.min(next, Math.max(1, availableCount)) : next;
+                    const next = prev + purchaseRules.stepQuantity;
+                    return Number.isFinite(availableCount) ? Math.min(next, Math.max(purchaseRules.minQuantity, availableCount)) : next;
                   });
                 }}
                 disabled={Number.isFinite(getAvailableCount(getStockValue(effectiveVariant, displayProduct))) && quantity >= getAvailableCount(getStockValue(effectiveVariant, displayProduct))}

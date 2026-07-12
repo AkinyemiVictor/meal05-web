@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
-import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
+import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { sendAdminOrderAlertEmail, sendOrderConfirmationEmail } from "@/lib/notify";
 import { resolveProductImage } from "@/lib/product-image";
@@ -16,6 +16,7 @@ import { insertOrderStatusHistory } from "@/lib/order-status-history";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { toCategorySlug } from "@/lib/categories-server";
 import { isCheckoutPaymentMethodEnabled } from "@/lib/payments/payment-methods";
+import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export const dynamic = "force-dynamic";
 const allowedMethodsHeader = { Allow: "GET, POST" };
   const tooManyRequests = (rl) => applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rl);
 const ORDER_SELECT_CANDIDATES = [
+  "id, total, subtotal, packaging_fee, handling_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
   "id, total, subtotal, packaging_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
   "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
 ];
@@ -39,29 +41,15 @@ const isUnknownColumnError = (message) => {
 export async function POST(request) {
   let rl = await checkRateLimit({ request, id: "orders:create:ip", limit: 30, windowMs: 60_000 });
   if (!rl.allowed) return tooManyRequests(rl);
-  if (!isTrustedRequestOrigin(request)) {
+  const admin = getSupabaseAdminClient();
+  const originTrust = await getOriginTrustContext(request, admin);
+  if (!originTrust.trusted) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Forbidden origin" }, { status: 403 }), rl);
   }
 
-  const admin = getSupabaseAdminClient();
   const auth = getSupabaseRouteClient(await cookies());
   const { data: { user: cookieUser }, error: authErr } = await auth.auth.getUser();
-  let user = cookieUser || null;
-  if (!user) {
-    const header = request.headers.get("authorization") || request.headers.get("Authorization") || "";
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    const token = match?.[1]?.trim();
-    if (token) {
-      try {
-        const { data: tokenData, error: tokenErr } = await admin.auth.getUser(token);
-        if (!tokenErr && tokenData?.user) {
-          user = tokenData.user;
-        }
-      } catch {
-        /* noop */
-      }
-    }
-  }
+  let user = originTrust.bearerUser || cookieUser || null;
   if (authErr && !user) return applyRateLimitHeaders(NextResponse.json({ error: authErr.message }, { status: 401 }), rl);
   if (!user) return applyRateLimitHeaders(NextResponse.json({ error: "Not authenticated" }, { status: 401 }), rl);
 
@@ -103,7 +91,7 @@ export async function POST(request) {
         z.object({
           product_id: z.union([z.string(), z.number()]).optional(),
           variant_id: z.union([z.string(), z.number()]).optional(),
-          quantity: z.number().int().positive().max(9999).optional(),
+          quantity: z.number().positive().max(9999).optional(),
           unit_price_at_add: z.number().nonnegative().optional(),
           variant_name: z.string().max(200).optional(),
           product_name: z.string().max(200).optional(),
@@ -143,7 +131,7 @@ export async function POST(request) {
         const productId = item.product_id ?? item.productId ?? null;
         const variantId = item.variant_id ?? item.variantId ?? null;
         const qtyRaw = Number(item.quantity);
-        const quantity = Number.isFinite(qtyRaw) && qtyRaw > 0 ? Math.round(qtyRaw) : 1;
+        const quantity = Number.isFinite(qtyRaw) && qtyRaw > 0 ? roundQuantity(qtyRaw) : 1;
         if (productId == null && variantId == null) return null;
         return {
           id: item.id ?? `payload-${index + 1}`,
@@ -239,11 +227,11 @@ export async function POST(request) {
     const query = !hasMissingVariantIds && payloadVariantIds.length
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type, purchase_mode, min_quantity, max_quantity, step_quantity")
           .in("id", payloadVariantIds)
       : admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type, purchase_mode, min_quantity, max_quantity, step_quantity")
           .in("product_id", productIds);
     const result = await query.eq("market_id", catalog.market.id);
     if (result.error) {
@@ -385,7 +373,7 @@ export async function POST(request) {
         issues.push({ variantId, productId: variant.product_id, message: "Product option is unavailable in this market" });
         return;
       }
-      variantQuantities.set(variantId, (variantQuantities.get(variantId) || 0) + qty);
+      variantQuantities.set(variantId, roundQuantity((variantQuantities.get(variantId) || 0) + qty));
   });
   if (variantQuantities.size) {
     variantQuantities.forEach((requested, variantId) => {
@@ -403,12 +391,23 @@ export async function POST(request) {
         cartVariantNames.get(variantId) ||
         (row?.product_id != null ? cartProductNames.get(String(row.product_id)) : "") ||
         "";
+      const quantityValidation = validateVariantQuantity(row, requested);
+      if (!quantityValidation.ok) {
+        issues.push({
+          variantId,
+          productId: row?.product_id ?? null,
+          requested: formatQuantity(requested),
+          product: label,
+          message: quantityValidation.error,
+        });
+        return;
+      }
       const availableRaw = parseAvailableStock(row);
       if (availableRaw === undefined) {
         issues.push({
           variantId,
           productId: row?.product_id ?? null,
-          requested,
+          requested: formatQuantity(requested),
           available: null,
           product: label,
           message: "Stock data unavailable",
@@ -423,7 +422,7 @@ export async function POST(request) {
         issues.push({
           variantId,
           productId: row?.product_id ?? null,
-          requested,
+          requested: formatQuantity(requested),
           available,
           product: label,
           message: "Out of stock",
@@ -433,10 +432,10 @@ export async function POST(request) {
         issues.push({
           variantId,
           productId: row?.product_id ?? null,
-          requested,
+          requested: formatQuantity(requested),
           available,
           product: label,
-          message: `Not enough stock: requested ${requested}, available ${available}`,
+          message: `Not enough stock: requested ${formatQuantity(requested)}, available ${formatQuantity(available)}`,
         });
       }
     });
@@ -694,9 +693,12 @@ export async function POST(request) {
   let orderErr = null;
   for (const select of ORDER_SELECT_CANDIDATES) {
     const includePackagingFee = select.includes("packaging_fee");
-    const orderRow = includePackagingFee
-      ? { ...orderRowBase, packaging_fee: finalSummary.packagingFee }
-      : orderRowBase;
+    const includeHandlingFee = select.includes("handling_fee");
+    const orderRow = {
+      ...orderRowBase,
+      ...(includePackagingFee ? { packaging_fee: finalSummary.packagingFee } : {}),
+      ...(includeHandlingFee ? { handling_fee: finalSummary.handlingFee } : {}),
+    };
     const result = await admin.from("orders").insert(orderRow).select(select).single();
     if (!result.error) {
       orderIns = result.data;
@@ -828,6 +830,7 @@ export async function POST(request) {
         total: Math.round(orderIns.total ?? finalSummary.total),
         subtotal: Math.round(orderIns.subtotal ?? finalSummary.subtotal),
         packagingFee: Math.round(orderIns.packaging_fee ?? finalSummary.packagingFee),
+        handlingFee: Math.round(orderIns.handling_fee ?? finalSummary.handlingFee),
         deliveryFee: Math.round(orderIns.delivery_fee ?? finalSummary.deliveryFee),
         itemDiscount: Math.round(orderIns.item_discount ?? finalSummary.itemDiscount),
         deliveryDiscount: Math.round(orderIns.delivery_discount ?? finalSummary.deliveryDiscount),
@@ -877,6 +880,7 @@ export async function POST(request) {
         total: Math.round(orderIns.total ?? finalSummary.total),
         subtotal: Math.round(orderIns.subtotal ?? finalSummary.subtotal),
         packagingFee: Math.round(orderIns.packaging_fee ?? finalSummary.packagingFee),
+        handlingFee: Math.round(orderIns.handling_fee ?? finalSummary.handlingFee),
         deliveryFee: Math.round(orderIns.delivery_fee ?? finalSummary.deliveryFee),
         itemDiscount: Math.round(orderIns.item_discount ?? finalSummary.itemDiscount),
         deliveryDiscount: Math.round(orderIns.delivery_discount ?? finalSummary.deliveryDiscount),

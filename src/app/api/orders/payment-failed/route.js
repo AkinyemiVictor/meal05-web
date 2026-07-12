@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
-import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
+import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
@@ -17,7 +17,9 @@ const schema = z.object({
   reason: z.string().max(300).optional(),
 });
 
-const getAuthenticatedUser = async (request, admin) => {
+const getAuthenticatedUser = async (request, admin, bearerUser = null) => {
+  if (bearerUser) return { user: bearerUser, error: null };
+
   const auth = getSupabaseRouteClient(await cookies());
   const {
     data: { user: cookieUser },
@@ -41,10 +43,12 @@ const getAuthenticatedUser = async (request, admin) => {
 export async function POST(request) {
   const rl = await checkRateLimit({ request, id: "orders:payment-failed", limit: 30, windowMs: 60_000 });
   if (!rl.allowed) return json({ error: "Too many requests" }, 429, rl);
-  if (!isTrustedRequestOrigin(request)) return json({ error: "Forbidden origin" }, 403, rl);
 
   const admin = getSupabaseAdminClient();
-  const { user, error: authErr } = await getAuthenticatedUser(request, admin);
+  const originTrust = await getOriginTrustContext(request, admin);
+  if (!originTrust.trusted) return json({ error: "Forbidden origin" }, 403, rl);
+
+  const { user, error: authErr } = await getAuthenticatedUser(request, admin, originTrust.bearerUser);
   if (authErr && !user) return json({ error: authErr.message || "Not authenticated" }, 401, rl);
   if (!user) return json({ error: "Not authenticated" }, 401, rl);
 

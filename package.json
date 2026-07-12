@@ -7,7 +7,7 @@
         "dev:fresh": "node scripts/clean-next-cache.mjs && next dev",
         "build": "next build",
         "start": "next start",
-        "lint": "eslint",
+        "lint": "node --max-old-space-size=4096 ./node_modules/eslint/bin/eslint.js --cache",
         "test": "node --test",
         "build:worker": "opennextjs-cloudflare build",
         "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",

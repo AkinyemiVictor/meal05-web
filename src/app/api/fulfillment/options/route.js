@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { getDefaultMarket } from "@/lib/market-server";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
-import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
+import { getOriginTrustContext } from "@/lib/api/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,11 +21,13 @@ export async function GET(request) {
 
 export async function POST(request) {
   const rl = await checkRateLimit({ request, id: "fulfillment:quotes", limit: 30, windowMs: 60_000 });
-  if (!isTrustedRequestOrigin(request)) return applyRateLimitHeaders(NextResponse.json({ error: "Forbidden origin" }, { status: 403 }), rl);
+  const admin = getSupabaseAdminClient();
+  const originTrust = await getOriginTrustContext(request, admin);
+  if (!originTrust.trusted) return applyRateLimitHeaders(NextResponse.json({ error: "Forbidden origin" }, { status: 403 }), rl);
   try {
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return applyRateLimitHeaders(NextResponse.json({ error: "Valid coordinates are required." }, { status: 400 }), rl);
-    const market = await getDefaultMarket(); const admin = getSupabaseAdminClient();
+    const market = await getDefaultMarket();
     const { data: zones, error: zoneError } = await admin.rpc("resolve_delivery_zone", { p_lat: parsed.data.latitude, p_lng: parsed.data.longitude, p_market_id: market.id });
     if (zoneError) throw zoneError; const zone = zones?.[0];
     if (!zone) return applyRateLimitHeaders(NextResponse.json({ serviceable: false, quotes: [] }), rl);

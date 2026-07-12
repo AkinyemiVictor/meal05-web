@@ -16,6 +16,7 @@ import {
 import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
 import { resolveProductImage } from "@/lib/product-image";
 import useProducts from "@/lib/use-products";
+import { formatQuantity } from "@/lib/purchase-quantities";
 
 export default function CheckoutSummary({
   deliverySettings,
@@ -144,7 +145,7 @@ export default function CheckoutSummary({
                   <span>
                     <span className="checkout-summary__name">{item?.name ?? "Fresh produce"}</span>
                     <span className="checkout-summary__unit">
-                      {quantity.toLocaleString()} {product?.unit || item?.unit || "item"}
+                      {formatQuantity(quantity)} {product?.unit || item?.unit || "item"}
                     </span>
                   </span>
                 </div>
@@ -166,6 +167,12 @@ export default function CheckoutSummary({
           <span>{copy.checkout.labels.packaging}</span>
           <span>{Number(summary.packagingFee || 0) === 0 ? copy.checkout.freeDeliveryLabel : formatProductPrice(summary.packagingFee)}</span>
         </div>
+        {summary.handlingFee > 0 ? (
+          <div>
+            <span>Small order handling</span>
+            <span>{formatProductPrice(summary.handlingFee)}</span>
+          </div>
+        ) : null}
         <div>
           <span>
             {copy.checkout.labels.delivery}

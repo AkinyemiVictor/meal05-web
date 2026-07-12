@@ -2,6 +2,7 @@
 
 import { readStoredUser } from "./auth";
 import { trackAddToCart } from "./analytics";
+import { roundQuantity } from "./purchase-quantities";
 
 const BASE_KEY = "meal05_cart";
 export const CART_UPDATED_EVENT = "cart-updated";
@@ -10,7 +11,7 @@ const GUEST_KEY = `${BASE_KEY}_guest`;
 const normaliseEmail = (email) =>
   typeof email === "string" ? email.trim().toLowerCase() : "";
 
-const roundToTwo = (value) => Math.round(Number(value || 0) * 100) / 100;
+const roundToTwo = (value) => roundQuantity(value);
 
 const getLineKey = (item) =>
   String(item?.variantId || item?.id || item?.productId || "").trim();
@@ -31,7 +32,7 @@ const getLineQuantity = (item) => {
 
 const getLineCount = (item) => {
   const orderCount = Number(item?.orderCount ?? item?.quantity);
-  if (Number.isFinite(orderCount) && orderCount > 0) return Math.max(1, Math.round(orderCount));
+  if (Number.isFinite(orderCount) && orderCount > 0) return Math.max(0.001, roundQuantity(orderCount));
   return 1;
 };
 

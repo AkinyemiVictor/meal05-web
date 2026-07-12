@@ -31,3 +31,30 @@ export const isTrustedRequestOrigin = (request) => {
 
   return allowedHosts.has(originHost);
 };
+
+export const getBearerTokenFromRequest = (request) => {
+  const header = request.headers.get("authorization") || request.headers.get("Authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || "";
+};
+
+export const getVerifiedBearerUser = async (request, adminClient) => {
+  const token = getBearerTokenFromRequest(request);
+  if (!token || !adminClient?.auth?.getUser) return null;
+
+  try {
+    const { data, error } = await adminClient.auth.getUser(token);
+    if (error || !data?.user) return null;
+    return data.user;
+  } catch {
+    return null;
+  }
+};
+
+export const getOriginTrustContext = async (request, adminClient) => {
+  const bearerUser = await getVerifiedBearerUser(request, adminClient);
+  return {
+    trusted: Boolean(bearerUser) || isTrustedRequestOrigin(request),
+    bearerUser,
+  };
+};

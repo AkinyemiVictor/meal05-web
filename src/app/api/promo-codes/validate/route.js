@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
-import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
+import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { respondZodError } from "@/lib/api/validate";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
 import { getDefaultMarket } from "@/lib/market-server";
@@ -16,7 +16,9 @@ export async function POST(request) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rl);
   }
 
-  if (!isTrustedRequestOrigin(request)) {
+  const admin = getSupabaseAdminClient();
+  const originTrust = await getOriginTrustContext(request, admin);
+  if (!originTrust.trusted) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Forbidden origin" }, { status: 403 }), rl);
   }
 
@@ -41,7 +43,7 @@ export async function POST(request) {
   try {
     const market = await getDefaultMarket();
     const result = await validatePromoCode({
-      admin: getSupabaseAdminClient(),
+      admin,
       code: parsed.data.code,
       subtotal: parsed.data.subtotal,
       itemsCount: parsed.data.items_count,

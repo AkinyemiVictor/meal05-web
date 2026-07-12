@@ -7,6 +7,7 @@ import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
+import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 
 const pickFirst = (row, fields = []) => {
   for (const key of fields) {
@@ -385,6 +386,7 @@ const fetchProductByIdUncached = async (id) => {
         const rangeLabel = buildRangeLabel(row);
         const sizeLabel = rangeLabel || row.size_label || row.sizeLabel || row.size || undefined;
         const stock = resolveVariantStock(row);
+        const purchaseRules = getVariantPurchaseRules(row);
         const variantPrice = pickFirstNumber(row, [
           "price",
           "unit_price",
@@ -419,6 +421,10 @@ const fetchProductByIdUncached = async (id) => {
           oldPrice: variantOldPrice != null ? variantOldPrice : undefined,
           unit: pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) || marketData.unit || undefined,
           currencyCode: row.currency_code || catalog.market.currencyCode,
+          purchaseMode: purchaseRules.purchaseMode,
+          minQuantity: purchaseRules.minQuantity,
+          maxQuantity: purchaseRules.maxQuantity,
+          stepQuantity: purchaseRules.stepQuantity,
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,

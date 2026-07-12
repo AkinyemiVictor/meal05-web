@@ -6,6 +6,7 @@ import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { respondZodError } from "@/lib/api/validate";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
+import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ const loadVariantStock = async (client, variantId, marketId) => {
 
   const result = await client
     .from("product_variants")
-    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code")
+    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity")
     .eq("id", id)
     .eq("market_id", marketId)
     .maybeSingle();
@@ -44,7 +45,7 @@ export async function GET(req) {
   if (!variantIds.length) return applyRateLimitHeaders(new Response(JSON.stringify([]), { status: 200 }), rl);
   const { data: variants, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code")
+    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity")
     .in("id", variantIds)
     .eq("market_id", catalog.market.id)
     .eq("is_active", true);
@@ -61,6 +62,10 @@ export async function GET(req) {
       product_name: listing?.local_name || row?.products?.name || row?.product_name || "",
       unit_price_at_add: Number(variant.price),
       currency_code: catalog.market.currencyCode,
+      purchase_mode: variant.purchase_mode,
+      min_quantity: variant.min_quantity,
+      max_quantity: variant.max_quantity,
+      step_quantity: variant.step_quantity,
     }];
   });
   return applyRateLimitHeaders(new Response(JSON.stringify(validRows), { status: 200 }), rl);
@@ -86,13 +91,14 @@ export async function POST(req) {
     variant_name: z.string().min(1).max(200).optional(),
     product_name: z.string().min(1).max(200).optional(),
     unit_price_at_add: z.number().nonnegative().optional(),
-    quantity: z.number().int().positive().max(999).optional().default(1),
+    quantity: z.number().positive().max(9999).optional().default(1),
   });
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
     return respondZodError(parsed.error);
   }
-  const { product_id, variant_id, product_name, quantity } = parsed.data;
+  const { product_id, variant_id, product_name } = parsed.data;
+  const quantity = roundQuantity(parsed.data.quantity);
 
   const variantKey = String(variant_id);
   const { row: variantStock, error: stockError } = await loadVariantStock(admin, variantKey, catalog.market.id);
@@ -123,7 +129,17 @@ export async function POST(req) {
   if (findError) return new Response(JSON.stringify({ error: findError }), { status: 400 });
 
   const existing = Array.isArray(existingRows) ? existingRows[0] : null;
-  const nextQuantity = Number(existing?.quantity || 0) + quantity;
+  const nextQuantity = roundQuantity(Number(existing?.quantity || 0) + quantity);
+  const quantityValidation = validateVariantQuantity(stockSource, nextQuantity);
+  if (!quantityValidation.ok) {
+    return new Response(
+      JSON.stringify({
+        error: quantityValidation.error,
+        requested: nextQuantity,
+      }),
+      { status: 400 }
+    );
+  }
   const availableCount = getAvailableCount(resolveStockValueFromRow(stockSource));
   if (availableCount === 0) {
     return new Response(JSON.stringify({ error: "This option is out of stock", available: 0 }), { status: 409 });
@@ -133,7 +149,7 @@ export async function POST(req) {
       JSON.stringify({
         error: `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available`,
         available: availableCount,
-        requested: nextQuantity,
+        requested: formatQuantity(nextQuantity),
       }),
       { status: 409 }
     );

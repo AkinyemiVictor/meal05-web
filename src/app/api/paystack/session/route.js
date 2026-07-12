@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
-import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
+import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { issuePaystackReference } from "@/lib/payments/paystack-reference";
 
 export const runtime = "nodejs";
@@ -20,27 +20,14 @@ const errorJson = (message, status, rl) =>
 export async function POST(request) {
   let rl = await checkRateLimit({ request, id: "paystack:session:ip", limit: 60, windowMs: 60_000 });
   if (!rl.allowed) return errorJson("Too many requests", 429, rl);
-  if (!isTrustedRequestOrigin(request)) return errorJson("Forbidden origin", 403, rl);
 
   const admin = getSupabaseAdminClient();
+  const originTrust = await getOriginTrustContext(request, admin);
+  if (!originTrust.trusted) return errorJson("Forbidden origin", 403, rl);
+
   const auth = getSupabaseRouteClient(await cookies());
   const { data: { user: cookieUser }, error: authErr } = await auth.auth.getUser();
-  let user = cookieUser || null;
-  if (!user) {
-    const header = request.headers.get("authorization") || request.headers.get("Authorization") || "";
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    const token = match?.[1]?.trim();
-    if (token) {
-      try {
-        const { data: tokenData, error: tokenErr } = await admin.auth.getUser(token);
-        if (!tokenErr && tokenData?.user) {
-          user = tokenData.user;
-        }
-      } catch {
-        /* noop */
-      }
-    }
-  }
+  let user = originTrust.bearerUser || cookieUser || null;
   if (authErr && !user) return errorJson(authErr.message, 401, rl);
   if (!user) return errorJson("Not authenticated", 401, rl);
 

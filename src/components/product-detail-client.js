@@ -7,6 +7,7 @@ import AddToCartForm from "@/components/add-to-cart-form";
 import VariantPicker from "@/components/variant-picker";
 import { resolveProductImage } from "@/lib/product-image";
 import { formatMoney } from "@/lib/region";
+import { PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE, normalizePurchaseMode } from "@/lib/purchase-quantities";
 import { IconSparkles } from "@tabler/icons-react";
 
 const isVariantInactive = (variant) => {
@@ -52,12 +53,35 @@ const formatCategory = (value) =>
 export default function ProductDetailClient({ product, variations = [], fallbackImage, ratings }) {
   const defaultVariant = useMemo(() => pickDefaultVariant(variations), [variations]);
   const [selectedVariant, setSelectedVariant] = useState(defaultVariant || null);
+  const [purchaseMode, setPurchaseMode] = useState(() => normalizePurchaseMode(defaultVariant?.purchaseMode));
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [saved, setSaved] = useState(false);
+  const fixedVariations = useMemo(
+    () => variations.filter((variant) => normalizePurchaseMode(variant?.purchaseMode) === PURCHASE_MODE_FIXED),
+    [variations]
+  );
+  const looseVariations = useMemo(
+    () => variations.filter((variant) => normalizePurchaseMode(variant?.purchaseMode) === PURCHASE_MODE_LOOSE),
+    [variations]
+  );
+  const hasFixedVariations = fixedVariations.length > 0;
+  const hasLooseVariations = looseVariations.length > 0;
+  const selectableVariations = purchaseMode === PURCHASE_MODE_LOOSE ? looseVariations : fixedVariations;
 
   useEffect(() => {
     setSelectedVariant(defaultVariant || null);
+    setPurchaseMode(normalizePurchaseMode(defaultVariant?.purchaseMode));
   }, [defaultVariant]);
+
+  useEffect(() => {
+    const pool = selectableVariations.length ? selectableVariations : variations;
+    const currentStillValid = pool.some(
+      (variant) => String(variant?.variationId || variant?.id || "") === String(selectedVariant?.variationId || selectedVariant?.id || "")
+    );
+    if (!currentStillValid) {
+      setSelectedVariant(pickDefaultVariant(pool) || null);
+    }
+  }, [purchaseMode, selectableVariations, selectedVariant?.id, selectedVariant?.variationId, variations]);
 
   useEffect(() => {
     setActiveImageIndex(0);
@@ -83,6 +107,10 @@ export default function ProductDetailClient({ product, variations = [], fallback
       image: resolveProductImage(selectedVariant.image, product.image, fallbackImage),
       variantId: selectedVariant.variationId,
       variantName,
+      purchaseMode: selectedVariant.purchaseMode,
+      minQuantity: selectedVariant.minQuantity,
+      maxQuantity: selectedVariant.maxQuantity,
+      stepQuantity: selectedVariant.stepQuantity,
     };
   }, [product, selectedVariant, fallbackImage]);
 
@@ -191,9 +219,33 @@ export default function ProductDetailClient({ product, variations = [], fallback
           ) : null}
         </div>
 
-        {Array.isArray(variations) && variations.length ? (
+        {hasFixedVariations && hasLooseVariations ? (
+          <div className="product-variant-picker__section">
+            <p className="product-variant-picker__label">Purchase mode</p>
+            <div className="product-variant-picker__options" role="list">
+              <button
+                type="button"
+                className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_FIXED ? " is-active" : ""}`.trim()}
+                onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
+                aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
+              >
+                <span className="product-variant-picker__option-main">Fixed pack</span>
+              </button>
+              <button
+                type="button"
+                className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_LOOSE ? " is-active" : ""}`.trim()}
+                onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
+                aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
+              >
+                <span className="product-variant-picker__option-main">Loose quantity</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {purchaseMode === PURCHASE_MODE_FIXED && selectableVariations.length ? (
           <VariantPicker
-            variations={variations}
+            variations={selectableVariations}
             selectedId={selectedVariant?.variationId}
             onChange={(v) => setSelectedVariant(v)}
           />

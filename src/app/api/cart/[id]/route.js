@@ -7,6 +7,7 @@ import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { respondZodError } from "@/lib/api/validate";
 import { getAvailableCount } from "@/lib/stock";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
+import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,12 +29,12 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const schema = z.object({ quantity: z.number().int().positive().max(999) });
+  const schema = z.object({ quantity: z.number().positive().max(9999) });
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
     return respondZodError(parsed.error);
   }
-  const quantityNum = parsed.data.quantity;
+  const quantityNum = roundQuantity(parsed.data.quantity);
 
   const routeClient = getSupabaseRouteClient(await cookies());
   const { data: cartItem, error: cartError } = await routeClient
@@ -49,13 +50,20 @@ export async function PATCH(req, { params }) {
   const catalog = await loadMarketCatalog(admin);
   const { data: variant, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, stock_count, is_active")
+    .select("id, product_id, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity")
     .eq("id", cartItem.variant_id)
     .eq("market_id", catalog.market.id)
     .maybeSingle();
   if (variantError) return applyRateLimitHeaders(NextResponse.json({ error: variantError.message }, { status: 400 }), rl);
   if (!variant || variant.is_active === false || !catalog.listings.has(String(variant.product_id))) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Product option is unavailable in this market" }, { status: 409 }), rl);
+  }
+  const quantityValidation = validateVariantQuantity(variant, quantityNum);
+  if (!quantityValidation.ok) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: quantityValidation.error, requested: formatQuantity(quantityNum) }, { status: 400 }),
+      rl
+    );
   }
   const available = getAvailableCount(variant.stock_count);
   if (Number.isFinite(available) && quantityNum > available) {

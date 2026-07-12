@@ -8,6 +8,7 @@ import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
+import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -312,6 +313,7 @@ export async function GET(_request, { params }) {
         const rangeLabel = buildRangeLabel(row);
         const sizeLabel = rangeLabel || row.size_label || row.sizeLabel || row.size || undefined;
         const stock = resolveVariantStock(row);
+        const purchaseRules = getVariantPurchaseRules(row);
         const variantPrice = pickFirstNumber(row, [
           "price",
           "unit_price",
@@ -346,6 +348,10 @@ export async function GET(_request, { params }) {
           oldPrice: variantOldPrice != null ? variantOldPrice : undefined,
           unit: pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) || marketData.unit || undefined,
           currencyCode: row.currency_code || catalog.market.currencyCode,
+          purchaseMode: purchaseRules.purchaseMode,
+          minQuantity: purchaseRules.minQuantity,
+          maxQuantity: purchaseRules.maxQuantity,
+          stepQuantity: purchaseRules.stepQuantity,
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
