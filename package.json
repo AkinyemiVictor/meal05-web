@@ -2,6 +2,9 @@
     "name": "meal05-web",
     "version": "0.1.0",
     "private": true,
+    "engines": {
+        "node": ">=22.0.0"
+    },
     "scripts": {
         "dev": "next dev",
         "dev:fresh": "node scripts/clean-next-cache.mjs && next dev",
