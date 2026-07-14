@@ -318,7 +318,7 @@ export default function Home() {
   };
 
   return (
-    <main className="relative min-h-screen bg-meal-mist text-meal-text">
+    <main className="meal05-home-page relative min-h-screen bg-meal-mist text-meal-text">
       <div className="mx-auto max-w-[1440px] pb-24 md:pb-0">
         {/* Mobile hero visible below the shared fixed header */}
         <section className="px-5 pb-4 pt-3 md:hidden" aria-label="Meal05 homepage hero">

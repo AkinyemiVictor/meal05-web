@@ -5829,6 +5829,12 @@ main > section:not(.home-hero) {
   }
 }
 
+@media (max-width: 620px) {
+  .meal05-home-page {
+    padding-top: clamp(2rem, 8vw, 3rem);
+  }
+}
+
 @media (max-width: 540px) {
   .site-footer--primary .newsletter-field {
     flex-direction: column;
@@ -9847,6 +9853,254 @@ main > section:not(.home-hero) {
   flex: 1 0 auto;
   width: 100%;
   background: var(--mk-body-bg);
+}
+
+/* Admin volatile price board */
+.admin-price-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 0 40px;
+  color: #0f172a;
+}
+
+.admin-price-page__header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: -64px -16px 12px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.admin-price-page__header p,
+.admin-price-page__header span {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-price-page__header h1 {
+  margin: 2px 0 4px;
+  font-size: clamp(24px, 8vw, 40px);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.admin-price-empty,
+.admin-price-group,
+.admin-price-product {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.admin-price-empty {
+  padding: 18px;
+}
+
+.admin-price-empty h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.admin-price-empty p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.admin-price-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-price-group {
+  overflow: hidden;
+}
+
+.admin-price-group__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+
+.admin-price-group__heading h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.admin-price-group__heading span,
+.admin-price-product__heading span,
+.admin-price-field__meta span,
+.admin-price-field__message {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.admin-price-products {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.admin-price-product {
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.admin-price-product__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.admin-price-product__heading h3 {
+  margin: 0 0 3px;
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.admin-price-product__heading a {
+  flex: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-price-product__variants {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.admin-price-field {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 9px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-price-field--saved {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.admin-price-field--error {
+  border-color: #fb923c;
+  background: #fff7ed;
+}
+
+.admin-price-field__meta {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-price-field__meta p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.admin-price-field__control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.admin-price-field__control > span {
+  color: #64748b;
+  font-weight: 900;
+}
+
+.admin-price-field__control input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 11px;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.admin-price-field__control input:focus {
+  border-color: #0f172a;
+  outline: 3px solid rgba(15, 23, 42, 0.12);
+}
+
+.admin-price-field__control button,
+.admin-price-field__confirm button {
+  border: 0;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.admin-price-field__control button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.admin-price-field__confirm {
+  display: grid;
+  gap: 7px;
+  border-radius: 10px;
+  background: #ffedd5;
+  padding: 8px;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-price-field__confirm button {
+  background: #ea580c;
+}
+
+.admin-price-field__message {
+  margin: 0;
+  font-weight: 800;
+}
+
+@media (min-width: 720px) {
+  .admin-price-page__header {
+    margin: 0 0 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+  }
+
+  .admin-price-field {
+    grid-template-columns: minmax(220px, 1fr) minmax(260px, 0.8fr);
+    align-items: center;
+  }
+
+  .admin-price-field__confirm,
+  .admin-price-field__message {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Download app – final responsive overrides */

@@ -16,13 +16,13 @@ import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
-export const fetchCache = "default-cache";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 const PUBLIC_CATALOG_CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
-  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Cache-Control": "no-store, max-age=0",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
 };
 
 const toSlug = (value) => {
@@ -41,6 +41,26 @@ const pickFirst = (row, fields = []) => {
     if (row && row[key] != null && row[key] !== "") return row[key];
   }
   return "";
+};
+
+const formatRangeValue = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "";
+  const rounded = Math.round(num * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+};
+
+const buildVolumeLabel = (row) => {
+  const min = pickFirstNumber(row, ["volume_min", "volumeMin", "min_volume", "minVolume"]);
+  const max = pickFirstNumber(row, ["volume_max", "volumeMax", "max_volume", "maxVolume"]);
+  if (min == null || max == null) return "";
+  const minLabel = formatRangeValue(min);
+  const maxLabel = formatRangeValue(max);
+  if (!minLabel || !maxLabel) return "";
+  const unit = pickFirst(row, ["volume_unit", "volumeUnit"]);
+  const suffix = unit ? String(unit).trim() : "";
+  const base = Number(min) === Number(max) ? minLabel : `${minLabel}-${maxLabel}`;
+  return suffix ? `${base}${suffix}` : base;
 };
 
 const normalizeBoolean = (value) =>
@@ -125,7 +145,7 @@ const isVariantSelectable = (variant) => {
 };
 
 const pickVariantLabel = (variant) =>
-  pickFirst(variant, ["size_label", "sizeLabel", "size", "name", "label"]) || "";
+  buildVolumeLabel(variant) || pickFirst(variant, ["size_label", "sizeLabel", "size", "name", "label"]) || "";
 
 const pickVariantForCard = (variants = []) => {
   if (!Array.isArray(variants) || !variants.length) return null;

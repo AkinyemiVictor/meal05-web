@@ -62,11 +62,11 @@ export default function RootLayout({ children }) {
               {children}
             </div>
             <Footer />
-            <Suspense fallback={null}>
-              <MobileBottomNav />
-            </Suspense>
           </NoticeProvider>
         </PageScaler>
+        <Suspense fallback={null}>
+          <MobileBottomNav />
+        </Suspense>
       </body>
     </html>
   );

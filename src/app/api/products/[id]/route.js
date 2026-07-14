@@ -12,13 +12,13 @@ import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
-export const fetchCache = "default-cache";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 const PUBLIC_PRODUCT_DETAIL_CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
-  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Cache-Control": "no-store, max-age=0",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
 };
 
 const methodNotAllowed = () =>
@@ -59,7 +59,23 @@ const getRangeUnit = (row) => {
   return isWeightUnit(fallback) ? String(fallback).trim() : "";
 };
 
-const buildRangeLabel = (row) => {
+const buildExactOrRangeLabel = (min, max, unit = "", { collapseEqual = false } = {}) => {
+  if (min == null || max == null) return "";
+  const minLabel = formatRangeValue(min);
+  const maxLabel = formatRangeValue(max);
+  if (!minLabel || !maxLabel) return "";
+  const suffix = unit ? String(unit).trim() : "";
+  const base = collapseEqual && Number(min) === Number(max) ? minLabel : `${minLabel}-${maxLabel}`;
+  return suffix ? `${base}${suffix}` : base;
+};
+
+const buildVolumeLabel = (row) => {
+  const min = pickFirstNumber(row, ["volume_min", "volumeMin", "min_volume", "minVolume"]);
+  const max = pickFirstNumber(row, ["volume_max", "volumeMax", "max_volume", "maxVolume"]);
+  return buildExactOrRangeLabel(min, max, pickFirst(row, ["volume_unit", "volumeUnit"]), { collapseEqual: true });
+};
+
+const buildWeightRangeLabel = (row) => {
   const min = pickFirstNumber(row, [
     "min_weight",
     "minWeight",
@@ -92,14 +108,10 @@ const buildRangeLabel = (row) => {
     "max_value",
     "maxValue",
   ]);
-  if (min == null || max == null) return "";
-  const minLabel = formatRangeValue(min);
-  const maxLabel = formatRangeValue(max);
-  if (!minLabel || !maxLabel) return "";
-  const unit = getRangeUnit(row);
-  const base = `${minLabel}-${maxLabel}`;
-  return unit ? `${base}${unit}` : base;
+  return buildExactOrRangeLabel(min, max, getRangeUnit(row));
 };
+
+const buildRangeLabel = (row) => buildVolumeLabel(row) || buildWeightRangeLabel(row);
 
 const normaliseDiscountPercent = (value) => {
   if (!Number.isFinite(value)) return null;

@@ -24,6 +24,7 @@ export default async function AdminSecureLayout({ children }) {
     { href: "/admin/orders", label: "Orders" },
     { href: "/admin/delivery", label: "Delivery" },
     { href: "/admin/inventory", label: "Inventory" },
+    { href: "/admin/prices", label: "Prices" },
     { href: "/admin/catalogue", label: "Catalogue" },
     { href: "/admin/promotions", label: "Promotions" },
     { href: "/admin/campaigns", label: "Campaigns" },

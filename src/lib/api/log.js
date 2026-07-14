@@ -45,6 +45,7 @@ const writeLog = async ({ type, entry }) => {
   const admin = getSupabaseAdminClient();
   const payload = {
     type,
+    action: entry?.action || entry?.route || entry?.stage || type,
     route: pickEntityType(entry),
     actor: entry?.actor || entry?.email || null,
     message: entry?.message || entry?.error || entry?.stage || entry?.route || type,
