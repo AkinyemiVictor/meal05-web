@@ -12,7 +12,7 @@ const links = [
   ["#how", "How it works"],
   ["/shop", "Shop"],
   ["#reviews", "Reviews"],
-  ["#waitlist", "Waitlist"],
+  ["/#waitlist", "Waitlist"],
 ];
 
 export default function LandingHeader() {

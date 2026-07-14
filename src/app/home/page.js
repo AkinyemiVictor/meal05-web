@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconBasketCheck,
-  IconArrowRight,
   IconCarrot,
   IconCherry,
   IconChefHat,
@@ -87,6 +86,9 @@ function PromoBanner() {
       <div className="welcome-banner__halftone" aria-hidden="true" />
       <span className="welcome-banner__dash welcome-banner__dash--one" aria-hidden="true" />
       <span className="welcome-banner__dash welcome-banner__dash--two" aria-hidden="true" />
+      <span className="welcome-banner__orb welcome-banner__orb--one" aria-hidden="true" />
+      <span className="welcome-banner__orb welcome-banner__orb--two" aria-hidden="true" />
+      <span className="welcome-banner__orb welcome-banner__orb--three" aria-hidden="true" />
 
       <span className="welcome-banner__float welcome-banner__float--leaf" aria-hidden="true">
         <IconLeaf />
@@ -114,13 +116,7 @@ function PromoBanner() {
             MEAL<span>05</span>
           </h2>
           <p className="welcome-banner__accent">Fresh groceries. Fair prices.</p>
-
-          <div className="welcome-banner__actions">
-            <Link href="/shop" className="welcome-banner__cta">
-              <span><IconArrowRight aria-hidden="true" /></span>
-              Start shopping
-            </Link>
-          </div>
+          <p className="welcome-banner__microcopy">Fresh-picked daily in Ibadan.</p>
         </div>
 
         <div className="welcome-banner__art" aria-hidden="true">
@@ -128,15 +124,18 @@ function PromoBanner() {
             <strong>100%</strong>
             <span>MARKET FRESH</span>
           </div>
-          <div className="welcome-banner__frame" />
-          <Image
-            src="/assets/billboard/welcome-produce.png"
-            alt=""
-            fill
-            priority
-            sizes="(max-width: 767px) 0px, (max-width: 1279px) 230px, 300px"
-            className="welcome-banner__produce"
-          />
+          <div className="welcome-banner__frame">
+            <div className="welcome-banner__produce-slot">
+              <Image
+                src="/assets/billboard/welcome-produce.png"
+                alt=""
+                fill
+                priority
+                sizes="(max-width: 767px) 0px, (max-width: 1279px) 230px, 300px"
+                className="welcome-banner__produce"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -252,6 +251,48 @@ export default function Home() {
       observer?.disconnect();
       window.removeEventListener("scroll", scheduleSidebarMode);
       window.removeEventListener("resize", scheduleSidebarMode);
+    };
+  }, []);
+
+  useEffect(() => {
+    const footerBoundary = footerBoundaryRef.current;
+    if (!footerBoundary) return undefined;
+
+    let lastTouchY = null;
+    const isFooterPinnedToViewport = () => {
+      const rect = footerBoundary.getBoundingClientRect();
+      return rect.bottom <= window.innerHeight + 1;
+    };
+
+    const blockForwardScrollAtFooter = (event) => {
+      if (event.deltaY > 0 && isFooterPinnedToViewport()) {
+        event.preventDefault();
+      }
+    };
+
+    const onTouchStart = (event) => {
+      lastTouchY = event.touches?.[0]?.clientY ?? null;
+    };
+
+    const onTouchMove = (event) => {
+      const currentTouchY = event.touches?.[0]?.clientY ?? null;
+      if (lastTouchY == null || currentTouchY == null) return;
+
+      const swipingUpToScrollDown = currentTouchY < lastTouchY;
+      if (swipingUpToScrollDown && isFooterPinnedToViewport()) {
+        event.preventDefault();
+      }
+      lastTouchY = currentTouchY;
+    };
+
+    window.addEventListener("wheel", blockForwardScrollAtFooter, { passive: false });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    return () => {
+      window.removeEventListener("wheel", blockForwardScrollAtFooter);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
     };
   }, []);
 

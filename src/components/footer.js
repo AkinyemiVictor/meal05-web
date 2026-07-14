@@ -50,7 +50,7 @@ export default function Footer() {
               <a href="#" aria-label="Facebook">
                 <Image src="/assets/icons/png/socials/facebook.png" alt="Facebook" width={24} height={24} loading="lazy" />
               </a>
-              <a href="#" aria-label="Twitter">
+              <a href="https://x.com/mealkit_nigeria" target="_blank" rel="noreferrer" aria-label="X">
                 <Image src="/assets/icons/png/socials/x.png" alt="X" width={24} height={24} loading="lazy" />
               </a>
               <a href="#" aria-label="Pinterest">

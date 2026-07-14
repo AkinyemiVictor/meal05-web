@@ -71,7 +71,7 @@ export default function HomeProductCollection({
             className={`mt-6 min-w-0 gap-6 ${
               isLandingVariant
                 ? "home-product-collection__grid home-product-collection__grid--landing hidden md:grid md:grid-cols-2 xl:grid-cols-4"
-                : "home-product-collection__grid home-product-collection__grid--home hidden grid-cols-[repeat(3,minmax(0,1fr))] md:grid lg:grid-cols-[repeat(4,minmax(0,1fr))]"
+                : "home-product-collection__grid home-product-collection__grid--home hidden grid-cols-[repeat(3,minmax(0,1fr))] md:grid 2xl:grid-cols-[repeat(4,minmax(0,1fr))]"
             }`}
           >
             {desktopProducts.map((product) => (
