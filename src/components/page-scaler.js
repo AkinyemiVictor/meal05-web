@@ -114,10 +114,10 @@ export default function PageScaler({ children }) {
           position: isScaling ? "absolute" : "relative",
           top: 0,
           left: 0,
-          right: 0,
-          marginInline: isScaling ? "auto" : "0",
+          right: isScaling ? "auto" : 0,
+          marginInline: "0",
           transform: isScaling ? `scale(${scale})` : "none",
-          transformOrigin: "top center",
+          transformOrigin: "top left",
         }}
       >
         {children}
