@@ -41,6 +41,8 @@ body {
 
 html {
   font-size: clamp(15px, 1vw + 14px, 17px);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 * {

@@ -5,9 +5,11 @@ import "@/styles/notice.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "leaflet/dist/leaflet.css";
 import localFont from "next/font/local";
+import { Suspense } from "react";
 
 import Footer from "@/components/footer";
 import Meal05Header from "@/components/meal05-header";
+import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
 import RoutePrefetcher from "@/components/route-prefetcher";
 import PageScaler from "@/components/page-scaler";
@@ -60,6 +62,9 @@ export default function RootLayout({ children }) {
               {children}
             </div>
             <Footer />
+            <Suspense fallback={null}>
+              <MobileBottomNav />
+            </Suspense>
           </NoticeProvider>
         </PageScaler>
       </body>

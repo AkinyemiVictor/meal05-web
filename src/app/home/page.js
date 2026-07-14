@@ -13,14 +13,10 @@ import {
   IconClock,
   IconFlame,
   IconHelpCircle,
-  IconHome,
-  IconLayoutGrid,
   IconLeaf,
   IconMapPin,
   IconPepper,
-  IconShoppingBag,
   IconShoppingCart,
-  IconUser,
 } from "@tabler/icons-react";
 import {
   pickInSeasonProducts,
@@ -36,8 +32,6 @@ import {
 } from "@/components/home-category-navigation";
 import FilterChips from "@/components/filter-chips";
 import HomeProductCollection from "@/components/home-product-collection";
-import { readCartItems } from "@/lib/cart-storage";
-import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
 import useCategories from "@/lib/use-categories";
 import useProducts from "@/lib/use-products";
 
@@ -82,8 +76,6 @@ const COLLECTION_COPY = {
     seeAllHref: "/section/in-season",
   },
 };
-
-const classNames = (...items) => items.filter(Boolean).join(" ");
 
 // MobileHeader and TopNav are now in src/components/meal05-header.js (rendered by layout)
 
@@ -151,84 +143,16 @@ function PromoBanner() {
   );
 }
 
-const BOTTOM_NAV_ITEMS = [
-  { label: "Home", icon: IconHome, href: "/home" },
-  { label: "Browse", icon: IconLayoutGrid, href: "/shop" },
-  { label: "Orders", icon: IconShoppingBag, href: "/account?tab=orders" },
-  { label: "Profile", icon: IconUser, href: "/account" },
-];
-
-function BottomNav({ cartCount }) {
-  return (
-    <nav className="fixed inset-x-0 bottom-0 z-[120] border-t border-meal-line bg-meal-paper px-5 py-2 shadow-meal md:hidden">
-      <div className="grid grid-cols-4 overflow-hidden">
-        {BOTTOM_NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isHome = item.href === "/";
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={classNames(
-                "relative flex min-w-0 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] font-medium",
-                isHome ? "text-meal-pepper" : "text-meal-muted"
-              )}
-            >
-              <Icon size={22} stroke={1.8} />
-              <span className="truncate">{item.label}</span>
-              {item.label === "Orders" && cartCount ? (
-                <span className="absolute right-5 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-meal-pepper px-1 text-[9px] text-meal-paper">
-                  {cartCount}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
 export default function Home() {
   const contentBoundaryRef = useRef(null);
   const footerBoundaryRef = useRef(null);
   const sidebarRef = useRef(null);
   const [activeCollection, setActiveCollection] = useState("popular");
-  const [cartItems, setCartItems] = useState([]);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
   const { categories } = useCategories();
   const { ordered: products, status: productsStatus } = useProducts();
-
-  useEffect(() => {
-    let cancelled = false;
-    const updateLocalCart = () => {
-      if (!cancelled) setCartItems(readCartItems());
-    };
-    updateLocalCart();
-    const syncServerCart = () => {
-      if (!readStoredUser()) return;
-      fetch("/api/cart", { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((items) => {
-          if (!cancelled && Array.isArray(items)) setCartItems(items);
-        })
-        .catch(() => {
-          updateLocalCart();
-        });
-    };
-    syncServerCart();
-    window.addEventListener("cart-updated", updateLocalCart);
-    window.addEventListener("storage", updateLocalCart);
-    window.addEventListener(AUTH_EVENT, syncServerCart);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("cart-updated", updateLocalCart);
-      window.removeEventListener("storage", updateLocalCart);
-      window.removeEventListener(AUTH_EVENT, syncServerCart);
-    };
-  }, []);
 
   const counts = useMemo(() => {
     return categories.reduce((next, category) => {
@@ -386,7 +310,6 @@ export default function Home() {
     setQuickAddOpen(true);
   };
 
-  const cartCount = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const sidebarStyle = {
     position: "fixed",
     top: DESKTOP_NAVBAR_HEIGHT,
@@ -475,7 +398,6 @@ export default function Home() {
       >
         <IconHelpCircle size={24} stroke={1.8} />
       </Link>
-      <BottomNav cartCount={cartCount} />
       {quickAddProduct ? (
         <QuickAddDrawer
           product={quickAddProduct}

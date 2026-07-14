@@ -16,12 +16,6 @@ export default function PageScaler({ children }) {
   const [isScaling, setIsScaling] = useState(false);
   const [scaledMinHeight, setScaledMinHeight] = useState(SCALE_BASE_HEIGHT);
   const [footerOffset, setFooterOffset] = useState(0);
-  const [supportsZoom, setSupportsZoom] = useState(false);
-
-  useEffect(() => {
-    if (typeof CSS === "undefined" || !CSS.supports) return;
-    setSupportsZoom(CSS.supports("zoom", "1"));
-  }, []);
 
   useEffect(() => {
     const updateScale = () => {
@@ -66,7 +60,7 @@ export default function PageScaler({ children }) {
   return (
     <div
       className="page-scale-outer"
-      style={{ display: "flex", justifyContent: "center" }}
+      style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
     >
       <div
         className="page-scale-inner"
@@ -74,9 +68,8 @@ export default function PageScaler({ children }) {
           width: isScaling ? `${SCALE_BASE_WIDTH}px` : "100%",
           maxWidth: isScaling ? "none" : "100%",
           minHeight: isScaling ? `${scaledMinHeight}px` : "auto",
-          transform: isScaling && !supportsZoom ? `scale(${scale})` : "none",
+          transform: isScaling ? `scale(${scale})` : "none",
           transformOrigin: "top center",
-          zoom: isScaling && supportsZoom ? scale : 1,
         }}
       >
         {children}

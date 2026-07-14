@@ -24,6 +24,18 @@ const FOOTER_HIDDEN_PREFIXES = [
   "/checkout",
 ];
 
+const MOBILE_BOTTOM_NAV_HIDDEN_EXACT_PATHS = new Set([
+  "/",
+  "/sign-in",
+  "/signup",
+]);
+
+const MOBILE_BOTTOM_NAV_HIDDEN_PREFIXES = [
+  "/admin",
+  "/auth/",
+  "/checkout",
+];
+
 const normalizePath = (pathname) => {
   const path = String(pathname || "/");
   return path.length > 1 ? path.replace(/\/+$/, "") : path;
@@ -40,3 +52,6 @@ export const shouldShowCommerceHeader = (pathname) =>
 
 export const shouldShowCommerceFooter = (pathname) =>
   !isHiddenByRule(pathname, FOOTER_HIDDEN_EXACT_PATHS, FOOTER_HIDDEN_PREFIXES);
+
+export const shouldShowMobileBottomNav = (pathname) =>
+  !isHiddenByRule(pathname, MOBILE_BOTTOM_NAV_HIDDEN_EXACT_PATHS, MOBILE_BOTTOM_NAV_HIDDEN_PREFIXES);
