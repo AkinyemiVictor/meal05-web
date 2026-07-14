@@ -10678,10 +10678,10 @@ main > section:not(.home-hero) {
   box-shadow: none;
 }
 .welcome-banner__float svg { width: 52%; height: 52%; }
-.welcome-banner__float--leaf { top: 12px; left: 754px; width: 44px; height: 44px; color: #2fa14d; animation: welcomeSwayA 6s ease-in-out infinite; }
-.welcome-banner__float--pepper { top: 98px; left: 654px; width: 38px; height: 38px; color: #e23b1a; animation: welcomeSwayB 7s ease-in-out infinite; }
-.welcome-banner__float--carrot { bottom: 36px; left: 832px; width: 34px; height: 34px; color: #ef7a1a; animation: welcomeSwayA 6.5s ease-in-out 0.4s infinite; }
-.welcome-banner__float--cherry { bottom: 22px; left: 594px; width: 34px; height: 34px; color: #d84422; animation: welcomeSwayB 6.2s ease-in-out 0.3s infinite; }
+.welcome-banner__float--leaf { top: 12px; right: 310px; width: 44px; height: 44px; color: #2fa14d; animation: welcomeSwayA 6s ease-in-out infinite; }
+.welcome-banner__float--pepper { top: 98px; right: 398px; width: 38px; height: 38px; color: #e23b1a; animation: welcomeSwayB 7s ease-in-out infinite; }
+.welcome-banner__float--carrot { bottom: 36px; right: 184px; width: 34px; height: 34px; color: #ef7a1a; animation: welcomeSwayA 6.5s ease-in-out 0.4s infinite; }
+.welcome-banner__float--cherry { bottom: 22px; right: 472px; width: 34px; height: 34px; color: #d84422; animation: welcomeSwayB 6.2s ease-in-out 0.3s infinite; }
 
 @keyframes welcomeSwayA {
   0%, 100% { transform: translateY(0) rotate(-6deg); }
