@@ -10,6 +10,7 @@ import Footer from "@/components/footer";
 import Meal05Header from "@/components/meal05-header";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
+import PageScaler from "@/components/page-scaler";
 import PwaServiceWorker from "@/components/pwa-service-worker";
 
 const geistSans = localFont({
@@ -64,13 +65,15 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <NoticeProvider>
-          <Meal05Header />
-          <div className="layout-main">
-            {children}
-          </div>
-          <Footer />
-        </NoticeProvider>
+        <PageScaler>
+          <NoticeProvider>
+            <Meal05Header />
+            <div className="layout-main">
+              {children}
+            </div>
+            <Footer />
+          </NoticeProvider>
+        </PageScaler>
         <Suspense fallback={null}>
           <MobileBottomNav />
         </Suspense>
