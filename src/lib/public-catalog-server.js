@@ -8,6 +8,7 @@ import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
+import { getDefaultMarket } from "@/lib/market-server";
 
 export const PUBLIC_CATALOG_CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
@@ -50,6 +51,42 @@ const CATEGORY_FIELDS = [
   "slug",
   "category_name",
   "category_slug",
+].join(", ");
+
+const CARD_CATALOG_FIELDS = [
+  "product_id",
+  "name",
+  "description",
+  "sku",
+  "category_id",
+  "category_name",
+  "category_slug",
+  "main_image_url",
+  "in_season",
+  "promo_tag_enabled",
+  "promo_tag_text",
+  "promo_tag_expires_at",
+  "promo_tag_visible",
+  "default_variant_id",
+  "default_variant_name",
+  "unit",
+  "base_unit",
+  "base_quantity",
+  "purchase_mode",
+  "min_quantity",
+  "max_quantity",
+  "step_quantity",
+  "starting_price",
+  "old_price",
+  "stock_count",
+  "in_stock",
+  "market_id",
+  "currency_code",
+  "currency_symbol",
+  "locale",
+  "timezone",
+  "created_at",
+  "search_text",
 ].join(", ");
 
 const buildCategoryIndex = (rows) =>
@@ -136,6 +173,60 @@ const buildPublicCatalogProduct = (row, categoryIndex) => {
   };
 };
 
+const buildPublicCatalogProductFromCard = (row) => {
+  const price = pickFirstNumber(row, ["starting_price", "price"], 0) || 0;
+  const oldPriceRaw = pickFirstNumber(row, ["old_price", "oldPrice"], price);
+  const oldPrice = Number.isFinite(oldPriceRaw) && oldPriceRaw > 0 ? Math.max(price, oldPriceRaw) : price;
+  const discount = oldPrice > price && price > 0 ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+  const categorySlug = toCategorySlug(row?.category_slug || row?.category_name || "");
+  const image = resolveProductImage(row?.main_image_url, row?.image, row?.image_url);
+
+  return {
+    id: String(row?.product_id ?? row?.id ?? ""),
+    variantId: row?.default_variant_id ? String(row.default_variant_id) : String(row?.product_id ?? row?.id ?? ""),
+    variantName: String(row?.default_variant_name || ""),
+    name: String(row?.name || "Fresh produce"),
+    image,
+    mainImageUrl: image,
+    price,
+    oldPrice,
+    unit: String(row?.unit || ""),
+    stock: row?.stock_count ?? (row?.in_stock ? "In stock" : 0),
+    inSeason: row?.in_season !== false,
+    discount,
+    category: String(row?.category_name || ""),
+    categorySlug,
+    promoTagEnabled: normalizePromoEnabled(row?.promo_tag_visible ?? row?.promo_tag_enabled),
+    promoTagText: normalizePromoText(row?.promo_tag_text),
+    promoTagExpiresAt: parsePromoExpiry(row?.promo_tag_expires_at),
+    marketId: row?.market_id || "",
+    currencyCode: row?.currency_code || "",
+    currencySymbol: row?.currency_symbol || "",
+    locale: row?.locale || "",
+    purchaseMode: row?.purchase_mode || undefined,
+    minQuantity: row?.min_quantity != null ? Number(row.min_quantity) : undefined,
+    maxQuantity: row?.max_quantity != null ? Number(row.max_quantity) : undefined,
+    stepQuantity: row?.step_quantity != null ? Number(row.step_quantity) : undefined,
+    baseUnit: row?.base_unit || undefined,
+    baseQuantity: row?.base_quantity != null ? Number(row.base_quantity) : undefined,
+    purchase_mode: row?.purchase_mode || undefined,
+    min_quantity: row?.min_quantity != null ? Number(row.min_quantity) : undefined,
+    max_quantity: row?.max_quantity != null ? Number(row.max_quantity) : undefined,
+    step_quantity: row?.step_quantity != null ? Number(row.step_quantity) : undefined,
+    base_unit: row?.base_unit || undefined,
+    base_quantity: row?.base_quantity != null ? Number(row.base_quantity) : undefined,
+    tags: [],
+    packaging: "",
+    ...buildPackagingMetadata({
+      ...row,
+      name: row?.name,
+      category: row?.category_name,
+      categorySlug,
+      packaging: "",
+    }),
+  };
+};
+
 const groupProducts = (products) =>
   products.reduce((acc, product) => {
     const key = product.categorySlug || "uncategorised";
@@ -157,6 +248,50 @@ const uniqueIds = (ids = [], limit = 80) => {
   return out;
 };
 
+const loadPublicCatalogProductsFromCardView = async ({
+  admin,
+  ids,
+  category,
+  search,
+  view,
+  limit,
+}) => {
+  const market = await getDefaultMarket();
+  const requestedIds = uniqueIds(ids, 80);
+  const maxRows = Math.min(Math.max(Number(limit) || 48, 1), 120);
+  const requestedCategorySlug = toCategorySlug(category || "");
+  const searchTerm = String(search || "").trim().replace(/[%_,().]/g, " ").replace(/\s+/g, " ").slice(0, 80);
+
+  let query = admin
+    .from("product_card_catalog")
+    .select(CARD_CATALOG_FIELDS, { head: false })
+    .eq("market_id", market.id);
+
+  if (requestedIds.length) query = query.in("product_id", requestedIds);
+  if (requestedCategorySlug) query = query.eq("category_slug", requestedCategorySlug);
+  if (view === "in-season") query = query.eq("in_season", true);
+  if (searchTerm) query = query.ilike("search_text", `%${searchTerm}%`);
+
+  query = view === "new"
+    ? query.order("created_at", { ascending: false })
+    : query.order("product_id", { ascending: true });
+
+  const { data, error } = await query.limit(requestedIds.length ? requestedIds.length : maxRows);
+  if (error) throw error;
+
+  const rows = Array.isArray(data) ? data : [];
+  const sortedRows = requestedIds.length
+    ? [...rows].sort((a, b) => requestedIds.indexOf(String(a.product_id)) - requestedIds.indexOf(String(b.product_id)))
+    : rows;
+  const flat = sortedRows.map(buildPublicCatalogProductFromCard).filter((product) => product.id);
+
+  return {
+    grouped: groupProducts(flat),
+    flat,
+    market: publicMarket(market),
+  };
+};
+
 export async function loadPublicCatalogProducts({
   ids,
   category,
@@ -165,6 +300,21 @@ export async function loadPublicCatalogProducts({
   limit = 48,
 } = {}) {
   const admin = getSupabaseAdminClient();
+  try {
+    return await loadPublicCatalogProductsFromCardView({
+      admin,
+      ids,
+      category,
+      search,
+      view,
+      limit,
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("product_card_catalog unavailable; falling back to legacy product catalogue query", error?.message || error);
+    }
+  }
+
   const catalog = await loadMarketCatalog(admin);
   const requestedIds = uniqueIds(ids, 80);
   const maxRows = Math.min(Math.max(Number(limit) || 48, 1), 120);

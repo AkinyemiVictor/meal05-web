@@ -1,5 +1,6 @@
 "use client";
 
+import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { IconCurrentLocation, IconMapPin, IconSearch, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
@@ -23,8 +24,8 @@ const geocode = async (body) => {
   return data.results || [];
 };
 
-export default function LocationPicker({ landing = false, autoOpen = false, hideTrigger = false }) {
-  const [open, setOpen] = useState(false); const [preference, setPreference] = useState(null);
+export default function LocationPicker({ landing = false, autoOpen = false, hideTrigger = false, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen); const [preference, setPreference] = useState(null);
   const [areas, setAreas] = useState([]); const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(""); const [serviceable, setServiceable] = useState(null);
   const [address, setAddress] = useState(""); const [point, setPoint] = useState(null);

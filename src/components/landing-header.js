@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { IconArrowRight, IconMenu2, IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import LocationPicker from "@/components/location-picker";
+import DeferredLocationPicker from "@/components/deferred-location-picker";
 import styles from "@/app/landing.module.css";
 
 const links = [
@@ -35,7 +35,7 @@ export default function LandingHeader() {
           {links.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
         </nav>
         <div className={styles.navActions}>
-          <LocationPicker landing />
+          <DeferredLocationPicker landing />
           <Link href="/sign-in" className={styles.signin}>Sign in</Link>
           <Link href="/home" className={styles.orangeButton}>Start shopping <IconArrowRight /></Link>
           <button

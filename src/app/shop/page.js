@@ -16,7 +16,7 @@ import {
   getCatalogItemPrice,
 } from "@/lib/catalog-items";
 import useCategories from "@/lib/use-categories";
-import useProducts from "@/lib/use-products";
+import { useCatalogProducts } from "@/lib/use-catalog-products";
 import LocationPicker from "@/components/location-picker";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
@@ -63,7 +63,7 @@ export default function ShopPage() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
 
-  const { ordered, status } = useProducts();
+  const { ordered, status } = useCatalogProducts("/api/catalog/cards?limit=120");
   const { categories, status: categoriesStatus } = useCategories();
   const isLoading = status === "loading";
   const hasError = status === "error";

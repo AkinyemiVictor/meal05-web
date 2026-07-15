@@ -3,7 +3,6 @@ import "@/styles/main.css";
 import "@/styles/meal05-footer-download.css";
 import "@/styles/notice.css";
 import "@/styles/fontawesome-subset.css";
-import "leaflet/dist/leaflet.css";
 import localFont from "next/font/local";
 import { Suspense } from "react";
 

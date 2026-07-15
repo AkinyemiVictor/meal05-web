@@ -235,7 +235,7 @@
   background: radial-gradient(circle at 10% 10%, rgba(20, 30, 48, 0.6), transparent 60%),
     linear-gradient(135deg, #070b14 0%, #0b1322 55%, #060912 100%);
   color: #e7eef9;
-  padding: clamp(3.5rem, 7vw, 5rem) 0 calc(clamp(3.5rem, 7vw, 5rem) + var(--page-scale-footer-offset, 0px));
+  padding: clamp(3.5rem, 7vw, 5rem) 0;
   border-top: none;
   overflow: hidden;
 }

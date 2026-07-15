@@ -1,0 +1,110 @@
+/* Shop uses one shared rail and a grid that fills it instead of fixed-width cards. */
+.shop-page > .category-page__header,
+.shop-page > .shop-page__filters,
+.shop-page > .shop-page__toolbar,
+.shop-page > .category-products,
+.shop-page > .category-page__pagination,
+.shop-page > .category-carousel {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.shop-page .category-page__header {
+  padding: 0.35rem 0 0.5rem;
+  margin-bottom: 1.1rem;
+}
+
+.shop-page__heading {
+  margin: 0;
+  font-size: clamp(1.75rem, 3vw, 2.45rem);
+  line-height: 1.08;
+  font-weight: 850;
+  letter-spacing: -0.045em;
+  color: #0f172a;
+}
+
+.shop-page__filters {
+  border-radius: 16px;
+  scrollbar-width: none;
+}
+
+.shop-page__filters::-webkit-scrollbar {
+  display: none;
+}
+
+.shop-page__filters .category-carousel__card {
+  flex: 0 0 auto;
+}
+
+.shop-page__toolbar {
+  padding: 0.6rem 0 0.35rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.shop-page__all-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  color: #0f172a;
+}
+
+.shop-page__all-indicator > i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #00ac11;
+  box-shadow: 0 0 0 5px rgba(0, 172, 17, 0.1);
+}
+
+.shop-page__all-indicator > span {
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.shop-page__all-indicator > small {
+  font-size: 0.78rem;
+  color: #7b8492;
+  font-weight: 600;
+  padding-left: 0.2rem;
+}
+
+.shop-page .category-products .product-card-grid {
+  --shop-grid-cols: 5;
+  --shop-grid-gap: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(var(--shop-grid-cols), minmax(0, 1fr));
+  gap: var(--shop-grid-gap);
+  width: 100%;
+}
+
+.shop-page .category-products .product-card,
+.shop-page .category-products .meal05-product-card {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: none;
+}
+
+@media (max-width: 1200px) {
+  .shop-page .category-products .product-card-grid {
+    --shop-grid-cols: 4;
+  }
+}
+
+@media (max-width: 960px) {
+  .shop-page .category-products .product-card-grid {
+    --shop-grid-cols: 3;
+  }
+}
+
+@media (max-width: 720px) {
+  .shop-page .category-products .product-card-grid {
+    --shop-grid-cols: 2;
+    --shop-grid-gap: 0.85rem;
+  }
+}

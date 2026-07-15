@@ -1,14 +1,27 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import CheckoutForm from "@/components/checkout-form";
-import CheckoutSummary from "@/components/checkout-summary";
 import copy from "@/data/copy";
 import { readStoredCart } from "@/lib/checkout";
 import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
 import useDeliverySettings from "@/lib/use-delivery-settings";
+
+function CheckoutLoadingState() {
+  return (
+    <div className="checkout-state" role="status">
+      <span className="checkout-state__spinner" aria-hidden="true" />
+      <p>Loading your cart...</p>
+    </div>
+  );
+}
+
+const CheckoutWorkspace = dynamic(() => import("@/components/checkout-workspace"), {
+  ssr: false,
+  loading: () => <CheckoutLoadingState />,
+});
 
 export default function CheckoutExperience() {
   const { settings: deliverySettings } = useDeliverySettings();
@@ -60,12 +73,7 @@ export default function CheckoutExperience() {
   }, []);
 
   if (!isHydrated) {
-    return (
-      <div className="checkout-state" role="status">
-        <span className="checkout-state__spinner" aria-hidden="true" />
-        <p>Loading your cart...</p>
-      </div>
-    );
+    return <CheckoutLoadingState />;
   }
 
   if (!hasItems) {
@@ -86,27 +94,18 @@ export default function CheckoutExperience() {
   }
 
   return (
-    <div className="checkout-grid">
-      <CheckoutForm
-        deliverySettings={deliverySettings}
-        selectedDispatchOptionId={dispatchOptionId}
-        dispatchOptions={dispatchOptions}
-        fulfillmentType={fulfillmentType}
-        onFulfillmentChange={setFulfillmentType}
-        pickupLocations={pickupLocations}
-        pickupLocationId={pickupLocationId}
-        onPickupLocationChange={setPickupLocationId}
-        onCityChange={setDeliveryCity}
-        onDispatchChange={setDispatchOptionId}
-      />
-      <CheckoutSummary
-        deliverySettings={deliverySettings}
-        deliveryCity={deliveryCity}
-        selectedDispatchOptionId={dispatchOptionId}
-        dispatchOptions={dispatchOptions}
-        fulfillmentType={fulfillmentType}
-        submitFormId="checkout-order-form"
-      />
-    </div>
+    <CheckoutWorkspace
+      deliverySettings={deliverySettings}
+      deliveryCity={deliveryCity}
+      dispatchOptionId={dispatchOptionId}
+      dispatchOptions={dispatchOptions}
+      fulfillmentType={fulfillmentType}
+      onFulfillmentChange={setFulfillmentType}
+      pickupLocations={pickupLocations}
+      pickupLocationId={pickupLocationId}
+      onPickupLocationChange={setPickupLocationId}
+      onCityChange={setDeliveryCity}
+      onDispatchChange={setDispatchOptionId}
+    />
   );
 }

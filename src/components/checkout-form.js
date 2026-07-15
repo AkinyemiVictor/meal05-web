@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import LocationPicker from "@/components/location-picker";
+import DeferredLocationPicker from "@/components/deferred-location-picker";
 
 import copy from "@/data/copy";
 import {
@@ -1328,7 +1328,7 @@ export default function CheckoutForm({
         <div className="checkout-pin-confirmation">
           <span className="checkout-pin-confirmation__icon"><i className="fa-solid fa-location-dot" /></span>
           <div><small>Confirmed delivery pin</small><strong>{checkoutLocation?.serviceable ? (checkoutLocation.line || checkoutLocation.zone?.name || "Location confirmed") : "Confirm the pin at your gate"}</strong><p>The rider will navigate to this pin. Adjust it if it is not on your entrance.</p></div>
-          <LocationPicker />
+          <DeferredLocationPicker />
         </div>
         <div className="checkout-field-grid checkout-field-grid--address-meta">
           <label className={errors.houseNumber ? "checkout-field has-error" : "checkout-field"}><span>House / flat / shop number</span><input name="houseNumber" value={formState.houseNumber} onChange={handleChange} placeholder="e.g. No. 8 or Flat 2B" autoComplete="address-line1" required aria-invalid={Boolean(errors.houseNumber)}/>{errors.houseNumber ? <span className="checkout-field__error">{errors.houseNumber}</span> : null}</label>

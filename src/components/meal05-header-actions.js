@@ -16,7 +16,7 @@ import {
   IconUserCircle,
 } from "@tabler/icons-react";
 
-import LocationPicker from "@/components/location-picker";
+import DeferredLocationPicker from "@/components/deferred-location-picker";
 import { AUTH_EVENT, clearStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { readCartItems } from "@/lib/cart-storage";
@@ -285,7 +285,7 @@ export default function Meal05HeaderActions({ mobile = false }) {
 
   return (
     <div className="flex flex-1 items-center justify-end gap-3 lg:flex-none">
-      <LocationPicker />
+      <DeferredLocationPicker />
 
       <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} count={unreadNotifications}>
         <IconBell size={21} stroke={1.8} />

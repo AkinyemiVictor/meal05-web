@@ -1,3 +1,5 @@
+import "./admin-prices.css";
+
 import AdminPriceEditor from "@/components/admin-price-editor";
 import { loadVolatilePriceAdminData } from "@/lib/admin-prices";
 
