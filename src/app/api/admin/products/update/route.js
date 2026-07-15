@@ -8,6 +8,7 @@ import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { logAdminEvent, logAdminError } from "@/lib/api/log";
 import { respondZodError } from "@/lib/api/validate";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE, normalizePurchaseMode, roundQuantity } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +29,12 @@ const normalizeNullableText = (value, { max = 500 } = {}) => {
   const text = String(value).trim();
   if (!text) return null;
   return text.slice(0, max);
+};
+
+const toPositiveNullableNumber = (value) => {
+  if (value == null || value === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? roundQuantity(num) : null;
 };
 
 export async function POST(req) {
@@ -75,6 +82,12 @@ export async function POST(req) {
     old_price: z.union([z.number().nonnegative().max(1_000_000_000), z.null()]).optional(),
     stock_count: z.number().int().nonnegative().max(1_000_000).optional(),
     variant_is_active: z.boolean().optional(),
+    purchase_mode: z.enum([PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE]).optional(),
+    min_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
+    max_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
+    step_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
+    base_unit: z.union([z.string().trim().max(40), z.null()]).optional(),
+    base_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
     promo_tag_text: z.union([z.string().trim().max(80), z.null()]).optional(),
     promo_tag_expires_at: z.union([z.string().trim().max(80), z.null()]).optional(),
     promo_tag_enabled: z.boolean().optional(),
@@ -101,6 +114,12 @@ export async function POST(req) {
   const hasOldPrice = Object.prototype.hasOwnProperty.call(parsed.data, "old_price");
   const hasStockCount = typeof parsed.data.stock_count === "number";
   const hasVariantActive = typeof parsed.data.variant_is_active === "boolean";
+  const hasPurchaseMode = Object.prototype.hasOwnProperty.call(parsed.data, "purchase_mode");
+  const hasMinQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "min_quantity");
+  const hasMaxQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "max_quantity");
+  const hasStepQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "step_quantity");
+  const hasBaseUnit = Object.prototype.hasOwnProperty.call(parsed.data, "base_unit");
+  const hasBaseQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "base_quantity");
   const hasPromoText = Object.prototype.hasOwnProperty.call(parsed.data, "promo_tag_text");
   const hasPromoExpiry = Object.prototype.hasOwnProperty.call(parsed.data, "promo_tag_expires_at");
   const hasPromoEnabled = Object.prototype.hasOwnProperty.call(parsed.data, "promo_tag_enabled");
@@ -114,13 +133,31 @@ export async function POST(req) {
     !hasOldPrice &&
     !hasStockCount &&
     !hasVariantActive &&
+    !hasPurchaseMode &&
+    !hasMinQuantity &&
+    !hasMaxQuantity &&
+    !hasStepQuantity &&
+    !hasBaseUnit &&
+    !hasBaseQuantity &&
     !hasPromoText &&
     !hasPromoExpiry &&
     !hasPromoEnabled
   ) {
     return applyRateLimitHeaders(NextResponse.json({ error: "No update fields provided" }, { status: 400 }), rl);
   }
-  if ((hasPrice || hasOldPrice || hasStockCount || hasVariantActive) && !variantId) {
+  if (
+    (hasPrice ||
+      hasOldPrice ||
+      hasStockCount ||
+      hasVariantActive ||
+      hasPurchaseMode ||
+      hasMinQuantity ||
+      hasMaxQuantity ||
+      hasStepQuantity ||
+      hasBaseUnit ||
+      hasBaseQuantity) &&
+    !variantId
+  ) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Invalid variant id" }, { status: 400 }), rl);
   }
   const nextCategoryId = hasCategory ? toId(parsed.data.category_id) : null;
@@ -134,6 +171,24 @@ export async function POST(req) {
   if (hasPromoExpiry && parsed.data.promo_tag_expires_at != null && !normalizedPromoExpiryInput) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Invalid promo expiry time" }, { status: 400 }), rl);
   }
+  const nextPurchaseMode = hasPurchaseMode ? normalizePurchaseMode(parsed.data.purchase_mode) : null;
+  const nextMinQuantity = hasMinQuantity ? toPositiveNullableNumber(parsed.data.min_quantity) : null;
+  const nextMaxQuantity = hasMaxQuantity ? toPositiveNullableNumber(parsed.data.max_quantity) : null;
+  const nextStepQuantity = hasStepQuantity ? toPositiveNullableNumber(parsed.data.step_quantity) : null;
+  const nextBaseUnit = hasBaseUnit ? normalizeNullableText(parsed.data.base_unit, { max: 40 }) : null;
+  const nextBaseQuantity = hasBaseQuantity ? toPositiveNullableNumber(parsed.data.base_quantity) : null;
+  if (hasMinQuantity && parsed.data.min_quantity != null && nextMinQuantity == null) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Minimum quantity must be greater than 0." }, { status: 400 }), rl);
+  }
+  if (hasMaxQuantity && parsed.data.max_quantity != null && nextMaxQuantity == null) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Maximum quantity must be greater than 0." }, { status: 400 }), rl);
+  }
+  if (hasStepQuantity && parsed.data.step_quantity != null && nextStepQuantity == null) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Step quantity must be greater than 0." }, { status: 400 }), rl);
+  }
+  if (hasBaseQuantity && parsed.data.base_quantity != null && nextBaseQuantity == null) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Base quantity must be greater than 0." }, { status: 400 }), rl);
+  }
 
   const [productRes, variantRes] = await Promise.all([
     admin
@@ -144,7 +199,7 @@ export async function POST(req) {
     variantId
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, old_price, stock_count, is_active")
+          .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
           .eq("id", variantId)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -170,6 +225,14 @@ export async function POST(req) {
   if (existingVariant && Number(existingVariant.product_id) !== productId) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: "Variant does not belong to the selected product" }, { status: 409 }),
+      rl
+    );
+  }
+  const effectiveMinQuantity = hasMinQuantity ? nextMinQuantity : toPositiveNullableNumber(existingVariant?.min_quantity);
+  const effectiveMaxQuantity = hasMaxQuantity ? nextMaxQuantity : toPositiveNullableNumber(existingVariant?.max_quantity);
+  if (effectiveMinQuantity != null && effectiveMaxQuantity != null && effectiveMinQuantity > effectiveMaxQuantity) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: "Minimum quantity cannot be greater than maximum quantity." }, { status: 400 }),
       rl
     );
   }
@@ -251,6 +314,24 @@ export async function POST(req) {
   if (hasVariantActive && existingVariant.is_active !== parsed.data.variant_is_active) {
     variantPatch.is_active = parsed.data.variant_is_active;
   }
+  if (hasPurchaseMode && normalizePurchaseMode(existingVariant.purchase_mode) !== nextPurchaseMode) {
+    variantPatch.purchase_mode = nextPurchaseMode;
+  }
+  if (hasMinQuantity && toPositiveNullableNumber(existingVariant.min_quantity) !== nextMinQuantity) {
+    variantPatch.min_quantity = nextMinQuantity;
+  }
+  if (hasMaxQuantity && toPositiveNullableNumber(existingVariant.max_quantity) !== nextMaxQuantity) {
+    variantPatch.max_quantity = nextMaxQuantity;
+  }
+  if (hasStepQuantity && toPositiveNullableNumber(existingVariant.step_quantity) !== nextStepQuantity) {
+    variantPatch.step_quantity = nextStepQuantity;
+  }
+  if (hasBaseUnit && normalizeNullableText(existingVariant.base_unit, { max: 40 }) !== nextBaseUnit) {
+    variantPatch.base_unit = nextBaseUnit;
+  }
+  if (hasBaseQuantity && toPositiveNullableNumber(existingVariant.base_quantity) !== nextBaseQuantity) {
+    variantPatch.base_quantity = nextBaseQuantity;
+  }
 
   if (!Object.keys(productPatch).length && !Object.keys(variantPatch).length) {
     return applyRateLimitHeaders(NextResponse.json({ error: "No changes detected" }, { status: 400 }), rl);
@@ -264,7 +345,7 @@ export async function POST(req) {
       .from("product_variants")
       .update(variantPatch)
       .eq("id", variantId)
-      .select("id, product_id, name, price, old_price, stock_count, is_active")
+      .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
       .maybeSingle();
     if (result.error) {
       await logAdminError(result.error, {
@@ -332,6 +413,18 @@ export async function POST(req) {
     after_stock_count: updatedVariant?.stock_count,
     before_variant_is_active: existingVariant?.is_active,
     after_variant_is_active: updatedVariant?.is_active,
+    before_purchase_mode: existingVariant?.purchase_mode,
+    after_purchase_mode: updatedVariant?.purchase_mode,
+    before_min_quantity: existingVariant?.min_quantity,
+    after_min_quantity: updatedVariant?.min_quantity,
+    before_max_quantity: existingVariant?.max_quantity,
+    after_max_quantity: updatedVariant?.max_quantity,
+    before_step_quantity: existingVariant?.step_quantity,
+    after_step_quantity: updatedVariant?.step_quantity,
+    before_base_unit: existingVariant?.base_unit,
+    after_base_unit: updatedVariant?.base_unit,
+    before_base_quantity: existingVariant?.base_quantity,
+    after_base_quantity: updatedVariant?.base_quantity,
     old_price_cleared: normalizedOldPriceCleared,
     note: parsed.data.note || undefined,
     ok: true,
@@ -361,6 +454,12 @@ export async function POST(req) {
             old_price: updatedVariant.old_price,
             stock_count: updatedVariant.stock_count,
             is_active: updatedVariant.is_active,
+            purchase_mode: updatedVariant.purchase_mode,
+            min_quantity: updatedVariant.min_quantity,
+            max_quantity: updatedVariant.max_quantity,
+            step_quantity: updatedVariant.step_quantity,
+            base_unit: updatedVariant.base_unit,
+            base_quantity: updatedVariant.base_quantity,
           }
         : null,
       normalized: {

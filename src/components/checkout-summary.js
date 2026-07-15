@@ -15,7 +15,7 @@ import {
 } from "@/lib/checkout";
 import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
 import { resolveProductImage } from "@/lib/product-image";
-import useProducts from "@/lib/use-products";
+import { useProductsByIds } from "@/lib/use-catalog-products";
 import { formatQuantity } from "@/lib/purchase-quantities";
 
 export default function CheckoutSummary({
@@ -26,10 +26,14 @@ export default function CheckoutSummary({
   fulfillmentType = "delivery",
   submitFormId,
 }) {
-  const { index: productIndex } = useProducts();
   const [items, setItems] = useState(() => readStoredCart());
   const [promoState, setPromoState] = useState(() => readStoredPromo());
   const [lastCheckout, setLastCheckout] = useState(null);
+  const lookupIds = useMemo(
+    () => items.map((item) => String(item?.productId ?? item?.id ?? "").trim()).filter(Boolean),
+    [items]
+  );
+  const { index: productIndex } = useProductsByIds(lookupIds);
 
   const deliveryArea = useMemo(
     () => resolveDeliveryArea(deliverySettings, deliveryCity),

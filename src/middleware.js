@@ -57,6 +57,20 @@ export async function middleware(request) {
   const url = request.nextUrl.clone();
   const host = request.headers.get('x-forwarded-host') || request.nextUrl.hostname || request.headers.get('host') || '';
   const normalizedHost = host.toLowerCase().split(':')[0];
+  const isMutatingRequest = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
+  const rateLimitedPrefixes = [
+    '/api/auth',
+    '/api/orders',
+    '/api/payment',
+    '/api/payments',
+    '/api/paystack',
+    '/api/profile',
+    '/api/receipt',
+    '/api/waitlist',
+    '/api/verify-email',
+    '/admin',
+  ];
+  const shouldRateLimit = isMutatingRequest && rateLimitedPrefixes.some((prefix) => pathname.startsWith(prefix));
 
   if (normalizedHost === 'www.meal05.com') {
     url.hostname = 'meal05.com';
@@ -64,9 +78,9 @@ export async function middleware(request) {
     return NextResponse.redirect(url, 308);
   }
 
-  // Rate limit (skip health): 30 requests/10s per IP
+  // Rate limit only sensitive mutating routes.
   let rl = { allowed: true, remaining: 0, limit: 0, resetMs: 0 };
-  if (!isHealth) {
+  if (!isHealth && shouldRateLimit) {
     rl = await checkRateLimit({ request, id: 'global', limit: 30, windowMs: 10_000 });
     if (!rl.allowed) {
       const resp = NextResponse.json({ error: 'Too many requests' }, { status: 429 });

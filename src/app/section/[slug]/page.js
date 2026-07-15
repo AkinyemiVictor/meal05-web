@@ -12,17 +12,13 @@ import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
 import categories, { getCategoryHref } from "@/data/categories";
-import useProducts from "@/lib/use-products";
+import { useCatalogProducts, useProductsByIds } from "@/lib/use-catalog-products";
 import { buildCatalogItems } from "@/lib/catalog-items";
-import {
-  pickMostPopularProducts,
-  pickNewestProducts,
-  pickInSeasonProducts,
-} from "@/lib/catalogue";
+import { pickMostPopularProducts } from "@/lib/catalogue";
 import { readCartItems } from "@/lib/cart-storage";
 import { pickMostPurchasedProducts } from "@/lib/engagement";
 
-const RECENTLY_VIEWED_STORAGE_KEY = "mealkit_recently_viewed";
+const RECENTLY_VIEWED_STORAGE_KEY = "meal05_recently_viewed";
 const PAGE_SIZE = 20;
 const CATEGORY_CARDS = categories.map((entry) => ({
   slug: entry.slug,
@@ -39,11 +35,20 @@ export default function SectionViewPage() {
   const rawSlug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
   const slug = String(rawSlug || "").trim().toLowerCase();
   const isBundlePlansSlug = slug === "bundle-plans";
-  const { ordered: allProducts, index: productIndex, status: productsStatus } = useProducts();
+  const sectionUrl = useMemo(() => {
+    if (isBundlePlansSlug) return "";
+    if (slug === "new") return "/api/catalog/cards?view=new&limit=48";
+    if (slug === "in-season") return "/api/catalog/cards?view=in-season&limit=48";
+    return "/api/catalog/cards?view=home&limit=48";
+  }, [isBundlePlansSlug, slug]);
+  const { ordered: sectionProducts, status: sectionStatus } = useCatalogProducts(sectionUrl);
+  const [recentProductIds, setRecentProductIds] = useState([]);
+  const { ordered: recentProducts, status: recentStatus } = useProductsByIds(recentProductIds);
+  const productsStatus = slug === "recently-viewed" && recentProductIds.length ? recentStatus : sectionStatus;
   const isLoadingProducts = !isBundlePlansSlug && productsStatus === "loading";
   const isProductsReady = productsStatus === "ready";
   const hasProductsError = !isBundlePlansSlug && productsStatus === "error";
-  const catalogItems = useMemo(() => buildCatalogItems(allProducts), [allProducts]);
+  const catalogItems = useMemo(() => buildCatalogItems(sectionProducts), [sectionProducts]);
 
   const pageRef = useRef(null);
   const [items, setItems] = useState([]);
@@ -52,6 +57,21 @@ export default function SectionViewPage() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorRect, setQuickAddAnchorRect] = useState(null);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
+
+  useEffect(() => {
+    if (slug !== "recently-viewed" || typeof window === "undefined") {
+      setRecentProductIds([]);
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(RECENTLY_VIEWED_STORAGE_KEY);
+      const ids = raw ? JSON.parse(raw) : [];
+      const arr = Array.isArray(ids) ? ids.map(String) : [];
+      setRecentProductIds(arr.filter((id, index) => arr.indexOf(id) === index).slice(0, 24));
+    } catch {
+      setRecentProductIds([]);
+    }
+  }, [slug]);
 
   useEffect(() => {
     if (isBundlePlansSlug) {
@@ -63,43 +83,30 @@ export default function SectionViewPage() {
       return;
     }
     if (slug === "recently-viewed") {
-      try {
-        const raw = window.localStorage.getItem(RECENTLY_VIEWED_STORAGE_KEY);
-        const ids = raw ? JSON.parse(raw) : [];
-        const arr = Array.isArray(ids) ? ids : [];
-        const mapped = arr
-          .map((id) => productIndex.get(String(id)))
-          .filter(Boolean);
-        setItems(mapped.length ? mapped : pickMostPopularProducts(allProducts, new Set(), 24));
-      } catch {
-        setItems(pickMostPopularProducts(allProducts, new Set(), 24));
-      }
+      setItems(recentProducts.length ? recentProducts : pickMostPopularProducts(sectionProducts, new Set(), 24));
       return;
     }
     if (slug === "cross-sell") {
       const cartItems = readCartItems();
       const exclude = new Set((cartItems || []).map((it) => String(it.id)));
-      setItems(pickMostPopularProducts(allProducts, exclude, 24));
+      setItems(pickMostPopularProducts(sectionProducts, exclude, 24));
       return;
     }
     if (slug === "popular") {
-      const purchased = pickMostPurchasedProducts(allProducts, 48);
-      setItems(purchased.length ? purchased : pickMostPopularProducts(allProducts, new Set(), 48));
+      const purchased = pickMostPurchasedProducts(sectionProducts, 48);
+      setItems(purchased.length ? purchased : pickMostPopularProducts(sectionProducts, new Set(), 48));
       return;
     }
     if (slug === "new") {
-      const inStock = allProducts.filter((p) => !String(p.stock || "").toLowerCase().includes("out"));
-      setItems(pickNewestProducts(inStock, new Set(), 48));
+      setItems(sectionProducts.filter((p) => !String(p.stock || "").toLowerCase().includes("out")).slice(0, 48));
       return;
     }
     if (slug === "in-season") {
-      const seasonal = allProducts.filter((p) => p.inSeason === true);
-      setItems(pickInSeasonProducts(seasonal, new Set(), 48));
+      setItems(sectionProducts.filter((p) => p.inSeason === true).slice(0, 48));
       return;
     }
-    // Fallback: show the full product catalogue.
     setItems(catalogItems.slice(0, 48));
-  }, [isBundlePlansSlug, slug, allProducts, catalogItems, productIndex, isProductsReady]);
+  }, [isBundlePlansSlug, slug, catalogItems, isProductsReady, recentProducts, sectionProducts]);
 
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const pagedItems = useMemo(() => {

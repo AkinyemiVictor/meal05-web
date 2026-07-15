@@ -46,10 +46,8 @@ export default function useCategories() {
         setStatus("error");
       });
     load();
-    const refreshTimer = window.setInterval(() => load(true), 60_000);
     return () => {
       cancelled = true;
-      window.clearInterval(refreshTimer);
     };
   }, []);
 

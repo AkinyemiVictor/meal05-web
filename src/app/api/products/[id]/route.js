@@ -11,14 +11,13 @@ import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/marke
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 300;
+export const fetchCache = "default-cache";
 
 const PUBLIC_PRODUCT_DETAIL_CACHE_HEADERS = {
-  "Cache-Control": "no-store, max-age=0",
-  "CDN-Cache-Control": "no-store",
-  "Vercel-CDN-Cache-Control": "no-store",
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
 };
 
 const methodNotAllowed = () =>
@@ -348,6 +347,8 @@ export async function GET(_request, { params }) {
           "regularPrice",
           "msrp",
         ]);
+        const baseUnit = String(row.base_unit ?? row.baseUnit ?? "").trim();
+        const baseQuantity = pickFirstNumber(row, ["base_quantity", "baseQuantity"], null);
 
         return {
           variationId: row.id,
@@ -364,6 +365,14 @@ export async function GET(_request, { params }) {
           minQuantity: purchaseRules.minQuantity,
           maxQuantity: purchaseRules.maxQuantity,
           stepQuantity: purchaseRules.stepQuantity,
+          baseUnit: baseUnit || undefined,
+          baseQuantity: baseQuantity != null ? baseQuantity : undefined,
+          purchase_mode: purchaseRules.purchaseMode,
+          min_quantity: purchaseRules.minQuantity,
+          max_quantity: purchaseRules.maxQuantity,
+          step_quantity: purchaseRules.stepQuantity,
+          base_unit: baseUnit || undefined,
+          base_quantity: baseQuantity != null ? baseQuantity : undefined,
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
@@ -406,6 +415,7 @@ export async function GET(_request, { params }) {
     "";
   const stockValue = defaultVariation ? defaultVariation.stock : resolveStockValueFromRow(marketData);
   const effectiveStock = variations.length && !selectableVariations.length ? 0 : stockValue;
+  const purchaseRules = getVariantPurchaseRules(defaultVariation || marketData);
 
   return NextResponse.json(
     {
@@ -426,6 +436,18 @@ export async function GET(_request, { params }) {
         discount: pricing.discount,
         unit: unitValue,
         stock: effectiveStock,
+        purchaseMode: purchaseRules.purchaseMode,
+        purchase_mode: purchaseRules.purchaseMode,
+        minQuantity: purchaseRules.minQuantity,
+        min_quantity: purchaseRules.minQuantity,
+        maxQuantity: purchaseRules.maxQuantity,
+        max_quantity: purchaseRules.maxQuantity,
+        stepQuantity: purchaseRules.stepQuantity,
+        step_quantity: purchaseRules.stepQuantity,
+        baseUnit: purchaseRules.baseUnit || undefined,
+        base_unit: purchaseRules.baseUnit || undefined,
+        baseQuantity: purchaseRules.baseQuantity ?? undefined,
+        base_quantity: purchaseRules.baseQuantity ?? undefined,
         category:
           categoryMeta?.category ||
           pickFirst(marketData, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),

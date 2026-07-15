@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { pickFirstNumber } from "@/lib/number";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
@@ -269,6 +271,7 @@ const mapRow = (row) => {
   const mainImageUrl = resolveProductImage(row.mainImageUrl, row.main_image_url, row.image, row.image_url);
   const galleryImageUrls = Array.isArray(gallery) && gallery.length ? gallery : mainImageUrl ? [mainImageUrl] : [];
   const merchandising = normalizeProductMerchandisingRecord(row);
+  const purchaseRules = getVariantPurchaseRules(row);
   return {
     id: String(row.id ?? ""),
     name: row.name || "Fresh produce",
@@ -285,6 +288,18 @@ const mapRow = (row) => {
     stock: stockValue,
     inSeason: typeof row.inSeason === "boolean" ? row.inSeason : Boolean(row.in_season ?? true),
     discount,
+    purchaseMode: purchaseRules.purchaseMode,
+    purchase_mode: purchaseRules.purchaseMode,
+    minQuantity: purchaseRules.minQuantity,
+    min_quantity: purchaseRules.minQuantity,
+    maxQuantity: purchaseRules.maxQuantity,
+    max_quantity: purchaseRules.maxQuantity,
+    stepQuantity: purchaseRules.stepQuantity,
+    step_quantity: purchaseRules.stepQuantity,
+    baseUnit: purchaseRules.baseUnit || undefined,
+    base_unit: purchaseRules.baseUnit || undefined,
+    baseQuantity: purchaseRules.baseQuantity ?? undefined,
+    base_quantity: purchaseRules.baseQuantity ?? undefined,
     category: pickFirst(row, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
     categorySlug: pickFirst(row, ["category_slug", "categorySlug"]),
     promoTagEnabled: normalizePromoEnabled(
@@ -421,6 +436,8 @@ const fetchProductByIdUncached = async (id) => {
           "regularPrice",
           "msrp",
         ]);
+        const baseUnit = String(row.base_unit ?? row.baseUnit ?? "").trim();
+        const baseQuantity = pickFirstNumber(row, ["base_quantity", "baseQuantity"], null);
 
         return {
           variationId: row.id,
@@ -437,6 +454,14 @@ const fetchProductByIdUncached = async (id) => {
           minQuantity: purchaseRules.minQuantity,
           maxQuantity: purchaseRules.maxQuantity,
           stepQuantity: purchaseRules.stepQuantity,
+          baseUnit: baseUnit || undefined,
+          baseQuantity: baseQuantity != null ? baseQuantity : undefined,
+          purchase_mode: purchaseRules.purchaseMode,
+          min_quantity: purchaseRules.minQuantity,
+          max_quantity: purchaseRules.maxQuantity,
+          step_quantity: purchaseRules.stepQuantity,
+          base_unit: baseUnit || undefined,
+          base_quantity: baseQuantity != null ? baseQuantity : undefined,
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
@@ -479,6 +504,7 @@ const fetchProductByIdUncached = async (id) => {
     Number(defaultVariation.oldPrice) > Number(defaultVariation.price)
       ? Math.round(((Number(defaultVariation.oldPrice) - Number(defaultVariation.price)) / Number(defaultVariation.oldPrice)) * 100)
       : baseProduct.discount;
+  const purchaseRules = getVariantPurchaseRules(defaultVariation || marketData);
   return {
     product: {
       ...baseProduct,
@@ -488,13 +514,33 @@ const fetchProductByIdUncached = async (id) => {
       oldPrice: effectiveOldPrice,
       unit: effectiveUnit,
       discount: effectiveDiscount,
+      purchaseMode: purchaseRules.purchaseMode,
+      purchase_mode: purchaseRules.purchaseMode,
+      minQuantity: purchaseRules.minQuantity,
+      min_quantity: purchaseRules.minQuantity,
+      maxQuantity: purchaseRules.maxQuantity,
+      max_quantity: purchaseRules.maxQuantity,
+      stepQuantity: purchaseRules.stepQuantity,
+      step_quantity: purchaseRules.stepQuantity,
+      baseUnit: purchaseRules.baseUnit || undefined,
+      base_unit: purchaseRules.baseUnit || undefined,
+      baseQuantity: purchaseRules.baseQuantity ?? undefined,
+      base_quantity: purchaseRules.baseQuantity ?? undefined,
     },
     raw,
     defaultVariantId,
   };
 };
 
-export const fetchProductById = fetchProductByIdUncached;
+const fetchProductByIdCached = unstable_cache(
+  async (id) => fetchProductByIdUncached(id),
+  ["product-by-id"],
+  {
+    revalidate: 300,
+  }
+);
+
+export const fetchProductById = async (id) => fetchProductByIdCached(id);
 
 export const fetchProductBySlug = async (slug) => {
   const id = extractIdFromSlug(slug);

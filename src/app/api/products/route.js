@@ -13,16 +13,16 @@ import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/l
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
+import { toCategorySlug } from "@/lib/categories-server";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 300;
+export const fetchCache = "default-cache";
 
-const PUBLIC_CATALOG_CACHE_HEADERS = {
-  "Cache-Control": "no-store, max-age=0",
-  "CDN-Cache-Control": "no-store",
-  "Vercel-CDN-Cache-Control": "no-store",
+const PUBLIC_CATALOG_CACHE_HEADERS_LIGHT = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
 };
 
 const toSlug = (value) => {
@@ -279,6 +279,12 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
     pickFirst(chosenVariant || {}, ["packaging", "packaging_material_type", "packagingMaterialType"]) ||
     pickFirst(row, ["packaging", "packaging_material_type", "packagingMaterialType"]) ||
     "";
+  const baseUnit = chosenVariant
+    ? String(chosenVariant.base_unit ?? chosenVariant.baseUnit ?? "").trim()
+    : String(row.base_unit ?? row.baseUnit ?? "").trim();
+  const baseQuantity = chosenVariant
+    ? pickFirstNumber(chosenVariant, ["base_quantity", "baseQuantity"], null)
+    : pickFirstNumber(row, ["base_quantity", "baseQuantity"], null);
 
   const gallery = imageIndex[String(productId)] || [];
   const fallbackImage =
@@ -323,6 +329,14 @@ const mapRowToProduct = (row, imageIndex = {}, variantIndex = {}, productMetaInd
     minQuantity: purchaseRules.minQuantity,
     maxQuantity: purchaseRules.maxQuantity,
     stepQuantity: purchaseRules.stepQuantity,
+    baseUnit: baseUnit || undefined,
+    baseQuantity: baseQuantity != null ? baseQuantity : undefined,
+    purchase_mode: purchaseRules.purchaseMode,
+    min_quantity: purchaseRules.minQuantity,
+    max_quantity: purchaseRules.maxQuantity,
+    step_quantity: purchaseRules.stepQuantity,
+    base_unit: baseUnit || undefined,
+    base_quantity: baseQuantity != null ? baseQuantity : undefined,
     unit:
       pickFirst(chosenVariant || {}, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) ||
       pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) ||
@@ -381,7 +395,192 @@ const mapAndGroup = (rows, imageIndex = {}, variantIndex = {}, productMetaIndex 
   return { mapped, grouped };
 };
 
+const PUBLIC_CATALOG_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+};
+
+const CATALOG_PRODUCT_FIELDS = [
+  "id",
+  "name",
+  "main_image_url",
+  "category_id",
+  "is_active",
+  "in_season",
+  "unit",
+  "price",
+  "old_price",
+  "promo_tag_enabled",
+  "promo_tag_text",
+  "promo_tag_expires_at",
+  "is_featured",
+  "is_hidden",
+  "is_bestseller",
+  "is_new_arrival",
+  "is_homepage_pick",
+  "is_popular",
+  "is_chef_choice",
+  "is_under_15m",
+  "is_bundle_eligible",
+  "collection_slug",
+  "prep_minutes",
+  "created_at",
+].join(", ");
+
+const CATALOG_CATEGORY_FIELDS = [
+  "id",
+  "name",
+  "label",
+  "title",
+  "slug",
+  "category_name",
+  "category_slug",
+].join(", ");
+
+const buildCategoryIndex = (rows) =>
+  (Array.isArray(rows) ? rows : []).reduce((acc, row) => {
+    const id = String(row?.id ?? "").trim();
+    if (id) acc.set(id, row);
+    return acc;
+  }, new Map());
+
+const buildProductSortScore = (row) => {
+  const score =
+    (row?.is_homepage_pick ? 100 : 0) +
+    (row?.is_featured ? 50 : 0) +
+    (row?.is_bestseller ? 25 : 0);
+  const createdAt = Date.parse(row?.created_at || "") || 0;
+  return { score, createdAt };
+};
+
+const sortLandingProducts = (rows) =>
+  [...rows].sort((a, b) => {
+    const aScore = buildProductSortScore(a);
+    const bScore = buildProductSortScore(b);
+    if (bScore.score !== aScore.score) return bScore.score - aScore.score;
+    return bScore.createdAt - aScore.createdAt;
+  });
+
+const buildPublicCatalogProduct = (row, categoryIndex) => {
+  const categoryRow = categoryIndex.get(String(row?.category_id ?? "")) || null;
+  const categoryName = String(
+    categoryRow?.name ||
+      categoryRow?.label ||
+      categoryRow?.title ||
+      categoryRow?.category_name ||
+      row?.category_name ||
+      ""
+  ).trim();
+  const categorySlug = toCategorySlug(
+    categoryRow?.slug || categoryRow?.category_slug || categoryName || row?.category_slug || ""
+  );
+  const price = Number(row?.starting_price ?? row?.price ?? 0) || 0;
+  const oldPriceRaw = Number(row?.old_price ?? row?.oldPrice ?? price);
+  const oldPrice = Number.isFinite(oldPriceRaw) && oldPriceRaw > 0 ? Math.max(price, oldPriceRaw) : price;
+  const discount = oldPrice > price && price > 0 ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+  const merchandising = normalizeProductMerchandisingRecord(row);
+  const image = resolveProductImage(row?.main_image_url, row?.image, row?.image_url);
+
+  return {
+    id: String(row?.id ?? ""),
+    name: String(row?.name || "Fresh produce"),
+    image,
+    mainImageUrl: image,
+    price,
+    oldPrice,
+    unit: String(row?.unit || ""),
+    stock: row?.in_stock ?? row?.stock ?? "",
+    inSeason: row?.in_season !== false,
+    discount,
+    category: categoryName || String(row?.category_name || ""),
+    categorySlug,
+    variantName: "",
+    promoTagEnabled: normalizePromoEnabled(row?.promo_tag_enabled ?? row?.promoTagEnabled),
+    promoTagText: normalizePromoText(row?.promo_tag_text ?? row?.promoTagText),
+    promoTagExpiresAt: parsePromoExpiry(row?.promo_tag_expires_at ?? row?.promoTagExpiresAt),
+    collectionSlug: String(row?.collection_slug || ""),
+    prepMinutes: Number(row?.prep_minutes || 0) || undefined,
+    isPopular: Boolean(row?.is_popular || row?.isPopular || row?.is_bestseller || row?.isBestseller),
+    isChefChoice: Boolean(row?.is_chef_choice || row?.isChefChoice),
+    isUnder15m: Boolean(row?.is_under_15m || row?.isUnder15m || row?.is_under_15_min || row?.isUnder15Minutes),
+    isBundleEligible: Boolean(row?.is_bundle_eligible || row?.isBundleEligible),
+    tags: [],
+    packaging: "",
+    ...buildPackagingMetadata({
+      ...row,
+      name: row?.name,
+      category: categoryName,
+      categorySlug,
+    }),
+    ...merchandising,
+  };
+};
+
+const buildPublicCatalogResponse = async (request) => {
+  const admin = getSupabaseAdminClient();
+  const catalog = await loadMarketCatalog(admin);
+  const searchParams = new URL(request.url).searchParams;
+  const isLandingPreview = searchParams.get("view") === "landing";
+
+  if (!catalog.productIds.length) {
+    return {
+      grouped: {},
+      flat: [],
+      market: publicMarket(catalog.market),
+    };
+  }
+
+  const [productRes, categoryRes] = await Promise.all([
+    admin
+      .from("products")
+      .select(CATALOG_PRODUCT_FIELDS, { head: false })
+      .in("id", catalog.productIds)
+      .order("id", { ascending: true }),
+    admin.from("product_categories").select(CATALOG_CATEGORY_FIELDS),
+  ]);
+
+  if (productRes.error) throw productRes.error;
+  if (categoryRes.error) throw categoryRes.error;
+
+  const categoryIndex = buildCategoryIndex(categoryRes.data);
+  const listedRows = (Array.isArray(productRes.data) ? productRes.data : [])
+    .map((row) => applyMarketListing(row, catalog))
+    .filter(Boolean)
+    .filter((row) => normalizeProductMerchandisingRecord(row).isHidden !== true);
+
+  const rows = isLandingPreview ? sortLandingProducts(listedRows).slice(0, 12) : listedRows;
+  const mapped = rows.map((row) => buildPublicCatalogProduct(row, categoryIndex)).filter((product) => product.id);
+  const grouped = mapped.reduce((acc, product) => {
+    const key = product.categorySlug || "uncategorised";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(product);
+    return acc;
+  }, {});
+
+  return {
+    grouped,
+    flat: mapped,
+    market: publicMarket(catalog.market),
+  };
+};
+
 export async function GET(request) {
+  try {
+    const payload = await buildPublicCatalogResponse(request);
+    return NextResponse.json(payload, {
+      status: 200,
+      headers: PUBLIC_CATALOG_CACHE_HEADERS_LIGHT,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to load products", details: error?.message || String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+async function legacyGET(request) {
   try {
     if (!supabasePublicConfig?.url || !supabasePublicConfig?.anonKey) {
       return NextResponse.json(
@@ -629,3 +828,5 @@ export async function GET(request) {
     );
   }
 }
+
+void legacyGET;

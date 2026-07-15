@@ -103,6 +103,8 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
   const stock = variant?.stock ?? product?.stock ?? "In Stock";
   const purchaseRules = getVariantPurchaseRules(variant);
   const quantity = normaliseOrderCount(orderCount, variant);
+  const baseUnit = variant?.base_unit ?? variant?.baseUnit ?? product?.base_unit ?? product?.baseUnit ?? "";
+  const baseQuantity = variant?.base_quantity ?? variant?.baseQuantity ?? product?.base_quantity ?? product?.baseQuantity ?? null;
   return {
     id: lineId,
     productId: product?.id,
@@ -115,9 +117,17 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
     unit,
     price,
     purchaseMode: purchaseRules.purchaseMode,
+    purchase_mode: purchaseRules.purchaseMode,
     minQuantity: purchaseRules.minQuantity,
+    min_quantity: purchaseRules.minQuantity,
     maxQuantity: purchaseRules.maxQuantity,
+    max_quantity: purchaseRules.maxQuantity,
     stepQuantity: purchaseRules.stepQuantity,
+    step_quantity: purchaseRules.stepQuantity,
+    baseUnit: baseUnit || undefined,
+    base_unit: baseUnit || undefined,
+    baseQuantity: baseQuantity != null ? baseQuantity : undefined,
+    base_quantity: baseQuantity != null ? baseQuantity : undefined,
     orderSize: 1,
     orderCount: quantity,
     quantity,
@@ -211,7 +221,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setDetail(detailProduct);
       setVariations(list);
       setSelectedVariant(defaultVariant);
-      setPurchaseMode(normalizePurchaseMode(defaultVariant?.purchaseMode));
+      setPurchaseMode(normalizePurchaseMode(defaultVariant?.purchase_mode ?? defaultVariant?.purchaseMode));
       setQuantity(getVariantPurchaseRules(defaultVariant).minQuantity);
       setStatus("ready");
       cacheRef.current.set(cacheKey, { product: detailProduct, variations: list });
@@ -240,11 +250,17 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
   const displayProduct = detail || product || null;
   const fixedVariations = useMemo(
-    () => variations.filter((entry) => normalizePurchaseMode(entry?.purchaseMode) === PURCHASE_MODE_FIXED),
+    () =>
+      variations.filter((entry) =>
+        normalizePurchaseMode(entry?.purchase_mode ?? entry?.purchaseMode) === PURCHASE_MODE_FIXED
+      ),
     [variations]
   );
   const looseVariations = useMemo(
-    () => variations.filter((entry) => normalizePurchaseMode(entry?.purchaseMode) === PURCHASE_MODE_LOOSE),
+    () =>
+      variations.filter((entry) =>
+        normalizePurchaseMode(entry?.purchase_mode ?? entry?.purchaseMode) === PURCHASE_MODE_LOOSE
+      ),
     [variations]
   );
   const activeVariations = purchaseMode === PURCHASE_MODE_LOOSE ? looseVariations : fixedVariations;
@@ -436,36 +452,36 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         <>
           {variations.length ? (
             <>
-            {fixedVariations.length && looseVariations.length ? (
-              <div className="product-variant-picker__section">
-                <p className="product-variant-picker__label">Purchase mode</p>
-                <div className="product-variant-picker__options" role="list">
-                  <button
-                    type="button"
-                    className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_FIXED ? " is-active" : ""}`.trim()}
-                    onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
-                    aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
-                  >
-                    <span className="product-variant-picker__option-main">Fixed pack</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_LOOSE ? " is-active" : ""}`.trim()}
-                    onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
-                    aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
-                  >
-                    <span className="product-variant-picker__option-main">Loose quantity</span>
-                  </button>
+              {fixedVariations.length && looseVariations.length ? (
+                <div className="product-variant-picker__section">
+                  <p className="product-variant-picker__label">Purchase mode</p>
+                  <div className="product-variant-picker__options" role="list">
+                    <button
+                      type="button"
+                      className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_FIXED ? " is-active" : ""}`.trim()}
+                      onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
+                      aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
+                    >
+                      <span className="product-variant-picker__option-main">Fixed pack</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_LOOSE ? " is-active" : ""}`.trim()}
+                      onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
+                      aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
+                    >
+                      <span className="product-variant-picker__option-main">Loose quantity</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {purchaseMode === PURCHASE_MODE_FIXED && activeVariations.length ? (
-            <VariantPicker
-              variations={activeVariations}
-              selectedId={effectiveVariant?.variationId || effectiveVariant?.id}
-              onChange={(variant) => setSelectedVariant(variant)}
-            />
-            ) : null}
+              ) : null}
+              {purchaseMode === PURCHASE_MODE_FIXED && activeVariations.length ? (
+                <VariantPicker
+                  variations={activeVariations}
+                  selectedId={effectiveVariant?.variationId || effectiveVariant?.id}
+                  onChange={(variant) => setSelectedVariant(variant)}
+                />
+              ) : null}
             </>
           ) : null}
 

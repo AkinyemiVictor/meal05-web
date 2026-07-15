@@ -14,6 +14,9 @@
       "!/favicon.ico"
     ]
   },
+  "images": {
+    "binding": "IMAGES"
+  },
   "routes": [
     {
       "pattern": "meal05.com",

@@ -2,7 +2,7 @@ import "./globals.css";
 import "@/styles/main.css";
 import "@/styles/meal05-footer-download.css";
 import "@/styles/notice.css";
-import "@fortawesome/fontawesome-free/css/all.min.css";
+import "@/styles/fontawesome-subset.css";
 import "leaflet/dist/leaflet.css";
 import localFont from "next/font/local";
 import { Suspense } from "react";
@@ -11,8 +11,7 @@ import Footer from "@/components/footer";
 import Meal05Header from "@/components/meal05-header";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
-import RoutePrefetcher from "@/components/route-prefetcher";
-import PageScaler from "@/components/page-scaler";
+import PwaServiceWorker from "@/components/pwa-service-worker";
 
 const geistSans = localFont({
   src: "../fonts/geist-latin.woff2",
@@ -29,6 +28,11 @@ export const metadata = {
   title: "Meal05 - Farm-fresh groceries delivered in Ibadan",
   description: "Order fresh produce, proteins, grains, and pantry staples. Farm-sourced and delivered to your door.",
   applicationName: "Meal05",
+  appleWebApp: {
+    capable: true,
+    title: "Meal05",
+    statusBarStyle: "default",
+  },
   icons: {
     icon: [
       { url: "/assets/favicon/favicon.ico", sizes: "any" },
@@ -43,30 +47,35 @@ export const metadata = {
     shortcut: ["/assets/favicon/favicon.ico"],
   },
   manifest: "/assets/favicon/site.webmanifest",
-  themeColor: "#f04e1f",
   other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-title": "Meal05",
+    "apple-mobile-web-app-status-bar-style": "default",
     "msapplication-TileColor": "#f04e1f",
     "msapplication-config": "/assets/favicon/browserconfig.xml",
   },
+};
+
+export const viewport = {
+  themeColor: "#f04e1f",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <PageScaler>
-          <NoticeProvider>
-            <Meal05Header />
-            <RoutePrefetcher />
-            <div className="layout-main">
-              {children}
-            </div>
-            <Footer />
-          </NoticeProvider>
-        </PageScaler>
+        <NoticeProvider>
+          <Meal05Header />
+          <div className="layout-main">
+            {children}
+          </div>
+          <Footer />
+        </NoticeProvider>
         <Suspense fallback={null}>
           <MobileBottomNav />
         </Suspense>
+        <PwaServiceWorker />
       </body>
     </html>
   );

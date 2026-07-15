@@ -547,7 +547,7 @@ export default async function AdminCataloguePage({ searchParams }) {
         <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e2e8f0" }}>
           <strong>Variant Control</strong>
           <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>
-            Update current price, old price, stock count, and storefront availability for any variant.
+            Update current price, old price, stock count, storefront availability, and purchase quantity rules for any variant.
           </p>
         </div>
 
@@ -608,7 +608,7 @@ export default async function AdminCataloguePage({ searchParams }) {
         </div>
 
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1080 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1320 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Product</th>
@@ -641,6 +641,13 @@ export default async function AdminCataloguePage({ searchParams }) {
                     <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 12 }}>
                       Stock: {row.stockCount == null ? "-" : adminFormatters.number(row.stockCount)}
                     </p>
+                    <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 12 }}>
+                      Purchase: {row.purchaseMode === "loose" ? "Loose" : "Fixed"}
+                      {row.minQuantity != null ? ` | Min ${row.minQuantity}` : ""}
+                      {row.maxQuantity != null ? ` | Max ${row.maxQuantity}` : ""}
+                      {row.stepQuantity != null ? ` | Step ${row.stepQuantity}` : ""}
+                      {row.baseUnit ? ` | Base ${row.baseQuantity || 1} ${row.baseUnit}` : ""}
+                    </p>
                   </td>
                   <td style={{ padding: 10, verticalAlign: "top" }}>
                     <AdminProductCatalogControl
@@ -652,9 +659,16 @@ export default async function AdminCataloguePage({ searchParams }) {
                       oldPrice={row.oldPrice}
                       stockCount={row.stockCount}
                       variantActive={row.variantActive}
+                      purchaseMode={row.purchaseMode}
+                      minQuantity={row.minQuantity}
+                      maxQuantity={row.maxQuantity}
+                      stepQuantity={row.stepQuantity}
+                      baseUnit={row.baseUnit}
+                      baseQuantity={row.baseQuantity}
                       showSeason={false}
                       showStock
                       showAvailability
+                      showPurchaseRules
                     />
                   </td>
                 </tr>

@@ -28,6 +28,7 @@ function ProductImage({ product, showSeasonBadge = true, compact = false }) {
   return (
     <Link
       href={getProductHref(product)}
+      prefetch={false}
       className={classNames(
         "relative block overflow-hidden border border-meal-line bg-meal-mist",
         compact ? "aspect-square rounded-[24px]" : "aspect-[1.06/1] rounded-3xl"
@@ -112,6 +113,7 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
         <div className={classNames("relative min-w-0", compact ? "pr-10" : "pr-12")}>
           <Link
             href={productHref}
+            prefetch={false}
             className="block min-w-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-meal-pepper/60"
             aria-label={`View ${product.name}`}
           >
@@ -130,6 +132,7 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
           </Link>
           <Link
             href={productHref}
+            prefetch={false}
             className={classNames(
               "absolute right-0 top-0 grid place-items-center rounded-full border border-meal-line text-meal-muted",
               compact ? "h-8 w-8" : "h-10 w-10"
@@ -142,6 +145,7 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
         <div className="self-end">
           <Link
             href={productHref}
+            prefetch={false}
             className="block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-meal-pepper/60"
             aria-label={`View ${product.name} details`}
           >

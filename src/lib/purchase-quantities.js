@@ -24,6 +24,8 @@ export const getVariantPurchaseRules = (variant = {}) => {
   const minQuantity = toNumber(variant?.min_quantity ?? variant?.minQuantity, null);
   const maxQuantity = toNumber(variant?.max_quantity ?? variant?.maxQuantity, null);
   const stepQuantity = toNumber(variant?.step_quantity ?? variant?.stepQuantity, null);
+  const baseUnit = String(variant?.base_unit ?? variant?.baseUnit ?? "").trim();
+  const baseQuantity = toNumber(variant?.base_quantity ?? variant?.baseQuantity, null);
 
   return {
     purchaseMode: mode,
@@ -40,6 +42,8 @@ export const getVariantPurchaseRules = (variant = {}) => {
         : mode === PURCHASE_MODE_LOOSE
           ? 1
           : 1,
+    baseUnit,
+    baseQuantity: baseQuantity != null && baseQuantity > 0 ? roundQuantity(baseQuantity) : null,
   };
 };
 

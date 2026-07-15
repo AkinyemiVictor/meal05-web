@@ -12,7 +12,7 @@ import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import ProductCard from "@/components/product-card";
 import copy from "@/data/copy";
-import useProducts from "@/lib/use-products";
+import { useCatalogProducts, useProductsByIds } from "@/lib/use-catalog-products";
 import categories, { getCategoryHref } from "@/data/categories";
 import {
   pickMostPopularProducts,
@@ -189,7 +189,7 @@ function CartPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { ordered: catalogueList, index: productIndex } = useProducts();
+  const { ordered: catalogueList } = useCatalogProducts("/api/catalog/home?limit=72");
   const { settings: deliverySettings } = useDeliverySettings();
   // Prevent hydration mismatches by deferring client-only computations
   // (like reading localStorage-driven engagement) until after mount.
@@ -205,7 +205,7 @@ function CartPageContent() {
   const [promoMessage, setPromoMessage] = useState({ text: "", tone: "neutral" });
   const [activePromo, setActivePromo] = useState(() => (typeof window !== "undefined" ? readStoredPromo() : null));
   const [promoBusy, setPromoBusy] = useState(false);
-  const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const [recentProductIds, setRecentProductIds] = useState([]);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorRect, setQuickAddAnchorRect] = useState(null);
@@ -221,6 +221,15 @@ function CartPageContent() {
     () => buildSignInHref({ tab: "login", next: cartReturnPath, hash: "loginForm" }),
     [cartReturnPath]
   );
+  const cartLookupIds = useMemo(
+    () => cartItems.map((item) => String(item?.productId || item?.id || "").trim()).filter(Boolean),
+    [cartItems]
+  );
+  const productLookupIds = useMemo(
+    () => [...cartLookupIds, ...recentProductIds],
+    [cartLookupIds, recentProductIds]
+  );
+  const { index: productIndex } = useProductsByIds(productLookupIds);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -236,17 +245,8 @@ function CartPageContent() {
       }
     })();
 
-    const uniqueHistory = history.filter((id, index) => history.indexOf(id) === index);
-    const picked = [];
-
-    uniqueHistory.forEach((id) => {
-      if (picked.length >= RECENTLY_VIEWED_LIMIT) return;
-      const product = productIndex.get(String(id));
-      if (product) picked.push(product);
-    });
-
-    setRecentlyViewed(picked.slice(0, RECENTLY_VIEWED_LIMIT));
-  }, [catalogueList, productIndex]);
+    setRecentProductIds(history.filter((id, index) => history.indexOf(id) === index).slice(0, RECENTLY_VIEWED_LIMIT));
+  }, []);
 
   const handleQuickAddClose = () => {
     setQuickAddOpen(false);
@@ -443,6 +443,11 @@ function CartPageContent() {
     }
     return cats;
   }, [cartItems, productIndex]);
+
+  const recentlyViewed = useMemo(
+    () => recentProductIds.map((id) => productIndex.get(String(id))).filter(Boolean),
+    [productIndex, recentProductIds]
+  );
 
   const crossSellProducts = useMemo(() => {
     const pool = catalogueList.filter((p) => !cartIdSet.has(p.id));

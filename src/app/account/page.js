@@ -13,7 +13,7 @@ import { buildSignInHref } from "@/lib/auth-redirect";
 import { ORDERS_EVENT, readUserOrders, updateUserOrderStatus, setUserOrders } from "@/lib/orders";
 import { CART_UPDATED_EVENT, readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { formatProductPrice } from "@/lib/catalogue";
-import useProducts from "@/lib/use-products";
+import { useCatalogProducts, useProductsByIds } from "@/lib/use-catalog-products";
 import { RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 import { resolveProductImage } from "@/lib/product-image";
 import {
@@ -275,12 +275,27 @@ function AccountPageContent() {
   const addressFeedbackTimeoutRef = useRef(null);
   const addressFormMessageTimeoutRef = useRef(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
-  const { ordered: catalogueList, index: productIndex } = useProducts();
-  const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const { ordered: homeProducts } = useCatalogProducts("/api/catalog/home?limit=12");
+  const [recentProductIds, setRecentProductIds] = useState([]);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorRect, setQuickAddAnchorRect] = useState(null);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
+  const orderProductIds = useMemo(() => {
+    const ids = [];
+    orders.forEach((order) => {
+      (Array.isArray(order?.items) ? order.items : []).forEach((item) => {
+        const id = item?.productId ?? item?.product_id ?? item?.product?.id ?? item?.id;
+        if (id != null) ids.push(String(id));
+      });
+    });
+    return ids;
+  }, [orders]);
+  const lookupProductIds = useMemo(
+    () => [...recentProductIds, ...orderProductIds],
+    [recentProductIds, orderProductIds]
+  );
+  const { index: productIndex } = useProductsByIds(lookupProductIds);
 
   const addressBook = useMemo(() => (Array.isArray(user?.addresses) ? user.addresses : []), [user]);
   const defaultAddress = useMemo(() => {
@@ -473,18 +488,11 @@ function AccountPageContent() {
       }
     })();
     if (!history.length) {
-      setRecentlyViewed([]);
+      setRecentProductIds([]);
       return;
     }
-    const unique = history.filter((id, index) => history.indexOf(id) === index);
-    const picked = [];
-    unique.forEach((id) => {
-      if (picked.length >= 8) return;
-      const product = productIndex.get(String(id));
-      if (product) picked.push(product);
-    });
-    setRecentlyViewed(picked);
-  }, [productIndex, catalogueList]);
+    setRecentProductIds(history.filter((id, index) => history.indexOf(id) === index).slice(0, 8));
+  }, []);
 
   const handleQuickAddClose = () => {
     setQuickAddOpen(false);
@@ -757,7 +765,11 @@ function AccountPageContent() {
     () => orders.filter((order) => ["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
     [orders]
   );
-  const wishlistProducts = useMemo(() => catalogueList.slice(0, 6), [catalogueList]);
+  const wishlistProducts = useMemo(() => homeProducts.slice(0, 6), [homeProducts]);
+  const recentlyViewed = useMemo(
+    () => recentProductIds.map((id) => productIndex.get(String(id))).filter(Boolean),
+    [productIndex, recentProductIds]
+  );
   const userInitials = useMemo(() => {
     const words = formatName(resolvedUser).split(/\s+/).filter(Boolean);
     return `${words[0]?.[0] || "M"}${words[1]?.[0] || words[0]?.[1] || "F"}`.toUpperCase();

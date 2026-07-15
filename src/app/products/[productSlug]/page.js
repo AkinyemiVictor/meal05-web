@@ -16,6 +16,7 @@ import {
 } from "@/lib/seo/schema";
 
 const FALLBACK_IMAGE = PRODUCT_PLACEHOLDER_IMAGE;
+export const revalidate = 300;
 
 const REVIEW_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",

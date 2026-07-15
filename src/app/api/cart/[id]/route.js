@@ -50,7 +50,7 @@ export async function PATCH(req, { params }) {
   const catalog = await loadMarketCatalog(admin);
   const { data: variant, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity")
+    .select("id, product_id, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
     .eq("id", cartItem.variant_id)
     .eq("market_id", catalog.market.id)
     .maybeSingle();

@@ -32,7 +32,7 @@ import {
 import FilterChips from "@/components/filter-chips";
 import HomeProductCollection from "@/components/home-product-collection";
 import useCategories from "@/lib/use-categories";
-import useProducts from "@/lib/use-products";
+import { useCatalogProducts } from "@/lib/use-catalog-products";
 
 const DESKTOP_NAVBAR_HEIGHT = 81;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
@@ -151,7 +151,7 @@ export default function Home() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
   const { categories } = useCategories();
-  const { ordered: products, status: productsStatus } = useProducts();
+  const { ordered: products, status: productsStatus } = useCatalogProducts("/api/catalog/home?limit=72");
 
   const counts = useMemo(() => {
     return categories.reduce((next, category) => {

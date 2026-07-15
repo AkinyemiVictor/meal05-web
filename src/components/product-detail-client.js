@@ -53,15 +53,23 @@ const formatCategory = (value) =>
 export default function ProductDetailClient({ product, variations = [], fallbackImage, ratings }) {
   const defaultVariant = useMemo(() => pickDefaultVariant(variations), [variations]);
   const [selectedVariant, setSelectedVariant] = useState(defaultVariant || null);
-  const [purchaseMode, setPurchaseMode] = useState(() => normalizePurchaseMode(defaultVariant?.purchaseMode));
+  const [purchaseMode, setPurchaseMode] = useState(() =>
+    normalizePurchaseMode(defaultVariant?.purchase_mode ?? defaultVariant?.purchaseMode)
+  );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [saved, setSaved] = useState(false);
   const fixedVariations = useMemo(
-    () => variations.filter((variant) => normalizePurchaseMode(variant?.purchaseMode) === PURCHASE_MODE_FIXED),
+    () =>
+      variations.filter((variant) =>
+        normalizePurchaseMode(variant?.purchase_mode ?? variant?.purchaseMode) === PURCHASE_MODE_FIXED
+      ),
     [variations]
   );
   const looseVariations = useMemo(
-    () => variations.filter((variant) => normalizePurchaseMode(variant?.purchaseMode) === PURCHASE_MODE_LOOSE),
+    () =>
+      variations.filter((variant) =>
+        normalizePurchaseMode(variant?.purchase_mode ?? variant?.purchaseMode) === PURCHASE_MODE_LOOSE
+      ),
     [variations]
   );
   const hasFixedVariations = fixedVariations.length > 0;
@@ -70,7 +78,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
 
   useEffect(() => {
     setSelectedVariant(defaultVariant || null);
-    setPurchaseMode(normalizePurchaseMode(defaultVariant?.purchaseMode));
+    setPurchaseMode(normalizePurchaseMode(defaultVariant?.purchase_mode ?? defaultVariant?.purchaseMode));
   }, [defaultVariant]);
 
   useEffect(() => {
@@ -107,10 +115,18 @@ export default function ProductDetailClient({ product, variations = [], fallback
       image: resolveProductImage(selectedVariant.image, product.image, fallbackImage),
       variantId: selectedVariant.variationId,
       variantName,
-      purchaseMode: selectedVariant.purchaseMode,
+      purchaseMode: selectedVariant.purchaseMode ?? selectedVariant.purchase_mode,
+      purchase_mode: selectedVariant.purchase_mode ?? selectedVariant.purchaseMode,
       minQuantity: selectedVariant.minQuantity,
+      min_quantity: selectedVariant.min_quantity ?? selectedVariant.minQuantity,
       maxQuantity: selectedVariant.maxQuantity,
+      max_quantity: selectedVariant.max_quantity ?? selectedVariant.maxQuantity,
       stepQuantity: selectedVariant.stepQuantity,
+      step_quantity: selectedVariant.step_quantity ?? selectedVariant.stepQuantity,
+      baseUnit: selectedVariant.baseUnit ?? selectedVariant.base_unit,
+      base_unit: selectedVariant.base_unit ?? selectedVariant.baseUnit,
+      baseQuantity: selectedVariant.baseQuantity ?? selectedVariant.base_quantity,
+      base_quantity: selectedVariant.base_quantity ?? selectedVariant.baseQuantity,
     };
   }, [product, selectedVariant, fallbackImage]);
 

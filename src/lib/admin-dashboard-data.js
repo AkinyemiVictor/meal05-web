@@ -41,6 +41,7 @@ import {
 } from "@/lib/product-data-quality";
 import { getProductPromoState, normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { normalizePromoCodeRecord } from "@/lib/promo-codes";
+import { normalizePurchaseMode } from "@/lib/purchase-quantities";
 import {
   calculateRestockOrderByDate,
   getRestockPlanningMissingFields,
@@ -1660,7 +1661,7 @@ export async function loadProductAdminCatalogue({ page = 1, pageSize = 25, query
     admin.from("products").select("id, name, in_season, is_active").range(0, 4999),
     admin
       .from("product_variants")
-      .select("id, product_id, name, unit, price, old_price, stock_count, is_default, is_active")
+      .select("id, product_id, name, unit, price, old_price, stock_count, is_default, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
       .range(0, 4999),
   ]);
 
@@ -1702,6 +1703,12 @@ export async function loadProductAdminCatalogue({ page = 1, pageSize = 25, query
         price: toNumber(row?.price),
         oldPrice: row?.old_price == null ? null : toNumber(row?.old_price),
         stockCount: row?.stock_count == null ? null : Math.max(0, toNumber(row?.stock_count)),
+        purchaseMode: normalizePurchaseMode(row?.purchase_mode),
+        minQuantity: row?.min_quantity == null ? null : toNumber(row?.min_quantity),
+        maxQuantity: row?.max_quantity == null ? null : toNumber(row?.max_quantity),
+        stepQuantity: row?.step_quantity == null ? null : toNumber(row?.step_quantity),
+        baseUnit: String(row?.base_unit || "").trim(),
+        baseQuantity: row?.base_quantity == null ? null : toNumber(row?.base_quantity),
         isDefault: row?.is_default === true,
         variantActive: row?.is_active !== false,
         searchText,

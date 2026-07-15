@@ -9,7 +9,7 @@ let productsValueCache = null;
 const fetchProductsCatalogue = async ({ refresh = false } = {}) => {
   if (!refresh && productsValueCache) return productsValueCache;
   if (!refresh && productsRequestCache) return productsRequestCache;
-  productsRequestCache = fetch("/api/products")
+  productsRequestCache = fetch("/api/products", { cache: refresh ? "no-store" : "default" })
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();

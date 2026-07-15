@@ -227,11 +227,11 @@ export async function POST(request) {
     const query = !hasMissingVariantIds && payloadVariantIds.length
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type, purchase_mode, min_quantity, max_quantity, step_quantity")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
           .in("id", payloadVariantIds)
       : admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type, purchase_mode, min_quantity, max_quantity, step_quantity")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
           .in("product_id", productIds);
     const result = await query.eq("market_id", catalog.market.id);
     if (result.error) {

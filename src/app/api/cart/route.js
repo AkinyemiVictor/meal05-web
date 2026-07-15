@@ -17,7 +17,7 @@ const loadVariantStock = async (client, variantId, marketId) => {
 
   const result = await client
     .from("product_variants")
-    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity")
+    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
     .eq("id", id)
     .eq("market_id", marketId)
     .maybeSingle();
@@ -45,7 +45,7 @@ export async function GET(req) {
   if (!variantIds.length) return applyRateLimitHeaders(new Response(JSON.stringify([]), { status: 200 }), rl);
   const { data: variants, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity")
+    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
     .in("id", variantIds)
     .eq("market_id", catalog.market.id)
     .eq("is_active", true);
@@ -66,6 +66,8 @@ export async function GET(req) {
       min_quantity: variant.min_quantity,
       max_quantity: variant.max_quantity,
       step_quantity: variant.step_quantity,
+      base_unit: variant.base_unit,
+      base_quantity: variant.base_quantity,
     }];
   });
   return applyRateLimitHeaders(new Response(JSON.stringify(validRows), { status: 200 }), rl);

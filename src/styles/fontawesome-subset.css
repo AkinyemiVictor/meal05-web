@@ -1,0 +1,129 @@
+@font-face {
+  font-family: "Font Awesome 7 Free";
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url("../../node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Font Awesome 7 Free";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../../node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Font Awesome 7 Brands";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../../node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2") format("woff2");
+}
+
+.fa-solid,
+.fa-regular,
+.fa-brands {
+  --_fa-family: var(--fa-family, "Font Awesome 7 Free");
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: var(--fa-display, inline-block);
+  font-family: var(--_fa-family);
+  font-feature-settings: normal;
+  font-style: normal;
+  font-synthesis: none;
+  font-variant: normal;
+  font-weight: var(--fa-style, 900);
+  line-height: 1;
+  text-align: center;
+  text-rendering: auto;
+  width: var(--fa-width, 1.25em);
+}
+
+.fa-solid {
+  --fa-style: 900;
+}
+
+.fa-regular {
+  --fa-style: 400;
+}
+
+.fa-brands {
+  --fa-family: "Font Awesome 7 Brands";
+  --fa-style: 400;
+}
+
+:is(.fa-solid, .fa-regular, .fa-brands)::before {
+  content: var(--fa) / "";
+}
+
+@supports not (content: "" / "") {
+  :is(.fa-solid, .fa-regular, .fa-brands)::before {
+    content: var(--fa);
+  }
+}
+
+.fa-angle-right { --fa: "\f105"; }
+.fa-apple-whole { --fa: "\f5d1"; }
+.fa-arrow-left { --fa: "\f060"; }
+.fa-arrow-right { --fa: "\f061"; }
+.fa-arrow-right-from-bracket { --fa: "\f08b"; }
+.fa-basket-shopping { --fa: "\f291"; }
+.fa-box { --fa: "\f466"; }
+.fa-box-archive { --fa: "\f187"; }
+.fa-building { --fa: "\f1ad"; }
+.fa-calendar { --fa: "\f133"; }
+.fa-calendar-days { --fa: "\f073"; }
+.fa-carrot { --fa: "\f787"; }
+.fa-cart-shopping { --fa: "\f07a"; }
+.fa-check { --fa: "\f00c"; }
+.fa-cheese { --fa: "\f7ef"; }
+.fa-chevron-down { --fa: "\f078"; }
+.fa-chevron-right { --fa: "\f054"; }
+.fa-circle-check { --fa: "\f058"; }
+.fa-circle-info { --fa: "\f05a"; }
+.fa-circle-question { --fa: "\f059"; }
+.fa-circle-xmark { --fa: "\f057"; }
+.fa-clock-rotate-left { --fa: "\f1da"; }
+.fa-cookie-bite { --fa: "\f564"; }
+.fa-credit-card { --fa: "\f09d"; }
+.fa-drumstick-bite { --fa: "\f6d7"; }
+.fa-envelope { --fa: "\f0e0"; }
+.fa-envelope-open-text { --fa: "\f658"; }
+.fa-eye { --fa: "\f06e"; }
+.fa-eye-slash { --fa: "\f070"; }
+.fa-fish { --fa: "\f578"; }
+.fa-folder-open { --fa: "\f07c"; }
+.fa-house { --fa: "\f015"; }
+.fa-kitchen-set { --fa: "\e51a"; }
+.fa-leaf { --fa: "\f06c"; }
+.fa-location-dot { --fa: "\f3c5"; }
+.fa-lock { --fa: "\f023"; }
+.fa-magnifying-glass { --fa: "\f002"; }
+.fa-mortar-pestle { --fa: "\f5a7"; }
+.fa-mug-hot { --fa: "\f7b6"; }
+.fa-oil-can { --fa: "\f613"; }
+.fa-paper-plane { --fa: "\f1d8"; }
+.fa-pencil { --fa: "\f303"; }
+.fa-percent { --fa: "\25"; }
+.fa-phone { --fa: "\f095"; }
+.fa-qrcode { --fa: "\f029"; }
+.fa-rotate-left { --fa: "\f2ea"; }
+.fa-seedling { --fa: "\f4d8"; }
+.fa-shield-halved { --fa: "\f3ed"; }
+.fa-star { --fa: "\f005"; }
+.fa-store { --fa: "\f54e"; }
+.fa-tag { --fa: "\f02b"; }
+.fa-temperature-quarter { --fa: "\f2ca"; }
+.fa-ticket { --fa: "\f145"; }
+.fa-triangle-exclamation { --fa: "\f071"; }
+.fa-truck { --fa: "\f0d1"; }
+.fa-truck-fast { --fa: "\f48b"; }
+.fa-user { --fa: "\f007"; }
+.fa-user-gear { --fa: "\f4fe"; }
+.fa-utensils { --fa: "\f2e7"; }
+.fa-wallet { --fa: "\f555"; }
+.fa-wand-magic-sparkles { --fa: "\e2ca"; }
+.fa-whatsapp { --fa: "\f232"; }
+.fa-wheat-awn { --fa: "\e2cd"; }

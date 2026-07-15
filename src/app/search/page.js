@@ -15,7 +15,7 @@ import {
   buildCatalogItems,
   getCatalogItemName,
 } from "@/lib/catalog-items";
-import useProducts from "@/lib/use-products";
+import { useCatalogProducts } from "@/lib/use-catalog-products";
 
 const PAGE_SIZE = 12;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
@@ -211,12 +211,15 @@ function Pagination({ query, currentPage, totalPages }) {
 
 export default function SearchPage({ searchParams }) {
   const resolvedSearchParams = use(searchParams);
-  const { ordered: allProducts, status: productsStatus } = useProducts();
+  const rawQuery = resolvedSearchParams?.q ?? "";
+  const query = rawQuery.toString().trim();
+  const catalogUrl = query
+    ? `/api/catalog/search?q=${encodeURIComponent(query)}&limit=80`
+    : "/api/catalog/search?limit=48";
+  const { ordered: allProducts, status: productsStatus } = useCatalogProducts(catalogUrl);
   const isLoadingProducts = productsStatus === "loading";
   const isProductsReady = productsStatus === "ready";
   const hasProductsError = productsStatus === "error";
-  const rawQuery = resolvedSearchParams?.q ?? "";
-  const query = rawQuery.toString().trim();
   const tokens = buildTokens(query);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
