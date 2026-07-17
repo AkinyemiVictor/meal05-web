@@ -1852,29 +1852,11 @@ export async function loadProductDataQualityReport({ page = 1, pageSize = 25, qu
     "id, image_url",
     "id",
   ]);
-  const productPackagingFields = await selectRowsWithFallback(admin, "products", [
-    "id, packaging, packaging_material_type",
-    "id, packaging",
-    "id, packaging_material_type",
-    "id",
-  ]);
-  const variantPackagingFields = await selectRowsWithFallback(admin, "product_variants", [
-    "id, product_id, packaging, packaging_material_type",
-    "id, product_id, packaging",
-    "id, product_id, packaging_material_type",
-    "id, product_id",
-  ]);
   const promoFields = await selectRowsWithFallback(admin, "products", ["id, promo_tag_enabled", "id"]);
   const productImagesRes = await admin.from("product_images").select("product_id").range(0, 4999);
 
   if (productImageFields.error) {
     warnings.push(`Product image field lookup failed: ${productImageFields.error.message}`);
-  }
-  if (productPackagingFields.error) {
-    warnings.push(`Product packaging lookup failed: ${productPackagingFields.error.message}`);
-  }
-  if (variantPackagingFields.error) {
-    warnings.push(`Variant packaging lookup failed: ${variantPackagingFields.error.message}`);
   }
   if (promoFields.error && !isUnknownColumnError(promoFields.error.message)) {
     warnings.push(`Promo state lookup failed: ${promoFields.error.message}`);
@@ -1889,13 +1871,9 @@ export async function loadProductDataQualityReport({ page = 1, pageSize = 25, qu
   const unitFieldAvailable = variantFields.includes("unit");
   const priceFieldAvailable = variantFields.includes("price");
   const productImageColumns = parseSelectFields(productImageFields.matchedSelect).filter((field) => field !== "id");
-  const productPackagingColumns = parseSelectFields(productPackagingFields.matchedSelect).filter((field) => field !== "id");
-  const variantPackagingColumns = parseSelectFields(variantPackagingFields.matchedSelect).filter(
-    (field) => field !== "id" && field !== "product_id"
-  );
   const promoStateAvailable = parseSelectFields(promoFields.matchedSelect).includes("promo_tag_enabled");
   const imageCoverageAvailable = productImageColumns.length > 0 || !productImagesRes.error;
-  const packagingCoverageAvailable = productPackagingColumns.length > 0 || variantPackagingColumns.length > 0;
+  const packagingCoverageAvailable = false;
 
   if (!unitFieldAvailable) {
     warnings.push("Measurement unit field is unavailable on product variants.");
@@ -1906,18 +1884,12 @@ export async function loadProductDataQualityReport({ page = 1, pageSize = 25, qu
   if (!imageCoverageAvailable) {
     warnings.push("Product image coverage is unavailable because no product image fields or gallery table could be read.");
   }
-  if (!packagingCoverageAvailable) {
-    warnings.push("Packaging type coverage is unavailable because no packaging fields could be read from products or variants.");
-  }
   if (!promoStateAvailable) {
     warnings.push("Promo visibility toggle is unavailable until the promo enabled migration is applied.");
   }
 
   const productHasImageById = new Map(
     productImageFields.rows.map((row) => [String(row?.id || "").trim(), hasAnyPopulatedField(row, productImageColumns)])
-  );
-  const productHasPackagingById = new Map(
-    productPackagingFields.rows.map((row) => [String(row?.id || "").trim(), hasAnyPopulatedField(row, productPackagingColumns)])
   );
   const promoStateByProductId = new Map(
     promoFields.rows.map((row) => [String(row?.id || "").trim(), row?.promo_tag_enabled])
@@ -1938,14 +1910,6 @@ export async function loadProductDataQualityReport({ page = 1, pageSize = 25, qu
     variantsByProductId.get(productId).push(row);
   });
 
-  const variantHasPackagingByProductId = new Map();
-  variantPackagingFields.rows.forEach((row) => {
-    const productId = String(row?.product_id || "").trim();
-    if (!productId) return;
-    const current = variantHasPackagingByProductId.get(productId) === true;
-    variantHasPackagingByProductId.set(productId, current || hasAnyPopulatedField(row, variantPackagingColumns));
-  });
-
   const records = products
     .map((row) => {
       const productId = String(row?.id || "").trim();
@@ -1953,8 +1917,7 @@ export async function loadProductDataQualityReport({ page = 1, pageSize = 25, qu
       const productVariants = variantsByProductId.get(productId) || [];
       const activeVariants = productVariants.filter((variant) => variant?.is_active !== false);
       const hasImage = (productHasImageById.get(productId) === true) || galleryProductIds.has(productId);
-      const hasPackaging =
-        (productHasPackagingById.get(productId) === true) || (variantHasPackagingByProductId.get(productId) === true);
+      const hasPackaging = null;
       const hasUnit = unitFieldAvailable ? productVariants.some((variant) => hasNonEmptyText(variant?.unit)) : null;
       const hasActiveVariant = activeVariants.length > 0;
       const hasPrice = priceFieldAvailable
@@ -2075,10 +2038,6 @@ export async function loadProductReferenceData() {
     { table: "packaging_material_types", select: "label", field: "label" },
     { table: "packaging_types", select: "name", field: "name" },
     { table: "material_types", select: "name", field: "name" },
-    { table: "product_variants", select: "packaging", field: "packaging" },
-    { table: "product_variants", select: "packaging_material_type", field: "packaging_material_type" },
-    { table: "products", select: "packaging", field: "packaging" },
-    { table: "products", select: "packaging_material_type", field: "packaging_material_type" },
   ];
 
   let packagingMaterialTypes = [];

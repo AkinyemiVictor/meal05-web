@@ -7,11 +7,11 @@ import localFont from "next/font/local";
 import { Suspense } from "react";
 
 import Footer from "@/components/footer";
+import ClientAppEffects from "@/components/client-app-effects";
 import Meal05Header from "@/components/meal05-header";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
 import PageScaler from "@/components/page-scaler";
-import PwaServiceWorker from "@/components/pwa-service-worker";
 
 const geistSans = localFont({
   src: "../fonts/geist-latin.woff2",
@@ -38,6 +38,7 @@ export const metadata = {
       { url: "/assets/favicon/favicon.ico", sizes: "any" },
       { url: "/assets/favicon/favicon-16x16.png", type: "image/png", sizes: "16x16" },
       { url: "/assets/favicon/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/assets/favicon/favicon-48x48.png", type: "image/png", sizes: "48x48" },
       { url: "/assets/favicon/android-chrome-192x192.png", type: "image/png", sizes: "192x192" },
       { url: "/assets/favicon/android-chrome-512x512.png", type: "image/png", sizes: "512x512" },
     ],
@@ -77,7 +78,7 @@ export default function RootLayout({ children }) {
         <Suspense fallback={null}>
           <MobileBottomNav />
         </Suspense>
-        <PwaServiceWorker />
+        <ClientAppEffects />
       </body>
     </html>
   );

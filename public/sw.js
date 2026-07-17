@@ -1,4 +1,4 @@
-const CACHE_VERSION = "meal05-pwa-v1";
+const CACHE_VERSION = "meal05-pwa-v2";
 const STATIC_CACHE = `${CACHE_VERSION}:static`;
 const NAVIGATION_CACHE = `${CACHE_VERSION}:pages`;
 
@@ -6,8 +6,13 @@ const STATIC_ASSETS = [
   "/offline.html",
   "/assets/favicon/android-chrome-192x192.png",
   "/assets/favicon/android-chrome-512x512.png",
+  "/assets/favicon/android-maskable-192x192.png",
+  "/assets/favicon/android-maskable-512x512.png",
   "/assets/favicon/apple-touch-icon.png",
+  "/assets/favicon/favicon.ico",
+  "/assets/favicon/favicon-16x16.png",
   "/assets/favicon/favicon-32x32.png",
+  "/assets/favicon/favicon-48x48.png",
   "/assets/favicon/site.webmanifest",
 ];
 

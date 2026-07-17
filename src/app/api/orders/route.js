@@ -106,6 +106,7 @@ export async function POST(request) {
     pickupLocationId: z.coerce.number().int().positive().optional(),
     note: z.string().max(500).optional(),
     paymentMethod: z.string().max(64).optional().default("paystack"),
+    preview: z.boolean().optional().default(false),
     promo_code: z.string().trim().max(64).optional(),
     items: z
       .array(
@@ -125,8 +126,9 @@ export async function POST(request) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Validation failed", issues: parsed.error.issues }, { status: 400 }), rl);
   }
 
-  const idempotencyFingerprint = idempotencyKey ? buildOrderRequestFingerprint(parsed.data) : null;
-  if (idempotencyKey) {
+  const isPreview = parsed.data.preview === true;
+  const idempotencyFingerprint = idempotencyKey && !isPreview ? buildOrderRequestFingerprint(parsed.data) : null;
+  if (idempotencyKey && !isPreview) {
     const existingIdempotency = await checkExistingOrderIdempotency(admin, {
       userId: user.id,
       key: idempotencyKey,
@@ -138,7 +140,7 @@ export async function POST(request) {
     if (existingIdempotency.kind === "conflict" || existingIdempotency.kind === "processing") {
       return applyRateLimitHeaders(NextResponse.json(existingIdempotency.body, { status: existingIdempotency.status }), rl);
     }
-  } else {
+  } else if (!isPreview) {
     await logAdminEvent({
       route: "/api/orders",
       stage: "missing_idempotency_key",
@@ -269,11 +271,11 @@ export async function POST(request) {
     const query = !hasMissingVariantIds && payloadVariantIds.length
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
           .in("id", payloadVariantIds)
       : admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, packaging, packaging_material_type, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
           .in("product_id", productIds);
     const result = await query.eq("market_id", catalog.market.id);
     if (result.error) {
@@ -288,7 +290,7 @@ export async function POST(request) {
   if (resolvedProductIds.length) {
     const { data: productRows } = await admin
       .from("products")
-      .select("id, name, category_id, packaging, packaging_material_type")
+      .select("id, name, category_id")
       .in("id", resolvedProductIds);
     const categoryIds = Array.from(
       new Set(
@@ -327,8 +329,6 @@ export async function POST(request) {
         String(row.id),
         {
           categoryId: row?.category_id ?? null,
-          packaging:
-            String(row?.packaging || row?.packaging_material_type || "").trim(),
           ...(categoryMetaIndex.get(String(row?.category_id ?? "")) || {}),
         },
       ])
@@ -537,12 +537,9 @@ export async function POST(request) {
     return productMetaIndex.get(String(productId ?? "")) || null;
   };
   const resolvePackaging = (row) => {
-    const variant = resolveCartVariant(row);
     const productMeta = resolveProductMeta(row);
     return String(
-      variant?.packaging ||
-        variant?.packaging_material_type ||
-        row?.packaging ||
+      row?.packaging ||
         row?.packaging_material_type ||
         productMeta?.packaging ||
         ""
@@ -692,6 +689,54 @@ export async function POST(request) {
   if (!isCheckoutPaymentMethodEnabled(requestedPaymentMethod)) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: "Unsupported payment method or payment method is not enabled." }, { status: 400 }),
+      rl
+    );
+  }
+
+  if (isPreview) {
+    const previewItems = cart.map((c) => ({
+      product_id: resolveCartVariant(c)?.product_id,
+      variant_id: resolveVariantIdForOrderItem(c),
+      quantity: c.quantity,
+      price: resolveUnitPrice(c),
+      currency_code: catalog.market.currencyCode,
+    }));
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        {
+          preview: true,
+          order: null,
+          items: previewItems,
+          summary: {
+            total: Math.round(finalSummary.total),
+            subtotal: Math.round(finalSummary.subtotal),
+            packagingFee: Math.round(finalSummary.packagingFee),
+            handlingFee: Math.round(finalSummary.handlingFee),
+            deliveryFee: Math.round(finalSummary.deliveryFee),
+            itemDiscount: Math.round(finalSummary.itemDiscount),
+            deliveryDiscount: Math.round(finalSummary.deliveryDiscount),
+            discountTotal: Math.round(finalSummary.discountTotal),
+            discount: Math.round(finalSummary.discountTotal),
+            promoCode: finalSummary.promoCode || "",
+            promoDescription: finalSummary.promoDescription || "",
+            dispatchPartner: dispatchOption,
+          },
+          fulfillment: {
+            type: parsed.data.fulfillmentType,
+            pickupLocation: pickupLocation
+              ? {
+                  id: pickupLocation.id,
+                  name: pickupLocation.name,
+                  address: pickupLocation.address,
+                  hours: pickupLocation.hours || "",
+                }
+              : null,
+            deliveryPartner: dispatchOption,
+          },
+          promo: promoValidation?.promo || null,
+        },
+        { status: 200 }
+      ),
       rl
     );
   }
