@@ -7,7 +7,7 @@ export default function AppComingSoonSection() {
         <div className="downloadAppTB">
           <div className="phoneWrapper">
             <Image
-              src="/assets/img/iphone mockup.png"
+              src="/assets/img/iphone mockup (2).png"
               alt="Meal05 mobile app preview on iPhone"
               className="phone phone-apple"
               width={140}
@@ -16,7 +16,7 @@ export default function AppComingSoonSection() {
               loading="lazy"
             />
             <Image
-              src="/assets/img/android mockup.png"
+              src="/assets/img/android mockup (2).png"
               alt="Meal05 mobile app preview on Android phone"
               className="phone phone-android"
               width={140}
