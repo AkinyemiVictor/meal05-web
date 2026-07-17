@@ -6,6 +6,14 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
+import {
+  buildOrderRequestFingerprint,
+  checkExistingOrderIdempotency,
+  completeOrderIdempotencyKey,
+  normalizeIdempotencyKey,
+  releaseOrderIdempotencyKey,
+  reserveOrderIdempotencyKey,
+} from "@/lib/api/order-idempotency";
 import { sendAdminOrderAlertEmail, sendOrderConfirmationEmail } from "@/lib/notify";
 import { resolveProductImage } from "@/lib/product-image";
 import { applyPromoToOrderSummary, computeOrderSummary } from "@/lib/order-pricing";
@@ -38,6 +46,12 @@ const isUnknownColumnError = (message) => {
   );
 };
 
+const replayIdempotentResponse = (body, status, rl) => {
+  const response = applyRateLimitHeaders(NextResponse.json(body, { status }), rl);
+  response.headers.set("Idempotency-Replayed", "true");
+  return response;
+};
+
 export async function POST(request) {
   let rl = await checkRateLimit({ request, id: "orders:create:ip", limit: 30, windowMs: 60_000 });
   if (!rl.allowed) return tooManyRequests(rl);
@@ -52,6 +66,13 @@ export async function POST(request) {
   let user = originTrust.bearerUser || cookieUser || null;
   if (authErr && !user) return applyRateLimitHeaders(NextResponse.json({ error: authErr.message }, { status: 401 }), rl);
   if (!user) return applyRateLimitHeaders(NextResponse.json({ error: "Not authenticated" }, { status: 401 }), rl);
+
+  const idempotencyHeader = request.headers.get("Idempotency-Key") || request.headers.get("idempotency-key") || "";
+  const idempotencyKeyResult = normalizeIdempotencyKey(idempotencyHeader);
+  if (idempotencyKeyResult?.error) {
+    return applyRateLimitHeaders(NextResponse.json({ error: idempotencyKeyResult.error }, { status: 400 }), rl);
+  }
+  const idempotencyKey = idempotencyKeyResult?.key || null;
 
   const userRl = await checkRateLimit({
     request,
@@ -102,6 +123,27 @@ export async function POST(request) {
   const parsed = schema.safeParse(payload || {});
   if (!parsed.success) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Validation failed", issues: parsed.error.issues }, { status: 400 }), rl);
+  }
+
+  const idempotencyFingerprint = idempotencyKey ? buildOrderRequestFingerprint(parsed.data) : null;
+  if (idempotencyKey) {
+    const existingIdempotency = await checkExistingOrderIdempotency(admin, {
+      userId: user.id,
+      key: idempotencyKey,
+      fingerprint: idempotencyFingerprint,
+    });
+    if (existingIdempotency.kind === "replay") {
+      return replayIdempotentResponse(existingIdempotency.body, existingIdempotency.status, rl);
+    }
+    if (existingIdempotency.kind === "conflict" || existingIdempotency.kind === "processing") {
+      return applyRateLimitHeaders(NextResponse.json(existingIdempotency.body, { status: existingIdempotency.status }), rl);
+    }
+  } else {
+    await logAdminEvent({
+      route: "/api/orders",
+      stage: "missing_idempotency_key",
+      user_id: user.id,
+    });
   }
 
   const parseAvailableStock = (row) => {
@@ -654,6 +696,22 @@ export async function POST(request) {
     );
   }
 
+  let idempotencyReservation = null;
+  if (idempotencyKey) {
+    const reservation = await reserveOrderIdempotencyKey(admin, {
+      userId: user.id,
+      key: idempotencyKey,
+      fingerprint: idempotencyFingerprint,
+    });
+    if (reservation.kind === "replay") {
+      return replayIdempotentResponse(reservation.body, reservation.status, rl);
+    }
+    if (reservation.kind === "conflict" || reservation.kind === "processing") {
+      return applyRateLimitHeaders(NextResponse.json(reservation.body, { status: reservation.status }), rl);
+    }
+    idempotencyReservation = reservation.record;
+  }
+
   // 2) Create order row
   const orderRowBase = {
     user_id: user.id,
@@ -709,7 +767,10 @@ export async function POST(request) {
     if (isUnknownColumnError(result.error.message)) continue;
     break;
   }
-  if (orderErr) return applyRateLimitHeaders(NextResponse.json({ error: orderErr.message }, { status: 400 }), rl);
+  if (orderErr) {
+    await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
+    return applyRateLimitHeaders(NextResponse.json({ error: orderErr.message }, { status: 400 }), rl);
+  }
 
   // 3) Insert order_items
   const orderId = orderIns.id;
@@ -726,6 +787,7 @@ export async function POST(request) {
   if (oiErr) {
     // Roll back the order row when items fail (e.g., stock trigger)
     try { await admin.from("orders").delete().eq("id", orderId); } catch {}
+    await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
     await logAdminError(oiErr, { route: "/api/orders", stage: "insert:order_items", order_id: orderId, user_id: user.id });
     return applyRateLimitHeaders(NextResponse.json({ error: oiErr.message }, { status: 400 }), rl);
   }
@@ -870,12 +932,10 @@ export async function POST(request) {
     } catch {}
   }
 
-  return applyRateLimitHeaders(
-    NextResponse.json(
-      {
-        order: orderIns,
-        items: orderItems,
-        stock: updatedStock,
+  const responseBody = {
+    order: orderIns,
+    items: orderItems,
+    stock: updatedStock,
       summary: {
         total: Math.round(orderIns.total ?? finalSummary.total),
         subtotal: Math.round(orderIns.subtotal ?? finalSummary.subtotal),
@@ -891,11 +951,27 @@ export async function POST(request) {
           dispatchPartner: dispatchOption,
         },
         promo: promoValidation?.promo || null,
-      },
-      { status: 201 }
-    ),
-    rl
-  );
+      };
+
+  if (idempotencyReservation?.id) {
+    try {
+      await completeOrderIdempotencyKey(admin, {
+        recordId: idempotencyReservation.id,
+        orderId,
+        responseStatus: 201,
+        responseBody,
+      });
+    } catch (idempotencyError) {
+      await logAdminError(idempotencyError, {
+        route: "/api/orders",
+        stage: "complete:idempotency",
+        order_id: orderId,
+        user_id: user.id,
+      });
+    }
+  }
+
+  return applyRateLimitHeaders(NextResponse.json(responseBody, { status: 201 }), rl);
 }
 
 export async function GET(request) {

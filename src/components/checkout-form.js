@@ -68,6 +68,12 @@ const PHONE_PATTERN = "\\+?[0-9]{10,15}";
 const ADDRESS_MIN_LENGTH = 10;
 const ADDRESS_PATTERN = "[A-Za-z0-9.,'\\-\\s]{10,}";
 const createAddressId = () => `addr_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 6)}`;
+const createCheckoutIdempotencyKey = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `checkout-${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`;
+};
 
 const NAME_REGEX = new RegExp(`^${NAME_PATTERN}$`);
 const EMAIL_REGEX = new RegExp(`^${EMAIL_PATTERN}$`);
@@ -287,6 +293,7 @@ export default function CheckoutForm({
   const [formError, setFormError] = useState(null);
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
+  const checkoutIdempotencyKeyRef = useRef(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [savedDefaultAddressId, setSavedDefaultAddressId] = useState("");
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
@@ -351,6 +358,25 @@ export default function CheckoutForm({
       onCityChange(formState.city);
     }
   }, [formState.city, onCityChange]);
+
+  useEffect(() => {
+    if (status === "processing") return;
+    checkoutIdempotencyKeyRef.current = null;
+  }, [
+    checkoutLocation,
+    formState.address,
+    formState.email,
+    formState.fullName,
+    formState.houseNumber,
+    formState.landmark,
+    formState.notes,
+    formState.paymentMethod,
+    formState.phone,
+    fulfillmentType,
+    pickupLocationId,
+    selectedDispatchOptionId,
+    status,
+  ]);
 
   useEffect(() => {
     if (!dispatchOptions.some((option) => option.id === selectedDispatchOptionId)) {
@@ -626,10 +652,13 @@ export default function CheckoutForm({
     }
   };
 
-  const buildCheckoutRequestHeaders = (token) => {
+  const buildCheckoutRequestHeaders = (token, idempotencyKey = null) => {
     const headers = { "Content-Type": "application/json" };
     if (token) {
       headers.Authorization = `Bearer ${token}`;
+    }
+    if (idempotencyKey) {
+      headers["Idempotency-Key"] = idempotencyKey;
     }
     return headers;
   };
@@ -1012,7 +1041,7 @@ export default function CheckoutForm({
       if (!serverOrderId) {
         const res = await fetch("/api/orders", {
           method: "POST",
-          headers: buildCheckoutRequestHeaders(authToken),
+          headers: buildCheckoutRequestHeaders(authToken, orderIdempotencyKey),
           cache: "no-store",
           body: JSON.stringify({
             deliveryAddress: order.address,
@@ -1063,6 +1092,7 @@ export default function CheckoutForm({
       clearStoredPromo();
       addUserOrder(finalOrder, status, nextUserRecord);
       dispatchCheckoutCompletedEvent({ items: cartItems, summary: serverSummary, order: finalOrder });
+      checkoutIdempotencyKeyRef.current = null;
       trackPurchase({
         transactionId: String(serverOrderId || finalOrder.orderId || ""),
         items: cartItems,
@@ -1091,6 +1121,8 @@ export default function CheckoutForm({
       return;
     }
 
+    const orderIdempotencyKey = checkoutIdempotencyKeyRef.current || createCheckoutIdempotencyKey();
+    checkoutIdempotencyKeyRef.current = orderIdempotencyKey;
     setStatus("processing");
     let createdOrderId = null;
     try {
@@ -1099,7 +1131,7 @@ export default function CheckoutForm({
       try {
         const res = await fetch("/api/orders", {
           method: "POST",
-          headers: buildCheckoutRequestHeaders(authToken),
+          headers: buildCheckoutRequestHeaders(authToken, orderIdempotencyKey),
           cache: "no-store",
           body: JSON.stringify({
             deliveryAddress: order.address,

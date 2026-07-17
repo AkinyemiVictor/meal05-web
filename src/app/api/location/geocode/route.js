@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
-import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
+import { getOriginTrustContext } from "@/lib/api/request-origin";
+import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,9 @@ const labelFor = (properties = {}) => [properties.name, properties.street, prope
 export async function POST(request) {
   const rl = await checkRateLimit({ request, id: "location:geocode", limit: 20, windowMs: 60_000 });
   if (!rl.allowed) return applyRateLimitHeaders(NextResponse.json({ error: "Too many address searches. Try again shortly." }, { status: 429 }), rl);
-  if (!isTrustedRequestOrigin(request)) return applyRateLimitHeaders(NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 }), rl);
+  const admin = getSupabaseAdminClient();
+  const originTrust = await getOriginTrustContext(request, admin);
+  if (!originTrust.trusted) return applyRateLimitHeaders(NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 }), rl);
   try {
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return applyRateLimitHeaders(NextResponse.json({ error: "A valid address or coordinate is required." }, { status: 400 }), rl);
@@ -32,7 +35,17 @@ export async function POST(request) {
     const response = await fetch(`${PHOTON}${endpoint}?${params}`, { headers: { Accept: "application/json", "User-Agent": "Meal05/1.0 (location-support@meal05.com)" }, signal: AbortSignal.timeout(8000), cache: "no-store" });
     if (!response.ok) throw new Error("Address search provider is unavailable.");
     const payload = await response.json();
-    const results = (payload.features || []).map(feature => ({ latitude: Number(feature.geometry?.coordinates?.[1]), longitude: Number(feature.geometry?.coordinates?.[0]), label: labelFor(feature.properties), providerPlaceId: String(feature.properties?.osm_id || "") })).filter(item => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+    const results = (payload.features || []).map(feature => {
+      const label = labelFor(feature.properties);
+      return {
+        latitude: Number(feature.geometry?.coordinates?.[1]),
+        longitude: Number(feature.geometry?.coordinates?.[0]),
+        label,
+        formattedAddress: label,
+        provider: "photon",
+        providerPlaceId: String(feature.properties?.osm_id || ""),
+      };
+    }).filter(item => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
     return applyRateLimitHeaders(NextResponse.json({ results }, { headers: { "Cache-Control": "no-store" } }), rl);
   } catch (error) {
     return applyRateLimitHeaders(NextResponse.json({ error: error?.message || "Address search failed." }, { status: 503 }), rl);
