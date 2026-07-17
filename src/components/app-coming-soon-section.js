@@ -31,6 +31,12 @@ export default function AppComingSoonSection() {
               Shop faster, manage your cart, and track Meal05 orders from your phone. The Android app is
               ready on Google Play, while the iOS app is still being prepared for the App Store.
             </p>
+            <div className="iosInstallGuide" aria-label="Install Meal05 web app on iPhone or iPad">
+              <span className="iosInstallGuide__label">iPhone/iPad web install</span>
+              <p>
+                Open Meal05 in Safari, tap Share, then choose Add to Home Screen.
+              </p>
+            </div>
             <div className="buttonHolder" aria-label="Mobile app launch status">
               <div className="comingSoonStoreCard">
                 <span className="comingSoonTag">INCOMING</span>

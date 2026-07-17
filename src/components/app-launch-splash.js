@@ -40,28 +40,14 @@ export default function AppLaunchSplash() {
 
   return (
     <div className={`app-launch-splash${leaving ? " app-launch-splash--leaving" : ""}`} aria-hidden="true">
-      <div className="app-launch-splash__wash app-launch-splash__wash--one" />
-      <div className="app-launch-splash__wash app-launch-splash__wash--two" />
-      <div className="app-launch-splash__track">
-        <div className="app-launch-splash__pulse" />
-        <Image
-          src="/assets/favicon/MEAL05 NEW LOGO-06.png"
-          alt=""
-          width={132}
-          height={132}
-          priority
-          className="app-launch-splash__mark"
-        />
-        <Image
-          src="/assets/logo/MEAL05 NEW LOGO-01.png"
-          alt=""
-          width={250}
-          height={92}
-          priority
-          className="app-launch-splash__wordmark"
-        />
-        <div className="app-launch-splash__line" />
-      </div>
+      <Image
+        src="/assets/logo/MEAL05 NEW LOGO-01.png"
+        alt=""
+        width={250}
+        height={92}
+        priority
+        className="app-launch-splash__logo"
+      />
     </div>
   );
 }
