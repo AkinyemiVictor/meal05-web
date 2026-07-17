@@ -7,7 +7,7 @@ export default function AppComingSoonSection() {
         <div className="downloadAppTB">
           <div className="phoneWrapper">
             <Image
-              src="/assets/img/apple.png"
+              src="/assets/img/iphone mockup.png"
               alt="Meal05 mobile app preview on iPhone"
               className="phone phone-apple"
               width={140}
@@ -16,7 +16,7 @@ export default function AppComingSoonSection() {
               loading="lazy"
             />
             <Image
-              src="/assets/img/android.png"
+              src="/assets/img/android mockup.png"
               alt="Meal05 mobile app preview on Android phone"
               className="phone phone-android"
               width={140}
@@ -26,10 +26,10 @@ export default function AppComingSoonSection() {
             />
           </div>
           <div className="appTextndButtons">
-            <h2>App Coming Soon</h2>
+            <h2>Download our App</h2>
             <p className="appPar">
-              The Meal05 mobile app is currently in development. We&apos;re preparing a faster way to shop,
-              manage orders, and get delivery updates on iOS and Android.
+              Shop faster, manage your cart, and track Meal05 orders from your phone. The Android app is
+              ready on Google Play, while the iOS app is still being prepared for the App Store.
             </p>
             <div className="buttonHolder" aria-label="Mobile app launch status">
               <div className="comingSoonStoreCard">
@@ -51,8 +51,7 @@ export default function AppComingSoonSection() {
                   </span>
                 </div>
               </div>
-              <div className="comingSoonStoreCard">
-                <span className="comingSoonTag">INCOMING</span>
+              <div className="storeCard">
                 <div className="storeBadge">
                   <span className="storeBadge__icon storeBadge__icon--play" aria-hidden="true">
                     <Image
