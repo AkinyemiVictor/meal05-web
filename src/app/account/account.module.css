@@ -1289,6 +1289,36 @@
   font-size: 1.55rem;
 }
 
+.walletTopupForm {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.walletQuickAmounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.walletQuickAmounts button {
+  min-height: 2.75rem;
+  border: 1px solid #e8e9ed;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #141622;
+  cursor: pointer;
+  font-weight: 950;
+  padding: 0 1rem;
+}
+
+.walletQuickAmounts button:hover,
+.walletQuickAmounts button:focus-visible {
+  border-color: #f34920;
+  color: #f34920;
+  outline: none;
+}
+
 .voucherList {
   display: grid;
   gap: 1rem;

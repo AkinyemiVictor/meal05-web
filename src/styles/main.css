@@ -1248,7 +1248,7 @@ output:focus-visible {
 
 .site-mobile-bottom-nav__inner {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.15rem;
   width: 100%;
 }
@@ -1280,6 +1280,24 @@ output:focus-visible {
 .site-mobile-bottom-nav__icon {
   width: 1.15rem;
   height: 1.15rem;
+}
+
+.site-mobile-bottom-nav__badge {
+  position: absolute;
+  top: 0.25rem;
+  right: 50%;
+  display: grid;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  transform: translateX(1.15rem);
+  place-items: center;
+  border-radius: 999px;
+  background: #f04e1f;
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
+  padding-inline: 0.25rem;
 }
 
 .site-mobile-bottom-nav__item--active {

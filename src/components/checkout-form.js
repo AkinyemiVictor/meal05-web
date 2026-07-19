@@ -1201,7 +1201,7 @@ export default function CheckoutForm({
       setOverlayMessage("Your order is confirmed. We are preparing it now.");
     } catch (err) {
       console.warn("Checkout error", err);
-      if (createdOrderId && formState.paymentMethod !== "delivery") {
+      if (createdOrderId && !["delivery", "wallet"].includes(formState.paymentMethod)) {
         await markOrderPaymentFailed(createdOrderId, authToken, err?.message || "Payment was not completed");
       }
       showSubmitError(err?.message || "Payment was not completed");
@@ -1548,10 +1548,10 @@ export default function CheckoutForm({
                 <i
                   className={
                     method.value === "opay"
-                        ? "fa-solid fa-qrcode"
-                        : method.value === "palmpay"
-                          ? "fa-regular fa-wallet"
-                          : "fa-regular fa-credit-card"
+                      ? "fa-solid fa-qrcode"
+                      : method.value === "palmpay" || method.value === "wallet"
+                        ? "fa-regular fa-wallet"
+                        : "fa-regular fa-credit-card"
                   }
                 />
               </span>

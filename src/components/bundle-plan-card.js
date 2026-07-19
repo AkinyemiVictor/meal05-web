@@ -97,7 +97,7 @@ export default function BundlePlanCard({ plan, className = "", asListItem = true
             </svg>
           </span>
           <span className="product-card__cta-label">
-            {isAdding ? "Adding..." : "Add to order"}
+            {isAdding ? "Adding..." : "Add to cart"}
           </span>
         </button>
       </div>

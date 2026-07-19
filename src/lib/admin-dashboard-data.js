@@ -104,18 +104,6 @@ const parseAvailableStock = (row) => {
   if (row.stock_count != null && Number.isFinite(Number(row.stock_count))) {
     return Math.max(0, Number(row.stock_count));
   }
-  if (row.stock != null && Number.isFinite(Number(row.stock))) {
-    return Math.max(0, Number(row.stock));
-  }
-  if (typeof row.stock === "string") {
-    const digits = row.stock.match(/(\d+)/);
-    if (digits?.[1] && Number.isFinite(Number(digits[1]))) {
-      return Math.max(0, Number(digits[1]));
-    }
-    if (row.stock.toLowerCase().includes("out")) {
-      return 0;
-    }
-  }
   return null;
 };
 
@@ -1107,15 +1095,9 @@ export async function loadInventoryMetrics({ lowStockThreshold = 5 } = {}) {
 
   const variantSelectCandidates = [
     "id, product_id, name, unit, stock_count, price, old_price, is_default, is_active",
-    "id, product_id, name, unit, stock_count, stock, price, old_price, is_default, is_active",
-    "id, product_id, name, unit, stock, price, old_price, is_default, is_active",
     "id, product_id, name, stock_count, price, old_price",
-    "id, product_id, name, stock_count, stock, price, old_price",
-    "id, product_id, name, stock, price, old_price",
     "id, product_id, name, price, old_price",
     "id, product_id, name, stock_count, price",
-    "id, product_id, name, stock_count, stock, price",
-    "id, product_id, name, stock, price",
     "id, product_id, name, price",
   ];
 
@@ -1208,7 +1190,6 @@ export async function loadSupplierRestockPlanningData({ page = 1, pageSize = 12,
   const variantSelectCandidates = [
     "id, product_id, name, unit, stock_count, is_default, is_active, supplier_id, purchase_cost, restock_lead_time_days, last_restock_date, expected_restock_date",
     "id, product_id, name, stock_count, supplier_id, purchase_cost, restock_lead_time_days, last_restock_date, expected_restock_date",
-    "id, product_id, name, stock, supplier_id, purchase_cost, restock_lead_time_days, last_restock_date, expected_restock_date",
   ];
 
   let variantRows = [];

@@ -6,12 +6,19 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { issuePaystackReference } from "@/lib/payments/paystack-reference";
+import {
+  initialisePaystackTransaction,
+  resolvePaystackCustomerEmail,
+  resolvePaystackSecret,
+  toPaystackSubunit,
+} from "@/lib/payments/paystack";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const payloadSchema = z.object({
   orderId: z.union([z.string(), z.number()]),
+  returnUrl: z.string().trim().max(500).optional(),
 });
 
 const errorJson = (message, status, rl) =>
@@ -60,7 +67,7 @@ export async function POST(request) {
 
   const { data: order, error: orderErr } = await admin
     .from("orders")
-    .select("id, total, user_id, payment_status, status")
+    .select("id, total, currency_code, user_id, payment_status, status")
     .eq("id", orderId)
     .maybeSingle();
   if (orderErr) return errorJson(orderErr.message || "Unable to load order", 500, rl);
@@ -70,13 +77,47 @@ export async function POST(request) {
   const paymentStatus = String(order.payment_status || "").toLowerCase();
   if (paymentStatus === "paid") return errorJson("Order is already paid", 409, rl);
 
-  const amountKobo = Math.max(0, Math.round((Number(order.total) || 0) * 100));
+  const amountKobo = toPaystackSubunit(order.total);
+  if (amountKobo <= 0) return errorJson("Order total must be greater than zero", 400, rl);
+  const secret = resolvePaystackSecret();
+  if (!secret) return errorJson("Payment initialization is unavailable.", 503, rl);
+
+  const currency = String(order.currency_code || "NGN").trim().toUpperCase();
+  const email = resolvePaystackCustomerEmail(user);
+  const fallbackCallbackUrl = new URL(
+    `/api/paystack/verify?orderId=${encodeURIComponent(String(order.id))}`,
+    request.url
+  ).toString();
+  const requestedReturnUrl = String(parsed.data.returnUrl || "").trim();
+  const callbackUrl =
+    /^meal05:\/\//i.test(requestedReturnUrl) || /^https:\/\/(www\.)?meal05\.com\//i.test(requestedReturnUrl)
+      ? requestedReturnUrl
+      : fallbackCallbackUrl;
   const issued = await issuePaystackReference({
     orderId: order.id,
     userId: user.id,
-    email: user.email || "",
+    email,
     amountKobo,
   });
+
+  let initialized;
+  try {
+    initialized = await initialisePaystackTransaction({
+      secret,
+      email,
+      amountKobo,
+      reference: issued.reference,
+      currency,
+      callbackUrl,
+      metadata: {
+        orderId: String(order.id),
+        userId: String(user.id),
+        source: "meal05-mobile",
+      },
+    });
+  } catch (error) {
+    return errorJson(error?.message || "Unable to initialize Paystack payment.", 502, rl);
+  }
 
   return applyRateLimitHeaders(
     NextResponse.json(
@@ -84,7 +125,11 @@ export async function POST(request) {
         reference: issued.reference,
         orderId: String(order.id),
         amountKobo,
-        email: String(user.email || "").trim().toLowerCase(),
+        amount: Number(order.total) || 0,
+        currency,
+        email,
+        authorizationUrl: initialized.authorization_url,
+        accessCode: initialized.access_code || "",
         expiresAt: issued.expiresAt,
       },
       { status: 200 }

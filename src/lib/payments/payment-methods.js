@@ -6,6 +6,8 @@ export const isPalmPayEnabled = () => process.env.NEXT_PUBLIC_ENABLE_PALMPAY ===
 
 export const isOpayEnabled = () => process.env.NEXT_PUBLIC_ENABLE_OPAY === "true";
 
+export const isWalletPaymentVisible = () => process.env.NEXT_PUBLIC_ENABLE_MEAL05_BALANCE === "true";
+
 export const isCheckoutPaymentMethodEnabled = (method) => {
   switch (normaliseMethod(method)) {
     case "paystack":
@@ -14,6 +16,8 @@ export const isCheckoutPaymentMethodEnabled = (method) => {
       return isPalmPayEnabled();
     case "opay":
       return isOpayEnabled();
+    case "wallet":
+      return isWalletPaymentVisible();
     default:
       return false;
   }

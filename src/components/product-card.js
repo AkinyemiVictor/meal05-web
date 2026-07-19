@@ -67,7 +67,7 @@ function ProductImage({ product, showSeasonBadge = true, compact = false }) {
       <div
         className={classNames(
           "absolute",
-          compact ? "inset-x-3 bottom-3 top-10" : "inset-x-4 bottom-4 top-12 sm:inset-x-5 sm:bottom-5 sm:top-14"
+          compact ? "inset-x-3 bottom-3 top-12" : "inset-x-4 bottom-4 top-14 sm:inset-x-5 sm:bottom-5 sm:top-16"
         )}
       >
         <Image
@@ -90,7 +90,7 @@ function ProductImage({ product, showSeasonBadge = true, compact = false }) {
   );
 }
 
-export default function ProductCard({ product, onAdd, onQuickAdd, className, showSeasonBadge = true, actionLabel = "Add to order", compact = false }) {
+export default function ProductCard({ product, onAdd, onQuickAdd, className, showSeasonBadge = true, actionLabel = "Add to cart", compact = false }) {
   const stockClass = resolveStockClass(product.stock);
   const unavailable = stockClass === "is-unavailable";
   const productHref = getProductHref(product);
@@ -150,12 +150,11 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
             aria-label={`View ${product.name} details`}
           >
             <p className={classNames("font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
-              {formatProductPrice(product.price, product.unit)}
+              {formatProductPrice(product.price, "")}
             </p>
             {Number(product.oldPrice) > Number(product.price) ? (
               <p className={classNames("mt-1 font-medium text-meal-muted line-through", compact ? "text-xs" : "text-sm")}>
                 {formatNaira(product.oldPrice)}
-                {product.unit ? `/${product.unit}` : ""}
               </p>
             ) : null}
           </Link>

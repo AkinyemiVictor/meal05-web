@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   IconBell,
   IconChevronDown,
-  IconHelpCircle,
   IconLogin2,
   IconLogout,
   IconPackage,
@@ -147,7 +146,6 @@ function AccountMenu({ user }) {
     { label: "My Account", href: protect("/account"), icon: IconUserCircle },
     { label: "Orders", href: protect("/account?tab=orders"), icon: IconPackage },
     { label: "Wishlist", href: protect("/account?tab=wishlist"), icon: IconSparkles },
-    { label: "Help", href: "/help-center", icon: IconHelpCircle },
   ];
 
   useEffect(() => {
@@ -275,9 +273,6 @@ export default function Meal05HeaderActions({ mobile = false }) {
       <div className="flex items-center gap-2">
         <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} count={unreadNotifications}>
           <IconBell size={22} stroke={1.8} />
-        </NavIcon>
-        <NavIcon href="/cart" label={`Cart - ${cartCount} item${cartCount === 1 ? "" : "s"}`} count={cartCount}>
-          <IconShoppingBag size={22} stroke={1.8} />
         </NavIcon>
       </div>
     );

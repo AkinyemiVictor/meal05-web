@@ -53,6 +53,14 @@ const copy = {
         ],
       },
       {
+        value: "wallet",
+        title: "Meal05 Balance",
+        subtitle: "Use your available Meal05 Balance for this order.",
+        badges: [
+          { type: "icon", icon: "fa-solid fa-wallet", label: "Closed-loop balance" },
+        ],
+      },
+      {
         value: "palmpay",
         title: "Pay with PalmPay",
         subtitle: "Use your PalmPay app or wallet.",

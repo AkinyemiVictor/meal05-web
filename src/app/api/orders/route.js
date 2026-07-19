@@ -24,6 +24,7 @@ import { insertOrderStatusHistory } from "@/lib/order-status-history";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { toCategorySlug } from "@/lib/categories-server";
 import { isCheckoutPaymentMethodEnabled } from "@/lib/payments/payment-methods";
+import { loadWalletSettings } from "@/lib/wallet/server";
 import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
@@ -50,6 +51,24 @@ const replayIdempotentResponse = (body, status, rl) => {
   const response = applyRateLimitHeaders(NextResponse.json(body, { status }), rl);
   response.headers.set("Idempotency-Replayed", "true");
   return response;
+};
+
+const normalizeNigerianPhone = (value) => {
+  const compact = String(value || "").replace(/[\s()-]/g, "");
+
+  if (/^0[789][01]\d{8}$/.test(compact)) {
+    return `+234${compact.slice(1)}`;
+  }
+
+  if (/^\+234[789][01]\d{8}$/.test(compact)) {
+    return compact;
+  }
+
+  if (/^234[789][01]\d{8}$/.test(compact)) {
+    return `+${compact}`;
+  }
+
+  return null;
 };
 
 export async function POST(request) {
@@ -126,6 +145,12 @@ export async function POST(request) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Validation failed", issues: parsed.error.issues }, { status: 400 }), rl);
   }
 
+  const normalizedContactPhone = normalizeNigerianPhone(parsed.data.deliveryContactPhone);
+  if (!normalizedContactPhone) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Enter a valid Nigerian phone number." }, { status: 400 }), rl);
+  }
+  parsed.data.deliveryContactPhone = normalizedContactPhone;
+
   const isPreview = parsed.data.preview === true;
   const idempotencyFingerprint = idempotencyKey && !isPreview ? buildOrderRequestFingerprint(parsed.data) : null;
   if (idempotencyKey && !isPreview) {
@@ -150,19 +175,9 @@ export async function POST(request) {
 
   const parseAvailableStock = (row) => {
     if (!row) return undefined;
-    if (row.stock_count != null && Number.isFinite(Number(row.stock_count))) {
-      return Math.max(0, Number(row.stock_count));
-    }
-    if (row.stock != null && Number.isFinite(Number(row.stock))) {
-      return Math.max(0, Number(row.stock));
-    }
-    if (typeof row.stock === "string") {
-      const digits = row.stock.match(/(\d+)/);
-      if (digits && digits[1]) {
-        const n = Number(digits[1]);
-        if (Number.isFinite(n)) return Math.max(0, n);
-      }
-      if (row.stock.toLowerCase().includes("out")) return 0;
+    const availableStock = Number(row.stock_count);
+    if (Number.isFinite(availableStock)) {
+      return Math.max(0, availableStock);
     }
     return undefined; // unknown/undocumented treated as unavailable
   };
@@ -686,7 +701,21 @@ export async function POST(request) {
   const finalSummary = promoValidation?.ok ? applyPromoToOrderSummary(baseSummary, promoValidation) : baseSummary;
   const orderTotal = finalSummary.total;
   const requestedPaymentMethod = String(parsed.data.paymentMethod || "").trim().toLowerCase() || "paystack";
-  if (!isCheckoutPaymentMethodEnabled(requestedPaymentMethod)) {
+  if (requestedPaymentMethod === "wallet") {
+    const { settings, error: walletSettingsError } = await loadWalletSettings(admin);
+    if (walletSettingsError) {
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: "Meal05 Balance settings could not be loaded." }, { status: 503 }),
+        rl
+      );
+    }
+    if (!settings.walletEnabled || !settings.walletPaymentEnabled) {
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: "Meal05 Balance payments are not enabled yet." }, { status: 403 }),
+        rl
+      );
+    }
+  } else if (!isCheckoutPaymentMethodEnabled(requestedPaymentMethod)) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: "Unsupported payment method or payment method is not enabled." }, { status: 400 }),
       rl
@@ -899,11 +928,39 @@ export async function POST(request) {
     }
   }
 
-  // 4) Clear cart
-  const { error: clearErr } = await admin.from("cart_items").delete().eq("user_id", user.id);
-  if (clearErr) {
-    await logAdminError(clearErr, { route: "/api/orders", stage: "clear:cart", order_id: orderId, user_id: user.id });
-    // Not fatal: return success but inform caller
+  if (requestedPaymentMethod === "wallet") {
+    const walletPaymentKey = idempotencyKey ? `order:${orderId}:${idempotencyKey}` : `order:${orderId}:wallet`;
+    const { data: walletPaymentResult, error: walletPaymentError } = await admin.rpc("debit_wallet_for_order", {
+      p_order_id: Number(orderId),
+      p_user_id: user.id,
+      p_idempotency_key: walletPaymentKey,
+    });
+    if (walletPaymentError) {
+      try { await admin.from("order_items").delete().eq("order_id", orderId); } catch {}
+      try { await admin.from("orders").delete().eq("id", orderId); } catch {}
+      await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
+      await logAdminError(walletPaymentError, { route: "/api/orders", stage: "wallet_payment", order_id: orderId, user_id: user.id });
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: walletPaymentError.message || "Unable to pay with Meal05 Balance." }, { status: /insufficient/i.test(walletPaymentError.message || "") ? 402 : 409 }),
+        rl
+      );
+    }
+    orderIns = {
+      ...orderIns,
+      payment_status: "paid",
+      status: "processing",
+      payment_reference: walletPaymentResult?.payment_reference || orderIns.payment_reference,
+    };
+  }
+
+  // 4) Clear cart only for payment methods that complete at order creation.
+  // Gateway payments keep the cart until server-side verification succeeds.
+  if (requestedPaymentMethod !== "paystack") {
+    const { error: clearErr } = await admin.from("cart_items").delete().eq("user_id", user.id);
+    if (clearErr) {
+      await logAdminError(clearErr, { route: "/api/orders", stage: "clear:cart", order_id: orderId, user_id: user.id });
+      // Not fatal: return success but inform caller
+    }
   }
 
   await logAdminEvent({
@@ -971,7 +1028,7 @@ export async function POST(request) {
     try {
       const { data: refreshed } = await admin
         .from("product_variants")
-        .select("id, product_id, stock_count, stock")
+        .select("id, product_id, stock_count")
         .in("id", resolvedVariantIds);
       updatedStock = Array.isArray(refreshed) ? refreshed : [];
     } catch {}

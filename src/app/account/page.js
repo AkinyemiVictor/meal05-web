@@ -29,6 +29,7 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), {
 const ACCOUNT_TABS = [
   { slug: "overview", label: "My Account", iconClass: "fa-solid fa-user" },
   { slug: "orders", label: "Orders", iconClass: "fa-solid fa-box" },
+  { slug: "balance", label: "Meal05 Balance", iconClass: "fa-solid fa-wallet" },
   { slug: "wishlist", label: "Wishlist", iconClass: "fa-solid fa-wand-magic-sparkles" },
   { slug: "voucher", label: "Voucher", iconClass: "fa-solid fa-ticket" },
   { slug: "recent", label: "Recently Viewed", iconClass: "fa-solid fa-clock-rotate-left" },
@@ -40,6 +41,7 @@ const ACCOUNT_TABS = [
 const ACCOUNT_SUBTITLES = {
   overview: "Manage deliveries, preferences, and saved details from one place.",
   orders: "Track active deliveries and quickly reorder previous market runs.",
+  balance: "Add money, review balance, and track closed-loop Meal05 Balance activity.",
   wishlist: "Saved items and treats - ready to reorder in a tap.",
   voucher: "Your store credit and available discount codes live here.",
   recent: "Pick up where you left off with items you recently browsed.",
@@ -71,6 +73,20 @@ const formatName = (user) => {
   if (user.email) return user.email.split("@")[0];
   return "MealKit Friend";
 };
+
+const formatMoney = (amount, currency = "NGN") =>
+  new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: String(currency || "NGN").toUpperCase(),
+    maximumFractionDigits: 0,
+  }).format(Number(amount) || 0);
+
+const formatWalletReason = (value) =>
+  String(value || "")
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ") || "Meal05 Balance";
 
 const derivePhoneParts = (phone) => {
   if (!phone || typeof phone !== "string") {
@@ -260,6 +276,12 @@ function AccountPageContent() {
   const [ordersMessage, setOrdersMessage] = useState("");
   const [savedCart, setSavedCart] = useState([]);
   const [cartMessage, setCartMessage] = useState("");
+  const [walletSnapshot, setWalletSnapshot] = useState(null);
+  const [walletTransactions, setWalletTransactions] = useState([]);
+  const [walletStatus, setWalletStatus] = useState("idle");
+  const [walletMessage, setWalletMessage] = useState("");
+  const [walletTopupAmount, setWalletTopupAmount] = useState("");
+  const [walletTopupProvider, setWalletTopupProvider] = useState("paystack");
   const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneFeedback, setPhoneFeedback] = useState("");
@@ -345,6 +367,65 @@ function AccountPageContent() {
     [user]
   );
 
+  const syncWalletFromServer = useCallback(async ({ showFeedback = false } = {}) => {
+    if (!user) return;
+    setWalletStatus("loading");
+    if (showFeedback) setWalletMessage("");
+    try {
+      const [walletResponse, transactionsResponse] = await Promise.all([
+        fetch("/api/wallet", { cache: "no-store" }),
+        fetch("/api/wallet/transactions", { cache: "no-store" }),
+      ]);
+      const walletPayload = await walletResponse.json().catch(() => ({}));
+      const transactionsPayload = await transactionsResponse.json().catch(() => ({}));
+      if (!walletResponse.ok) {
+        setWalletMessage(walletPayload?.error || "Unable to load Meal05 Balance.");
+        setWalletStatus("error");
+        return;
+      }
+      setWalletSnapshot(walletPayload);
+      setWalletTransactions(Array.isArray(transactionsPayload?.transactions) ? transactionsPayload.transactions : []);
+      setWalletStatus("ready");
+      if (showFeedback) setWalletMessage("Meal05 Balance refreshed.");
+    } catch {
+      setWalletMessage("Unable to load Meal05 Balance.");
+      setWalletStatus("error");
+    }
+  }, [user]);
+
+  const handleWalletTopup = useCallback(async (event) => {
+    event?.preventDefault?.();
+    setWalletStatus("loading");
+    setWalletMessage("");
+    try {
+      const response = await fetch("/api/wallet/topups", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: walletTopupAmount,
+          provider: walletTopupProvider,
+          returnUrl: `${window.location.origin}/api/wallet/topups/callback`,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setWalletMessage(payload?.error || "Unable to start top-up.");
+        setWalletStatus("ready");
+        return;
+      }
+      if (payload?.authorizationUrl) {
+        window.location.href = payload.authorizationUrl;
+        return;
+      }
+      setWalletMessage("Top-up started. Open the pending top-up to continue.");
+      await syncWalletFromServer();
+    } catch {
+      setWalletMessage("Unable to start top-up.");
+      setWalletStatus("ready");
+    }
+  }, [syncWalletFromServer, walletTopupAmount, walletTopupProvider]);
+
   useEffect(() => {
     const stored = ensureUserAddressBook(readStoredUser());
     if (!stored) {
@@ -365,6 +446,11 @@ function AccountPageContent() {
     if (!hydrated || !user) return;
     syncOrdersFromServer();
   }, [hydrated, syncOrdersFromServer, user]);
+
+  useEffect(() => {
+    if (!hydrated || !user || !["overview", "balance"].includes(activeTab)) return;
+    syncWalletFromServer({ showFeedback: searchParams?.get("wallet") === "success" });
+  }, [activeTab, hydrated, searchParams, syncWalletFromServer, user]);
 
   useEffect(() => {
     if (!hydrated || !user) return;
@@ -882,13 +968,13 @@ function AccountPageContent() {
           </Link>
         </div>
         <div className={styles.card}>
-          <h3 className={styles.cardTitle}>MealKit store credit</h3>
+          <h3 className={styles.cardTitle}>Meal05 Balance</h3>
           <div className={styles.cardBody}>
-            <p>Balance: ₦0.00</p>
-            <p>Store credit from refunds or loyalty rewards appears here.</p>
+            <p>Balance: {formatMoney(walletSnapshot?.balance || 0, walletSnapshot?.currencyCode || "NGN")}</p>
+            <p>Closed-loop balance for Meal05 purchases only. It is not a bank account and does not earn interest.</p>
           </div>
-          <Link href="/account?tab=voucher" className={styles.cardAction}>
-            View vouchers
+          <Link href="/account?tab=balance" className={styles.cardAction}>
+            Manage balance
           </Link>
         </div>
         <div className={styles.card}>
@@ -1210,6 +1296,121 @@ function AccountPageContent() {
               </div>
             )}
           </div>
+        );
+      }
+      case "balance": {
+        const settings = walletSnapshot?.settings || {};
+        const balance = Number(walletSnapshot?.balance || 0);
+        const currencyCode = walletSnapshot?.currencyCode || "NGN";
+        const pendingTopups = Array.isArray(walletSnapshot?.pendingTopups) ? walletSnapshot.pendingTopups : [];
+        const walletEnabled = settings.walletEnabled === true;
+        const paystackEnabled = settings.paystackTopupsEnabled === true;
+        return (
+          <>
+            <div className={styles.creditBanner}>
+              <div>
+                <span>Available Meal05 Balance</span>
+                <strong>{formatMoney(balance, currencyCode)}</strong>
+              </div>
+              <i className="fa-solid fa-wallet" aria-hidden="true" />
+            </div>
+            <div className={styles.section}>
+              <h3 className={styles.sectionTitle}>Add money</h3>
+              <p className={styles.profileHint}>
+                {walletSnapshot?.disclosure || "Meal05 Balance can only be used for purchases on Meal05. It is not a bank account and does not earn interest."}
+              </p>
+              {!walletEnabled ? (
+                <span className={styles.profileMessage}>Meal05 Balance is prepared but not enabled for customers yet.</span>
+              ) : null}
+              <form className={styles.walletTopupForm} onSubmit={handleWalletTopup}>
+                <div className={styles.walletQuickAmounts}>
+                  {[2000, 5000, 10000].map((amount) => (
+                    <button key={amount} type="button" onClick={() => setWalletTopupAmount(String(amount))}>
+                      {formatMoney(amount)}
+                    </button>
+                  ))}
+                </div>
+                <label className={styles.profileField}>
+                  <span>Amount</span>
+                  <input
+                    inputMode="decimal"
+                    min={settings.minimumTopupAmount || undefined}
+                    max={settings.maximumTopupAmount || undefined}
+                    name="walletTopupAmount"
+                    onChange={(event) => setWalletTopupAmount(event.target.value)}
+                    placeholder="10000"
+                    type="number"
+                    value={walletTopupAmount}
+                  />
+                </label>
+                <label className={styles.profileField}>
+                  <span>Provider</span>
+                  <select value={walletTopupProvider} onChange={(event) => setWalletTopupProvider(event.target.value)}>
+                    <option value="paystack" disabled={!paystackEnabled}>Paystack{paystackEnabled ? "" : " (disabled)"}</option>
+                    <option value="monnify" disabled={!settings.monnifyTopupsEnabled}>Monnify (disabled)</option>
+                    <option value="opay" disabled={!settings.opayTopupsEnabled}>OPay (disabled)</option>
+                  </select>
+                </label>
+                {settings.minimumTopupAmount || settings.maximumTopupAmount ? (
+                  <p className={styles.profileHint}>
+                    Limits: {settings.minimumTopupAmount ? `Min ${formatMoney(settings.minimumTopupAmount)}. ` : ""}
+                    {settings.maximumTopupAmount ? `Max ${formatMoney(settings.maximumTopupAmount)}.` : ""}
+                  </p>
+                ) : null}
+                <button type="submit" className={styles.cardAction} disabled={walletStatus === "loading" || !walletEnabled}>
+                  {walletStatus === "loading" ? "Please wait..." : "Add money"}
+                </button>
+              </form>
+              {walletMessage ? <span className={styles.profileMessage}>{walletMessage}</span> : null}
+            </div>
+            {pendingTopups.length ? (
+              <div className={styles.section}>
+                <h3 className={styles.sectionTitle}>Pending top-ups</h3>
+                <div className={styles.voucherList}>
+                  {pendingTopups.map((topup) => (
+                    <div key={topup.id} className={styles.voucherItem}>
+                      <strong>{formatMoney(topup.amount, topup.currency_code)}</strong>
+                      <div>
+                        <h4>{formatWalletReason(topup.status)}</h4>
+                        <p>{topup.provider} · {topup.merchant_reference}</p>
+                      </div>
+                      {topup.authorization_url ? <a href={topup.authorization_url}>Continue</a> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className={styles.section}>
+              <div className={styles.sectionHeader} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h3 className={styles.sectionTitle}>Transaction history</h3>
+                <button type="button" className={styles.orderActionButton} onClick={() => syncWalletFromServer({ showFeedback: true })}>
+                  Refresh
+                </button>
+              </div>
+              {walletTransactions.length ? (
+                <div className={styles.list}>
+                  {walletTransactions.map((entry) => (
+                    <div key={entry.id} className={styles.listItem}>
+                      <div className={styles.orderInfo}>
+                        <strong>{formatWalletReason(entry.reason)}</strong>
+                        <span>{new Date(entry.created_at).toLocaleString("en-NG")}</span>
+                        {entry.order_id ? <span>Order #{entry.order_id}</span> : null}
+                        {entry.provider_reference ? <span>{entry.provider_reference}</span> : null}
+                      </div>
+                      <strong style={{ color: Number(entry.amount) >= 0 ? "#00ac11" : "#f04e1f" }}>
+                        {formatMoney(entry.amount, entry.currency_code || "NGN")}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.sectionEmpty}>
+                  <i className="fa-solid fa-wallet" aria-hidden="true" style={{ fontSize: "1.8rem" }} />
+                  <p>No Meal05 Balance transactions yet.</p>
+                </div>
+              )}
+            </div>
+          </>
         );
       }
       case "wishlist":

@@ -1,7 +1,7 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { consumePaystackReference, readPaystackReference } from "@/lib/payments/paystack-reference";
+import { normaliseText, verifyPaystackTransaction } from "@/lib/payments/paystack";
 
-const normaliseText = (value) => String(value ?? "").trim();
 const normaliseEmail = (value) => normaliseText(value).toLowerCase();
 
 const parseOrderIdFromReference = (reference) => {
@@ -27,31 +27,10 @@ const amountMatchesOrder = (amountKobo, orderTotal) => {
   return Math.abs(actual - expected) <= 1;
 };
 
-const verifyPaystackTransaction = async (reference, secret) => {
-  const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
-  const payload = await res.json().catch(() => ({}));
-  const tx = payload?.data || {};
-  const isSuccess = Boolean(payload?.status) && tx?.status === "success";
-  return {
-    ok: isSuccess,
-    statusCode: res.status,
-    payload,
-    tx,
-    error: isSuccess ? null : normaliseText(payload?.message || "Verification failed"),
-  };
-};
-
 const loadOrder = async (admin, orderId) => {
   const { data, error } = await admin
     .from("orders")
-    .select("id, total, payment_status, status, user_id")
+    .select("id, total, currency_code, payment_status, status, user_id, fulfillment_type, pickup_location_id, delivery_address")
     .eq("id", orderId)
     .maybeSingle();
   if (error) {
@@ -75,7 +54,7 @@ const loadOrderOwnerEmail = async (admin, userId) => {
   }
 };
 
-export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId }) => {
+export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId, userId }) => {
   const normalizedReference = normaliseText(reference);
   const inputOrderId = normaliseText(providedOrderId);
   if (!normalizedReference) {
@@ -128,21 +107,25 @@ export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId 
     return { ok: false, status: loaded.status, error: loaded.error, verified: false };
   }
   const order = loaded.order;
+  const requestedUserId = normaliseText(userId);
+  if (requestedUserId && normaliseText(order?.user_id) !== requestedUserId) {
+    return { ok: false, status: 403, error: "Forbidden", verified: false };
+  }
 
   const issuedUserId = normaliseText(issuedRef?.userId);
   if (issuedUserId && normaliseText(order?.user_id) !== issuedUserId) {
     return { ok: false, status: 409, error: "Payment does not match issued user", verified: false };
   }
 
-  const ownerEmail = await loadOrderOwnerEmail(admin, order?.user_id);
   const payerEmail = normaliseEmail(tx?.customer?.email);
-  if (!ownerEmail || !payerEmail || ownerEmail !== payerEmail) {
-    return { ok: false, status: 409, error: "Payment email does not match order owner", verified: false };
+  const issuedEmail = normaliseEmail(issuedRef?.email);
+  if (issuedEmail && payerEmail && payerEmail !== issuedEmail) {
+    return { ok: false, status: 409, error: "Payment does not match issued customer", verified: false };
   }
 
-  const issuedEmail = normaliseEmail(issuedRef?.email);
-  if (issuedEmail && ownerEmail !== issuedEmail) {
-    return { ok: false, status: 409, error: "Payment does not match issued customer", verified: false };
+  const ownerEmail = await loadOrderOwnerEmail(admin, order?.user_id);
+  if (ownerEmail && payerEmail && ownerEmail !== payerEmail && !issuedEmail.endsWith("@customers.meal05.com")) {
+    return { ok: false, status: 409, error: "Payment email does not match order owner", verified: false };
   }
 
   const issuedAmount = Number(issuedRef?.amountKobo);
@@ -155,6 +138,9 @@ export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId 
   }
 
   const currencyCode = normaliseText(tx?.currency || "NGN").toUpperCase();
+  if (currencyCode !== normaliseText(order?.currency_code || "NGN").toUpperCase()) {
+    return { ok: false, status: 409, error: "Payment currency does not match order currency", verified: false };
+  }
   const { data: paymentResult, error: paymentErr } = await admin.rpc("mark_paystack_order_paid", {
     p_order_id: Number(orderId),
     p_transaction_ref: txReference,
@@ -174,6 +160,9 @@ export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId 
   try {
     await consumePaystackReference(normalizedReference);
   } catch {}
+  try {
+    await admin.from("cart_items").delete().eq("user_id", order.user_id);
+  } catch {}
 
   return {
     ok: true,
@@ -182,8 +171,15 @@ export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId 
       verified: true,
       stockUpdated: paymentResult?.stock_updated === true,
       alreadyPaid: paymentResult?.already_processed === true,
-      data: tx,
       orderId,
+      reference: txReference,
+      amount: Number(order.total) || 0,
+      currency: currencyCode,
+      paymentStatus: "paid",
+      orderStatus: "processing",
+      fulfillmentType: order.fulfillment_type || "",
+      pickupLocationId: order.pickup_location_id ?? null,
+      deliveryAddress: order.delivery_address || "",
     },
   };
 };
