@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "About Us | MealKit",
-  description: "Learn about MealKit, our mission, and how we deliver fresh food essentials across Nigeria.",
+  title: "About Us | Meal05",
+  description: "Learn about Meal05, our mission, and how we deliver fresh food essentials across Nigeria.",
 };
 
 export default function AboutUsPage() {
@@ -15,9 +15,9 @@ export default function AboutUsPage() {
       </nav>
 
       <header style={{ marginBottom: "1.25rem" }}>
-        <h1 style={{ marginBottom: 8 }}>About MealKit</h1>
+        <h1 style={{ marginBottom: 8 }}>About Meal05</h1>
         <p style={{ margin: 0, color: "#475569", maxWidth: 820 }}>
-          MealKit helps households and food businesses source fresh market essentials faster, with reliable delivery,
+          Meal05 helps households and food businesses source fresh market essentials faster, with reliable delivery,
           clear pricing, and better quality control from order to doorstep.
         </p>
       </header>

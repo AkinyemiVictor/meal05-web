@@ -93,7 +93,7 @@ export default function Footer() {
                 <Link href={loginHref}>My Account</Link>
               </li>
               <li>
-                <Link href="/account?tab=orders">Track Your Order</Link>
+                <Link href="/account/orders">Track Your Order</Link>
               </li>
               <li>
                 <Link href="/help-center#searchQnAAgent">Return</Link>

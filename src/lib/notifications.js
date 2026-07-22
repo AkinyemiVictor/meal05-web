@@ -162,7 +162,7 @@ export const syncDerivedNotifications = ({ orders = [], cartItems = [], user = r
       type: "order",
       title: status === "delivered" ? "Order delivered" : "Order update",
       body: `${orderId} is ${status.replace(/-/g, " ")}${getOrderTotal(order) ? ` · ${formatCurrency(getOrderTotal(order))}` : ""}.`,
-      href: "/account?tab=orders",
+      href: "/account/orders",
       createdAt: order.updatedAt || order.placedAt || order.createdAt || new Date().toISOString(),
       read: false,
       meta: { orderId, status },

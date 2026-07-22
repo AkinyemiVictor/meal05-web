@@ -1,6 +1,6 @@
 import "server-only";
 
-import { hasAdminRolePermission, isAdminWorkspaceRole, normalizeAdminRole } from "@/lib/admin-roles";
+import { hasAdminRolePermission, isAdminWorkspaceRole, isDispatchWorkspaceRole, normalizeAdminRole } from "@/lib/admin-roles";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
 const isUnknownColumnError = (message) => {
@@ -66,6 +66,18 @@ export async function getAdminAccessProfile({ userId, email, adminClient } = {})
           email: String(result.data?.email || normalizedEmail).trim().toLowerCase(),
         };
       }
+      if (role && isActiveUser(result.data?.is_active)) {
+        return {
+          allowed: false,
+          role,
+          source: `${candidate.table}.${candidate.filter}`,
+          explicitRole: true,
+          isAdmin: false,
+          isActive: true,
+          userId: String(result.data?.id || id),
+          email: String(result.data?.email || normalizedEmail).trim().toLowerCase(),
+        };
+      }
       continue;
     }
 
@@ -93,5 +105,16 @@ export async function hasAdminAccess(subject = {}) {
 export async function hasAdminPermission(subject = {}, permission) {
   const profile = await getAdminAccessProfile(subject);
   if (!profile.allowed) return false;
+  return hasAdminRolePermission(profile.role, permission);
+}
+
+export async function hasDispatchAccess(subject = {}) {
+  const profile = await getAdminAccessProfile(subject);
+  return Boolean(profile.isActive && isDispatchWorkspaceRole(profile.role));
+}
+
+export async function hasDispatchPermission(subject = {}, permission = "manage_dispatch_routes") {
+  const profile = await getAdminAccessProfile(subject);
+  if (!profile.isActive || !isDispatchWorkspaceRole(profile.role)) return false;
   return hasAdminRolePermission(profile.role, permission);
 }

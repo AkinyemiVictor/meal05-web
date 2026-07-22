@@ -25,7 +25,9 @@ import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { toCategorySlug } from "@/lib/categories-server";
 import { isCheckoutPaymentMethodEnabled } from "@/lib/payments/payment-methods";
 import { loadWalletSettings } from "@/lib/wallet/server";
-import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
+import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
+import { calculateOrderCapacity } from "@/lib/order-capacity";
+import { loadPublicOrderSettings } from "@/lib/order-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -132,7 +134,13 @@ export async function POST(request) {
         z.object({
           product_id: z.union([z.string(), z.number()]).optional(),
           variant_id: z.union([z.string(), z.number()]).optional(),
-          quantity: z.number().positive().max(9999).optional(),
+          quantity: z
+            .number()
+            .finite()
+            .positive()
+            .max(9999)
+            .refine((value) => decimalPlaces(value) <= 3, "Quantity may use no more than three decimal places")
+            .optional(),
           unit_price_at_add: z.number().nonnegative().optional(),
           variant_name: z.string().max(200).optional(),
           product_name: z.string().max(200).optional(),
@@ -286,11 +294,11 @@ export async function POST(request) {
     const query = !hasMissingVariantIds && payloadVariantIds.length
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
           .in("id", payloadVariantIds)
       : admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
           .in("product_id", productIds);
     const result = await query.eq("market_id", catalog.market.id);
     if (result.error) {
@@ -580,6 +588,53 @@ export async function POST(request) {
         .map((id) => String(id))
     )
   );
+
+  const orderSettings = await loadPublicOrderSettings(admin);
+  const capacityLines = cart.map((row) => {
+    const variant = resolveCartVariant(row);
+    const productName = resolveProductName(row);
+    return {
+      ...variant,
+      productId: variant?.product_id ?? row?.product_id,
+      product_id: variant?.product_id ?? row?.product_id,
+      variantId: variant?.id ?? row?.variant_id,
+      variant_id: variant?.id ?? row?.variant_id,
+      productName,
+      product_name: productName,
+      name: productName || variant?.name || "",
+      quantity: Number(row?.quantity || 0),
+    };
+  });
+  const capacity = calculateOrderCapacity(capacityLines, orderSettings.standardCheckout);
+  if (capacity.unknownLines.length) {
+    await logAdminEvent({
+      route: "/api/orders",
+      stage: "capacity:unknown_lines",
+      user_id: user.id,
+      unknown_lines: capacity.unknownLines,
+    });
+  }
+  if (orderSettings.bulkOrder.enabled && capacity.requiresBulk) {
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        {
+          error: "BULK_ORDER_REQUIRED",
+          bulkOrderRequired: true,
+          capacity: {
+            weightKg: capacity.weightKg,
+            maxWeightKg: orderSettings.standardCheckout.maxWeightKg,
+            liquidLiters: capacity.liquidLiters,
+            maxLiquidLiters: orderSettings.standardCheckout.maxLiquidLiters,
+          },
+          heading: orderSettings.bulkOrder.heading,
+          message: orderSettings.bulkOrder.message,
+          channels: orderSettings.bulkOrder.channels,
+        },
+        { status: 409 }
+      ),
+      rl
+    );
+  }
 
   const deliverySettings = await loadDeliverySettings();
   const isPickup = parsed.data.fulfillmentType === "pickup";

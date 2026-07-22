@@ -14,6 +14,7 @@ import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { toCategorySlug } from "@/lib/categories-server";
+import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
@@ -567,11 +568,14 @@ const buildPublicCatalogResponse = async (request) => {
 
 export async function GET(request) {
   try {
-    const payload = await buildPublicCatalogResponse(request);
-    return NextResponse.json(payload, {
-      status: 200,
-      headers: PUBLIC_CATALOG_CACHE_HEADERS_LIGHT,
+    const searchParams = new URL(request.url).searchParams;
+    const payload = await loadPublicCatalogProducts({
+      view: searchParams.get("view") || "default",
+      limit: Number(searchParams.get("limit") || 120),
+      category: searchParams.get("category") || "",
+      search: searchParams.get("search") || "",
     });
+    return publicCatalogJson(payload, { headers: PUBLIC_CATALOG_CACHE_HEADERS_LIGHT });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to load products", details: error?.message || String(error) },

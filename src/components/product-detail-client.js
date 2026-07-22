@@ -127,6 +127,20 @@ export default function ProductDetailClient({ product, variations = [], fallback
       base_unit: selectedVariant.base_unit ?? selectedVariant.baseUnit,
       baseQuantity: selectedVariant.baseQuantity ?? selectedVariant.base_quantity,
       base_quantity: selectedVariant.base_quantity ?? selectedVariant.baseQuantity,
+      weightMin: selectedVariant.weightMin ?? selectedVariant.weight_min,
+      weight_min: selectedVariant.weight_min ?? selectedVariant.weightMin,
+      weightMax: selectedVariant.weightMax ?? selectedVariant.weight_max,
+      weight_max: selectedVariant.weight_max ?? selectedVariant.weightMax,
+      weightUnit: selectedVariant.weightUnit ?? selectedVariant.weight_unit,
+      weight_unit: selectedVariant.weight_unit ?? selectedVariant.weightUnit,
+      volumeMin: selectedVariant.volumeMin ?? selectedVariant.volume_min,
+      volume_min: selectedVariant.volume_min ?? selectedVariant.volumeMin,
+      volumeMax: selectedVariant.volumeMax ?? selectedVariant.volume_max,
+      volume_max: selectedVariant.volume_max ?? selectedVariant.volumeMax,
+      volumeUnit: selectedVariant.volumeUnit ?? selectedVariant.volume_unit,
+      volume_unit: selectedVariant.volume_unit ?? selectedVariant.volumeUnit,
+      optionRole: selectedVariant.optionRole ?? selectedVariant.option_role,
+      option_role: selectedVariant.option_role ?? selectedVariant.optionRole,
     };
   }, [product, selectedVariant, fallbackImage]);
 
@@ -289,7 +303,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
         <div className="product-detail-service-notes" aria-label="Delivery and return notes">
           <p>
             <span aria-hidden="true"><i className="fa-solid fa-truck-fast" /></span>
-            Same-day delivery in Ibadan before 4pm
+            Same-day delivery in Ibadan before 2pm
           </p>
           <p>
             <span aria-hidden="true"><i className="fa-solid fa-rotate-left" /></span>

@@ -7,7 +7,7 @@ import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { respondZodError } from "@/lib/api/validate";
 import { getAvailableCount } from "@/lib/stock";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
-import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
+import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +29,14 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const schema = z.object({ quantity: z.number().positive().max(9999) });
+  const schema = z.object({
+    quantity: z
+      .number()
+      .finite()
+      .positive()
+      .max(9999)
+      .refine((value) => decimalPlaces(value) <= 3, "Quantity may use no more than three decimal places"),
+  });
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
     return respondZodError(parsed.error);
@@ -50,7 +57,7 @@ export async function PATCH(req, { params }) {
   const catalog = await loadMarketCatalog(admin);
   const { data: variant, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+    .select("id, product_id, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
     .eq("id", cartItem.variant_id)
     .eq("market_id", catalog.market.id)
     .maybeSingle();

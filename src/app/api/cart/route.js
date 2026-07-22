@@ -6,7 +6,7 @@ import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { respondZodError } from "@/lib/api/validate";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
-import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
+import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ const loadVariantStock = async (client, variantId, marketId) => {
 
   const result = await client
     .from("product_variants")
-    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
     .eq("id", id)
     .eq("market_id", marketId)
     .maybeSingle();
@@ -45,7 +45,7 @@ export async function GET(req) {
   if (!variantIds.length) return applyRateLimitHeaders(new Response(JSON.stringify([]), { status: 200 }), rl);
   const { data: variants, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
     .in("id", variantIds)
     .eq("market_id", catalog.market.id)
     .eq("is_active", true);
@@ -68,6 +68,13 @@ export async function GET(req) {
       step_quantity: variant.step_quantity,
       base_unit: variant.base_unit,
       base_quantity: variant.base_quantity,
+      weight_min: variant.weight_min,
+      weight_max: variant.weight_max,
+      weight_unit: variant.weight_unit,
+      volume_min: variant.volume_min,
+      volume_max: variant.volume_max,
+      volume_unit: variant.volume_unit,
+      option_role: variant.option_role,
     }];
   });
   return applyRateLimitHeaders(new Response(JSON.stringify(validRows), { status: 200 }), rl);
@@ -93,7 +100,7 @@ export async function POST(req) {
     variant_name: z.string().min(1).max(200).optional(),
     product_name: z.string().min(1).max(200).optional(),
     unit_price_at_add: z.number().nonnegative().optional(),
-    quantity: z.number().positive().max(9999).optional().default(1),
+    quantity: z.number().finite().positive().max(9999).refine((value) => decimalPlaces(value) <= 3, "Quantity may use no more than three decimal places").optional().default(1),
   });
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {

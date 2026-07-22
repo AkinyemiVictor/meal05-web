@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { normaliseProductCatalogue } from "@/lib/catalogue";
 
-const responseCache = new Map();
+const inFlightRequests = new Map();
 
 const EMPTY_LOOKUP = {
   catalogue: {},
@@ -33,25 +33,24 @@ const buildLookup = (payload, orderedIds = []) => {
 };
 
 const fetchCatalog = async (url, orderedIds = []) => {
-  if (responseCache.has(url)) return responseCache.get(url);
-  const request = fetch(url, { cache: "default" })
+  if (inFlightRequests.has(url)) return inFlightRequests.get(url);
+  const request = fetch(url, { cache: "no-store" })
     .then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     })
     .then((payload) => buildLookup(payload, orderedIds))
-    .catch((error) => {
-      responseCache.delete(url);
-      throw error;
+    .finally(() => {
+      inFlightRequests.delete(url);
     });
-  responseCache.set(url, request);
+  inFlightRequests.set(url, request);
   return request;
 };
 
 export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
   const [state, setState] = useState(() => ({
     ...EMPTY_LOOKUP,
-    status: !url || responseCache.has(url) ? "ready" : "loading",
+    status: !url ? "ready" : "loading",
     error: null,
   }));
 
@@ -63,16 +62,27 @@ export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
         cancelled = true;
       };
     }
-    setState((current) => ({ ...current, status: responseCache.has(url) ? current.status : "loading", error: null }));
-    fetchCatalog(url)
-      .then((lookup) => {
-        if (!cancelled) setState({ ...lookup, status: "ready", error: null });
-      })
-      .catch((error) => {
-        if (!cancelled) setState({ ...EMPTY_LOOKUP, status: "error", error });
-      });
+    const load = () => {
+      setState((current) => ({ ...current, status: "loading", error: null }));
+      fetchCatalog(url)
+        .then((lookup) => {
+          if (!cancelled) setState({ ...lookup, status: "ready", error: null });
+        })
+        .catch((error) => {
+          if (!cancelled) setState({ ...EMPTY_LOOKUP, status: "error", error });
+        });
+    };
+    load();
+    if (typeof window !== "undefined") {
+      window.addEventListener("catalogue-refresh", load);
+      window.addEventListener("checkout-completed", load);
+    }
     return () => {
       cancelled = true;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("catalogue-refresh", load);
+        window.removeEventListener("checkout-completed", load);
+      }
     };
   }, [url]);
 
@@ -94,7 +104,7 @@ export function useProductsByIds(ids = []) {
       };
     }
 
-    setState((current) => ({ ...current, status: responseCache.has(url) ? current.status : "loading", error: null }));
+    setState((current) => ({ ...current, status: "loading", error: null }));
     fetchCatalog(url, orderedIds)
       .then((lookup) => {
         if (!cancelled) setState({ ...lookup, status: "ready", error: null });

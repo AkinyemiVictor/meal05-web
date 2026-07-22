@@ -64,11 +64,11 @@ export default function DeliveryPolicyPage() {
               dispatch.
             </p>
             <ul>
-              <li><strong>Daily order cut-off:</strong> 4:00 PM</li>
+              <li><strong>Daily order cut-off:</strong> 2:00 PM</li>
               <li><strong>Target delivery window:</strong> 4:00 PM to 7:00 PM, same day</li>
             </ul>
             <p>
-              Orders placed after 4:00 PM are typically processed for the next available delivery cycle. Delivery times
+              Orders placed after 2:00 PM are typically processed for the next available delivery cycle. Delivery times
               are estimates rather than guarantees, but we will make reasonable efforts to notify you of material delays.
             </p>
           </section>

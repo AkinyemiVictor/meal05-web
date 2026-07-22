@@ -30,28 +30,89 @@ const ACCOUNT_TABS = [
   { slug: "overview", label: "My Account", iconClass: "fa-solid fa-user" },
   { slug: "orders", label: "Orders", iconClass: "fa-solid fa-box" },
   { slug: "balance", label: "Meal05 Balance", iconClass: "fa-solid fa-wallet" },
+  { slug: "refunds", label: "Refunds", iconClass: "fa-solid fa-rotate-left" },
+  { slug: "referrals", label: "Refer & Earn", iconClass: "fa-solid fa-hand-holding-heart" },
   { slug: "wishlist", label: "Wishlist", iconClass: "fa-solid fa-wand-magic-sparkles" },
   { slug: "voucher", label: "Voucher", iconClass: "fa-solid fa-ticket" },
   { slug: "recent", label: "Recently Viewed", iconClass: "fa-solid fa-clock-rotate-left" },
   { slug: "management", label: "Account Management", iconClass: "fa-solid fa-user-gear" },
   { slug: "addresses", label: "Address Book", iconClass: "fa-solid fa-location-dot" },
   { slug: "newsletter", label: "Newsletter Preferences", iconClass: "fa-solid fa-envelope-open-text" },
+  { slug: "faqs", label: "FAQs", iconClass: "fa-regular fa-circle-question" },
+  { slug: "help", label: "Help & Support", iconClass: "fa-regular fa-comments" },
+  { slug: "notifications", label: "Notification Settings", iconClass: "fa-regular fa-bell" },
+  { slug: "legal", label: "Legal & System", iconClass: "fa-regular fa-file-lines" },
 ];
 
 const ACCOUNT_SUBTITLES = {
   overview: "Manage deliveries, preferences, and saved details from one place.",
   orders: "Track active deliveries and quickly reorder previous market runs.",
   balance: "Add money, review balance, and track closed-loop Meal05 Balance activity.",
+  refunds: "Review refund requests and wallet reversals tied to your orders.",
+  referrals: "Invite friends and keep track of Meal05 referral rewards.",
   wishlist: "Saved items and treats - ready to reorder in a tap.",
   voucher: "Your store credit and available discount codes live here.",
   recent: "Pick up where you left off with items you recently browsed.",
   management: "Update your personal details, contact info, and password.",
   addresses: "Save multiple delivery locations and choose one at checkout.",
   newsletter: "Choose exactly which updates land in your inbox.",
+  faqs: "Answers to common Meal05 shopping, delivery, and payment questions.",
+  help: "Get support for orders, delivery, refunds, and account issues.",
+  notifications: "Choose the alerts you want from Meal05.",
+  legal: "Review policies, terms, and app information.",
+};
+
+const ACCOUNT_ROUTE_TO_TAB = {
+  profile: "management",
+  addresses: "addresses",
+  orders: "orders",
+  wallet: "balance",
+  refunds: "refunds",
+  referrals: "referrals",
+  faqs: "faqs",
+  help: "help",
+  notifications: "notifications",
+  legal: "legal",
+};
+
+const TAB_TO_ACCOUNT_ROUTE = {
+  overview: "",
+  management: "profile",
+  addresses: "addresses",
+  orders: "orders",
+  balance: "wallet",
+  refunds: "refunds",
+  referrals: "referrals",
+  faqs: "faqs",
+  help: "help",
+  notifications: "notifications",
+  legal: "legal",
+  wishlist: "wishlist",
+  voucher: "voucher",
+  recent: "recent",
+  newsletter: "newsletter",
+};
+
+const LEGACY_TAB_TO_ACCOUNT_ROUTE = {
+  management: "profile",
+  balance: "wallet",
+  cart: "",
+  ...TAB_TO_ACCOUNT_ROUTE,
+};
+
+const getRouteTab = (pathname) => {
+  const parts = String(pathname || "").split("/").filter(Boolean);
+  if (parts[0] !== "account" || !parts[1]) return "";
+  return ACCOUNT_ROUTE_TO_TAB[parts[1]] || getCurrentTab(parts[1]);
+};
+
+const getAccountRoute = (tab) => {
+  const route = TAB_TO_ACCOUNT_ROUTE[tab] ?? tab;
+  return route ? `/account/${route}` : "/account";
 };
 
 const FALLBACK_USER = {
-  fullName: "MealKit Friend",
+  fullName: "Meal05 Friend",
   email: "hello@mealkit.ng",
 };
 
@@ -68,10 +129,10 @@ const getCurrentTab = (slug) =>
   ACCOUNT_TABS.some((tab) => tab.slug === slug) ? slug : DEFAULT_TAB;
 
 const formatName = (user) => {
-  if (!user) return "MealKit Friend";
+  if (!user) return "Meal05 Friend";
   if (user.fullName && user.fullName.trim()) return user.fullName.trim();
   if (user.email) return user.email.split("@")[0];
-  return "MealKit Friend";
+  return "Meal05 Friend";
 };
 
 const formatMoney = (amount, currency = "NGN") =>
@@ -265,7 +326,7 @@ const saveProfileToServer = (patch) => {
   }).catch(() => {});
 };
 
-function AccountPageContent() {
+export function AccountPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -326,9 +387,11 @@ function AccountPageContent() {
   }, [addressBook, user]);
 
   const activeTab = useMemo(() => {
+    const routeTab = getRouteTab(pathname);
+    if (routeTab) return routeTab;
     const slug = searchParams?.get("tab");
     return getCurrentTab(slug);
-  }, [searchParams]);
+  }, [pathname, searchParams]);
   const accountReturnPath = useMemo(() => {
     const base = pathname || "/account";
     const query = searchParams?.toString();
@@ -338,6 +401,17 @@ function AccountPageContent() {
     () => buildSignInHref({ tab: "login", next: accountReturnPath, hash: "loginForm" }),
     [accountReturnPath]
   );
+
+  useEffect(() => {
+    if (pathname !== "/account") return;
+    const legacyTab = searchParams?.get("tab");
+    if (!legacyTab) return;
+    const route = LEGACY_TAB_TO_ACCOUNT_ROUTE[legacyTab] ?? legacyTab;
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    params.delete("tab");
+    const query = params.toString();
+    router.replace(`${route ? `/account/${route}` : "/account"}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   const syncOrdersFromServer = useCallback(
     async ({ showFeedback = false } = {}) => {
@@ -386,6 +460,9 @@ function AccountPageContent() {
       setWalletSnapshot(walletPayload);
       setWalletTransactions(Array.isArray(transactionsPayload?.transactions) ? transactionsPayload.transactions : []);
       setWalletStatus("ready");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("meal05:wallet-refresh", { detail: walletPayload }));
+      }
       if (showFeedback) setWalletMessage("Meal05 Balance refreshed.");
     } catch {
       setWalletMessage("Unable to load Meal05 Balance.");
@@ -524,12 +601,6 @@ function AccountPageContent() {
       window.removeEventListener(CART_UPDATED_EVENT, handleCartChange);
     };
   }, []);
-
-  const handleSelectTab = (slug) => {
-    const params = new URLSearchParams(searchParams?.toString() || "");
-    params.set("tab", slug);
-    router.replace(`/account?${params.toString()}`, { scroll: false });
-  };
 
   const handleLogout = () => {
     clearStoredUser();
@@ -943,69 +1014,122 @@ function AccountPageContent() {
 
   const renderOverview = () => {
     const addressDisplay = formatAddressDisplay(resolvedUser);
+    const personalRows = [
+      {
+        slug: "management",
+        label: "Account details",
+        body: `${formatPhoneDisplay(resolvedUser.phone)} - ${addressDisplay || "Add a delivery address"}`,
+        iconClass: "fa-regular fa-user",
+      },
+      {
+        slug: "addresses",
+        label: "Saved addresses",
+        body: addressBook.length ? `${addressBook.length} saved delivery ${addressBook.length === 1 ? "address" : "addresses"}` : "Set your default delivery address",
+        iconClass: "fa-solid fa-location-dot",
+      },
+      {
+        slug: "orders",
+        label: "Order history",
+        body: orders.length ? `${orders.length} order${orders.length === 1 ? "" : "s"} on this account` : "Track current and past orders",
+        iconClass: "fa-solid fa-box",
+      },
+      {
+        slug: "balance",
+        label: "Wallet",
+        body: `Balance: ${formatMoney(walletSnapshot?.balance || 0, walletSnapshot?.currencyCode || "NGN")}`,
+        iconClass: "fa-solid fa-wallet",
+      },
+      {
+        slug: "refunds",
+        label: "Refunds",
+        body: "Review refund requests and wallet reversals",
+        iconClass: "fa-solid fa-rotate-left",
+      },
+      {
+        slug: "referrals",
+        label: "Refer & Earn",
+        body: "Invite friends and track referral rewards",
+        iconClass: "fa-solid fa-hand-holding-heart",
+      },
+    ];
+    const appRows = [
+      {
+        slug: "faqs",
+        label: "FAQs",
+        body: "Answers to common Meal05 questions",
+        iconClass: "fa-regular fa-circle-question",
+      },
+      {
+        slug: "help",
+        label: "Help & support",
+        body: "Get support for orders, delivery and refunds",
+        iconClass: "fa-regular fa-comments",
+      },
+      {
+        slug: "notifications",
+        label: "Notification settings",
+        body: "Choose the alerts you want from Meal05",
+        iconClass: "fa-regular fa-bell",
+      },
+      {
+        slug: "legal",
+        label: "Legal & System",
+        body: "Policies, terms and app information",
+        iconClass: "fa-regular fa-file-lines",
+      },
+    ];
+    const renderMenuGroup = (title, rows) => (
+      <section className={styles.accountMenuGroup} aria-labelledby={`account-${title.toLowerCase().replace(/\s+/g, "-")}`}>
+        <h2 id={`account-${title.toLowerCase().replace(/\s+/g, "-")}`} className={styles.accountMenuTitle}>
+          {title}
+        </h2>
+        <div className={styles.accountMenuList}>
+          {rows.map((row) => {
+            const badge = getTabBadge(row.slug);
+            return (
+              <Link key={row.slug} href={getAccountRoute(row.slug)} className={styles.accountMenuRow}>
+                <span className={styles.accountMenuIcon}>
+                  <i className={row.iconClass} aria-hidden="true" />
+                </span>
+                <span className={styles.accountMenuBody}>
+                  <strong>{row.label}</strong>
+                  <span>{row.body}</span>
+                </span>
+                {badge ? <em>{badge}</em> : null}
+                <i className={`fa-solid fa-chevron-right ${styles.accountMenuChevron}`} aria-hidden="true" />
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+    );
+
     return (
-      <>
-        <div className={styles.cards}>
-          <div className={styles.card}>
-            <h3 className={styles.cardTitle}>Account details</h3>
-            <div className={styles.cardBody}>
-              <p>{formatName(resolvedUser)}</p>
-              <p>{resolvedUser.email}</p>
-              <p>{formatPhoneDisplay(resolvedUser.phone)}</p>
-              <p>{addressDisplay || "Add a delivery address for faster checkout."}</p>
-            </div>
-            <Link href="/account?tab=management" className={styles.cardAction}>
-              Manage account
-            </Link>
-          </div>
-        <div className={styles.card}>
-          <h3 className={styles.cardTitle}>Address book</h3>
-          <div className={styles.cardBody}>
-            <p>Set your default delivery address to speed up checkout.</p>
-          </div>
-          <Link href="/account?tab=addresses" className={styles.cardAction}>
-            Add shipping address
+      <div className={styles.accountHub}>
+        <section className={styles.accountProfilePanel}>
+          <span className={styles.accountAvatar}>{userInitials}</span>
+          <span className={styles.accountProfileCopy}>
+            <strong>{formatName(resolvedUser)}</strong>
+            <span>{formatPhoneDisplay(resolvedUser.phone)}</span>
+            <span>{resolvedUser.email}</span>
+          </span>
+          <Link href={getAccountRoute("management")} className={styles.accountEditLink}>
+            Edit
           </Link>
-        </div>
-        <div className={styles.card}>
-          <h3 className={styles.cardTitle}>Meal05 Balance</h3>
-          <div className={styles.cardBody}>
-            <p>Balance: {formatMoney(walletSnapshot?.balance || 0, walletSnapshot?.currencyCode || "NGN")}</p>
-            <p>Closed-loop balance for Meal05 purchases only. It is not a bank account and does not earn interest.</p>
-          </div>
-          <Link href="/account?tab=balance" className={styles.cardAction}>
-            Manage balance
-          </Link>
-        </div>
-        <div className={styles.card}>
-          <h3 className={styles.cardTitle}>Newsletter preferences</h3>
-          <div className={styles.cardBody}>
-            <p>Choose the updates you want: weekly offers, seasonal drops, or farmer spotlights.</p>
-          </div>
-          <Link href="/account?tab=newsletter" className={styles.cardAction}>
-            Edit preferences
-          </Link>
-        </div>
-      </div>
-      <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>Quick actions</h3>
-        <div className={styles.twoColumn}>
-          <Link href="/account?tab=orders" className={styles.cardAction}>
-            Track recent orders
-          </Link>
-          <Link href="/home" className={styles.cardAction}>
-            Continue shopping
-          </Link>
-          <Link href="/checkout" className={styles.cardAction}>
-            Book a delivery slot
-          </Link>
-          <button type="button" className={styles.logoutAction} onClick={handleLogout}>
+        </section>
+        {renderMenuGroup("Personal", personalRows)}
+        {renderMenuGroup("App", appRows)}
+        <button type="button" className={styles.accountLogoutRow} onClick={handleLogout}>
+          <span className={styles.accountMenuIcon}>
             <i className="fa-solid fa-arrow-right-from-bracket" aria-hidden="true" />
-            Logout
-          </button>
-        </div>
+          </span>
+          <span className={styles.accountMenuBody}>
+            <strong>Log out</strong>
+            <span>Sign out of this Meal05 account</span>
+          </span>
+          <i className={`fa-solid fa-chevron-right ${styles.accountMenuChevron}`} aria-hidden="true" />
+        </button>
       </div>
-      </>
     );
   };
 
@@ -1803,6 +1927,85 @@ function AccountPageContent() {
             </div>
           </div>
         );
+      case "refunds":
+        return renderEmptyState(
+          "Refunds",
+          "Refund requests and completed wallet reversals will appear here once available.",
+          getAccountRoute("orders"),
+          "Review orders"
+        );
+      case "referrals":
+        return renderEmptyState(
+          "Refer & Earn",
+          "Referral rewards are being prepared for staging. Your invites and earned credits will appear here.",
+          "/shop",
+          "Continue shopping"
+        );
+      case "faqs":
+        return renderEmptyState(
+          "FAQs",
+          "Find quick answers about ordering, delivery areas, payments, and refunds in the Meal05 help centre.",
+          "/help-center",
+          "Open help centre"
+        );
+      case "help":
+        return renderEmptyState(
+          "Help & support",
+          "Need help with an order or account issue? Start from the support centre and our team will route the request.",
+          "/contact-us",
+          "Contact support"
+        );
+      case "notifications":
+        return (
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>Notification settings</h3>
+            <p className={styles.cardBody}>Control which account and order alerts Meal05 sends you.</p>
+            <div className={styles.list}>
+              {[
+                ["Order updates", "Delivery status, substitutions, and completed order alerts", true],
+                ["Wallet activity", "Top-up confirmations and Meal05 Balance changes", true],
+                ["Promotions", "Offers, seasonal drops, and new store launches", false],
+              ].map(([title, body, enabled]) => (
+                <div key={title} className={styles.newsletterItem}>
+                  <i className="fa-regular fa-bell" aria-hidden="true" />
+                  <div>
+                    <strong>{title}</strong>
+                    <span>{body}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`${styles.toggle} ${enabled ? styles.toggleOn : ""}`}
+                    aria-pressed={enabled ? "true" : "false"}
+                    aria-label={`${title} ${enabled ? "enabled" : "disabled"}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "legal":
+        return (
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>Legal & System</h3>
+            <div className={styles.list}>
+              <div className={styles.listItem}>
+                <i className="fa-regular fa-file-lines" aria-hidden="true" />
+                <span>Terms of service</span>
+                <Link href="/terms">Open</Link>
+              </div>
+              <div className={styles.listItem}>
+                <i className="fa-solid fa-shield-halved" aria-hidden="true" />
+                <span>Privacy policy</span>
+                <Link href="/privacy">Open</Link>
+              </div>
+              <div className={styles.listItem}>
+                <i className="fa-solid fa-code-branch" aria-hidden="true" />
+                <span>App version</span>
+                <span>Meal05 staging</span>
+              </div>
+            </div>
+          </div>
+        );
       default:
         return renderOverview();
     }
@@ -1811,10 +2014,7 @@ function AccountPageContent() {
   if (!hydrated) {
     return (
       <main className={styles.page}>
-        <div className={styles.layout}>
-          <div className={styles.sidebar}>
-            <span className={styles.sidebarHeading}>Loading</span>
-          </div>
+        <div className={styles.accountShell}>
           <div className={styles.skeleton}>Preparing your account...</div>
         </div>
       </main>
@@ -1824,7 +2024,7 @@ function AccountPageContent() {
   if (!user) {
     return (
       <main className={styles.page}>
-        <div className={styles.layout}>
+        <div className={styles.accountShell}>
           <div className={styles.skeleton}>Redirecting to sign in...</div>
         </div>
       </main>
@@ -1833,48 +2033,29 @@ function AccountPageContent() {
 
   return (
     <main className={styles.page}>
-      <div className={styles.layout}>
-        <nav className={styles.sidebar} aria-label="Account sections">
-          <div className={styles.profileCard}>
-            <span className={styles.profileAvatar}>{userInitials}</span>
-            <span className={styles.profileText}>
-              <strong>{formatName(resolvedUser)}</strong>
-              <span>{resolvedUser.email}</span>
-            </span>
-          </div>
-          <span className={styles.sidebarHeading}>My account</span>
-          <ul className={styles.navList}>
-            {ACCOUNT_TABS.map((tab) => {
-              const badge = getTabBadge(tab.slug);
-              return (
-                <li
-                  key={tab.slug}
-                  className={`${styles.navItem}${activeTab === tab.slug ? ` ${styles.navItemActive}` : ""}`}
-                >
-                  <button type="button" onClick={() => handleSelectTab(tab.slug)}>
-                    <i className={tab.iconClass} aria-hidden="true" />
-                    <span>{tab.label}</span>
-                    {badge ? <strong>{badge}</strong> : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <button type="button" className={styles.sidebarLogout} onClick={handleLogout}>
-            <i className="fa-solid fa-arrow-right-from-bracket" aria-hidden="true" />
-            <span>Logout</span>
-          </button>
-        </nav>
-
-        <section className={styles.content} aria-live="polite">
-          <header className={styles.header}>
-            <span className={styles.headerEyebrow}>Account</span>
-            <h1 className={styles.headerTitle}>
-              {ACCOUNT_TABS.find((tab) => tab.slug === activeTab)?.label ?? "My Account"}
-            </h1>
-            <p className={styles.headerSubtitle}>{ACCOUNT_SUBTITLES[activeTab] || ACCOUNT_SUBTITLES.overview}</p>
-          </header>
-
+      <div className={styles.accountShell}>
+        <section className={activeTab === "overview" ? styles.accountHubSurface : styles.sectionShell} aria-live="polite">
+          {activeTab === "overview" ? (
+            <header className={styles.header}>
+              <span className={styles.headerEyebrow}>Account</span>
+              <h1 className={styles.headerTitle}>My Account</h1>
+              <p className={styles.headerSubtitle}>{ACCOUNT_SUBTITLES.overview}</p>
+            </header>
+          ) : (
+            <header className={styles.sectionTopbar}>
+              <Link href="/account" className={styles.sectionBackLink}>
+                <i className="fa-solid fa-arrow-left" aria-hidden="true" />
+                <span>Back</span>
+              </Link>
+              <div>
+                <span className={styles.headerEyebrow}>Account</span>
+                <h1 className={styles.sectionPageTitle}>
+                  {ACCOUNT_TABS.find((tab) => tab.slug === activeTab)?.label ?? "My Account"}
+                </h1>
+                <p className={styles.headerSubtitle}>{ACCOUNT_SUBTITLES[activeTab] || ACCOUNT_SUBTITLES.overview}</p>
+              </div>
+            </header>
+          )}
           {renderContent()}
         </section>
       </div>

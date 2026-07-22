@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { hasAdminPermission, getAdminAccessProfile } from "@/lib/admin-access";
-import { ADMIN_ROLE_OPTIONS, canAssignAdminRole, normalizeAdminRole } from "@/lib/admin-roles";
+import { USER_ROLE_OPTIONS, canAssignAdminRole } from "@/lib/admin-roles";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
@@ -12,7 +12,20 @@ import { respondZodError } from "@/lib/api/validate";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const toDatabaseRole = (role) => (role === "super_admin" ? "superadmin" : role);
+const ROLE_ALIASES = new Map([
+  ["customer", "customer"],
+  ["rider", "rider"],
+  ["driver", "rider"],
+  ["dispatcher", "dispatcher"],
+  ["staff", "dispatcher"],
+  ["warehouse", "dispatcher"],
+  ["admin", "admin"],
+  ["super_admin", "super_admin"],
+  ["superadmin", "super_admin"],
+]);
+
+const normalizeAssignableRole = (role) => ROLE_ALIASES.get(String(role || "").trim().toLowerCase()) || null;
+const toDatabaseRole = (role) => role;
 
 export async function POST(req) {
   const rl = await checkRateLimit({ request: req, id: "admin:assign-role", limit: 30, windowMs: 60_000 });
@@ -47,8 +60,8 @@ export async function POST(req) {
   }
 
   const { user_id, role } = parsed.data;
-  const normalizedRole = normalizeAdminRole(role);
-  if (!normalizedRole || !ADMIN_ROLE_OPTIONS.some((option) => option.value === normalizedRole)) {
+  const normalizedRole = normalizeAssignableRole(role);
+  if (!normalizedRole || !USER_ROLE_OPTIONS.some((option) => option.value === normalizedRole)) {
     await logAdminError("Invalid role selection", { route: "/api/admin/assign-role", actor: user.email, role });
     return applyRateLimitHeaders(NextResponse.json({ error: "Invalid role" }, { status: 400 }), rl);
   }

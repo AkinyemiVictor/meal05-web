@@ -30,6 +30,16 @@ const pickFirst = (row, fields = []) => {
   return "";
 };
 
+const numberOrNull = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const textOrNull = (value) => {
+  const text = String(value ?? "").trim();
+  return text || null;
+};
+
 const formatRangeValue = (value) => {
   const rounded = Math.round(value * 100) / 100;
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
@@ -349,6 +359,13 @@ export async function GET(_request, { params }) {
         ]);
         const baseUnit = String(row.base_unit ?? row.baseUnit ?? "").trim();
         const baseQuantity = pickFirstNumber(row, ["base_quantity", "baseQuantity"], null);
+        const weightMin = numberOrNull(row.weight_min ?? row.weightMin);
+        const weightMax = numberOrNull(row.weight_max ?? row.weightMax);
+        const weightUnit = textOrNull(row.weight_unit ?? row.weightUnit);
+        const volumeMin = numberOrNull(row.volume_min ?? row.volumeMin);
+        const volumeMax = numberOrNull(row.volume_max ?? row.volumeMax);
+        const volumeUnit = textOrNull(row.volume_unit ?? row.volumeUnit);
+        const optionRole = textOrNull(row.option_role ?? row.optionRole);
 
         return {
           variationId: row.id,
@@ -365,14 +382,28 @@ export async function GET(_request, { params }) {
           minQuantity: purchaseRules.minQuantity,
           maxQuantity: purchaseRules.maxQuantity,
           stepQuantity: purchaseRules.stepQuantity,
-          baseUnit: baseUnit || undefined,
-          baseQuantity: baseQuantity != null ? baseQuantity : undefined,
+          baseUnit: baseUnit || null,
+          baseQuantity: baseQuantity != null ? baseQuantity : null,
+          weightMin,
+          weightMax,
+          weightUnit,
+          volumeMin,
+          volumeMax,
+          volumeUnit,
+          optionRole,
           purchase_mode: purchaseRules.purchaseMode,
           min_quantity: purchaseRules.minQuantity,
           max_quantity: purchaseRules.maxQuantity,
           step_quantity: purchaseRules.stepQuantity,
-          base_unit: baseUnit || undefined,
-          base_quantity: baseQuantity != null ? baseQuantity : undefined,
+          base_unit: baseUnit || null,
+          base_quantity: baseQuantity != null ? baseQuantity : null,
+          weight_min: weightMin,
+          weight_max: weightMax,
+          weight_unit: weightUnit,
+          volume_min: volumeMin,
+          volume_max: volumeMax,
+          volume_unit: volumeUnit,
+          option_role: optionRole,
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
@@ -416,6 +447,7 @@ export async function GET(_request, { params }) {
   const stockValue = defaultVariation ? defaultVariation.stock : resolveStockValueFromRow(marketData);
   const effectiveStock = variations.length && !selectableVariations.length ? 0 : stockValue;
   const purchaseRules = getVariantPurchaseRules(defaultVariation || marketData);
+  const defaultMeasurementSource = defaultVariation || marketData;
 
   return NextResponse.json(
     {
@@ -444,10 +476,24 @@ export async function GET(_request, { params }) {
         max_quantity: purchaseRules.maxQuantity,
         stepQuantity: purchaseRules.stepQuantity,
         step_quantity: purchaseRules.stepQuantity,
-        baseUnit: purchaseRules.baseUnit || undefined,
-        base_unit: purchaseRules.baseUnit || undefined,
-        baseQuantity: purchaseRules.baseQuantity ?? undefined,
-        base_quantity: purchaseRules.baseQuantity ?? undefined,
+        baseUnit: purchaseRules.baseUnit || null,
+        base_unit: purchaseRules.baseUnit || null,
+        baseQuantity: purchaseRules.baseQuantity ?? null,
+        base_quantity: purchaseRules.baseQuantity ?? null,
+        weightMin: numberOrNull(defaultMeasurementSource?.weight_min ?? defaultMeasurementSource?.weightMin),
+        weight_min: numberOrNull(defaultMeasurementSource?.weight_min ?? defaultMeasurementSource?.weightMin),
+        weightMax: numberOrNull(defaultMeasurementSource?.weight_max ?? defaultMeasurementSource?.weightMax),
+        weight_max: numberOrNull(defaultMeasurementSource?.weight_max ?? defaultMeasurementSource?.weightMax),
+        weightUnit: textOrNull(defaultMeasurementSource?.weight_unit ?? defaultMeasurementSource?.weightUnit),
+        weight_unit: textOrNull(defaultMeasurementSource?.weight_unit ?? defaultMeasurementSource?.weightUnit),
+        volumeMin: numberOrNull(defaultMeasurementSource?.volume_min ?? defaultMeasurementSource?.volumeMin),
+        volume_min: numberOrNull(defaultMeasurementSource?.volume_min ?? defaultMeasurementSource?.volumeMin),
+        volumeMax: numberOrNull(defaultMeasurementSource?.volume_max ?? defaultMeasurementSource?.volumeMax),
+        volume_max: numberOrNull(defaultMeasurementSource?.volume_max ?? defaultMeasurementSource?.volumeMax),
+        volumeUnit: textOrNull(defaultMeasurementSource?.volume_unit ?? defaultMeasurementSource?.volumeUnit),
+        volume_unit: textOrNull(defaultMeasurementSource?.volume_unit ?? defaultMeasurementSource?.volumeUnit),
+        optionRole: textOrNull(defaultMeasurementSource?.option_role ?? defaultMeasurementSource?.optionRole),
+        option_role: textOrNull(defaultMeasurementSource?.option_role ?? defaultMeasurementSource?.optionRole),
         category:
           categoryMeta?.category ||
           pickFirst(marketData, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),

@@ -16,7 +16,7 @@ export const DEFAULT_SERVICE_ZONES = [
   "Ona Ara",
   "Oluyole",
 ];
-export const DEFAULT_SAME_DAY_NOTICE = "Orders placed before 4:00 PM within Ibadan qualify for same-day delivery.";
+export const DEFAULT_SAME_DAY_NOTICE = "Orders placed before 2:00 PM within Ibadan qualify for same-day delivery.";
 export const DELIVERY_SETTINGS_TIME_ZONE = "Africa/Lagos";
 
 export const DEFAULT_SERVICE_ZONE_FEES = DEFAULT_SERVICE_ZONES.map((name) => ({

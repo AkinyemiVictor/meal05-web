@@ -33,7 +33,8 @@ import {
   resolveDeliveryArea,
 } from "@/lib/delivery-settings";
 import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
-import { formatQuantity, roundQuantity } from "@/lib/purchase-quantities";
+import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
+import { calculateOrderCapacity, formatCapacitySummary } from "@/lib/order-capacity";
 
 const INITIAL_FORM_STATE = {
   fullName: "",
@@ -299,6 +300,7 @@ export default function CheckoutForm({
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
   const [overlayStatus, setOverlayStatus] = useState(null); // "success" | "failure" | null
   const [overlayMessage, setOverlayMessage] = useState("");
+  const [orderSettings, setOrderSettings] = useState(null);
   const [checkoutLocation, setCheckoutLocation] = useState(() => typeof window !== "undefined" ? readStoredLocationPreference() : null);
   const deliveryArea = useMemo(
     () => resolveDeliveryArea(deliverySettings, formState.city),
@@ -351,6 +353,17 @@ export default function CheckoutForm({
     const syncLocation = (event) => setCheckoutLocation(event?.detail?.preference ?? readStoredLocationPreference());
     window.addEventListener(LOCATION_EVENT, syncLocation);
     return () => window.removeEventListener(LOCATION_EVENT, syncLocation);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/order-settings", { cache: "no-store", signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((settings) => {
+        if (settings) setOrderSettings(settings);
+      })
+      .catch(() => {});
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -922,6 +935,22 @@ export default function CheckoutForm({
       })
       .filter((item) => item.product_id || item.variant_id);
 
+    const quantityIssue = cartItems
+      .map((item) => ({ item, validation: validateVariantQuantity(item, Number(item?.quantity) || Number(item?.orderCount) || 1) }))
+      .find((entry) => !entry.validation.ok);
+    if (quantityIssue) {
+      showSubmitError(`${quantityIssue.item?.name || "An item"}: ${quantityIssue.validation.error}`);
+      return;
+    }
+
+    const capacity = calculateOrderCapacity(cartItems, orderSettings?.standardCheckout);
+    if (orderSettings?.bulkOrder?.enabled !== false && capacity.requiresBulk) {
+      showSubmitError(
+        `${orderSettings?.bulkOrder?.heading || "Planning a larger order?"} ${orderSettings?.bulkOrder?.message || ""} Estimated capacity: ${formatCapacitySummary(capacity)}.`
+      );
+      return;
+    }
+
     setErrors({});
     setFormError(null);
 
@@ -1065,6 +1094,23 @@ export default function CheckoutForm({
         });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
+          if (payload?.bulkOrderRequired || payload?.error === "BULK_ORDER_REQUIRED") {
+            const capacityText = [
+              Number(payload?.capacity?.weightKg) > Number(payload?.capacity?.maxWeightKg)
+                ? `approximately ${formatQuantity(payload.capacity.weightKg, "kg")}`
+                : "",
+              Number(payload?.capacity?.liquidLiters) > Number(payload?.capacity?.maxLiquidLiters)
+                ? `approximately ${formatQuantity(payload.capacity.liquidLiters, "L")}`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" + ");
+            throw new Error(
+              `${payload?.heading || "Planning a larger order?"} ${payload?.message || "Meal05 handles larger orders too."}${
+                capacityText ? ` Estimated basket capacity: ${capacityText}.` : ""
+              }`
+            );
+          }
           const removedFromCart = removeOutOfStockItemsFromCart(payload);
           if (removedFromCart || hasStockIssue(payload)) {
             throw new Error(formatStockError(payload, { removedFromCart }));

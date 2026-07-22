@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Blog | MealKit",
-  description: "MealKit blog updates are coming soon.",
+  title: "Blog | Meal05",
+  description: "Meal05 blog updates are coming soon.",
 };
 
 export default function BlogPage() {

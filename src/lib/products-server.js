@@ -18,6 +18,16 @@ const pickFirst = (row, fields = []) => {
   return "";
 };
 
+const numberOrNull = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const textOrNull = (value) => {
+  const text = String(value ?? "").trim();
+  return text || null;
+};
+
 const formatRangeValue = (value) => {
   const rounded = Math.round(value * 100) / 100;
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
@@ -296,10 +306,24 @@ const mapRow = (row) => {
     max_quantity: purchaseRules.maxQuantity,
     stepQuantity: purchaseRules.stepQuantity,
     step_quantity: purchaseRules.stepQuantity,
-    baseUnit: purchaseRules.baseUnit || undefined,
-    base_unit: purchaseRules.baseUnit || undefined,
-    baseQuantity: purchaseRules.baseQuantity ?? undefined,
-    base_quantity: purchaseRules.baseQuantity ?? undefined,
+    baseUnit: purchaseRules.baseUnit || null,
+    base_unit: purchaseRules.baseUnit || null,
+    baseQuantity: purchaseRules.baseQuantity ?? null,
+    base_quantity: purchaseRules.baseQuantity ?? null,
+    weightMin: numberOrNull(row?.weight_min ?? row?.weightMin),
+    weight_min: numberOrNull(row?.weight_min ?? row?.weightMin),
+    weightMax: numberOrNull(row?.weight_max ?? row?.weightMax),
+    weight_max: numberOrNull(row?.weight_max ?? row?.weightMax),
+    weightUnit: textOrNull(row?.weight_unit ?? row?.weightUnit),
+    weight_unit: textOrNull(row?.weight_unit ?? row?.weightUnit),
+    volumeMin: numberOrNull(row?.volume_min ?? row?.volumeMin),
+    volume_min: numberOrNull(row?.volume_min ?? row?.volumeMin),
+    volumeMax: numberOrNull(row?.volume_max ?? row?.volumeMax),
+    volume_max: numberOrNull(row?.volume_max ?? row?.volumeMax),
+    volumeUnit: textOrNull(row?.volume_unit ?? row?.volumeUnit),
+    volume_unit: textOrNull(row?.volume_unit ?? row?.volumeUnit),
+    optionRole: textOrNull(row?.option_role ?? row?.optionRole),
+    option_role: textOrNull(row?.option_role ?? row?.optionRole),
     category: pickFirst(row, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
     categorySlug: pickFirst(row, ["category_slug", "categorySlug"]),
     promoTagEnabled: normalizePromoEnabled(
@@ -454,14 +478,28 @@ const fetchProductByIdUncached = async (id) => {
           minQuantity: purchaseRules.minQuantity,
           maxQuantity: purchaseRules.maxQuantity,
           stepQuantity: purchaseRules.stepQuantity,
-          baseUnit: baseUnit || undefined,
-          baseQuantity: baseQuantity != null ? baseQuantity : undefined,
+          baseUnit: baseUnit || null,
+          baseQuantity: baseQuantity != null ? baseQuantity : null,
+          weightMin: numberOrNull(row.weight_min ?? row.weightMin),
+          weightMax: numberOrNull(row.weight_max ?? row.weightMax),
+          weightUnit: textOrNull(row.weight_unit ?? row.weightUnit),
+          volumeMin: numberOrNull(row.volume_min ?? row.volumeMin),
+          volumeMax: numberOrNull(row.volume_max ?? row.volumeMax),
+          volumeUnit: textOrNull(row.volume_unit ?? row.volumeUnit),
+          optionRole: textOrNull(row.option_role ?? row.optionRole),
           purchase_mode: purchaseRules.purchaseMode,
           min_quantity: purchaseRules.minQuantity,
           max_quantity: purchaseRules.maxQuantity,
           step_quantity: purchaseRules.stepQuantity,
-          base_unit: baseUnit || undefined,
-          base_quantity: baseQuantity != null ? baseQuantity : undefined,
+          base_unit: baseUnit || null,
+          base_quantity: baseQuantity != null ? baseQuantity : null,
+          weight_min: numberOrNull(row.weight_min ?? row.weightMin),
+          weight_max: numberOrNull(row.weight_max ?? row.weightMax),
+          weight_unit: textOrNull(row.weight_unit ?? row.weightUnit),
+          volume_min: numberOrNull(row.volume_min ?? row.volumeMin),
+          volume_max: numberOrNull(row.volume_max ?? row.volumeMax),
+          volume_unit: textOrNull(row.volume_unit ?? row.volumeUnit),
+          option_role: textOrNull(row.option_role ?? row.optionRole),
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
@@ -522,10 +560,24 @@ const fetchProductByIdUncached = async (id) => {
       max_quantity: purchaseRules.maxQuantity,
       stepQuantity: purchaseRules.stepQuantity,
       step_quantity: purchaseRules.stepQuantity,
-      baseUnit: purchaseRules.baseUnit || undefined,
-      base_unit: purchaseRules.baseUnit || undefined,
-      baseQuantity: purchaseRules.baseQuantity ?? undefined,
-      base_quantity: purchaseRules.baseQuantity ?? undefined,
+      baseUnit: purchaseRules.baseUnit || null,
+      base_unit: purchaseRules.baseUnit || null,
+      baseQuantity: purchaseRules.baseQuantity ?? null,
+      base_quantity: purchaseRules.baseQuantity ?? null,
+      weightMin: numberOrNull(defaultVariation?.weight_min ?? defaultVariation?.weightMin ?? marketData?.weight_min ?? marketData?.weightMin),
+      weight_min: numberOrNull(defaultVariation?.weight_min ?? defaultVariation?.weightMin ?? marketData?.weight_min ?? marketData?.weightMin),
+      weightMax: numberOrNull(defaultVariation?.weight_max ?? defaultVariation?.weightMax ?? marketData?.weight_max ?? marketData?.weightMax),
+      weight_max: numberOrNull(defaultVariation?.weight_max ?? defaultVariation?.weightMax ?? marketData?.weight_max ?? marketData?.weightMax),
+      weightUnit: textOrNull(defaultVariation?.weight_unit ?? defaultVariation?.weightUnit ?? marketData?.weight_unit ?? marketData?.weightUnit),
+      weight_unit: textOrNull(defaultVariation?.weight_unit ?? defaultVariation?.weightUnit ?? marketData?.weight_unit ?? marketData?.weightUnit),
+      volumeMin: numberOrNull(defaultVariation?.volume_min ?? defaultVariation?.volumeMin ?? marketData?.volume_min ?? marketData?.volumeMin),
+      volume_min: numberOrNull(defaultVariation?.volume_min ?? defaultVariation?.volumeMin ?? marketData?.volume_min ?? marketData?.volumeMin),
+      volumeMax: numberOrNull(defaultVariation?.volume_max ?? defaultVariation?.volumeMax ?? marketData?.volume_max ?? marketData?.volumeMax),
+      volume_max: numberOrNull(defaultVariation?.volume_max ?? defaultVariation?.volumeMax ?? marketData?.volume_max ?? marketData?.volumeMax),
+      volumeUnit: textOrNull(defaultVariation?.volume_unit ?? defaultVariation?.volumeUnit ?? marketData?.volume_unit ?? marketData?.volumeUnit),
+      volume_unit: textOrNull(defaultVariation?.volume_unit ?? defaultVariation?.volumeUnit ?? marketData?.volume_unit ?? marketData?.volumeUnit),
+      optionRole: textOrNull(defaultVariation?.option_role ?? defaultVariation?.optionRole ?? marketData?.option_role ?? marketData?.optionRole),
+      option_role: textOrNull(defaultVariation?.option_role ?? defaultVariation?.optionRole ?? marketData?.option_role ?? marketData?.optionRole),
     },
     raw,
     defaultVariantId,

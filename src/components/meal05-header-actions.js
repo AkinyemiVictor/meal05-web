@@ -13,6 +13,7 @@ import {
   IconSparkles,
   IconUser,
   IconUserCircle,
+  IconWallet,
 } from "@tabler/icons-react";
 
 import DeferredLocationPicker from "@/components/deferred-location-picker";
@@ -27,6 +28,14 @@ import {
 } from "@/lib/notifications";
 
 const ACCOUNT_MENU_ID = "meal05-account-menu";
+const WALLET_REFRESH_EVENT = "meal05:wallet-refresh";
+
+const formatMoney = (amount, currency = "NGN") =>
+  new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: String(currency || "NGN").toUpperCase(),
+    maximumFractionDigits: 0,
+  }).format(Number(amount) || 0);
 
 function useCartCount() {
   const [count, setCount] = useState(0);
@@ -111,6 +120,82 @@ function useUnreadNotificationCount(user) {
   return count;
 }
 
+function useWalletBalance(user) {
+  const [wallet, setWallet] = useState({ balance: 0, currencyCode: "NGN", status: "idle" });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const update = async (event) => {
+      if (!readStoredUser()) {
+        if (!cancelled) setWallet({ balance: 0, currencyCode: "NGN", status: "idle" });
+        return;
+      }
+
+      const detail = event?.detail;
+      if (detail && typeof detail === "object" && "balance" in detail) {
+        setWallet({
+          balance: Number(detail.balance) || 0,
+          currencyCode: detail.currencyCode || detail.currency_code || "NGN",
+          status: "ready",
+        });
+        return;
+      }
+
+      setWallet((current) => ({ ...current, status: "loading" }));
+      try {
+        const response = await fetch("/api/wallet", { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!response.ok) {
+          setWallet((current) => ({ ...current, status: "error" }));
+          return;
+        }
+        setWallet({
+          balance: Number(payload?.balance) || 0,
+          currencyCode: payload?.currencyCode || "NGN",
+          status: "ready",
+        });
+      } catch {
+        if (!cancelled) setWallet((current) => ({ ...current, status: "error" }));
+      }
+    };
+
+    update();
+    window.addEventListener(AUTH_EVENT, update);
+    window.addEventListener("storage", update);
+    window.addEventListener(WALLET_REFRESH_EVENT, update);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(AUTH_EVENT, update);
+      window.removeEventListener("storage", update);
+      window.removeEventListener(WALLET_REFRESH_EVENT, update);
+    };
+  }, [user]);
+
+  return wallet;
+}
+
+function WalletBalancePill({ user, wallet, compact = false }) {
+  if (!user || wallet.status !== "ready") return null;
+
+  const amount = formatMoney(wallet.balance, wallet.currencyCode);
+  return (
+    <Link
+      href="/account/wallet"
+      aria-label={`Meal05 Balance ${amount}`}
+      className={`flex h-11 shrink min-w-0 items-center gap-2 rounded-2xl border border-meal-line bg-meal-paper text-sm font-extrabold text-meal-text shadow-sm transition hover:border-meal-pepper hover:text-meal-pepper focus-visible:border-meal-pepper focus-visible:text-meal-pepper focus-visible:outline-none ${
+        compact ? "max-w-[7.25rem] px-2.5" : "px-3"
+      }`}
+    >
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-meal-pepper/10 text-meal-pepper">
+        <IconWallet size={18} stroke={2} aria-hidden="true" />
+      </span>
+      <span className="min-w-0 truncate">{amount}</span>
+    </Link>
+  );
+}
+
 function CartBadge({ count }) {
   if (!count) return null;
   return (
@@ -144,8 +229,8 @@ function AccountMenu({ user }) {
   const displayName = user?.fullName || user?.name || user?.email?.split("@")[0] || "Meal05 account";
   const items = [
     { label: "My Account", href: protect("/account"), icon: IconUserCircle },
-    { label: "Orders", href: protect("/account?tab=orders"), icon: IconPackage },
-    { label: "Wishlist", href: protect("/account?tab=wishlist"), icon: IconSparkles },
+    { label: "Orders", href: protect("/account/orders"), icon: IconPackage },
+    { label: "Wishlist", href: protect("/account/wishlist"), icon: IconSparkles },
   ];
 
   useEffect(() => {
@@ -267,10 +352,12 @@ export default function Meal05HeaderActions({ mobile = false }) {
   const cartCount = useCartCount();
   const user = useHeaderUser();
   const unreadNotifications = useUnreadNotificationCount(user);
+  const wallet = useWalletBalance(user);
 
   if (mobile) {
     return (
       <div className="flex items-center gap-2">
+        <WalletBalancePill user={user} wallet={wallet} compact />
         <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} count={unreadNotifications}>
           <IconBell size={22} stroke={1.8} />
         </NavIcon>
@@ -281,6 +368,8 @@ export default function Meal05HeaderActions({ mobile = false }) {
   return (
     <div className="flex flex-1 items-center justify-end gap-3 lg:flex-none">
       <DeferredLocationPicker />
+
+      <WalletBalancePill user={user} wallet={wallet} />
 
       <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} count={unreadNotifications}>
         <IconBell size={21} stroke={1.8} />

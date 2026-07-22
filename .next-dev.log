@@ -1,0 +1,290 @@
+
+> meal05-web@0.1.0 dev
+> next dev -p 3000
+
+   ▲ Next.js 15.5.18
+   - Local:        http://localhost:3000
+   - Network:      http://10.87.247.160:3000
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 6.5s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 1106ms (121 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 14.9s (885 modules)
+ GET / 200 in 15328ms
+ ○ Compiling /api/cart ...
+ ✓ Compiled /api/cart in 4.1s (1042 modules)
+ GET / 200 in 335ms
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+ GET /api/catalog/home?limit=24 500 in 8266ms
+ GET /api/cart 400 in 11657ms
+ GET /api/categories 200 in 18859ms
+ ○ Compiling /home ...
+ ✓ Compiled /home in 2.1s (1078 modules)
+ GET /home 200 in 2648ms
+ GET /home 200 in 204ms
+ ○ Compiling /api/wallet ...
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+ GET /api/catalog/home?limit=72 500 in 2074ms
+ ✓ Compiled /api/wallet in 2s (1082 modules)
+ GET /api/cart 400 in 3427ms
+ GET /api/cart 400 in 694ms
+ GET /api/wallet 200 in 4168ms
+ GET /api/cart 400 in 716ms
+ GET /api/wallet 200 in 1047ms
+ GET /api/cart 400 in 810ms
+ GET /api/wallet 200 in 983ms
+ GET /api/wallet 200 in 1054ms
+ GET /api/wallet 200 in 988ms
+ GET /api/wallet 200 in 1046ms
+ ○ Compiling /account ...
+ ✓ Compiled /account in 8.3s (922 modules)
+ GET /account 200 in 11691ms
+ GET /home 200 in 2437ms
+ ○ Compiling /api/products/by-ids ...
+ ✓ Compiled /api/orders in 1902ms (615 modules)
+ ✓ Compiled in 1315ms (366 modules)
+ GET /api/wallet/transactions 200 in 19154ms
+ GET /api/cart 400 in 19177ms
+ ○ Compiling /account/[section] ...
+ ✓ Compiled /account/[section] in 3.2s (1169 modules)
+ GET /api/orders 400 in 23651ms
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+ GET /api/cart 400 in 2083ms
+ GET /api/wallet 200 in 26126ms
+ GET /api/profile 400 in 6613ms
+ GET /api/products/by-ids?ids=2%2C4%2C31 500 in 26611ms
+ GET /api/catalog/home?limit=12 500 in 26988ms
+ GET /api/cart 400 in 1937ms
+ GET /account/wallet 200 in 9956ms
+ GET /api/cart 400 in 4336ms
+ GET /api/cart 400 in 4856ms
+ GET /api/cart 400 in 5328ms
+ GET /api/wallet 200 in 9009ms
+ GET /api/wallet 200 in 6667ms
+ GET /api/wallet 200 in 8423ms
+ GET /api/wallet 200 in 5818ms
+ GET /api/wallet 200 in 6485ms
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+ GET /api/wallet 200 in 6460ms
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+ GET /api/cart 400 in 1158ms
+ GET /api/catalog/home?limit=12 500 in 1325ms
+ GET /api/products/by-ids?ids=2%2C4%2C31 500 in 777ms
+ GET /api/wallet 200 in 1437ms
+ GET /api/wallet/transactions 200 in 719ms
+ GET /api/orders 400 in 1318ms
+ GET /api/cart 400 in 764ms
+ GET /api/profile 400 in 1145ms
+ GET /api/wallet 200 in 991ms
+ GET /api/cart 400 in 601ms
+ GET /api/cart 400 in 625ms
+ GET /api/wallet 200 in 958ms
+ GET /api/cart 400 in 783ms
+ GET /api/wallet 200 in 953ms
+ GET /api/cart 400 in 686ms
+ GET /api/wallet 200 in 1171ms
+ GET /api/wallet 200 in 1288ms
+ GET /api/wallet 200 in 1058ms
+ GET /account 200 in 224ms
+ GET /account 200 in 376ms
+ ✓ Compiled in 3.4s (1183 modules)
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+ GET /api/catalog/home?limit=12 500 in 6170ms
+ GET /api/wallet/transactions 200 in 5571ms
+ GET /api/cart 400 in 6559ms
+ GET /account 200 in 327ms
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+ GET /api/profile 400 in 1855ms
+ GET /api/products/by-ids?ids=2%2C4%2C31 500 in 7761ms
+ GET /api/orders 400 in 8521ms
+ GET /api/wallet 200 in 9112ms
+ GET /account/profile 200 in 223ms
+ GET /api/cart 400 in 3209ms
+ GET /api/cart 400 in 1258ms
+ GET /api/cart 400 in 1070ms
+ GET /api/wallet 200 in 2521ms
+ GET /api/cart 400 in 787ms
+ GET /api/wallet 200 in 1667ms
+ GET /api/cart 400 in 1499ms
+ GET /api/wallet 200 in 2122ms
+ GET /api/wallet 200 in 1136ms
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+product_card_catalog unavailable; falling back to legacy product catalogue query column product_card_catalog.weight_min does not exist
+ GET /api/catalog/home?limit=12 500 in 1009ms
+ GET /api/cart 400 in 1229ms
+ GET /api/products/by-ids?ids=2%2C4%2C31 500 in 996ms
+ GET /api/wallet 200 in 1802ms
+ GET /api/cart 400 in 929ms
+ GET /api/profile 400 in 1955ms
+ GET /api/orders 400 in 1963ms
+ GET /api/wallet 200 in 1091ms
+ GET /api/cart 400 in 757ms
+ GET /api/wallet 200 in 1099ms
+ GET /api/cart 400 in 879ms
+ GET /api/wallet 200 in 1075ms
+ GET /api/cart 400 in 819ms
+ GET /api/cart 400 in 723ms
+ GET /api/wallet 200 in 1023ms
+ GET /api/wallet 200 in 1086ms
+ GET /api/wallet 200 in 845ms
+ GET /api/wallet 200 in 973ms
+ ✓ Compiled in 953ms (381 modules)
+ GET /account/profile 200 in 311ms
+ ✓ Compiled in 608ms (381 modules)
+ GET /account/profile 200 in 192ms
+ ✓ Compiled in 477ms (381 modules)
+ GET /account/profile 200 in 172ms
+ ✓ Compiled in 414ms (381 modules)
+ GET /account/profile 200 in 154ms
+ ✓ Compiled in 533ms (381 modules)
+ GET /account/profile 200 in 178ms
+ ✓ Compiled in 909ms (381 modules)
+ GET /account/profile 200 in 359ms
+ ✓ Compiled in 1114ms (381 modules)
+ GET /account/profile 200 in 251ms
+ ✓ Compiled in 607ms (381 modules)
+ GET /account/profile 200 in 219ms
+ ✓ Compiled in 2.1s (1038 modules)
+ GET /account/profile 200 in 1812ms
+ GET /account/profile 200 in 136ms
+ ✓ Compiled in 1600ms (1038 modules)
+ GET /account/profile 200 in 1467ms
+ GET /account/profile 200 in 138ms
+ ✓ Compiled in 1514ms (1038 modules)
+ GET /account/profile 200 in 1454ms
+ GET /account/profile 200 in 128ms
+ ✓ Compiled in 1713ms (1038 modules)
+ GET /account/profile 200 in 1216ms
+ GET /account/profile 200 in 184ms
+ ✓ Compiled in 1772ms (381 modules)
+ GET /account/profile 200 in 272ms
+ ✓ Compiled in 2.3s (1038 modules)
+ GET /account/profile 200 in 1803ms
+ GET /account/profile 200 in 161ms
+ ✓ Compiled in 632ms (381 modules)
+ GET /account/profile 200 in 198ms
+ ✓ Compiled in 629ms (381 modules)
+ GET /account/profile 200 in 275ms
+ ✓ Compiled in 2.1s (1038 modules)
+ GET /account/profile 200 in 1538ms
+ GET /account/profile 200 in 169ms
+ ✓ Compiled in 712ms (381 modules)
+ GET /account/profile 200 in 173ms
+ ✓ Compiled in 942ms (381 modules)
+ GET /account/profile 200 in 293ms
+ GET /account/profile 200 in 209ms
+ ✓ Compiled in 535ms (381 modules)
+ GET /account/profile 200 in 161ms
+ ✓ Compiled in 871ms (381 modules)
+ GET /account/profile 200 in 268ms
+ GET /account/profile 200 in 239ms
+ ✓ Compiled in 1471ms (381 modules)
+ GET /account/profile 200 in 239ms
+ ✓ Compiled in 1225ms (381 modules)
+ ✓ Compiled in 799ms (381 modules)
+ GET /account/profile 200 in 298ms
+ GET /account/profile 200 in 169ms
+ ✓ Compiled in 954ms (381 modules)
+ GET /account/profile 200 in 267ms
+ ✓ Compiled in 500ms (381 modules)
+ GET /account/profile 200 in 175ms
+ ✓ Compiled in 513ms (381 modules)
+ GET /account/profile 200 in 178ms
+ ✓ Compiled in 659ms (381 modules)
+ ✓ Compiled in 474ms (381 modules)
+ GET /account/profile 200 in 793ms
+ GET /account/profile 200 in 214ms
+ ✓ Compiled in 659ms (381 modules)
+ GET /account/profile 200 in 181ms
+ ✓ Compiled in 1504ms (381 modules)
+ GET /account/profile 200 in 245ms
+ ✓ Compiled in 711ms (381 modules)
+ GET /account/profile 200 in 191ms
+ ✓ Compiled in 869ms (381 modules)
+ GET /account/profile 200 in 294ms
+ ✓ Compiled in 766ms (381 modules)
+ GET /account/profile 200 in 394ms
+ ✓ Compiled in 838ms (381 modules)
+ GET /account/profile 200 in 276ms
+ ✓ Compiled in 1274ms (381 modules)
+ GET /account/profile 200 in 202ms
+ ✓ Compiled in 955ms (381 modules)
+ GET /account/profile 200 in 461ms
+ ✓ Compiled in 2.3s (1052 modules)
+ GET /account/profile 200 in 1950ms
+ GET /account/profile 200 in 83ms
+ ⨯ [TypeError: Cannot read properties of undefined (reading 'call')] {
+  digest: '57464847'
+}
+[TypeError: Cannot read properties of undefined (reading 'call')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading 'call')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading 'call')] {
+  page: '/account/profile'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 4s (1264 modules)
+ GET /account/profile 200 in 3246ms
+ GET /account/profile 500 in 7814ms
+ GET /account/profile 200 in 764ms
+ ⨯ Failed to generate static paths for /account/[section]:
+[Error: Cannot find module './vendor-chunks/@tabler.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ Failed to generate static paths for /account/[section]:
+[Error: Cannot find module './vendor-chunks/@tabler.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ✓ Compiled in 1357ms (534 modules)
+ ⨯ [Error: Cannot find module './vendor-chunks/@tabler.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/account/profile'
+}
+ GET /account/profile 500 in 1926ms
+ ✓ Compiled in 1461ms (533 modules)
+ ✓ Compiled in 1503ms (533 modules)
+ ✓ Compiled in 1165ms (533 modules)
+ ✓ Compiled in 689ms (533 modules)
+ ✓ Compiled in 1208ms (533 modules)
+ ✓ Compiled in 611ms (533 modules)
+ ✓ Compiled in 554ms (533 modules)
+ ✓ Compiled in 1174ms (533 modules)
+ ✓ Compiled in 784ms (533 modules)
+ ✓ Compiled in 767ms (533 modules)
+ ✓ Compiled in 845ms (533 modules)
+ ✓ Compiled in 493ms (533 modules)
+ ✓ Compiled in 909ms (533 modules)
+ ✓ Compiled in 1066ms (533 modules)

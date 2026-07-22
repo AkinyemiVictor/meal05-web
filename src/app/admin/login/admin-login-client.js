@@ -116,7 +116,7 @@ export default function AdminLoginClient({ forbidden = false, signedInEmail = ""
         }}
       >
         <p style={{ margin: "0 0 8px", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
-          MealKit Admin
+          Meal05 Admin
         </p>
         <h1 style={{ margin: "0 0 8px" }}>Admin Login</h1>
         <p style={{ margin: "0 0 16px", color: "#4b5563" }}>

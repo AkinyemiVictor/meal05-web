@@ -63,6 +63,13 @@
     description: "Premium oils, salts, and cooking basics for any kitchen.",
   },
   {
+    slug: "pantry-processed-foods",
+    productKey: "pantryProcessedFoods",
+    label: "Pantry & Processed Foods",
+    icon: "fa-box-open",
+    description: "Shelf-stable staples and processed foods for everyday cooking.",
+  },
+  {
     slug: "drinks-n-beverages",
     productKey: "DrinksBeverages",
     label: "Drinks & Beverages",

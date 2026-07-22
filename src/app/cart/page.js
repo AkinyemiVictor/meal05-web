@@ -37,6 +37,7 @@ import {
   roundQuantity,
   validateVariantQuantity,
 } from "@/lib/purchase-quantities";
+import { calculateOrderCapacity, formatCapacitySummary } from "@/lib/order-capacity";
 import { requestPromoCodeValidation } from "@/lib/promo-code-client";
 import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
 import useDeliverySettings from "@/lib/use-delivery-settings";
@@ -50,17 +51,6 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), {
 
 const RECENTLY_VIEWED_STORAGE_KEY = RECENTLY_VIEWED_KEY;
 const RECENTLY_VIEWED_LIMIT = 6;
-const MIN_ORDER_SIZE = 1;
-const ORDER_COUNT_STEP = 1;
-
-const normaliseOrderSize = (value, fallback = MIN_ORDER_SIZE) => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return fallback;
-  }
-  return Math.max(MIN_ORDER_SIZE, roundQuantity(numeric));
-};
-
 const normaliseOrderCount = (value, fallback = 1) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) {
@@ -69,20 +59,24 @@ const normaliseOrderCount = (value, fallback = 1) => {
   return Math.max(0.001, roundQuantity(numeric));
 };
 
-const computeQuantity = (orderSize, orderCount) => orderSize * orderCount;
-
-const formatOrderSize = (value) => {
-  const size = normaliseOrderSize(value, 0);
-  if (!size) return "0";
-  return size.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-};
-
 const formatOrderCount = (value) => {
   const count = normaliseOrderCount(value, 0);
-  return count.toLocaleString();
+  return formatQuantity(count);
+};
+
+const getItemQuantity = (item, fallback = 1) => {
+  const explicit = normaliseOrderCount(item?.quantity, 0);
+  if (explicit > 0) return explicit;
+  const legacySize = normaliseOrderCount(item?.orderSize, 1);
+  const legacyCount = normaliseOrderCount(item?.orderCount, fallback);
+  return roundQuantity(legacySize * legacyCount);
+};
+
+const normaliseQuantityForItem = (item, value) => {
+  const requested = Number(value);
+  const quantity = Number.isFinite(requested) && requested > 0 ? requested : getItemQuantity(item);
+  const validation = validateVariantQuantity(item, quantity);
+  return validation.ok ? validation.quantity : clampQuantityToRules(item, quantity);
 };
 
 const hydrateCartItem = (item) => {
@@ -91,19 +85,15 @@ const hydrateCartItem = (item) => {
   const productId = draft.productId || draft.id;
   const variantId = draft.variantId || null;
   const lineId = variantId || draft.id || productId;
-  const storedCount = normaliseOrderCount(draft.orderCount ?? 0, 1);
-  const fallbackCount = normaliseOrderCount(draft.quantity ?? 0, 0);
-  const derivedCount = normaliseOrderCount(storedCount > 0 ? storedCount : fallbackCount, 1);
-  const orderSize = normaliseOrderSize(draft.orderSize, MIN_ORDER_SIZE);
-  const quantity = computeQuantity(orderSize, derivedCount);
+  const quantity = normaliseQuantityForItem(draft, getItemQuantity(draft));
 
   return {
     ...draft,
     id: lineId,
     productId,
     variantId,
-    orderSize,
-    orderCount: derivedCount,
+    orderSize: 1,
+    orderCount: quantity,
     quantity,
   };
 };
@@ -149,6 +139,51 @@ const formatCurrency = (value) =>
     currency: "NGN",
     maximumFractionDigits: 0,
   }).format(Number.isFinite(value) ? value : 0);
+
+const makeBulkReference = () => {
+  const date = new Date();
+  const stamp = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("");
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `BULK-M5-${stamp}-${rand}`;
+};
+
+const buildBulkMessage = ({ items, summary, capacity, customerName = "", deliveryArea = "" }) => {
+  const lines = items.map((item) => {
+    const variantName = item.variantName ? ` (${item.variantName})` : "";
+    const unit = item.unit ? String(item.unit).replace(/^per\s+/i, "") : "";
+    return `- ${item.name}${variantName}: ${formatQuantity(item.quantity, unit)}`;
+  });
+  return [
+    "Hello Meal05, I would like help confirming a larger order.",
+    `Reference: ${makeBulkReference()}`,
+    customerName ? `Customer: ${customerName}` : "",
+    "Basket:",
+    ...lines,
+    `Estimated subtotal: ${formatCurrency(summary.subtotal)}`,
+    `Estimated capacity: ${formatCapacitySummary(capacity)}`,
+    deliveryArea ? `Delivery area: ${deliveryArea}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
+
+const buildBulkLinks = (settings, message) => {
+  const contacts = settings?.contacts || {};
+  const encoded = encodeURIComponent(message);
+  const email = contacts.email ? `mailto:${contacts.email}?subject=${encodeURIComponent("Meal05 larger order enquiry")}&body=${encoded}` : "";
+  const social = contacts.instagram || contacts.facebook || "";
+  return {
+    whatsapp: contacts.whatsapp ? `https://wa.me/${contacts.whatsapp.replace(/^\+/, "")}?text=${encoded}` : "",
+    call: contacts.call ? `tel:${contacts.call}` : "",
+    email,
+    sms: contacts.sms ? `sms:${contacts.sms}?&body=${encoded}` : "",
+    social,
+  };
+};
 
 function CartProductSection({ title, eyebrow, ctaLabel = "See all", ctaHref, headingId, variant = "plain", children }) {
   const sectionClasses = ["home-section", styles.productSection];
@@ -205,6 +240,7 @@ function CartPageContent() {
   const [promoMessage, setPromoMessage] = useState({ text: "", tone: "neutral" });
   const [activePromo, setActivePromo] = useState(() => (typeof window !== "undefined" ? readStoredPromo() : null));
   const [promoBusy, setPromoBusy] = useState(false);
+  const [orderSettings, setOrderSettings] = useState(null);
   const [recentProductIds, setRecentProductIds] = useState([]);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -246,6 +282,18 @@ function CartPageContent() {
     })();
 
     setRecentProductIds(history.filter((id, index) => history.indexOf(id) === index).slice(0, RECENTLY_VIEWED_LIMIT));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const controller = new AbortController();
+    fetch("/api/order-settings", { cache: "no-store", signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((settings) => {
+        if (settings) setOrderSettings(settings);
+      })
+      .catch(() => {});
+    return () => controller.abort();
   }, []);
 
   const handleQuickAddClose = () => {
@@ -534,6 +582,37 @@ function CartPageContent() {
     };
   }, [activePromo, baseSummary]);
 
+  const capacitySettings = useMemo(
+    () =>
+      orderSettings?.standardCheckout || {
+        maxWeightKg: 50,
+        maxLiquidLiters: 25,
+      },
+    [orderSettings?.standardCheckout]
+  );
+  const cartCapacity = useMemo(
+    () => calculateOrderCapacity(cartItems, capacitySettings),
+    [cartItems, capacitySettings]
+  );
+  const bulkOrder = orderSettings?.bulkOrder || null;
+  const bulkRequired = Boolean(bulkOrder?.enabled !== false && cartCapacity.requiresBulk);
+  const bulkMessage = useMemo(
+    () =>
+      buildBulkMessage({
+        items: cartItems,
+        summary,
+        capacity: cartCapacity,
+        customerName: currentUser?.fullName || currentUser?.name || "",
+        deliveryArea: currentUser?.city || "",
+      }),
+    [cartCapacity, cartItems, currentUser?.city, currentUser?.fullName, currentUser?.name, summary]
+  );
+  const bulkLinks = useMemo(() => buildBulkLinks(orderSettings, bulkMessage), [bulkMessage, orderSettings]);
+  const primaryBulkChannel = useMemo(
+    () => ["whatsapp", "call", "email", "sms", "social"].find((channel) => bulkLinks[channel]) || "",
+    [bulkLinks]
+  );
+
   const setPromoFeedback = useCallback((text, tone = "neutral") => {
     setPromoMessage({ text, tone });
   }, []);
@@ -592,16 +671,15 @@ function CartPageContent() {
   setCartItems((prev) =>
     prev.map((item) => {
       if (item.id !== id) return item;
-      const orderSize = normaliseOrderSize(item.orderSize, MIN_ORDER_SIZE);
-      const currentCount = normaliseOrderCount(item.orderCount, 1);
-      const nextCount = clampQuantityToRules(item, currentCount + delta);
-      const validation = validateVariantQuantity(item, nextCount);
+      const currentQuantity = getItemQuantity(item);
+      const nextQuantity = clampQuantityToRules(item, currentQuantity + delta);
+      const validation = validateVariantQuantity(item, nextQuantity);
       if (!validation.ok) return item;
       return {
         ...item,
-        orderSize,
+        orderSize: 1,
         orderCount: validation.quantity,
-        quantity: computeQuantity(orderSize, validation.quantity),
+        quantity: validation.quantity,
       };
     })
   );
@@ -663,7 +741,7 @@ function CartPageContent() {
   }, [baseSummary.deliveryFee, baseSummary.itemsCount, baseSummary.subtotal, promoInput, setPromoFeedback]);
 
   const handleCheckout = useCallback(() => {
-    if (!cartItems.length || hasCheckoutBlocker) {
+    if (!cartItems.length || hasCheckoutBlocker || bulkRequired) {
       return;
     }
 
@@ -682,7 +760,17 @@ function CartPageContent() {
 
     persistCart(cartItems);
     router.push("/checkout");
-  }, [activePromo?.code, cartItems, hasCheckoutBlocker, persistCart, router, signInRedirectHref, summary.total]);
+  }, [activePromo?.code, bulkRequired, cartItems, hasCheckoutBlocker, persistCart, router, signInRedirectHref, summary.total]);
+
+  const handleBulkContact = useCallback(
+    (channel) => {
+      const href = bulkLinks[channel];
+      if (!href) return;
+      persistCart(cartItems);
+      window.open(href, channel === "call" ? "_self" : "_blank", "noopener,noreferrer");
+    },
+    [bulkLinks, cartItems, persistCart]
+  );
 
   const promoToneClass = useMemo(() => {
     switch (promoMessage.tone) {
@@ -735,9 +823,7 @@ function CartPageContent() {
                 cartItems.map((item) => {
                   const product = productIndex.get(String(item.productId || item.id));
                   const status = stockStatus.map.get(item.id);
-                  const orderSize = normaliseOrderSize(item.orderSize, MIN_ORDER_SIZE);
-                  const orderCount = normaliseOrderCount(item.orderCount, 1);
-                  const quantity = computeQuantity(orderSize, orderCount);
+                  const quantity = getItemQuantity(item);
                   const price = Number(item.price) || 0;
                   const lineTotal = price * quantity;
                   const productCategory = product?.category || item.category || "";
@@ -746,6 +832,12 @@ function CartPageContent() {
                   const priceLabel = unitLabel ? `${formatCurrency(price)}/${unitLabel}` : formatCurrency(price);
                   const oldPrice = Number(product?.oldPrice || item.oldPrice || 0);
                   const hasOldPrice = oldPrice > price;
+                  const minQuantity = Number(item.minQuantity ?? item.min_quantity ?? 1) || 1;
+                  const maxQuantityRaw = Number(item.maxQuantity ?? item.max_quantity);
+                  const maxQuantity = Number.isFinite(maxQuantityRaw) && maxQuantityRaw > 0 ? maxQuantityRaw : null;
+                  const stepQuantity = Number(item.stepQuantity ?? item.step_quantity ?? 1) || 1;
+                  const canDecrement = quantity > minQuantity;
+                  const canIncrement = maxQuantity == null || quantity < maxQuantity;
                   const lineClassNames = [styles.cartLine];
                   if (status?.level === "error") {
                     lineClassNames.push(styles.cartLineUnavailable);
@@ -781,24 +873,31 @@ function CartPageContent() {
                           </p>
                         ) : null}
                         {item.note ? <small>{item.note}</small> : null}
+                        <p className={styles.cartLineQuantity}>
+                          Minimum {formatQuantity(minQuantity, unitLabel)}
+                          {" · "}Increases by {formatQuantity(stepQuantity, unitLabel)}
+                          {maxQuantity != null ? ` · Standard checkout limit ${formatQuantity(maxQuantity, unitLabel)}` : ""}
+                        </p>
                       </div>
                       <div className={styles.cartControls}>
                         <div className={styles.qtyControl}>
                           <button
                             type="button"
                             className={styles.qtyButton}
-                            onClick={() => handleQtyChange(item.id, -(Number(item.stepQuantity) || ORDER_COUNT_STEP))}
+                            onClick={() => handleQtyChange(item.id, -stepQuantity)}
+                            disabled={!canDecrement}
                             aria-label={`Decrease order count for ${item.name}`}
                           >
                             -
                           </button>
                           <span className={styles.qtyValue}>
-                            <span className={styles.qtyNumber}>{formatOrderCount(orderCount)}</span>
+                            <span className={styles.qtyNumber}>{formatOrderCount(quantity)}</span>
                           </span>
                           <button
                             type="button"
                             className={styles.qtyButton}
-                            onClick={() => handleQtyChange(item.id, Number(item.stepQuantity) || ORDER_COUNT_STEP)}
+                            onClick={() => handleQtyChange(item.id, stepQuantity)}
+                            disabled={!canIncrement}
                             aria-label={`Increase order count for ${item.name}`}
                           >
                             +
@@ -891,15 +990,50 @@ function CartPageContent() {
                 {copy.cart.limitedNotice}
               </p>
             ) : null}
+            {bulkRequired ? (
+              <div className={styles.bulkPanel} role="status">
+                <h3>{bulkOrder?.heading || "Planning a larger order?"}</h3>
+                <p>
+                  {bulkOrder?.message ||
+                    "Meal05 handles larger orders too. Send your basket to our fulfilment team and we will confirm supplier availability, pricing and a suitable delivery plan without affecting normal daily orders."}
+                </p>
+                {cartCapacity.reasons.includes("weight") ? (
+                  <p>
+                    Standard delivery currently supports up to {formatQuantity(capacitySettings.maxWeightKg, "kg")}.
+                    Your basket is approximately {formatQuantity(cartCapacity.weightKg, "kg")}.
+                  </p>
+                ) : null}
+                {cartCapacity.reasons.includes("liquid") ? (
+                  <p>
+                    Standard delivery currently supports up to {formatQuantity(capacitySettings.maxLiquidLiters, "L")}.
+                    Your basket is approximately {formatQuantity(cartCapacity.liquidLiters, "L")}.
+                  </p>
+                ) : null}
+                <div className={styles.bulkActions}>
+                  {["whatsapp", "call", "email", "sms", "social"].map((channel) =>
+                    bulkLinks[channel] ? (
+                      <button key={channel} type="button" onClick={() => handleBulkContact(channel)}>
+                        {channel === "sms" ? "SMS" : channel.charAt(0).toUpperCase() + channel.slice(1)}
+                      </button>
+                    ) : null
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <button
               type="button"
               className={styles.checkoutButton}
-              onClick={handleCheckout}
-              disabled={cartIsEmpty || hasCheckoutBlocker}
+              onClick={bulkRequired ? () => handleBulkContact(primaryBulkChannel) : handleCheckout}
+              disabled={cartIsEmpty || hasCheckoutBlocker || (bulkRequired && !primaryBulkChannel)}
             >
-              Checkout <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              {bulkRequired ? "Continue with fulfilment team" : "Checkout"} <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
             </button>
+            {bulkRequired ? (
+              <button type="button" className={styles.adjustButton} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                Adjust basket
+              </button>
+            ) : null}
             <p className={styles.summaryHint}>
               <i className="fa-solid fa-lock" aria-hidden="true"></i> Secure checkout · Free returns within 24h
             </p>

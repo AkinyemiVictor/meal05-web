@@ -2,8 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  ADMIN_ROLE_OPTIONS,
   ADMIN_STAFF_FILTER_OPTIONS,
+  USER_ROLE_OPTIONS,
   canAssignAdminRole,
   canDeactivateAdminUser,
   getAdminRoleLabel,
@@ -111,7 +111,7 @@ export default async function AdminStaffPage({ searchParams }) {
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ margin: "0 0 6px" }}>Staff Roles & Access</h1>
         <p style={{ margin: 0, color: "#64748b" }}>
-          Manage admin workspace roles, deactivate compromised accounts, and watch recent admin activity.
+          Manage Meal05 account roles, dispatch access, rider access, deactivate compromised accounts, and watch recent admin activity.
         </p>
         <p style={{ margin: "4px 0 0", color: "#475569", fontSize: 13 }}>
           Your role: <strong>{getAdminRoleLabel(actorProfile.role)}</strong>
@@ -128,7 +128,7 @@ export default async function AdminStaffPage({ searchParams }) {
           padding: "10px 12px",
         }}
       >
-        <strong>Role safety.</strong> Workspace access now follows the Supabase users.role rule. Active Super Admins can grant Admin or Super Admin roles and can deactivate Admin users.
+          <strong>Role safety.</strong> Workspace access now follows the Supabase users.role rule. Active Super Admins can grant Customer, Rider, Dispatcher, Admin, or Super Admin roles.
       </section>
 
       {warnings.length ? (
@@ -237,7 +237,7 @@ export default async function AdminStaffPage({ searchParams }) {
             </thead>
             <tbody>
               {data.records.map((row) => {
-                const assignableRoles = ADMIN_ROLE_OPTIONS.filter((option) =>
+                const assignableRoles = USER_ROLE_OPTIONS.filter((option) =>
                   canAssignAdminRole({
                     actorRole: actorProfile.role,
                     actorUserId: user.id,

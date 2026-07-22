@@ -75,6 +75,22 @@ const getVariantPrice = (variant, product) =>
 
 const getVariantUnit = (variant, product) => variant?.unit || product?.unit || "";
 
+const pickNumberOrNull = (...values) => {
+  for (const value of values) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+  return null;
+};
+
+const pickTextOrNull = (...values) => {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return null;
+};
+
 const getVariantImage = (variant, product, fallback) =>
   resolveProductImage(variant?.image, product?.image, fallback);
 
@@ -105,6 +121,13 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
   const quantity = normaliseOrderCount(orderCount, variant);
   const baseUnit = variant?.base_unit ?? variant?.baseUnit ?? product?.base_unit ?? product?.baseUnit ?? "";
   const baseQuantity = variant?.base_quantity ?? variant?.baseQuantity ?? product?.base_quantity ?? product?.baseQuantity ?? null;
+  const weightMin = pickNumberOrNull(variant?.weight_min, variant?.weightMin, product?.weight_min, product?.weightMin);
+  const weightMax = pickNumberOrNull(variant?.weight_max, variant?.weightMax, product?.weight_max, product?.weightMax);
+  const weightUnit = pickTextOrNull(variant?.weight_unit, variant?.weightUnit, product?.weight_unit, product?.weightUnit);
+  const volumeMin = pickNumberOrNull(variant?.volume_min, variant?.volumeMin, product?.volume_min, product?.volumeMin);
+  const volumeMax = pickNumberOrNull(variant?.volume_max, variant?.volumeMax, product?.volume_max, product?.volumeMax);
+  const volumeUnit = pickTextOrNull(variant?.volume_unit, variant?.volumeUnit, product?.volume_unit, product?.volumeUnit);
+  const optionRole = pickTextOrNull(variant?.option_role, variant?.optionRole, product?.option_role, product?.optionRole);
   return {
     id: lineId,
     productId: product?.id,
@@ -128,6 +151,20 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
     base_unit: baseUnit || undefined,
     baseQuantity: baseQuantity != null ? baseQuantity : undefined,
     base_quantity: baseQuantity != null ? baseQuantity : undefined,
+    weightMin,
+    weight_min: weightMin,
+    weightMax,
+    weight_max: weightMax,
+    weightUnit,
+    weight_unit: weightUnit,
+    volumeMin,
+    volume_min: volumeMin,
+    volumeMax,
+    volume_max: volumeMax,
+    volumeUnit,
+    volume_unit: volumeUnit,
+    optionRole,
+    option_role: optionRole,
     orderSize: 1,
     orderCount: quantity,
     quantity,
@@ -291,6 +328,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   }, [displayProduct]);
 
   const isUnavailable = isVariantInactive(effectiveVariant, displayProduct);
+  const availableCount = getAvailableCount(getStockValue(effectiveVariant, displayProduct));
+  const effectiveMaxQuantity = Number.isFinite(availableCount)
+    ? Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount)
+    : purchaseRules.maxQuantity;
+  const quantityAtMin = quantity <= purchaseRules.minQuantity;
+  const quantityAtMax = effectiveMaxQuantity != null && quantity >= effectiveMaxQuantity;
 
   const handleAdd = useCallback(
     async ({ variant, qty, closeAfter = true } = {}) => {
@@ -494,7 +537,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               <button
                 type="button"
                 onClick={() => setQuantity((prev) => clampQuantityToRules(effectiveVariant, prev - purchaseRules.stepQuantity))}
-                disabled={quantity <= purchaseRules.minQuantity}
+                disabled={quantityAtMin}
                 aria-label="Decrease quantity"
               >
                 -
@@ -515,19 +558,29 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               <button
                 type="button"
                 onClick={() => {
-                  const availableCount = getAvailableCount(getStockValue(effectiveVariant, displayProduct));
                   setQuantity((prev) => {
                     const next = prev + purchaseRules.stepQuantity;
-                    return Number.isFinite(availableCount) ? Math.min(next, Math.max(purchaseRules.minQuantity, availableCount)) : next;
+                    const max = effectiveMaxQuantity ?? purchaseRules.maxQuantity;
+                    return clampQuantityToRules(
+                      { ...effectiveVariant, maxQuantity: max, max_quantity: max ?? effectiveVariant?.max_quantity },
+                      next
+                    );
                   });
                 }}
-                disabled={Number.isFinite(getAvailableCount(getStockValue(effectiveVariant, displayProduct))) && quantity >= getAvailableCount(getStockValue(effectiveVariant, displayProduct))}
+                disabled={quantityAtMax}
                 aria-label="Increase quantity"
               >
                 +
               </button>
             </div>
           </div>
+          <p className="quick-add-status">
+            Minimum {formatQuantity(purchaseRules.minQuantity, getVariantUnit(effectiveVariant, displayProduct))}
+            {" · "}Increases by {formatQuantity(purchaseRules.stepQuantity, getVariantUnit(effectiveVariant, displayProduct))}
+            {purchaseRules.maxQuantity != null
+              ? ` · Standard checkout limit ${formatQuantity(purchaseRules.maxQuantity, getVariantUnit(effectiveVariant, displayProduct))}`
+              : ""}
+          </p>
 
           {error ? <p className="quick-add-status is-error">{error}</p> : null}
 

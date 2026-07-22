@@ -59,7 +59,7 @@ export default function AdminSidebarNav({ navItems = [], userEmail = "" }) {
           <div className="admin-logo">
             <Image
               src={BRAND_MARK_SRC}
-              alt="MealKit brand mark"
+              alt="Meal05 brand mark"
               className="admin-logo__img"
               width={38}
               height={38}
@@ -71,7 +71,7 @@ export default function AdminSidebarNav({ navItems = [], userEmail = "" }) {
               }}
             />
             <div>
-              <p className="admin-logo__eyebrow">MealKit</p>
+              <p className="admin-logo__eyebrow">Meal05</p>
               <strong className="admin-logo__title">Admin Workspace</strong>
             </div>
           </div>

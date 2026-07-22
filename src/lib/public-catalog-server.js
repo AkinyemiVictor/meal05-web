@@ -72,6 +72,13 @@ const CARD_CATALOG_FIELDS = [
   "unit",
   "base_unit",
   "base_quantity",
+  "weight_min",
+  "weight_max",
+  "weight_unit",
+  "volume_min",
+  "volume_max",
+  "volume_unit",
+  "option_role",
   "purchase_mode",
   "min_quantity",
   "max_quantity",
@@ -173,6 +180,16 @@ const buildPublicCatalogProduct = (row, categoryIndex) => {
   };
 };
 
+const numberOrNull = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const textOrNull = (value) => {
+  const text = String(value ?? "").trim();
+  return text || null;
+};
+
 const buildPublicCatalogProductFromCard = (row) => {
   const price = pickFirstNumber(row, ["starting_price", "price"], 0) || 0;
   const oldPriceRaw = pickFirstNumber(row, ["old_price", "oldPrice"], price);
@@ -204,17 +221,31 @@ const buildPublicCatalogProductFromCard = (row) => {
     currencySymbol: row?.currency_symbol || "",
     locale: row?.locale || "",
     purchaseMode: row?.purchase_mode || undefined,
-    minQuantity: row?.min_quantity != null ? Number(row.min_quantity) : undefined,
-    maxQuantity: row?.max_quantity != null ? Number(row.max_quantity) : undefined,
-    stepQuantity: row?.step_quantity != null ? Number(row.step_quantity) : undefined,
-    baseUnit: row?.base_unit || undefined,
-    baseQuantity: row?.base_quantity != null ? Number(row.base_quantity) : undefined,
+    minQuantity: numberOrNull(row?.min_quantity),
+    maxQuantity: numberOrNull(row?.max_quantity),
+    stepQuantity: numberOrNull(row?.step_quantity),
+    baseUnit: textOrNull(row?.base_unit),
+    baseQuantity: numberOrNull(row?.base_quantity),
+    weightMin: numberOrNull(row?.weight_min),
+    weightMax: numberOrNull(row?.weight_max),
+    weightUnit: textOrNull(row?.weight_unit),
+    volumeMin: numberOrNull(row?.volume_min),
+    volumeMax: numberOrNull(row?.volume_max),
+    volumeUnit: textOrNull(row?.volume_unit),
+    optionRole: textOrNull(row?.option_role),
     purchase_mode: row?.purchase_mode || undefined,
-    min_quantity: row?.min_quantity != null ? Number(row.min_quantity) : undefined,
-    max_quantity: row?.max_quantity != null ? Number(row.max_quantity) : undefined,
-    step_quantity: row?.step_quantity != null ? Number(row.step_quantity) : undefined,
-    base_unit: row?.base_unit || undefined,
-    base_quantity: row?.base_quantity != null ? Number(row.base_quantity) : undefined,
+    min_quantity: numberOrNull(row?.min_quantity),
+    max_quantity: numberOrNull(row?.max_quantity),
+    step_quantity: numberOrNull(row?.step_quantity),
+    base_unit: textOrNull(row?.base_unit),
+    base_quantity: numberOrNull(row?.base_quantity),
+    weight_min: numberOrNull(row?.weight_min),
+    weight_max: numberOrNull(row?.weight_max),
+    weight_unit: textOrNull(row?.weight_unit),
+    volume_min: numberOrNull(row?.volume_min),
+    volume_max: numberOrNull(row?.volume_max),
+    volume_unit: textOrNull(row?.volume_unit),
+    option_role: textOrNull(row?.option_role),
     tags: [],
     packaging: "",
     ...buildPackagingMetadata({
@@ -246,6 +277,58 @@ const uniqueIds = (ids = [], limit = 80) => {
     if (out.length >= limit) break;
   }
   return out;
+};
+
+const pickPreferredVariant = (rows = []) => {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const activeRows = rows.filter((row) => row?.is_active !== false);
+  const pool = activeRows.length ? activeRows : rows;
+  const defaultRow = pool.find((row) => row?.is_default === true);
+  if (defaultRow) return defaultRow;
+  const priced = pool
+    .filter((row) => Number.isFinite(Number(row?.price)))
+    .sort((a, b) => Number(a.price) - Number(b.price));
+  return priced[0] || pool[0] || null;
+};
+
+const overlayVariantMetadata = (product, variant = null) => {
+  if (!variant) return product;
+  const price = numberOrNull(variant.price);
+  return {
+    ...product,
+    variantId: variant?.id ? String(variant.id) : product.variantId,
+    variantName: String(variant?.name || product.variantName || ""),
+    price: price ?? product.price,
+    unit: String(variant?.unit || product.unit || ""),
+    stock: variant?.stock_count ?? product.stock,
+    currencyCode: variant?.currency_code || product.currencyCode || "",
+    purchaseMode: variant?.purchase_mode || product.purchaseMode,
+    minQuantity: numberOrNull(variant?.min_quantity),
+    maxQuantity: numberOrNull(variant?.max_quantity),
+    stepQuantity: numberOrNull(variant?.step_quantity),
+    baseUnit: textOrNull(variant?.base_unit),
+    baseQuantity: numberOrNull(variant?.base_quantity),
+    weightMin: numberOrNull(variant?.weight_min),
+    weightMax: numberOrNull(variant?.weight_max),
+    weightUnit: textOrNull(variant?.weight_unit),
+    volumeMin: numberOrNull(variant?.volume_min),
+    volumeMax: numberOrNull(variant?.volume_max),
+    volumeUnit: textOrNull(variant?.volume_unit),
+    optionRole: textOrNull(variant?.option_role),
+    purchase_mode: variant?.purchase_mode || product.purchase_mode,
+    min_quantity: numberOrNull(variant?.min_quantity),
+    max_quantity: numberOrNull(variant?.max_quantity),
+    step_quantity: numberOrNull(variant?.step_quantity),
+    base_unit: textOrNull(variant?.base_unit),
+    base_quantity: numberOrNull(variant?.base_quantity),
+    weight_min: numberOrNull(variant?.weight_min),
+    weight_max: numberOrNull(variant?.weight_max),
+    weight_unit: textOrNull(variant?.weight_unit),
+    volume_min: numberOrNull(variant?.volume_min),
+    volume_max: numberOrNull(variant?.volume_max),
+    volume_unit: textOrNull(variant?.volume_unit),
+    option_role: textOrNull(variant?.option_role),
+  };
 };
 
 const loadPublicCatalogProductsFromCardView = async ({
@@ -379,7 +462,39 @@ export async function loadPublicCatalogProducts({
     ? [...listedRows].sort((a, b) => requestedIds.indexOf(String(a.id)) - requestedIds.indexOf(String(b.id)))
     : sortProductsForView(listedRows, view);
   const rows = sortedRows.slice(0, maxRows);
-  const flat = rows.map((row) => buildPublicCatalogProduct(row, categoryIndex)).filter((product) => product.id);
+  const visibleProductIds = rows.map((row) => row?.id).filter(Boolean);
+  let variantByProduct = new Map();
+  if (visibleProductIds.length) {
+    let variantRows = [];
+    const variantSelects = [
+      "id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role",
+      "id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity",
+    ];
+    for (const select of variantSelects) {
+      const result = await admin
+        .from("product_variants")
+        .select(select)
+        .in("product_id", visibleProductIds)
+        .eq("market_id", catalog.market.id);
+      if (!result.error) {
+        variantRows = Array.isArray(result.data) ? result.data : [];
+        break;
+      }
+    }
+    const groupedVariants = new Map();
+    (Array.isArray(variantRows) ? variantRows : []).forEach((variant) => {
+      const key = String(variant?.product_id || "");
+      if (!key) return;
+      if (!groupedVariants.has(key)) groupedVariants.set(key, []);
+      groupedVariants.get(key).push(variant);
+    });
+    variantByProduct = new Map(
+      Array.from(groupedVariants.entries()).map(([productId, variants]) => [productId, pickPreferredVariant(variants)])
+    );
+  }
+  const flat = rows
+    .map((row) => overlayVariantMetadata(buildPublicCatalogProduct(row, categoryIndex), variantByProduct.get(String(row?.id || ""))))
+    .filter((product) => product.id);
 
   return {
     grouped: groupProducts(flat),

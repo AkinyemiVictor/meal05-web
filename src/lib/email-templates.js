@@ -149,7 +149,7 @@ export function renderOrderConfirmationHtml(order, options = {}) {
   const items = Array.isArray(order?.items) ? order.items : [];
   const summary = order?.summary || { subtotal: 0, packagingFee: 0, deliveryFee: 0, total: 0 };
   const baseUrl = options.baseUrl || process.env.APP_BASE_URL || "";
-  const orderHref = baseUrl ? `${baseUrl.replace(/\/$/, "")}/account?tab=orders` : "";
+  const orderHref = baseUrl ? `${baseUrl.replace(/\/$/, "")}/account/orders` : "";
 
   return `
   <!doctype html>

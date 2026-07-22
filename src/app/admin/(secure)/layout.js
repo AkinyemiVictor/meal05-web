@@ -21,6 +21,7 @@ export default async function AdminSecureLayout({ children }) {
 
   const navItems = [
     { href: "/admin/dashboard", label: "Overview" },
+    { href: "/dispatch", label: "Dispatch" },
     { href: "/admin/orders", label: "Orders" },
     { href: "/admin/delivery", label: "Delivery" },
     { href: "/admin/inventory", label: "Inventory" },
