@@ -20,10 +20,13 @@ const formatNaira = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 
-function ProductImage({ product, showSeasonBadge = true, compact = false }) {
-  const src = resolveProductImage(product.image, product.mainImageUrl);
+function ProductImage({ product, showSeasonBadge = true, compact = false, priority = false }) {
+  const src = resolveProductImage(product.cardImageUrl, product.image, product.mainImageUrl);
   const unavailable = resolveStockClass(product.stock) === "is-unavailable";
   const shouldOptimize = canUseNextImageOptimization(src);
+  const imageSizes = compact
+    ? "(max-width: 767px) 42vw, (max-width: 1023px) 24vw, 180px"
+    : "(max-width: 767px) 46vw, (max-width: 1023px) 30vw, 220px";
 
   return (
     <Link
@@ -74,8 +77,9 @@ function ProductImage({ product, showSeasonBadge = true, compact = false }) {
           src={src}
           alt={product.name}
           fill
+          priority={priority}
           unoptimized={!shouldOptimize}
-          sizes="(max-width: 767px) 82vw, (max-width: 1023px) 30vw, 220px"
+          sizes={imageSizes}
           className="object-contain object-center"
         />
       </div>
@@ -90,7 +94,7 @@ function ProductImage({ product, showSeasonBadge = true, compact = false }) {
   );
 }
 
-export default function ProductCard({ product, onAdd, onQuickAdd, className, showSeasonBadge = true, actionLabel = "Add to cart", compact = false }) {
+export default function ProductCard({ product, onAdd, onQuickAdd, className, showSeasonBadge = true, actionLabel = "Add to cart", compact = false, priority = false }) {
   const stockClass = resolveStockClass(product.stock);
   const unavailable = stockClass === "is-unavailable";
   const productHref = getProductHref(product);
@@ -108,7 +112,7 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, sho
         className
       )}
     >
-      <ProductImage product={product} showSeasonBadge={showSeasonBadge} compact={compact} />
+      <ProductImage product={product} showSeasonBadge={showSeasonBadge} compact={compact} priority={priority} />
       <div className={classNames("grid grid-rows-[auto_1fr_auto]", compact ? "min-h-[146px] pt-3" : "min-h-[188px] pt-4")}>
         <div className={classNames("relative min-w-0", compact ? "pr-10" : "pr-12")}>
           <Link

@@ -57,23 +57,23 @@ const resolveOldPrice = (price, discountPercent) => {
 const canonicaliseCategorySlug = (raw) => {
   const withSeparators = String(raw || "").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
   const lowered = withSeparators.toLowerCase();
-  const connectors = lowered.replace(/\band\b/g, "-n-").replace(/&/g, "-n-");
+  const connectors = lowered.replace(/\band\b/g, " ").replace(/&/g, " ");
   const base = connectors
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
   const map = new Map([
-    ["meat-poultry", "meat-n-poultry"],
-    ["fish-seafood", "fish-n-seafood"],
-    ["fish-sea-food", "fish-n-seafood"],
-    ["grains-cereals", "grains-n-cereals"],
-    ["dairy-eggs", "dairy-n-eggs"],
-    ["tubers-legumes", "tubers-n-legumes"],
-    ["spices-condiments", "spices-n-condiments"],
-    ["drinks-beverages", "drinks-n-beverages"],
-    ["snacks-pastries", "snacks-n-pastries"],
-    ["snackes-pasteries", "snacks-n-pastries"],
-    ["oil-cooking-essentials", "oil-n-cooking-essentials"],
+    ["meat-n-poultry", "meat-poultry"],
+    ["fish-n-seafood", "fish-seafood"],
+    ["fish-sea-food", "fish-seafood"],
+    ["grains-n-cereals", "grains-cereals"],
+    ["dairy-n-eggs", "dairy-eggs"],
+    ["tubers-n-legumes", "tubers-legumes"],
+    ["spices-n-condiments", "spices-condiments"],
+    ["drinks-n-beverages", "drinks-beverages"],
+    ["snacks-n-pastries", "snacks-pastries"],
+    ["snackes-pasteries", "snacks-pastries"],
+    ["oil-n-cooking-essentials", "oil-cooking-essentials"],
   ]);
   return map.get(base) || base || "uncategorised";
 };

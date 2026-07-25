@@ -11,13 +11,14 @@ import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/marke
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 
 export const runtime = "nodejs";
-export const revalidate = 300;
-export const fetchCache = "default-cache";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 const PUBLIC_PRODUCT_DETAIL_CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
-  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Cache-Control": "no-store",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
 };
 
 const methodNotAllowed = () =>
@@ -241,7 +242,22 @@ const buildImageIndex = (rows, storage) => {
   rows.forEach((row) => {
     const productId = row?.product_id ?? row?.productId ?? row?.product;
     if (!productId) return;
-    const rawUrl = pickFirst(row, ["url", "image_url", "imageUrl", "path", "public_url", "publicUrl", "src", "href"]);
+    const rawUrl = pickFirst(row, [
+      "detail_url",
+      "detailUrl",
+      "detail_image_url",
+      "card_url",
+      "cardUrl",
+      "card_image_url",
+      "url",
+      "image_url",
+      "imageUrl",
+      "path",
+      "public_url",
+      "publicUrl",
+      "src",
+      "href",
+    ]);
     const url = toPublicUrl(storage, rawUrl);
     if (!url) return;
     const isPrimary = [row?.is_primary, row?.isPrimary, row?.primary, row?.is_main, row?.isMain, row?.main]

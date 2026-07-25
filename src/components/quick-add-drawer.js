@@ -110,6 +110,54 @@ const isVariantInactive = (variant, product) => {
   return stockClass === "is-unavailable";
 };
 
+const buildFallbackVariantFromProduct = (product) => {
+  if (!product?.variantId && !product?.id) return null;
+  const purchaseMode = normalizePurchaseMode(product?.purchase_mode ?? product?.purchaseMode);
+  const variant = {
+    variationId: product.variantId || product.id,
+    id: product.variantId || product.id,
+    name: product.variantName || product.variant_name || product.unit || "Option",
+    price: product.price,
+    oldPrice: product.oldPrice,
+    unit: product.unit,
+    currencyCode: product.currencyCode || product.currency_code,
+    purchaseMode,
+    purchase_mode: purchaseMode,
+    minQuantity: product.minQuantity ?? product.min_quantity,
+    min_quantity: product.min_quantity ?? product.minQuantity,
+    maxQuantity: product.maxQuantity ?? product.max_quantity,
+    max_quantity: product.max_quantity ?? product.maxQuantity,
+    stepQuantity: product.stepQuantity ?? product.step_quantity,
+    step_quantity: product.step_quantity ?? product.stepQuantity,
+    baseUnit: product.baseUnit ?? product.base_unit,
+    base_unit: product.base_unit ?? product.baseUnit,
+    baseQuantity: product.baseQuantity ?? product.base_quantity,
+    base_quantity: product.base_quantity ?? product.baseQuantity,
+    weightMin: product.weightMin ?? product.weight_min,
+    weight_min: product.weight_min ?? product.weightMin,
+    weightMax: product.weightMax ?? product.weight_max,
+    weight_max: product.weight_max ?? product.weightMax,
+    weightUnit: product.weightUnit ?? product.weight_unit,
+    weight_unit: product.weight_unit ?? product.weightUnit,
+    volumeMin: product.volumeMin ?? product.volume_min,
+    volume_min: product.volume_min ?? product.volumeMin,
+    volumeMax: product.volumeMax ?? product.volume_max,
+    volume_max: product.volume_max ?? product.volumeMax,
+    volumeUnit: product.volumeUnit ?? product.volume_unit,
+    volume_unit: product.volume_unit ?? product.volumeUnit,
+    optionRole: product.optionRole ?? product.option_role,
+    option_role: product.option_role ?? product.optionRole,
+    stock: product.stock,
+    stockCount: product.stock,
+    image: product.image,
+    is_default: true,
+  };
+  return {
+    ...variant,
+    isSelectable: !isVariantInactive(variant, product),
+  };
+};
+
 const buildCartItem = (product, variant, orderCount, fallbackImage) => {
   const variantId = getVariantId(variant, product);
   const lineId = variantId || product?.id || "";
@@ -231,14 +279,16 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     let cancelled = false;
     const cacheKey = String(productId);
     const cached = cacheRef.current.get(cacheKey);
+    const fallbackVariant = buildFallbackVariantFromProduct(product);
+    const fallbackProduct = fallbackVariant ? product : null;
 
-    setStatus("loading");
+    setStatus(fallbackVariant?.isSelectable ? "ready" : "loading");
     setError("");
-    setDetail(null);
-    setVariations([]);
-    setSelectedVariant(null);
-    setPurchaseMode(PURCHASE_MODE_FIXED);
-    setQuantity(1);
+    setDetail(fallbackProduct);
+    setVariations(fallbackVariant ? [fallbackVariant] : []);
+    setSelectedVariant(fallbackVariant || null);
+    setPurchaseMode(fallbackVariant?.purchase_mode || PURCHASE_MODE_FIXED);
+    setQuantity(getVariantPurchaseRules(fallbackVariant).minQuantity);
 
     const applyData = (payload) => {
       if (cancelled) return;
@@ -276,6 +326,10 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       .then((json) => applyData(json))
       .catch((err) => {
         if (cancelled) return;
+        if (fallbackVariant?.isSelectable) {
+          setStatus("ready");
+          return;
+        }
         setStatus("error");
         setError(err?.message || "Unable to load variants.");
       });
@@ -283,7 +337,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     return () => {
       cancelled = true;
     };
-  }, [isOpen, productId]);
+  }, [isOpen, product, productId]);
 
   const displayProduct = detail || product || null;
   const fixedVariations = useMemo(

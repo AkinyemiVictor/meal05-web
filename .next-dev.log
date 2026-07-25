@@ -288,3 +288,833 @@ Require stack:
  ✓ Compiled in 493ms (533 modules)
  ✓ Compiled in 909ms (533 modules)
  ✓ Compiled in 1066ms (533 modules)
+ ✓ Compiled in 2.1s (533 modules)
+ ✓ Compiled in 623ms (533 modules)
+ ✓ Compiled in 630ms (533 modules)
+ ⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/shared/lib/router/router.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ✓ Compiled in 6.3s (1303 modules)
+ ⨯ Error: Cannot find module './1331.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js:2:7755)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js:2:7827) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/account/profile'
+}
+ ⨯ Error: Cannot find module './1331.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js:2:7755)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js:2:7827) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/account/profile'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 3.5s (1264 modules)
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ GET /account/profile 500 in 7114ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\Lenovo T440\meal05-web\.next\cache\webpack\client-development-fallback\1.pack.gz_' -> 'C:\Users\Lenovo T440\meal05-web\.next\cache\webpack\client-development-fallback\1.pack.gz'
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ✓ Compiled in 3s (1385 modules)
+ ⨯ Error: Cannot find module './1331.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js:2:7755)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js:2:7827) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/account/profile'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ GET /account/profile 500 in 234ms
+ ✓ Compiled in 597ms (534 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⨯ Error: Cannot find module './1331.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js:2:7755)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js:2:7827) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/account/profile'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ GET /account/profile 500 in 176ms
+ ✓ Compiled in 4.7s (1278 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⨯ [Error: Cannot find module './vendor-chunks/@tabler.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\dev\static-paths-worker.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\compiled\jest-worker\processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/account/profile'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- C:\Users\Lenovo T440\meal05-web\.next\server\webpack-runtime.js
+- C:\Users\Lenovo T440\meal05-web\.next\server\app\account\[section]\page.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\require.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\load-components.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\utils.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\options.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\swc\index.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Lenovo T440\meal05-web\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:327)
+    at Object.<anonymous> (C:\Users\Lenovo T440\meal05-web\.next\server\pages\_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ GET /account/profile 500 in 3677ms
+ ✓ Compiled in 1648ms (533 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /account/profile 200 in 2305ms
+ ✓ Compiled in 724ms (533 modules)
+ ✓ Compiled in 668ms (533 modules)
+ ✓ Compiled in 3.8s (1187 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\Lenovo T440\meal05-web\.next\cache\webpack\client-development-fallback\0.pack.gz_' -> 'C:\Users\Lenovo T440\meal05-web\.next\cache\webpack\client-development-fallback\0.pack.gz'
+ ○ Compiling /search ...
+ ✓ Compiled /search in 5.4s (1252 modules)
+ GET /search?q=rice 200 in 8888ms
+ GET /search?q=pepper 200 in 1228ms
+ GET /search?q=peper 200 in 1000ms
+ GET /search?q=ata%20rodo 200 in 1267ms
+ GET /search?q=beans 200 in 2250ms
+ GET /search?q=oil 200 in 840ms
+ GET /search?q=rice 200 in 434ms
+ GET /search?q=pepper 200 in 490ms
+ GET /search?q=peper 200 in 361ms
+ GET /search?q=ata%20rodo 200 in 334ms
+ GET /search?q=beans 200 in 503ms
+ GET /search?q=oil 200 in 483ms
+ GET /search?q=rice 200 in 551ms
+ GET /search?q=pepper 200 in 420ms
+ GET /search?q=pepper 200 in 432ms
+ GET /search?q=peper 200 in 427ms
+ GET /search?q=ata%20rodo 200 in 356ms
+ GET /search?q=beans 200 in 460ms
+ GET /search?q=oil 200 in 496ms
+ GET /search?q=oil 200 in 1084ms
+ GET /search?q=rice 200 in 489ms
+ GET /search?q=pepper 200 in 474ms
+ GET /search?q=peper 200 in 319ms
+ GET /search?q=ata%20rodo 200 in 338ms
+ GET /search?q=beans 200 in 435ms
+ GET /search?q=oil 200 in 363ms
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack failed from C:\Users\Lenovo T440\meal05-web\.next\cache\webpack\client-development-fallback.pack.gz: Error: incorrect header check
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack failed from C:\Users\Lenovo T440\meal05-web\.next\cache\webpack\client-development-fallback.pack.gz: Error: incorrect header check
+ ✓ Compiled in 5.8s (1205 modules)
+ ✓ Compiled in 978ms (538 modules)
+ ✓ Compiled in 4s (1187 modules)
+ ✓ Compiled in 898ms (538 modules)
+ ✓ Compiled in 598ms (538 modules)
+ ✓ Compiled in 579ms (538 modules)
+ ✓ Compiled in 1546ms (538 modules)
+ ✓ Compiled in 4.8s (1308 modules)
+ ✓ Compiled in 810ms (538 modules)
+ ✓ Compiled in 691ms (538 modules)
+ ✓ Compiled in 4.4s (1192 modules)
+ ✓ Compiled in 1555ms (538 modules)
+ ✓ Compiled in 729ms (538 modules)
+ ✓ Compiled in 1367ms (538 modules)
+ ○ Compiling /search ...
+ ✓ Compiled /search in 3.9s (728 modules)
+product_card_catalog unavailable; falling back to legacy product catalogue query TypeError: fetch failed
+ GET /search?q=rice 200 in 51837ms
+ GET /search?q=rice 200 in 1502ms
+ GET /search?q=rice 200 in 1589ms
+ ✓ Compiled in 3.4s (1205 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\Lenovo T440\meal05-web\.next\cache\webpack\client-development-fallback\0.pack.gz_' -> 'C:\Users\Lenovo T440\meal05-web\.next\cache\webpack\client-development-fallback\0.pack.gz'
+ ✓ Compiled in 1237ms (538 modules)
+ ✓ Compiled in 4.9s (1187 modules)
+ ✓ Compiled in 4.3s (1187 modules)
+ ✓ Compiled in 1342ms (538 modules)
+ ✓ Compiled in 1375ms (538 modules)
+ ✓ Compiled in 1786ms (538 modules)
+ ✓ Compiled in 3.5s (1191 modules)
+ ✓ Compiled in 4.9s (1187 modules)
+ ✓ Compiled in 5.3s (1193 modules)
+ ✓ Compiled in 3.8s (1181 modules)
+ ✓ Compiled in 2.9s (1184 modules)
+ ✓ Compiled in 3.4s (1184 modules)
+ ✓ Compiled in 1366ms (1184 modules)
+ ✓ Compiled in 2.1s (1184 modules)
+ ✓ Compiled in 3.4s (1184 modules)
+ GET /account/profile 200 in 2771ms
+ ○ Compiling /api/catalog/home ...
+ ✓ Compiled /api/cart in 13.5s (717 modules)
+ ✓ Compiled /api/profile in 2ms (827 modules)
+ ✓ Compiled in 4ms (898 modules)
+ ✓ Compiled in 1ms (898 modules)
+ ✓ Compiled in 1ms (898 modules)
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+product_card_catalog unavailable; falling back to legacy product catalogue query TypeError: fetch failed
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+product_card_catalog unavailable; falling back to legacy product catalogue query TypeError: fetch failed
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+ GET /api/catalog/home?limit=12 500 in 45930ms
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+ GET /api/products/by-ids?ids=2%2C4%2C31 500 in 36538ms
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[Error [AuthRetryableFetchError]: fetch failed] {
+  __isAuthError: true,
+  status: 0,
+  code: undefined
+}
+[Error [AuthRetryableFetchError]: fetch failed] {
+  __isAuthError: true,
+  status: 0,
+  code: undefined
+}
+ GET /api/cart 401 in 59720ms
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[Error [AuthRetryableFetchError]: fetch failed] {
+  __isAuthError: true,
+  status: 0,
+  code: undefined
+}
+[Error [AuthRetryableFetchError]: fetch failed] {
+  __isAuthError: true,
+  status: 0,
+  code: undefined
+}
+ GET /api/orders 401 in 48558ms
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[Error [AuthRetryableFetchError]: fetch failed] {
+  __isAuthError: true,
+  status: 0,
+  code: undefined
+}
+[Error [AuthRetryableFetchError]: fetch failed] {
+  __isAuthError: true,
+  status: 0,
+  code: undefined
+}
+ GET /api/profile 401 in 48901ms
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[Error [AuthRetryableFetchError]: fetch failed] {
+  __isAuthError: true,
+  status: 0,
+  code: undefined
+}
+[Error [AuthRetryableFetchError]: fetch failed] {
+  __isAuthError: true,
+  status: 0,
+  code: undefined
+}
+ GET /api/wallet 401 in 49170ms
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+[TypeError: fetch failed] {
+  [cause]: [Error: getaddrinfo ENOTFOUND dzkrcmyupeerlbhshwgd.supabase.co] {
+    errno: -3008,
+    code: 'ENOTFOUND',
+    syscall: 'getaddrinfo',
+    hostname: 'dzkrcmyupeerlbhshwgd.supabase.co'
+  }
+}
+ GET /api/wallet 200 in 11892ms
+ GET /api/wallet 200 in 10091ms
+ GET /api/wallet 200 in 11097ms
+ GET /api/cart 400 in 29290ms
+ GET /api/cart 400 in 28327ms

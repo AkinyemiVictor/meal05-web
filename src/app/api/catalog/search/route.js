@@ -8,10 +8,12 @@ export async function GET(request) {
   try {
     const searchParams = new URL(request.url).searchParams;
     const q = String(searchParams.get("q") || "").trim();
+    const requestedLimit = Number.parseInt(searchParams.get("limit") || "20", 10);
+    const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 20, 1), 60);
     const payload = await loadPublicCatalogProducts({
       search: q,
       view: q ? "default" : "home",
-      limit: Number(searchParams.get("limit") || 80),
+      limit,
     });
     return publicCatalogJson(payload);
   } catch (error) {

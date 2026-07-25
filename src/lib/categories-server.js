@@ -22,10 +22,38 @@ const CATEGORY_ICON_BY_SLUG = {
   "tubers-legumes": "fa-seedling",
   "spices-condiments": "fa-mortar-pestle",
   "oil-cooking-essentials": "fa-oil-can",
+  "pantry-processed-foods": "fa-kitchen-set",
   "drinks-beverages": "fa-mug-hot",
   "cooked-food": "fa-utensils",
   "snacks-pastries": "fa-cookie-bite",
   others: "fa-basket-shopping",
+};
+
+const CATEGORY_ORDER = [
+  "meat-poultry",
+  "fish-seafood",
+  "vegetables",
+  "fruits",
+  "grains-cereals",
+  "dairy-eggs",
+  "tubers-legumes",
+  "spices-condiments",
+  "oil-cooking-essentials",
+  "drinks-beverages",
+  "cooked-food",
+  "snacks-pastries",
+  "pantry-processed-foods",
+  "others",
+];
+
+const CATEGORY_ORDER_INDEX = CATEGORY_ORDER.reduce((acc, slug, index) => {
+  acc[slug] = index;
+  return acc;
+}, {});
+
+const resolveCategoryIcon = (row, slug) => {
+  if (slug === "pantry-processed-foods") return CATEGORY_ICON_BY_SLUG[slug];
+  return pickFirst(row, ["icon", "icon_class", "iconClass", "fa_icon", "faIcon"]) || CATEGORY_ICON_BY_SLUG[slug] || "fa-basket-shopping";
 };
 
 const pickFirst = (row, keys) => {
@@ -51,7 +79,7 @@ export const mapCategoryRow = (row, index, counts = {}) => {
     slug,
     productKey: pickFirst(row, ["product_key", "productKey"]) || slug,
     label,
-    icon: pickFirst(row, ["icon", "icon_class", "iconClass", "fa_icon", "faIcon"]) || CATEGORY_ICON_BY_SLUG[slug] || "fa-basket-shopping",
+    icon: resolveCategoryIcon(row, slug),
     description: pickFirst(row, ["description", "summary", "subtitle"]),
     image_url: pickFirst(row, ["image_url", "imageUrl", "image", "thumbnail_url", "thumbnailUrl"]),
     product_count: productCount,
@@ -141,4 +169,9 @@ export const mapCategoryRows = (rows, counts = {}) =>
   (Array.isArray(rows) ? rows : [])
     .filter(isActiveRow)
     .map((row, index) => mapCategoryRow(row, index, counts))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort((a, b) => {
+      const aOrder = CATEGORY_ORDER_INDEX[a.slug] ?? Number.POSITIVE_INFINITY;
+      const bOrder = CATEGORY_ORDER_INDEX[b.slug] ?? Number.POSITIVE_INFINITY;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.sortOrder - b.sortOrder;
+    });

@@ -46,11 +46,7 @@ const PRODUCT_FIELDS = [
 const CATEGORY_FIELDS = [
   "id",
   "name",
-  "label",
-  "title",
   "slug",
-  "category_name",
-  "category_slug",
 ].join(", ");
 
 const CARD_CATALOG_FIELDS = [
@@ -62,6 +58,10 @@ const CARD_CATALOG_FIELDS = [
   "category_name",
   "category_slug",
   "main_image_url",
+  "thumb_image_url",
+  "card_image_url",
+  "detail_image_url",
+  "original_image_url",
   "in_season",
   "promo_tag_enabled",
   "promo_tag_text",
@@ -72,13 +72,6 @@ const CARD_CATALOG_FIELDS = [
   "unit",
   "base_unit",
   "base_quantity",
-  "weight_min",
-  "weight_max",
-  "weight_unit",
-  "volume_min",
-  "volume_max",
-  "volume_unit",
-  "option_role",
   "purchase_mode",
   "min_quantity",
   "max_quantity",
@@ -143,13 +136,16 @@ const buildPublicCatalogProduct = (row, categoryIndex) => {
   const oldPrice = Number.isFinite(oldPriceRaw) && oldPriceRaw > 0 ? Math.max(price, oldPriceRaw) : price;
   const discount = oldPrice > price && price > 0 ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
   const merchandising = normalizeProductMerchandisingRecord(row);
-  const image = resolveProductImage(row?.main_image_url, row?.image, row?.image_url);
+  const image = resolveProductImage(row?.card_image_url, row?.main_image_url, row?.image, row?.image_url);
 
   return {
     id: String(row?.id ?? ""),
     name: String(row?.name || "Fresh produce"),
     image,
     mainImageUrl: image,
+    thumbImageUrl: resolveProductImage(row?.thumb_image_url, image),
+    cardImageUrl: resolveProductImage(row?.card_image_url, image),
+    detailImageUrl: resolveProductImage(row?.detail_image_url, image),
     price,
     oldPrice,
     unit: String(row?.unit || ""),
@@ -500,6 +496,99 @@ export async function loadPublicCatalogProducts({
     grouped: groupProducts(flat),
     flat,
     market: publicMarket(catalog.market),
+  };
+}
+
+export function toProductCardDTO(product = {}) {
+  const id = String(product?.id || "").trim();
+  const variantId = String(product?.variantId || product?.variant_id || id).trim();
+  const cardImage = resolveProductImage(product?.cardImageUrl, product?.card_image_url, product?.image, product?.mainImageUrl);
+  return {
+    id,
+    variantId,
+    name: String(product?.name || "Fresh produce"),
+    image: cardImage,
+    mainImageUrl: cardImage,
+    thumbImageUrl: resolveProductImage(product?.thumbImageUrl, product?.thumb_image_url, cardImage),
+    cardImageUrl: cardImage,
+    detailImageUrl: resolveProductImage(product?.detailImageUrl, product?.detail_image_url, cardImage),
+    price: Number(product?.price || 0) || 0,
+    oldPrice: Number(product?.oldPrice || product?.price || 0) || 0,
+    unit: String(product?.unit || ""),
+    stock: product?.stock ?? "",
+    inSeason: product?.inSeason !== false,
+    discount: Number(product?.discount || 0) || 0,
+    category: String(product?.category || ""),
+    categorySlug: String(product?.categorySlug || ""),
+    variantName: String(product?.variantName || ""),
+    promoTagEnabled: Boolean(product?.promoTagEnabled),
+    promoTagText: String(product?.promoTagText || ""),
+    promoTagExpiresAt: product?.promoTagExpiresAt || null,
+    purchaseMode: product?.purchaseMode || product?.purchase_mode || undefined,
+    purchase_mode: product?.purchase_mode || product?.purchaseMode || undefined,
+    minQuantity: numberOrNull(product?.minQuantity ?? product?.min_quantity),
+    min_quantity: numberOrNull(product?.min_quantity ?? product?.minQuantity),
+    maxQuantity: numberOrNull(product?.maxQuantity ?? product?.max_quantity),
+    max_quantity: numberOrNull(product?.max_quantity ?? product?.maxQuantity),
+    stepQuantity: numberOrNull(product?.stepQuantity ?? product?.step_quantity),
+    step_quantity: numberOrNull(product?.step_quantity ?? product?.stepQuantity),
+    baseUnit: textOrNull(product?.baseUnit ?? product?.base_unit),
+    base_unit: textOrNull(product?.base_unit ?? product?.baseUnit),
+    baseQuantity: numberOrNull(product?.baseQuantity ?? product?.base_quantity),
+    base_quantity: numberOrNull(product?.base_quantity ?? product?.baseQuantity),
+    weightMin: numberOrNull(product?.weightMin ?? product?.weight_min),
+    weight_min: numberOrNull(product?.weight_min ?? product?.weightMin),
+    weightMax: numberOrNull(product?.weightMax ?? product?.weight_max),
+    weight_max: numberOrNull(product?.weight_max ?? product?.weightMax),
+    weightUnit: textOrNull(product?.weightUnit ?? product?.weight_unit),
+    weight_unit: textOrNull(product?.weight_unit ?? product?.weightUnit),
+    volumeMin: numberOrNull(product?.volumeMin ?? product?.volume_min),
+    volume_min: numberOrNull(product?.volume_min ?? product?.volumeMin),
+    volumeMax: numberOrNull(product?.volumeMax ?? product?.volume_max),
+    volume_max: numberOrNull(product?.volume_max ?? product?.volumeMax),
+    volumeUnit: textOrNull(product?.volumeUnit ?? product?.volume_unit),
+    volume_unit: textOrNull(product?.volume_unit ?? product?.volumeUnit),
+    optionRole: textOrNull(product?.optionRole ?? product?.option_role),
+    option_role: textOrNull(product?.option_role ?? product?.optionRole),
+  };
+}
+
+export async function loadPublicSearchResults({
+  search,
+  page = 1,
+  pageSize = 12,
+} = {}) {
+  const query = String(search || "").trim().replace(/\s+/g, " ").slice(0, 80);
+  const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const safePageSize = Math.min(Math.max(Number.parseInt(pageSize, 10) || 12, 1), 24);
+  if (!query) {
+    return {
+      items: [],
+      page: safePage,
+      pageSize: safePageSize,
+      hasMore: false,
+      returned: 0,
+      market: null,
+    };
+  }
+
+  const start = (safePage - 1) * safePageSize;
+  const requestedLimit = Math.min(start + safePageSize + 1, 120);
+  const payload = await loadPublicCatalogProducts({
+    search: query,
+    view: "default",
+    limit: requestedLimit,
+  });
+  const rows = (Array.isArray(payload?.flat) ? payload.flat : []).map(toProductCardDTO).filter((product) => product.id);
+  const items = rows.slice(start, start + safePageSize);
+
+  return {
+    items,
+    page: safePage,
+    pageSize: safePageSize,
+    hasMore: rows.length > start + safePageSize,
+    returned: items.length,
+    market: payload?.market || null,
   };
 }
 

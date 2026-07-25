@@ -16,11 +16,7 @@ import PageScaler from "@/components/page-scaler";
 const geistSans = localFont({
   src: "../fonts/geist-latin.woff2",
   variable: "--font-geist-sans",
-});
-
-const geistMono = localFont({
-  src: "../fonts/geist-mono-latin.woff2",
-  variable: "--font-geist-mono",
+  display: "swap",
 });
 
 export const metadata = {
@@ -65,7 +61,7 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={geistSans.variable}>
         <PageScaler>
           <NoticeProvider>
             <Meal05Header />

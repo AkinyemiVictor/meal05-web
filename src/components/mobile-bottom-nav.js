@@ -70,6 +70,7 @@ export default function MobileBottomNav() {
             <Link
               key={item.label}
               href={item.href}
+              prefetch={false}
               aria-current={isActive ? "page" : undefined}
               className={classNames(
                 "site-mobile-bottom-nav__item",

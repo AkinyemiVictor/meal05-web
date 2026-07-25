@@ -14,7 +14,7 @@ export default function PageBreadcrumbs({ items = [] }) {
               </span>
             ) : null}
             {item.href && !isLast ? (
-              <Link href={item.href}>{item.label}</Link>
+              <Link href={item.href} prefetch={false}>{item.label}</Link>
             ) : isLast ? (
               <span className="page-breadcrumb-current">{item.label}</span>
             ) : (

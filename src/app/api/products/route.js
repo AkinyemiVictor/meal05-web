@@ -98,7 +98,19 @@ const buildImageIndex = (rows, storage) => {
   rows.forEach((row) => {
     const productId = row?.product_id ?? row?.productId ?? row?.product;
     if (!productId) return;
-    const rawUrl = pickFirst(row, ["url", "image_url", "imageUrl", "path", "public_url", "publicUrl", "src", "href"]);
+    const rawUrl = pickFirst(row, [
+      "card_url",
+      "cardUrl",
+      "card_image_url",
+      "image_url",
+      "imageUrl",
+      "url",
+      "path",
+      "public_url",
+      "publicUrl",
+      "src",
+      "href",
+    ]);
     const url = toPublicUrl(storage, rawUrl);
     if (!url) return;
     const isPrimary = [row?.is_primary, row?.isPrimary, row?.primary, row?.is_main, row?.isMain, row?.main]

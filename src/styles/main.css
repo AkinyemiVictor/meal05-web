@@ -9226,6 +9226,24 @@ main > section:not(.home-hero) {
   flex-direction: column;
 }
 
+@media (max-width: 620px) {
+  .page-scale-outer {
+    position: relative;
+    height: var(--page-scaled-doc-height, auto);
+    min-height: var(--page-scaled-doc-height, 100vh);
+  }
+
+  .page-scale-inner {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 620px;
+    max-width: none;
+    margin-inline: 0;
+    transform: scale(var(--page-scale, clamp(0.35, calc(100vw / 620px), 1)));
+    transform-origin: top left;
+  }
+}
+
 /* Admin volatile price board */
 .admin-price-page {
   max-width: 920px;

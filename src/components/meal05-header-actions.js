@@ -183,6 +183,7 @@ function WalletBalancePill({ user, wallet, compact = false }) {
   return (
     <Link
       href="/account/wallet"
+      prefetch={false}
       aria-label={`Meal05 Balance ${amount}`}
       className={`flex h-11 shrink min-w-0 items-center gap-2 rounded-2xl border border-meal-line bg-meal-paper text-sm font-extrabold text-meal-text shadow-sm transition hover:border-meal-pepper hover:text-meal-pepper focus-visible:border-meal-pepper focus-visible:text-meal-pepper focus-visible:outline-none ${
         compact ? "max-w-[7.25rem] px-2.5" : "px-3"
@@ -209,6 +210,7 @@ function NavIcon({ href, label, children, count }) {
   return (
     <Link
       href={href}
+      prefetch={false}
       aria-label={label}
       className="relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-meal-line bg-meal-paper text-meal-text shadow-sm transition hover:border-meal-pepper hover:text-meal-pepper"
     >
@@ -299,6 +301,7 @@ function AccountMenu({ user }) {
 
         <Link
           href={isSignedIn ? "/account" : signInHref}
+          prefetch={false}
           onClick={() => setIsOpen(false)}
           className="mt-3 flex h-11 items-center justify-center gap-2 rounded-xl bg-meal-pepper px-4 text-sm font-extrabold text-meal-paper shadow-soft transition hover:bg-meal-ink focus-visible:bg-meal-ink focus-visible:outline-none"
         >
@@ -309,6 +312,7 @@ function AccountMenu({ user }) {
         {!isSignedIn ? (
           <Link
             href={signUpHref}
+            prefetch={false}
             onClick={() => setIsOpen(false)}
             className="mt-2 flex h-10 items-center justify-center rounded-xl border border-meal-line px-4 text-sm font-extrabold text-meal-text transition hover:border-meal-green hover:text-meal-green focus-visible:border-meal-green focus-visible:text-meal-green focus-visible:outline-none"
           >
@@ -323,6 +327,7 @@ function AccountMenu({ user }) {
               <Link
                 key={item.label}
                 href={item.href}
+                prefetch={false}
                 onClick={() => setIsOpen(false)}
                 className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold text-meal-text transition hover:bg-meal-mist hover:text-meal-pepper focus-visible:bg-meal-mist focus-visible:text-meal-pepper focus-visible:outline-none"
               >
