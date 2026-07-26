@@ -1,6 +1,7 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { consumePaystackReference, readPaystackReference } from "@/lib/payments/paystack-reference";
 import { normaliseText, verifyPaystackTransaction } from "@/lib/payments/paystack";
+import { creditWalletOverpaymentChange } from "@/lib/wallet/server";
 
 const normaliseEmail = (value) => normaliseText(value).toLowerCase();
 
@@ -20,11 +21,21 @@ const parseOrderIdFromReference = (reference) => {
   return "";
 };
 
-const amountMatchesOrder = (amountKobo, orderTotal) => {
+const getPaymentAmountComparison = (amountKobo, orderTotal) => {
   const actual = Number(amountKobo);
   const expected = Math.round((Number(orderTotal) || 0) * 100);
-  if (!Number.isFinite(actual) || !Number.isFinite(expected) || expected < 0) return false;
-  return Math.abs(actual - expected) <= 1;
+  if (!Number.isFinite(actual) || !Number.isFinite(expected) || expected < 0) {
+    return { valid: false, underpaid: false, overpaid: false, expected, actual, differenceKobo: 0 };
+  }
+  const differenceKobo = Math.round(actual - expected);
+  return {
+    valid: actual + 1 >= expected,
+    underpaid: actual + 1 < expected,
+    overpaid: differenceKobo > 1,
+    expected,
+    actual,
+    differenceKobo: Math.max(0, differenceKobo),
+  };
 };
 
 const loadOrder = async (admin, orderId) => {
@@ -129,12 +140,18 @@ export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId,
   }
 
   const issuedAmount = Number(issuedRef?.amountKobo);
-  if (Number.isFinite(issuedAmount) && issuedAmount >= 0 && Number(tx?.amount) !== issuedAmount) {
+  if (Number.isFinite(issuedAmount) && issuedAmount >= 0 && Number(tx?.amount) + 1 < issuedAmount) {
     return { ok: false, status: 409, error: "Payment does not match issued amount", verified: false };
   }
 
-  if (!amountMatchesOrder(tx?.amount, order?.total)) {
-    return { ok: false, status: 409, error: "Payment amount does not match order total", verified: false };
+  const amountComparison = getPaymentAmountComparison(tx?.amount, order?.total);
+  if (!amountComparison.valid) {
+    return {
+      ok: false,
+      status: 409,
+      error: amountComparison.underpaid ? "Payment is less than order total" : "Payment amount is invalid",
+      verified: false,
+    };
   }
 
   const currencyCode = normaliseText(tx?.currency || "NGN").toUpperCase();
@@ -157,6 +174,27 @@ export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId,
     };
   }
 
+  let walletChangeCredit = null;
+  if (amountComparison.overpaid) {
+    try {
+      walletChangeCredit = await creditWalletOverpaymentChange({
+        admin,
+        userId: order.user_id,
+        orderId,
+        amount: amountComparison.differenceKobo / 100,
+        currencyCode,
+        provider: "paystack",
+        providerReference: txReference,
+        idempotencyKey: `paystack:order:${orderId}:overpayment:${txReference}`,
+      });
+    } catch (error) {
+      walletChangeCredit = {
+        error: error?.message || "Unable to credit overpayment change",
+        amount: amountComparison.differenceKobo / 100,
+      };
+    }
+  }
+
   try {
     await consumePaystackReference(normalizedReference);
   } catch {}
@@ -174,6 +212,8 @@ export const applyVerifiedPaystackPayment = async ({ reference, providedOrderId,
       orderId,
       reference: txReference,
       amount: Number(order.total) || 0,
+      paidAmount: Number(tx?.amount) / 100,
+      walletChangeCredit,
       currency: currencyCode,
       paymentStatus: "paid",
       orderStatus: "processing",

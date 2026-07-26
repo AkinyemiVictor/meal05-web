@@ -76,7 +76,6 @@ const buildCartItem = (product, quantity, fallbackImage) => {
     orderCount: count,
     quantity: count,
     stock: product.stock,
-    note: "Added from product details",
     image: resolveProductImage(product.image, product.mainImageUrl || fallbackImage),
   };
 };
@@ -214,7 +213,6 @@ export default function AddToCartForm({ product, fallbackImage }) {
       items[index] = {
         ...existing,
         ...buildCartItem(product, nextCount, fallbackImage),
-        note: existing.note || "Added from product details",
       };
     } else {
       items.push(buildCartItem(product, parsedQuantity, fallbackImage));

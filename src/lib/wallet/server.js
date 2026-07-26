@@ -136,3 +136,77 @@ export const loadTodaySuccessfulTopupTotal = async (admin, userId) => {
   if (error) throw error;
   return (data || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
 };
+
+export const creditWalletOverpaymentChange = async ({
+  admin = getSupabaseAdminClient(),
+  userId,
+  orderId,
+  amount,
+  currencyCode = "NGN",
+  provider,
+  providerReference,
+  idempotencyKey,
+}) => {
+  const creditAmount = normaliseWalletAmount(amount);
+  const normalizedUserId = String(userId || "").trim();
+  const normalizedProvider = normaliseWalletProvider(provider);
+  const normalizedReference = String(providerReference || "").trim();
+  const normalizedIdempotencyKey = String(idempotencyKey || "").trim() || `${normalizedProvider}:order:${orderId}:change:${normalizedReference}`;
+  const normalizedCurrency = String(currencyCode || "NGN").trim().toUpperCase() || "NGN";
+
+  if (!normalizedUserId) throw new Error("Wallet user is required");
+  if (!Number.isFinite(creditAmount) || creditAmount <= 0) {
+    return { alreadyProcessed: false, transactionId: null, balance: null, amount: 0 };
+  }
+
+  await ensureWalletAccount(admin, normalizedUserId, normalizedCurrency);
+
+  const { data: existingByKey, error: existingKeyError } = await admin
+    .from("wallet_transactions")
+    .select("id")
+    .eq("user_id", normalizedUserId)
+    .eq("idempotency_key", normalizedIdempotencyKey)
+    .maybeSingle();
+  if (existingKeyError) throw existingKeyError;
+
+  if (existingByKey?.id) {
+    const { data: balance, error: balanceError } = await admin.rpc("get_wallet_balance", { p_user_id: normalizedUserId });
+    if (balanceError) throw balanceError;
+    return { alreadyProcessed: true, transactionId: existingByKey.id, balance: Number(balance || 0), amount: creditAmount };
+  }
+
+  const providerReferenceForLedger = normalizedProvider && normalizedReference
+    ? `${normalizedReference}:overpayment-change`
+    : null;
+
+  const payload = {
+    user_id: normalizedUserId,
+    amount: creditAmount,
+    type: "credit",
+    reason: "overpayment_change",
+    order_id: orderId == null ? null : Number(orderId),
+    provider: normalizedProvider || null,
+    provider_reference: providerReferenceForLedger,
+    idempotency_key: normalizedIdempotencyKey,
+    external_reference: normalizedReference || null,
+    currency_code: normalizedCurrency,
+    metadata: {
+      currencyCode: normalizedCurrency,
+      provider: normalizedProvider || null,
+      providerReference: normalizedReference || null,
+    },
+    note: "Change from order overpayment",
+  };
+
+  const { data: inserted, error: insertError } = await admin
+    .from("wallet_transactions")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (insertError) throw insertError;
+
+  const { data: balance, error: balanceError } = await admin.rpc("get_wallet_balance", { p_user_id: normalizedUserId });
+  if (balanceError) throw balanceError;
+
+  return { alreadyProcessed: false, transactionId: inserted?.id || null, balance: Number(balance || 0), amount: creditAmount };
+};

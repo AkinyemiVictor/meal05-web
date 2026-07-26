@@ -13,7 +13,6 @@ import {
   IconSparkles,
   IconUser,
   IconUserCircle,
-  IconWallet,
 } from "@tabler/icons-react";
 
 import DeferredLocationPicker from "@/components/deferred-location-picker";
@@ -35,7 +34,8 @@ const formatMoney = (amount, currency = "NGN") =>
   new Intl.NumberFormat("en-NG", {
     style: "currency",
     currency: String(currency || "NGN").toUpperCase(),
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(Number(amount) || 0);
 
 function useCartCount() {
@@ -196,9 +196,8 @@ function useWalletBalance(user) {
 function WalletBalancePill({ user, wallet, compact = false }) {
   if (!user) return null;
 
-  const isReady = wallet.status === "ready";
-  const amount = isReady ? formatMoney(wallet.balance, wallet.currencyCode) : wallet.status === "loading" ? "..." : "Balance";
-  const label = isReady ? `Meal05 Balance ${amount}` : "Meal05 Balance";
+  const amount = formatMoney(wallet.balance, wallet.currencyCode);
+  const label = `Meal05 Balance ${amount}`;
   return (
     <Link
       href="/account/wallet"
@@ -208,8 +207,8 @@ function WalletBalancePill({ user, wallet, compact = false }) {
         compact ? "max-w-[7.25rem] px-2.5" : "px-3"
       }`}
     >
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-meal-pepper/10 text-meal-pepper">
-        <IconWallet size={18} stroke={2} aria-hidden="true" />
+      <span className="meal05-coin-icon" aria-hidden="true">
+        <span className="meal05-coin-icon__face">₦</span>
       </span>
       <span className="min-w-0 truncate">{amount}</span>
     </Link>

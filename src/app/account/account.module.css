@@ -1888,6 +1888,10 @@
 }
 
 @media (max-width: 720px) {
+  .page {
+    padding-bottom: calc(6rem + var(--mobile-nav-height, 64px));
+  }
+
   .accountShell {
     width: 100%;
   }
@@ -1926,6 +1930,68 @@
 
   .accountMenuBody span {
     display: none;
+  }
+
+  .accountLogoutRow {
+    margin-bottom: 1.6rem;
+  }
+
+  .managementSection {
+    padding: 1.15rem;
+    gap: 1rem;
+  }
+
+  .managementSection .list {
+    gap: 0.75rem;
+  }
+
+  .managementSection .listItem {
+    min-height: auto;
+    grid-template-columns: 2.8rem minmax(0, 1fr);
+    gap: 0.25rem 0.8rem;
+    align-items: center;
+    padding: 1rem;
+  }
+
+  .managementSection .listItem > i {
+    grid-row: 1 / 3;
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: 0.75rem;
+  }
+
+  .managementSection .listItem > span:first-of-type {
+    align-self: end;
+    font-size: 0.78rem;
+    line-height: 1.2;
+  }
+
+  .managementSection .listItem > span:nth-of-type(2),
+  .managementSection .listItemValue,
+  .managementSection .listItem > a {
+    grid-column: 2;
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    font-size: 0.96rem;
+  }
+
+  .managementSection .listItemValue {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  .managementSection .listItemControls {
+    flex: 0 0 auto;
+  }
+
+  .managementSection .profileEditButton,
+  .managementSection .listItem > a {
+    min-width: 4.5rem;
+    min-height: 2.65rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
   }
 
   .sectionPageTitle {

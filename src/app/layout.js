@@ -4,6 +4,7 @@ import "@/styles/meal05-footer-download.css";
 import "@/styles/notice.css";
 import "@/styles/fontawesome-subset.css";
 import { Suspense } from "react";
+import Script from "next/script";
 
 import Footer from "@/components/footer";
 import ClientAppEffects from "@/components/client-app-effects";
@@ -11,6 +12,8 @@ import Meal05Header from "@/components/meal05-header";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
 import PageScaler from "@/components/page-scaler";
+
+const GOOGLE_ANALYTICS_ID = "G-LYL783RTRN";
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
@@ -55,6 +58,19 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            window.gtag = window.gtag || gtag;
+            window.gtag('js', new Date());
+            window.gtag('config', '${GOOGLE_ANALYTICS_ID}');
+          `}
+        </Script>
         <PageScaler>
           <NoticeProvider>
             <Meal05Header />

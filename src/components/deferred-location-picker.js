@@ -1,19 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import Link from "next/link";
 import { IconMapPin } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 
 import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
 
-const LocationPicker = dynamic(() => import("@/components/location-picker"), {
-  ssr: false,
-  loading: () => null,
-});
-
 export default function DeferredLocationPicker({ landing = false, mobileHeader = false }) {
   const [label, setLabel] = useState("Select location");
-  const [pickerInstance, setPickerInstance] = useState(0);
 
   useEffect(() => {
     const sync = (event) => {
@@ -34,16 +28,9 @@ export default function DeferredLocationPicker({ landing = false, mobileHeader =
   const visibleLabel = label?.length > 24 ? `${label.slice(0, 24)}...` : label;
 
   return (
-    <>
-      <button
-        type="button"
-        className={buttonClassName}
-        onClick={() => setPickerInstance((current) => current + 1)}
-      >
-        <IconMapPin size={17} className="shrink-0 text-meal-green max-[1080px]:text-current" aria-hidden="true" />
-        <span className={mobileHeader ? "min-w-0 truncate" : landing ? "max-[720px]:hidden" : undefined}>{visibleLabel}</span>
-      </button>
-      {pickerInstance > 0 ? <LocationPicker key={pickerInstance} initialOpen hideTrigger /> : null}
-    </>
+    <Link href="/location" className={buttonClassName} aria-label="Select delivery location">
+      <IconMapPin size={17} className="shrink-0 text-meal-green max-[1080px]:text-current" aria-hidden="true" />
+      <span className={mobileHeader ? "min-w-0 truncate" : landing ? "max-[720px]:hidden" : undefined}>{visibleLabel}</span>
+    </Link>
   );
 }

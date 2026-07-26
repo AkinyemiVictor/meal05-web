@@ -216,7 +216,6 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
     orderCount: quantity,
     quantity,
     stock,
-    note: "Added from quick add",
     image: getVariantImage(variant, product, fallbackImage),
   };
 };
@@ -453,7 +452,6 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           items[index] = {
             ...existing,
             ...buildCartItem(baseProduct, targetVariant, nextCount, product?.image),
-            note: existing.note || "Added from quick add",
           };
         } else {
           if (Number.isFinite(availableCount) && safeQty > availableCount) {

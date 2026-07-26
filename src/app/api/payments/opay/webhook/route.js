@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
+import { creditWalletOverpaymentChange } from "@/lib/wallet/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +55,67 @@ const resolvePaymentStatus = (payload) => {
   return "";
 };
 
+const resolvePaymentReference = (payload) =>
+  normaliseText(
+    payload?.reference ||
+      payload?.transactionReference ||
+      payload?.transaction_reference ||
+      payload?.transactionId ||
+      payload?.transaction_id ||
+      payload?.data?.reference ||
+      payload?.data?.transactionReference ||
+      payload?.data?.transaction_reference ||
+      payload?.data?.transactionId ||
+      payload?.data?.transaction_id ||
+      payload?.data?.orderNo ||
+      payload?.data?.order_no
+  );
+
+const resolvePaidAmount = (payload, orderTotal) => {
+  const candidates = [
+    payload?.paidAmount,
+    payload?.paid_amount,
+    payload?.amountPaid,
+    payload?.amount_paid,
+    payload?.amount,
+    payload?.totalAmount,
+    payload?.total_amount,
+    payload?.data?.paidAmount,
+    payload?.data?.paid_amount,
+    payload?.data?.amountPaid,
+    payload?.data?.amount_paid,
+    payload?.data?.amount,
+    payload?.data?.totalAmount,
+    payload?.data?.total_amount,
+  ];
+
+  for (const candidate of candidates) {
+    const numeric = Number(candidate);
+    if (!Number.isFinite(numeric) || numeric <= 0) continue;
+    const expected = Number(orderTotal) || 0;
+    if (expected > 0 && numeric > expected * 20 && numeric / 100 >= expected - 0.01) {
+      return Math.round((numeric / 100) * 100) / 100;
+    }
+    return Math.round(numeric * 100) / 100;
+  }
+  return null;
+};
+
+const comparePaidAmount = (paidAmount, orderTotal) => {
+  const actual = Math.round((Number(paidAmount) || 0) * 100);
+  const expected = Math.round((Number(orderTotal) || 0) * 100);
+  if (!Number.isFinite(actual) || !Number.isFinite(expected) || expected < 0 || actual <= 0) {
+    return { valid: false, underpaid: false, overpaid: false, difference: 0 };
+  }
+  const differenceKobo = actual - expected;
+  return {
+    valid: actual + 1 >= expected,
+    underpaid: actual + 1 < expected,
+    overpaid: differenceKobo > 1,
+    difference: Math.max(0, differenceKobo) / 100,
+  };
+};
+
 export async function POST(request) {
   const admin = getSupabaseAdminClient();
   const payload = await readPayload(request);
@@ -74,7 +136,7 @@ export async function POST(request) {
 
   const { data: existingOrder, error: findErr } = await admin
     .from("orders")
-    .select("id, payment_status")
+    .select("id, payment_status, total, currency_code, user_id")
     .eq("id", orderId)
     .maybeSingle();
   if (findErr) {
@@ -83,8 +145,48 @@ export async function POST(request) {
   }
   if (!existingOrder) return json({ error: "Order not found" }, 404);
 
+  const paidAmount = paymentStatus === "paid" ? resolvePaidAmount(payload, existingOrder.total) : null;
+  const amountComparison = paymentStatus === "paid" ? comparePaidAmount(paidAmount, existingOrder.total) : null;
+  if (paymentStatus === "paid" && !amountComparison.valid) {
+    await admin
+      .from("orders")
+      .update({ payment_status: "failed", status: "payment_failed" })
+      .eq("id", orderId)
+      .neq("payment_status", "paid");
+    await logAdminEvent({
+      route: "/api/payments/opay/webhook",
+      order_id: orderId,
+      provider: "opay",
+      payment_status: "failed",
+      event: amountComparison.underpaid ? "underpayment_rejected" : "missing_or_invalid_amount",
+      paid_amount: paidAmount,
+      expected_amount: existingOrder.total,
+    });
+    return json(
+      { error: amountComparison.underpaid ? "Payment is less than order total" : "Payment amount is required" },
+      409
+    );
+  }
+
   const currentPaymentStatus = normaliseText(existingOrder.payment_status).toLowerCase();
+  const paymentReference = resolvePaymentReference(payload) || `opay-order-${orderId}`;
   if (currentPaymentStatus === "paid") {
+    if (paymentStatus === "paid" && amountComparison?.overpaid) {
+      try {
+        await creditWalletOverpaymentChange({
+          admin,
+          userId: existingOrder.user_id,
+          orderId,
+          amount: amountComparison.difference,
+          currencyCode: existingOrder.currency_code || "NGN",
+          provider: "opay",
+          providerReference: paymentReference,
+          idempotencyKey: `opay:order:${orderId}:overpayment:${paymentReference}`,
+        });
+      } catch (error) {
+        await logAdminError(error, { route: "/api/payments/opay/webhook", order_id: orderId, stage: "wallet_change_credit" });
+      }
+    }
     return json({ ok: true, order_id: orderId, payment_status: "paid", alreadyPaid: true });
   }
 
@@ -108,10 +210,39 @@ export async function POST(request) {
       } catch {}
       return json({ error: stockErr.message || "Stock deduction failed" }, 409);
     }
+
+    if (amountComparison?.overpaid) {
+      try {
+        await creditWalletOverpaymentChange({
+          admin,
+          userId: existingOrder.user_id,
+          orderId,
+          amount: amountComparison.difference,
+          currencyCode: existingOrder.currency_code || "NGN",
+          provider: "opay",
+          providerReference: paymentReference,
+          idempotencyKey: `opay:order:${orderId}:overpayment:${paymentReference}`,
+        });
+      } catch (error) {
+        await logAdminError(error, { route: "/api/payments/opay/webhook", order_id: orderId, stage: "wallet_change_credit" });
+      }
+    }
   }
 
-  await logAdminEvent({ route: "/api/payments/opay/webhook", order_id: orderId, payment_status: paymentStatus });
-  return json({ ok: true, order_id: orderId, payment_status: paymentStatus });
+  await logAdminEvent({
+    route: "/api/payments/opay/webhook",
+    order_id: orderId,
+    payment_status: paymentStatus,
+    paid_amount: paidAmount,
+    overpayment_change: amountComparison?.overpaid ? amountComparison.difference : 0,
+  });
+  return json({
+    ok: true,
+    order_id: orderId,
+    payment_status: paymentStatus,
+    paidAmount,
+    walletChangeAmount: amountComparison?.overpaid ? amountComparison.difference : 0,
+  });
 }
 
 export async function PUT(request) {

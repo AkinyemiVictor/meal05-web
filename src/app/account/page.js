@@ -347,8 +347,6 @@ export function AccountPageContent() {
   const [user, setUser] = useState(null);
   const [hydrated, setHydrated] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [ordersSyncState, setOrdersSyncState] = useState("idle");
-  const [ordersMessage, setOrdersMessage] = useState("");
   const [savedCart, setSavedCart] = useState([]);
   const [cartMessage, setCartMessage] = useState("");
   const [walletSnapshot, setWalletSnapshot] = useState(null);
@@ -430,28 +428,19 @@ export function AccountPageContent() {
   }, [pathname, router, searchParams]);
 
   const syncOrdersFromServer = useCallback(
-    async ({ showFeedback = false } = {}) => {
+    async () => {
       if (!user) return;
-      setOrdersSyncState("loading");
-      if (showFeedback) setOrdersMessage("");
       try {
         const response = await fetch("/api/orders", { cache: "no-store" });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          if (showFeedback) setOrdersMessage(payload?.error || "Unable to refresh orders right now.");
-          setOrdersSyncState("error");
           return;
         }
         const apiOrders = Array.isArray(payload?.orders) ? payload.orders.map(mapApiOrder).filter((order) => order.orderId) : [];
         setUserOrders(apiOrders, user);
         setOrders(apiOrders);
-        setOrdersSyncState("ready");
-        if (showFeedback) {
-          setOrdersMessage(apiOrders.length ? "Orders refreshed." : "No server orders found yet.");
-        }
       } catch {
-        if (showFeedback) setOrdersMessage("Unable to refresh orders right now.");
-        setOrdersSyncState("error");
+        /* Keep the local order snapshot if server sync fails. */
       }
     },
     [user]
@@ -1030,10 +1019,6 @@ export function AccountPageContent() {
     setOrders(readUserOrders());
   };
 
-  const handleRefreshOrders = () => {
-    syncOrdersFromServer({ showFeedback: true });
-  };
-
   const handleReorder = (order) => {
     const orderItems = Array.isArray(order?.items) ? order.items : [];
     const incoming = orderItems
@@ -1100,14 +1085,7 @@ export function AccountPageContent() {
   };
 
   const renderOverview = () => {
-    const addressDisplay = formatAddressDisplay(resolvedUser);
     const personalRows = [
-      {
-        slug: "management",
-        label: "Account details",
-        body: `${formatPhoneDisplay(resolvedUser.phone)} - ${addressDisplay || "Add a delivery address"}`,
-        iconClass: "fa-regular fa-user",
-      },
       {
         slug: "addresses",
         label: "Saved addresses",
@@ -1243,20 +1221,7 @@ export function AccountPageContent() {
             <div className={styles.section}>
               <div className={styles.sectionHeader} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h3 className={styles.sectionTitle}>Current orders</h3>
-                <button
-                  type="button"
-                  className={styles.orderActionButton}
-                  onClick={handleRefreshOrders}
-                  disabled={ordersSyncState === "loading"}
-                >
-                  {ordersSyncState === "loading" ? "Refreshing..." : "Refresh from server"}
-                </button>
               </div>
-              {ordersMessage ? (
-                <span className={styles.profileMessage} role="status" aria-live="polite">
-                  {ordersMessage}
-                </span>
-              ) : null}
               {presentOrders.length ? (
                 <div className={styles.list}>
                   {presentOrders.map((order) => (
@@ -1699,7 +1664,7 @@ export function AccountPageContent() {
       case "management": {
         const addressDisplay = formatAddressDisplay(resolvedUser);
         return (
-          <div className={styles.section}>
+          <div className={`${styles.section} ${styles.managementSection}`}>
             <h3 className={styles.sectionTitle}>Account management</h3>
             <div className={styles.list}>
               <div className={styles.listItem}>

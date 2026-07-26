@@ -1,0 +1,21 @@
+{
+  "root": "C:/Users/Lenovo T440/Desktop/product images batch 2",
+  "items": [
+    {
+      "productId": 109,
+      "files": [
+        { "path": "African Spinach Ewedu variant 1.png", "role": "gallery" }
+      ]
+    },
+    {
+      "productId": 317,
+      "files": [
+        { "path": "smoked fish panla variant.png", "role": "gallery" },
+        { "path": "smoked fish panla variant 2.png", "role": "gallery" },
+        { "path": "smoked fish panla variant 3.png", "role": "gallery" },
+        { "path": "smoked fish panla variant 4.png", "role": "gallery" },
+        { "path": "smoked fish panla variant 5.png", "role": "gallery" }
+      ]
+    }
+  ]
+}

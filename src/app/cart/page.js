@@ -890,12 +890,6 @@ function CartPageContent() {
                             {status.message}
                           </p>
                         ) : null}
-                        {item.note ? <small>{item.note}</small> : null}
-                        <p className={styles.cartLineQuantity}>
-                          Minimum {formatQuantity(minQuantity, unitLabel)}
-                          {" · "}Increases by {formatQuantity(stepQuantity, unitLabel)}
-                          {maxQuantity != null ? ` · Standard checkout limit ${formatQuantity(maxQuantity, unitLabel)}` : ""}
-                        </p>
                       </div>
                       <div className={styles.cartControls}>
                         <div className={styles.qtyControl}>
