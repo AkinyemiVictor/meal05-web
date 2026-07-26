@@ -27,7 +27,7 @@ export default function DeferredLocationPicker({ landing = false, mobileHeader =
   }, []);
 
   const buttonClassName = mobileHeader
-    ? "flex h-12 w-full min-w-0 items-center gap-2 rounded-2xl border border-[#e3e8ef] bg-white px-3 text-left text-[13px] font-extrabold leading-tight text-[#0b172a] shadow-[0_2px_8px_rgba(11,23,42,0.04)] transition hover:border-meal-green focus-visible:border-meal-green focus-visible:outline-none"
+    ? "flex h-12 w-full min-w-0 items-center gap-2 rounded-2xl border border-[#e3e8ef] bg-white px-2.5 text-left text-[13px] font-bold leading-tight text-[#0b172a] shadow-[0_2px_8px_rgba(11,23,42,0.04)] transition hover:border-meal-green focus-visible:border-meal-green focus-visible:outline-none"
     : landing
       ? "inline-flex items-center gap-2 rounded-[14px] border-0 bg-transparent px-2 py-2 text-[13px] font-bold leading-tight text-[#4b4f58] shadow-none transition hover:text-meal-green max-[1080px]:border max-[1080px]:border-white/55 max-[1080px]:bg-black/15 max-[1080px]:text-white max-[1080px]:hover:border-white max-[1080px]:hover:bg-black/25"
       : "inline-flex items-center gap-2 rounded-[14px] border border-[#e3e8ef] bg-white px-3 py-2 text-[13px] font-bold leading-tight text-[#0b172a] shadow-[0_2px_8px_rgba(11,23,42,0.04)] transition hover:border-meal-green focus-visible:border-meal-green focus-visible:outline-none";

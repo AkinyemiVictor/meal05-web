@@ -239,7 +239,7 @@
   background: radial-gradient(circle at 10% 10%, rgba(20, 30, 48, 0.6), transparent 60%),
     linear-gradient(135deg, #070b14 0%, #0b1322 55%, #060912 100%);
   color: #e7eef9;
-  padding: clamp(3.5rem, 7vw, 5rem) 0;
+  padding: clamp(3.5rem, 7vw, 5rem) 0 clamp(4.5rem, 8vw, 6rem);
   border-top: none;
   overflow: hidden;
 }
@@ -493,7 +493,7 @@
   }
 
   .site-footer--primary {
-    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0) + 1.25rem);
+    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0) + 3.5rem);
   }
 
   .site-footer--primary .footer-newsletter {

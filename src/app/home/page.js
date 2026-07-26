@@ -6,15 +6,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconBasketCheck,
-  IconCarrot,
-  IconCherry,
   IconChefHat,
   IconClock,
   IconFlame,
   IconHelpCircle,
   IconLeaf,
-  IconPepper,
-  IconShoppingCart,
 } from "@tabler/icons-react";
 import {
   pickInSeasonProducts,
@@ -34,7 +30,7 @@ import useCategories from "@/lib/use-categories";
 import { useCatalogProducts } from "@/lib/use-catalog-products";
 
 const DESKTOP_NAVBAR_HEIGHT = 81;
-const FOOTER_SCROLL_ROOM_PX = 64;
+const FOOTER_SCROLL_ROOM_PX = 112;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
 
 const filters = [
@@ -81,26 +77,19 @@ const COLLECTION_COPY = {
 function PromoBanner() {
   return (
     <section className="welcome-banner" aria-labelledby="welcome-banner-title">
-      <div className="welcome-banner__wash welcome-banner__wash--top" />
-      <div className="welcome-banner__wash welcome-banner__wash--bottom" />
       <div className="welcome-banner__halftone" aria-hidden="true" />
-      <span className="welcome-banner__dash welcome-banner__dash--one" aria-hidden="true" />
-      <span className="welcome-banner__dash welcome-banner__dash--two" aria-hidden="true" />
-      <span className="welcome-banner__orb welcome-banner__orb--one" aria-hidden="true" />
-      <span className="welcome-banner__orb welcome-banner__orb--two" aria-hidden="true" />
-      <span className="welcome-banner__orb welcome-banner__orb--three" aria-hidden="true" />
 
       <span className="welcome-banner__float welcome-banner__float--leaf" aria-hidden="true">
         <IconLeaf />
       </span>
-      <span className="welcome-banner__float welcome-banner__float--pepper" aria-hidden="true">
-        <IconPepper />
+      <span className="welcome-banner__float welcome-banner__float--leaf-two" aria-hidden="true">
+        <IconLeaf />
       </span>
-      <span className="welcome-banner__float welcome-banner__float--carrot" aria-hidden="true">
-        <IconCarrot />
+      <span className="welcome-banner__float welcome-banner__float--leaf-three" aria-hidden="true">
+        <IconLeaf />
       </span>
-      <span className="welcome-banner__float welcome-banner__float--cherry" aria-hidden="true">
-        <IconCherry />
+      <span className="welcome-banner__float welcome-banner__float--leaf-four" aria-hidden="true">
+        <IconLeaf />
       </span>
 
       <div className="welcome-banner__inner">

@@ -61,7 +61,7 @@ export default function Meal05Header() {
     <>
       <header className="meal05-header meal05-header--mobile fixed inset-x-0 top-0 z-50 bg-meal-paper px-5 pb-4 pt-4 shadow-sm md:hidden">
         <div className="flex min-w-0 items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
+          <div className="w-[10.5rem] max-w-[42vw] shrink-0">
             <DeferredLocationPicker mobileHeader />
           </div>
           <Meal05HeaderActions mobile />

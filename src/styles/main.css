@@ -9519,11 +9519,7 @@ main > section:not(.home-hero) {
   margin-inline: auto;
   overflow: hidden;
   border-radius: 28px;
-  background:
-    radial-gradient(circle at 8% 12%, rgba(255, 201, 171, 0.42) 0 18%, transparent 36%),
-    radial-gradient(circle at 73% 48%, rgba(129, 16, 0, 0.26) 0 18%, transparent 38%),
-    radial-gradient(circle at 48% 100%, rgba(131, 25, 4, 0.22) 0 24%, transparent 46%),
-    linear-gradient(120deg, #ff8f59 0%, #ff6221 32%, #ff5a16 60%, #e84a10 100%);
+  background: linear-gradient(125deg, #075f2c 0%, #0f8f43 38%, #22c55e 72%, #8bd645 100%);
   color: #ffffff;
   box-shadow: none;
   isolation: isolate;
@@ -9535,8 +9531,8 @@ main > section:not(.home-hero) {
   z-index: -1;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at 100% 100%, rgba(85, 18, 4, 0.22), transparent 30%);
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 22px),
+    linear-gradient(90deg, rgba(6, 78, 59, 0.2), transparent 46%, rgba(236, 252, 203, 0.24));
   opacity: 0.95;
 }
 
@@ -9568,9 +9564,9 @@ main > section:not(.home-hero) {
   right: 56px;
   width: 248px;
   height: 104px;
-  background-image: radial-gradient(circle, rgba(255, 194, 163, 0.62) 2.4px, transparent 2.9px);
+  background-image: radial-gradient(circle, rgba(236, 252, 203, 0.52) 2.4px, transparent 2.9px);
   background-size: 24px 24px;
-  opacity: 0.9;
+  opacity: 0.7;
 }
 
 .welcome-banner__dash {
@@ -9651,9 +9647,9 @@ main > section:not(.home-hero) {
   gap: 10px;
   padding: 10px 18px;
   flex: none;
-  border: 2px solid rgba(255, 229, 217, 0.55);
+  border: 2px solid rgba(236, 252, 203, 0.46);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(6, 78, 59, 0.18);
 }
 
 .welcome-banner__brand-chip svg { width: 18px; height: 18px; }
@@ -9666,7 +9662,7 @@ main > section:not(.home-hero) {
   color: #fff8f4;
 }
 .welcome-banner__brand-chip strong span,
-.welcome-banner__title span { color: #11131f; font-style: normal; }
+.welcome-banner__title span { color: #d9f99d; font-style: normal; }
 
 .welcome-banner__title {
   font-family: "Work Sans", var(--mk-font-sans);
@@ -9687,7 +9683,7 @@ main > section:not(.home-hero) {
   font-weight: 800;
   font-style: italic;
   letter-spacing: 0;
-  color: #11131f;
+  color: #ecfccb;
 }
 
 .welcome-banner__microcopy {
@@ -9698,7 +9694,7 @@ main > section:not(.home-hero) {
   font-weight: 700;
   line-height: 1.4;
   letter-spacing: 0.01em;
-  color: rgba(17, 19, 31, 0.88);
+  color: rgba(240, 253, 244, 0.9);
 }
 
 .welcome-banner__art {
@@ -9779,8 +9775,8 @@ main > section:not(.home-hero) {
   width: 180px;
   height: 180px;
   border-radius: 22px;
-  background: #ffffff;
-  box-shadow: 0 18px 36px -28px rgba(21, 22, 31, 0.55);
+  background: #f8fff8;
+  box-shadow: 0 18px 36px -28px rgba(6, 78, 59, 0.65);
   overflow: hidden;
 }
 
@@ -9814,7 +9810,7 @@ main > section:not(.home-hero) {
   justify-content: center;
   border: 3px dashed rgba(255, 247, 242, 0.92);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(6, 78, 59, 0.32);
   color: #ffffff;
   transform: rotate(-8deg);
 }
@@ -9824,18 +9820,19 @@ main > section:not(.home-hero) {
 
 .welcome-banner__float {
   position: absolute;
-  z-index: 7;
+  z-index: 2;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #ffffff;
-  box-shadow: none;
+  background: rgba(240, 253, 244, 0.92);
+  box-shadow: 0 14px 28px rgba(6, 78, 59, 0.16);
+  opacity: 0.94;
 }
 .welcome-banner__float svg { width: 52%; height: 52%; }
-.welcome-banner__float--leaf { top: 12px; right: 310px; width: 44px; height: 44px; color: #2fa14d; animation: welcomeSwayA 6s ease-in-out infinite; }
-.welcome-banner__float--pepper { top: 98px; right: 398px; width: 38px; height: 38px; color: #e23b1a; animation: welcomeSwayB 7s ease-in-out infinite; }
-.welcome-banner__float--carrot { bottom: 36px; right: 184px; width: 34px; height: 34px; color: #ef7a1a; animation: welcomeSwayA 6.5s ease-in-out 0.4s infinite; }
-.welcome-banner__float--cherry { bottom: 22px; right: 472px; width: 34px; height: 34px; color: #d84422; animation: welcomeSwayB 6.2s ease-in-out 0.3s infinite; }
+.welcome-banner__float--leaf { top: 14px; left: 16px; width: 44px; height: 44px; color: #15803d; animation: welcomeSwayA 6s ease-in-out infinite; }
+.welcome-banner__float--leaf-two { top: 18px; right: 22px; width: 38px; height: 38px; color: #166534; animation: welcomeSwayB 7s ease-in-out infinite; }
+.welcome-banner__float--leaf-three { bottom: 18px; left: 46px; width: 36px; height: 36px; color: #16a34a; animation: welcomeSwayA 6.5s ease-in-out 0.4s infinite; }
+.welcome-banner__float--leaf-four { bottom: 24px; right: 36px; width: 34px; height: 34px; color: #14532d; animation: welcomeSwayB 6.2s ease-in-out 0.3s infinite; }
 
 @keyframes welcomeSwayA {
   0%, 100% { transform: translateY(0) rotate(-6deg); }
@@ -9852,9 +9849,8 @@ main > section:not(.home-hero) {
   .welcome-banner__accent { max-width: 280px; font-size: 17px; margin-bottom: 8px; }
   .welcome-banner__microcopy { max-width: 240px; font-size: 13px; }
   .welcome-banner__art { display: none; }
-  .welcome-banner__halftone,
-  .welcome-banner__float,
-  .welcome-banner__orb { display: none; }
+  .welcome-banner__halftone { display: none; }
+  .welcome-banner__float { opacity: 0.22; }
 }
 
 @container (max-width: 560px) {
@@ -9869,6 +9865,11 @@ main > section:not(.home-hero) {
   .welcome-banner__accent { max-width: 240px; font-size: 15px; margin-bottom: 8px; }
   .welcome-banner__microcopy { max-width: 220px; font-size: 12px; }
   .welcome-banner__dash { display: none; }
+  .welcome-banner__float { width: 30px; height: 30px; }
+  .welcome-banner__float--leaf { top: 10px; left: 10px; }
+  .welcome-banner__float--leaf-two { top: 12px; right: 12px; }
+  .welcome-banner__float--leaf-three { bottom: 12px; left: 18px; }
+  .welcome-banner__float--leaf-four { bottom: 14px; right: 16px; }
 }
 
 @container (max-width: 380px) {

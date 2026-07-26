@@ -3,7 +3,6 @@ import "@/styles/main.css";
 import "@/styles/meal05-footer-download.css";
 import "@/styles/notice.css";
 import "@/styles/fontawesome-subset.css";
-import localFont from "next/font/local";
 import { Suspense } from "react";
 
 import Footer from "@/components/footer";
@@ -12,12 +11,6 @@ import Meal05Header from "@/components/meal05-header";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
 import PageScaler from "@/components/page-scaler";
-
-const geistSans = localFont({
-  src: "../fonts/geist-latin.woff2",
-  variable: "--font-geist-sans",
-  display: "swap",
-});
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
@@ -61,7 +54,7 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={geistSans.variable}>
+      <body>
         <PageScaler>
           <NoticeProvider>
             <Meal05Header />
