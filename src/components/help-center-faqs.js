@@ -83,9 +83,23 @@ export default function HelpCenterFaqs({ sidebarTopics, sections, searchQuery = 
   const hasResults = resultCount > 0;
 
   const availableSlugSet = useMemo(() => new Set(availableSlugs), [availableSlugs]);
+  const [mobileTopicOpen, setMobileTopicOpen] = useState(false);
+
+  useEffect(() => {
+    if (isSearching && hasResults) {
+      setMobileTopicOpen(true);
+    }
+  }, [hasResults, isSearching]);
+
+  const qnaClassName = [
+    styles.qna,
+    mobileTopicOpen || isSearching ? styles.qnaMobileTopicOpen : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className={styles.qna}>
+    <div className={qnaClassName}>
       <aside className={styles.sidebar}>
         <h4 className={styles.sidebarTitle}>Browse Topics</h4>
         <ul className={styles.sidebarList}>
@@ -111,6 +125,7 @@ export default function HelpCenterFaqs({ sidebarTopics, sections, searchQuery = 
                       return;
                     }
                     setActiveSlug(topic.slug);
+                    setMobileTopicOpen(true);
                   }}
                   aria-current={topicIsActive ? "true" : undefined}
                   disabled={shouldDisable}
@@ -129,6 +144,10 @@ export default function HelpCenterFaqs({ sidebarTopics, sections, searchQuery = 
 
       <div className={styles.qnaContent}>
         <header className={styles.qnaContentHeader}>
+          <button type="button" className={styles.mobileTopicBack} onClick={() => setMobileTopicOpen(false)}>
+            <i className="fa-solid fa-arrow-left" aria-hidden="true" />
+            <span>Topics</span>
+          </button>
           <span className={styles.qnaContentIcon} aria-hidden="true">
             <i className={`fa-solid ${activeTopic?.icon || "fa-circle-question"}`} />
           </span>

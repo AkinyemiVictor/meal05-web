@@ -787,6 +787,8 @@ function CartPageContent() {
   const formattedItemsCount = formatQuantity(totalOrderCount);
   const itemLabel = totalOrderCount === 1 ? "item" : "items";
   const cartIsEmpty = cartItems.length === 0;
+  const cartLayoutClassName = [styles.cartLayout, cartIsEmpty ? styles.cartLayoutEmpty : ""].filter(Boolean).join(" ");
+  const wishlistProducts = cartIsEmpty ? crossSellProducts : [];
 
   return (
     <>
@@ -800,7 +802,7 @@ function CartPageContent() {
           ]}
         />
 
-        <div className={styles.cartLayout}>
+        <div className={cartLayoutClassName}>
           <section className={styles.cartBoard} aria-labelledby="cart-title">
             <header className={styles.cartHeader}>
               <div className={styles.cartTitleGroup}>
@@ -816,8 +818,24 @@ function CartPageContent() {
 
             <div className={styles.cartMain}>
               {cartIsEmpty ? (
-                <div className={styles.placeholderCard}>
-                  {copy.cart.emptyMessage}
+                <div className={styles.emptyCartHero}>
+                  <Image
+                    src="/assets/img/empty-cart.svg"
+                    alt=""
+                    width={360}
+                    height={280}
+                    sizes="(max-width: 640px) 72vw, 280px"
+                    priority
+                    className={styles.emptyCartImage}
+                  />
+                  <div className={styles.emptyCartCopy}>
+                    <p className={styles.emptyCartEyebrow}>Your basket is waiting</p>
+                    <h2>Cart empty</h2>
+                    <p>{copy.cart.emptyMessage}</p>
+                    <Link href="/shop" className={styles.emptyCartCta}>
+                      Start shopping
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 cartItems.map((item) => {
@@ -925,6 +943,7 @@ function CartPageContent() {
 
           </section>
 
+          {!cartIsEmpty ? (
           <aside className={styles.summaryCard} aria-labelledby="summary-heading">
             <div className={styles.summaryHeader}>
               <h2 id="summary-heading">Order summary</h2>
@@ -1038,8 +1057,21 @@ function CartPageContent() {
               <i className="fa-solid fa-lock" aria-hidden="true"></i> Secure checkout · Free returns within 24h
             </p>
           </aside>
+          ) : null}
         </div>
       </div>
+
+      {wishlistProducts.length ? (
+        <CartProductSection title="Wishlist" eyebrow="Saved for later" headingId="wishlist-heading" ctaHref="/account/wishlist">
+          <div className={styles.productRailGrid} id="cartWishlistGrid">
+            {wishlistProducts.map((product) => (
+              <div key={product.variantId || product.id} className={styles.productCardShell}>
+                <ProductCard product={product} onQuickAdd={handleQuickAdd} />
+              </div>
+            ))}
+          </div>
+        </CartProductSection>
+      ) : null}
 
       {recentlyViewed.length ? (
         <CartProductSection title={copy.cart.recentlyViewedTitle} eyebrow={copy.cart.recentlyViewedEyebrow} headingId="recently-heading" ctaHref="/section/recently-viewed">
@@ -1053,7 +1085,7 @@ function CartPageContent() {
         </CartProductSection>
       ) : null}
 
-      {crossSellProducts.length ? (
+      {!cartIsEmpty && crossSellProducts.length ? (
         <CartProductSection title={copy.cart.crossSellTitle} eyebrow={copy.cart.crossSellEyebrow} headingId="crossSell-heading" ctaHref="/section/cross-sell">
           <div className={styles.productRailGrid} id="cartCrossSellGrid">
             {crossSellProducts.map((product) => (

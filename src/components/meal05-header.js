@@ -7,6 +7,7 @@ import { useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { IconSearch } from "@tabler/icons-react";
 
+import DeferredLocationPicker from "@/components/deferred-location-picker";
 import { shouldShowCommerceHeader } from "@/lib/commerce-chrome";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
@@ -59,18 +60,10 @@ export default function Meal05Header() {
   return (
     <>
       <header className="meal05-header meal05-header--mobile fixed inset-x-0 top-0 z-50 bg-meal-paper px-5 pb-4 pt-4 shadow-sm md:hidden">
-        <div className="flex items-center justify-between">
-          <Link href="/home" aria-label="Meal05 home" prefetch={false}>
-            <Image
-              src={LOGO_SRC}
-              alt="Meal05"
-              width={108}
-              height={46}
-              priority
-              sizes="108px"
-              className="h-12 w-auto shrink-0 object-contain"
-            />
-          </Link>
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <DeferredLocationPicker mobileHeader />
+          </div>
           <Meal05HeaderActions mobile />
         </div>
         <div className="mt-4">

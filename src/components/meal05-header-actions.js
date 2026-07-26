@@ -361,7 +361,7 @@ export default function Meal05HeaderActions({ mobile = false }) {
 
   if (mobile) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <WalletBalancePill user={user} wallet={wallet} compact />
         <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} count={unreadNotifications}>
           <IconBell size={22} stroke={1.8} />

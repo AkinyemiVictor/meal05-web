@@ -13,7 +13,6 @@ import {
   IconFlame,
   IconHelpCircle,
   IconLeaf,
-  IconMapPin,
   IconPepper,
   IconShoppingCart,
 } from "@tabler/icons-react";
@@ -35,6 +34,7 @@ import useCategories from "@/lib/use-categories";
 import { useCatalogProducts } from "@/lib/use-catalog-products";
 
 const DESKTOP_NAVBAR_HEIGHT = 81;
+const FOOTER_SCROLL_ROOM_PX = 64;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
 
 const filters = [
@@ -255,17 +255,20 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const footerBoundary = footerBoundaryRef.current;
-    if (!footerBoundary) return undefined;
-
     let lastTouchY = null;
-    const isFooterPinnedToViewport = () => {
-      const rect = footerBoundary.getBoundingClientRect();
-      return rect.bottom <= window.innerHeight + 1;
+    const isPastFooterScrollLimit = () => {
+      const footer = document.querySelector(".site-footer--primary");
+      if (footer) {
+        const rect = footer.getBoundingClientRect();
+        return rect.bottom <= window.innerHeight - FOOTER_SCROLL_ROOM_PX;
+      }
+
+      const scroller = document.scrollingElement || document.documentElement;
+      return scroller.scrollTop + window.innerHeight >= scroller.scrollHeight - FOOTER_SCROLL_ROOM_PX;
     };
 
     const blockForwardScrollAtFooter = (event) => {
-      if (event.deltaY > 0 && isFooterPinnedToViewport()) {
+      if (event.deltaY > 0 && isPastFooterScrollLimit()) {
         event.preventDefault();
       }
     };
@@ -279,7 +282,7 @@ export default function Home() {
       if (lastTouchY == null || currentTouchY == null) return;
 
       const swipingUpToScrollDown = currentTouchY < lastTouchY;
-      if (swipingUpToScrollDown && isFooterPinnedToViewport()) {
+      if (swipingUpToScrollDown && isPastFooterScrollLimit()) {
         event.preventDefault();
       }
       lastTouchY = currentTouchY;
@@ -363,12 +366,7 @@ export default function Home() {
       <div className="mx-auto max-w-[1440px] pb-24 md:pb-0">
         {/* Mobile hero visible below the shared fixed header */}
         <section className="px-5 pb-4 pt-3 md:hidden" aria-label="Meal05 homepage hero">
-          <div className="flex items-center gap-2 text-left text-xs font-medium uppercase tracking-[0.18em] text-meal-pepper">
-            <IconMapPin size={15} stroke={1.8} />
-            Delivery area
-          </div>
-          <p className="mt-1 text-[15px] font-medium text-meal-text">Meal05 launch zone, Ibadan</p>
-          <h1 className="mt-5 max-w-[15rem] text-4xl font-bold leading-[0.98] tracking-tight text-meal-text">
+          <h1 className="max-w-[15rem] text-4xl font-bold leading-[0.98] tracking-tight text-meal-text">
             Fresh food, fast delivery.
           </h1>
         </section>
@@ -435,7 +433,7 @@ export default function Home() {
       <Link
         href="/help-center"
         aria-label="Help Center"
-        className="fixed bottom-24 right-5 z-40 grid h-12 w-12 place-items-center rounded-full border border-meal-line bg-meal-paper text-meal-pepper shadow-meal transition hover:border-meal-pepper hover:bg-meal-pepper hover:text-meal-paper md:bottom-6 md:right-6"
+        className="fixed bottom-6 right-6 z-40 hidden h-12 w-12 place-items-center rounded-full border border-meal-line bg-meal-paper text-meal-pepper shadow-meal transition hover:border-meal-pepper hover:bg-meal-pepper hover:text-meal-paper md:grid"
       >
         <IconHelpCircle size={24} stroke={1.8} />
       </Link>
