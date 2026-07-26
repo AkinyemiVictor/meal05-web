@@ -788,7 +788,7 @@ function CartPageContent() {
   const itemLabel = totalOrderCount === 1 ? "item" : "items";
   const cartIsEmpty = cartItems.length === 0;
   const cartLayoutClassName = [styles.cartLayout, cartIsEmpty ? styles.cartLayoutEmpty : ""].filter(Boolean).join(" ");
-  const wishlistProducts = cartIsEmpty ? crossSellProducts : [];
+  const wishlistProducts = cartIsEmpty && currentUser ? crossSellProducts : [];
 
   return (
     <>

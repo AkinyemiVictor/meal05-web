@@ -40,7 +40,7 @@ export default async function AdminSecureLayout({ children }) {
   return (
     <div className="admin-layout" style={{ minHeight: "100vh", background: "#f8fafc", display: "flex" }}>
       <AdminSidebarNav navItems={navItems} userEmail={user.email || ""} />
-      <div className="admin-main" style={{ flex: 1, minHeight: "100vh", padding: "64px 16px 32px" }}>
+      <div className="admin-main" style={{ flex: 1, minHeight: "100vh" }}>
         {children}
       </div>
     </div>

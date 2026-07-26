@@ -19,6 +19,7 @@
         "perf:search:page": "node scripts/measure-search-page.mjs",
         "perf:search:browser": "node scripts/measure-search-browser.mjs",
         "images:backfill": "node scripts/backfill-product-image-variants.mjs",
+        "images:import": "node scripts/import-product-images.mjs",
         "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
         "cf:waf:wp-probes": "node scripts/configure-cloudflare-waf.mjs"
     },

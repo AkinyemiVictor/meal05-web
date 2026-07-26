@@ -7,12 +7,10 @@ import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
 import { readStoredUser } from "@/lib/auth";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
-import { formatMoney } from "@/lib/region";
 import {
   PURCHASE_MODE_LOOSE,
   clampQuantityToRules,
   formatQuantity,
-  formatQuantityUnit,
   getVariantPurchaseRules,
   validateVariantQuantity,
 } from "@/lib/purchase-quantities";
@@ -111,18 +109,6 @@ export default function AddToCartForm({ product, fallbackImage }) {
     [product, quantityInput]
   );
   const safeQuantity = quantityValidation.ok ? quantityValidation.quantity : purchaseRules.minQuantity;
-  const lineTotal = (Number(product?.price) || 0) * safeQuantity;
-  const addLabel = useMemo(() => `Add - ${formatMoney(lineTotal)}`, [lineTotal]);
-
-  const helperLabel = useMemo(() => {
-    if (!isLoose) return `Quantity in ${unitLabel}`;
-    const parts = [`Min. ${formatQuantityUnit(purchaseRules.minQuantity, unitLabel)}`];
-    if (purchaseRules.maxQuantity != null) {
-      parts.push(`Max. ${formatQuantityUnit(purchaseRules.maxQuantity, unitLabel)}`);
-    }
-    parts.push(`Step ${formatQuantityUnit(purchaseRules.stepQuantity, unitLabel)}`);
-    return `Enter quantity - ${parts.join(", ")}`;
-  }, [isLoose, purchaseRules, unitLabel]);
 
   const isUnavailable = useMemo(() => {
     const stockClass = resolveStockClass(product?.stock);
@@ -253,7 +239,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
 
     setFeedback({
       tone: "success",
-      message: `${product.name} (${formatQuantityUnit(parsedQuantity, unitLabel)}) added to cart.`,
+      message: "Added to cart.",
     });
   }, [availableCount, fallbackImage, isUnavailable, product, quantityInput, showNotice, unitLabel]);
 
@@ -265,9 +251,8 @@ export default function AddToCartForm({ product, fallbackImage }) {
   return (
     <div className="product-detail-actions">
       <label htmlFor="product-quantity" className="product-detail-actions__label">
-        Quantity ({unitLabel})
+        Quantity
       </label>
-      <p className="product-detail-actions__hint">{helperLabel}</p>
       <div className="product-detail-actions__controls">
         <div className="product-detail-actions__quantity" role="group" aria-label={`Quantity in ${unitLabel}`}>
           <button
@@ -308,14 +293,9 @@ export default function AddToCartForm({ product, fallbackImage }) {
           aria-disabled={isUnavailable}
         >
           <i className="fa-solid fa-cart-shopping" aria-hidden="true" />
-          <span>{isUnavailable ? "Out of stock" : addLabel}</span>
+          <span>{isUnavailable ? "Out of stock" : "Add to cart"}</span>
         </button>
       </div>
-      {isLoose ? (
-        <p className="product-detail-actions__estimate">
-          {formatMoney(product?.price || 0)} per {unitLabel} - total {formatMoney(lineTotal)}
-        </p>
-      ) : null}
       {feedback.message ? (
         <p
           className={`product-detail-actions__feedback product-detail-actions__feedback--${feedback.tone}`.trim()}

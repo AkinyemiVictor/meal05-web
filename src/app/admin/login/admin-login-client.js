@@ -2,22 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { clearStoredUser, persistStoredUser } from "@/lib/auth";
+import { clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser } from "@/lib/auth";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
-
-const deriveStoredUser = (email) => {
-  const local = String(email || "").split("@")[0] || "admin";
-  const cleaned = local.replace(/[\.\_\-]+/g, " ").trim();
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  const firstName = String(parts[0] || "Admin").toUpperCase();
-  const lastName = String(parts[1] || "User").toUpperCase();
-  return {
-    firstName,
-    lastName,
-    fullName: `${firstName} ${lastName}`.trim(),
-    email,
-  };
-};
 
 export default function AdminLoginClient({ forbidden = false, signedInEmail = "" }) {
   const [email, setEmail] = useState(signedInEmail || "");
@@ -70,18 +56,6 @@ export default function AdminLoginClient({ forbidden = false, signedInEmail = ""
         return;
       }
 
-      const user = deriveStoredUser(trimmedEmail);
-      persistStoredUser(user);
-      try {
-        await fetch("/api/users/sync", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ first_name: user.firstName, last_name: user.lastName }),
-        });
-      } catch {
-        // optional sync only
-      }
-
       const accessToken = String(loginData?.session?.access_token || "");
       const accessRes = await fetch("/api/admin/access", {
         method: "GET",
@@ -90,8 +64,22 @@ export default function AdminLoginClient({ forbidden = false, signedInEmail = ""
       });
       const accessData = await accessRes.json().catch(() => ({}));
       if (!accessRes.ok || !accessData?.allowed) {
+        await supabase.auth.signOut();
+        clearStoredUser();
         setError("This login is for admins only.");
         return;
+      }
+
+      const user = deriveStoredUserFromAuthUser(loginData?.user, { email: trimmedEmail });
+      persistStoredUser(user);
+      try {
+        await fetch("/api/users/sync", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ first_name: user.firstName, ...(user.lastName ? { last_name: user.lastName } : {}) }),
+        });
+      } catch {
+        // optional sync only
       }
 
       window.location.assign("/admin/dashboard");

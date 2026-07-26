@@ -16,7 +16,30 @@ const getSizeLabel = (variant) =>
       variant?.variationId
   );
 
-const buildOptions = (list, getLabel) => {
+const RANGE_PATTERN = /\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?/;
+
+const getRangeMidpoint = (label) => {
+  const match = normaliseText(label).match(/(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const low = Number(match[1]);
+  const high = Number(match[2]);
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  return (low + high) / 2;
+};
+
+const buildSizeDisplayLabels = (options) => {
+  if (!Array.isArray(options) || options.length < 2 || options.length > 3) return new Map();
+  if (!options.every((option) => RANGE_PATTERN.test(option.label))) return new Map();
+  const sorted = [...options]
+    .map((option) => ({ ...option, midpoint: getRangeMidpoint(option.label) }))
+    .filter((option) => Number.isFinite(option.midpoint))
+    .sort((a, b) => a.midpoint - b.midpoint);
+  if (sorted.length !== options.length) return new Map();
+  const labels = sorted.length === 2 ? ["Small", "Large"] : ["Small", "Medium", "Large"];
+  return new Map(sorted.map((option, index) => [option.key, labels[index]]));
+};
+
+const buildOptions = (list, getLabel, { simplifyRanges = false } = {}) => {
   const seen = new Set();
   const options = [];
 
@@ -29,7 +52,13 @@ const buildOptions = (list, getLabel) => {
     options.push({ label, key });
   });
 
-  return options;
+  if (!simplifyRanges) return options;
+  const displayLabels = buildSizeDisplayLabels(options);
+  if (!displayLabels.size) return options;
+  return options.map((option) => ({
+    ...option,
+    label: displayLabels.get(option.key) || option.label,
+  }));
 };
 
 const getStockValue = (variant) => {
@@ -54,38 +83,6 @@ const pickBySizeLabel = (list, label) => {
 };
 
 const pickFirstAvailable = (list) => list.find((variant) => !isVariantInactive(variant)) || list[0] || null;
-
-const SIZE_TOKEN_PATTERN = /(kg|g|gram|grams|ml|l|litre|liter|size|small|medium|large|xl|xxl|\d)/i;
-const RANGE_PATTERN = /\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?/;
-
-const inferSizePrompt = (options, { hasRipenessStep = false } = {}) => {
-  const labels = (Array.isArray(options) ? options : [])
-    .map((option) => normaliseText(option?.label))
-    .filter(Boolean);
-
-  const hasRangeValues = labels.some((label) => RANGE_PATTERN.test(label));
-  const hasSizeSignals = labels.some((label) => SIZE_TOKEN_PATTERN.test(label));
-
-  if (hasRangeValues || hasSizeSignals) {
-    return "Pick size range";
-  }
-
-  return hasRipenessStep ? "Pick size option" : "Pick an option";
-};
-
-const getSectionTitle = ({ kind, hasRipenessStep = false, options = [] }) => {
-  if (kind === "ripeness") return "Ripeness Option";
-
-  const labels = (Array.isArray(options) ? options : [])
-    .map((option) => normaliseText(option?.label))
-    .filter(Boolean);
-  const hasRangeValues = labels.some((label) => RANGE_PATTERN.test(label));
-  const hasSizeSignals = labels.some((label) => SIZE_TOKEN_PATTERN.test(label));
-
-  if (hasRangeValues) return "Pack Range";
-  if (hasSizeSignals) return "Unit Option";
-  return hasRipenessStep ? "Item Option" : "Processing Option";
-};
 
 export default function VariantPicker({ variations = [], selectedId, onChange }) {
   const safeVariations = useMemo(() => (Array.isArray(variations) ? variations : []), [variations]);
@@ -122,18 +119,9 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
     return safeVariations.filter((variant) => normaliseKey(getRipenessLabel(variant)) === key);
   }, [safeVariations, hasRipenessStep, selectedRipeness]);
 
-  const sizeOptions = useMemo(() => buildOptions(filteredByRipeness, getSizeLabel), [filteredByRipeness]);
-  const sizePrompt = useMemo(
-    () => inferSizePrompt(sizeOptions, { hasRipenessStep }),
-    [sizeOptions, hasRipenessStep]
-  );
-  const ripenessHeading = useMemo(
-    () => getSectionTitle({ kind: "ripeness", hasRipenessStep, options: ripenessOptions }),
-    [hasRipenessStep, ripenessOptions]
-  );
-  const sizeHeading = useMemo(
-    () => getSectionTitle({ kind: "size", hasRipenessStep, options: sizeOptions }),
-    [hasRipenessStep, sizeOptions]
+  const sizeOptions = useMemo(
+    () => buildOptions(filteredByRipeness, getSizeLabel, { simplifyRanges: true }),
+    [filteredByRipeness]
   );
 
   const handleRipenessSelect = (label) => {
@@ -150,10 +138,14 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
     if (preferred && onChange) onChange(preferred);
   };
 
-  const handleSizeSelect = (label) => {
-    const nextLabel = normaliseText(label);
+  const handleSizeSelect = (key) => {
+    const match =
+      filteredByRipeness.find(
+        (variant) => normaliseKey(getSizeLabel(variant)) === key && !isVariantInactive(variant)
+      ) ||
+      filteredByRipeness.find((variant) => normaliseKey(getSizeLabel(variant)) === key);
+    const nextLabel = match ? getSizeLabel(match) : "";
     setSelectedSizeLabel(nextLabel);
-    const match = pickBySizeLabel(filteredByRipeness, nextLabel);
     if (match && onChange) onChange(match);
   };
 
@@ -165,7 +157,7 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
     <div className="product-variant-picker">
       {hasRipenessStep ? (
         <div className="product-variant-picker__section">
-          <p className="product-variant-picker__label">{ripenessHeading}</p>
+          <p className="product-variant-picker__label">Ripeness</p>
           <div className="product-variant-picker__options" role="list">
             {ripenessOptions.map((option) => {
               const optionVariants = safeVariations.filter(
@@ -173,11 +165,12 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
               );
               const disabled = optionVariants.length ? optionVariants.every(isVariantInactive) : false;
               const isActive = normaliseKey(selectedRipeness) === option.key;
+              const stateClass = disabled ? " is-unavailable" : " is-available";
               return (
                 <button
                   key={option.key}
                   type="button"
-                  className={`product-variant-picker__option${isActive ? " is-active" : ""}`.trim()}
+                  className={`product-variant-picker__option${stateClass}${isActive ? " is-active" : ""}`.trim()}
                   onClick={() => handleRipenessSelect(option.label)}
                   aria-pressed={isActive}
                   disabled={disabled}
@@ -191,7 +184,7 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
       ) : null}
 
       <div className="product-variant-picker__section">
-        <p className="product-variant-picker__label">{sizeHeading}</p>
+        <p className="product-variant-picker__label">Size</p>
         {showSizeOptions ? (
           <div className="product-variant-picker__options" role="list">
             {sizeOptions.map((option) => {
@@ -205,12 +198,13 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
                 );
               const disabled = !variant || isVariantInactive(variant);
               const isActive = normaliseKey(selectedSizeLabel) === option.key;
+              const stateClass = disabled ? " is-unavailable" : " is-available";
               return (
                 <button
                   key={option.key}
                   type="button"
-                  className={`product-variant-picker__option${isActive ? " is-active" : ""}`.trim()}
-                  onClick={() => handleSizeSelect(option.label)}
+                  className={`product-variant-picker__option${stateClass}${isActive ? " is-active" : ""}`.trim()}
+                  onClick={() => handleSizeSelect(option.key)}
                   aria-pressed={isActive}
                   disabled={disabled}
                 >
@@ -219,11 +213,7 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
               );
             })}
           </div>
-        ) : (
-          <p className="product-variant-picker__hint">
-            {sizePrompt === "Pick size range" ? "Pick ripeness to view available size ranges." : "Pick ripeness to view the next option set."}
-          </p>
-        )}
+        ) : null}
       </div>
     </div>
   );

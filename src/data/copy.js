@@ -31,11 +31,11 @@ const copy = {
   checkout: {
     eyebrow: "Secure checkout",
     title: "Complete your order",
-    subtitle: "Confirm delivery details, choose a payment option, and place your market-fresh order.",
+    subtitle: "Review and pay.",
     backToCart: "Back to cart",
     deliveryDetails: "Delivery details",
     paymentHeading: "Payment method",
-    paymentHint: "Choose the option that suits you. We process payments securely via SSL encryption.",
+    paymentHint: "",
     deliverySlots: {
       morning: "Morning (8am - 11am)",
       afternoon: "Afternoon (12pm - 3pm)",
@@ -45,7 +45,7 @@ const copy = {
       {
         value: "paystack",
         title: "Pay online",
-        subtitle: "Card, transfer or USSD - secured by Paystack.",
+        subtitle: "Card, transfer, or USSD.",
         badges: [
           { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/visa card.png", label: "Visa" },
           { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/master card.png", label: "Mastercard" },
@@ -55,7 +55,7 @@ const copy = {
       {
         value: "wallet",
         title: "Meal05 Balance",
-        subtitle: "Use your available Meal05 Balance for this order.",
+        subtitle: "Available balance.",
         badges: [
           { type: "icon", icon: "fa-solid fa-wallet", label: "Closed-loop balance" },
         ],
@@ -63,7 +63,7 @@ const copy = {
       {
         value: "palmpay",
         title: "Pay with PalmPay",
-        subtitle: "Use your PalmPay app or wallet.",
+        subtitle: "PalmPay app or wallet.",
         badges: [
           { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/palmpay logo.png", label: "PalmPay" },
         ],
@@ -71,7 +71,7 @@ const copy = {
       {
         value: "opay",
         title: "Pay with OPay",
-        subtitle: "Use your OPay wallet or scan QR.",
+        subtitle: "OPay wallet or QR.",
         badges: [
           { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png", label: "OPay" },
         ],

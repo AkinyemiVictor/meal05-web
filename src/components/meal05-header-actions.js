@@ -17,8 +17,9 @@ import {
 } from "@tabler/icons-react";
 
 import DeferredLocationPicker from "@/components/deferred-location-picker";
-import { AUTH_EVENT, clearStoredUser, readStoredUser } from "@/lib/auth";
+import { AUTH_EVENT, clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
+import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import { readCartItems } from "@/lib/cart-storage";
 import { ORDERS_EVENT, readUserOrders } from "@/lib/orders";
 import {
@@ -77,9 +78,25 @@ function useHeaderUser() {
     };
 
     update();
+    let cancelled = false;
+    getBrowserSupabaseClient()
+      .auth.getUser()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data?.user) {
+          clearStoredUser();
+          setUser(null);
+          return;
+        }
+        const verifiedUser = deriveStoredUserFromAuthUser(data.user, readStoredUser() || {});
+        persistStoredUser(verifiedUser);
+        setUser(verifiedUser);
+      })
+      .catch(() => {});
     window.addEventListener(AUTH_EVENT, update);
     window.addEventListener("storage", update);
     return () => {
+      cancelled = true;
       window.removeEventListener(AUTH_EVENT, update);
       window.removeEventListener("storage", update);
     };
@@ -177,14 +194,16 @@ function useWalletBalance(user) {
 }
 
 function WalletBalancePill({ user, wallet, compact = false }) {
-  if (!user || wallet.status !== "ready") return null;
+  if (!user) return null;
 
-  const amount = formatMoney(wallet.balance, wallet.currencyCode);
+  const isReady = wallet.status === "ready";
+  const amount = isReady ? formatMoney(wallet.balance, wallet.currencyCode) : wallet.status === "loading" ? "..." : "Balance";
+  const label = isReady ? `Meal05 Balance ${amount}` : "Meal05 Balance";
   return (
     <Link
       href="/account/wallet"
       prefetch={false}
-      aria-label={`Meal05 Balance ${amount}`}
+      aria-label={label}
       className={`flex h-11 shrink min-w-0 items-center gap-2 rounded-2xl border border-meal-line bg-meal-paper text-sm font-extrabold text-meal-text shadow-sm transition hover:border-meal-pepper hover:text-meal-pepper focus-visible:border-meal-pepper focus-visible:text-meal-pepper focus-visible:outline-none ${
         compact ? "max-w-[7.25rem] px-2.5" : "px-3"
       }`}

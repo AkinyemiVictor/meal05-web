@@ -19,6 +19,7 @@ import {
   resolveStockClass,
 } from "@/lib/catalogue";
 import AppComingSoonSection from "@/components/app-coming-soon-section";
+import { shouldShowSeasonBadge } from "@/lib/season-badge";
 import {
   DesktopCategorySidebar,
   MobileCategories,
@@ -305,7 +306,11 @@ export default function Home() {
       return databaseFresh.length ? databaseFresh : pickNewestProducts(availableProducts, new Set(), 12);
     }
     if (activeCollection === "in-season") {
-      return pickInSeasonProducts(availableProducts.filter((product) => product.inSeason === true), new Set(), 12);
+      return pickInSeasonProducts(
+        availableProducts.filter((product) => product.inSeason === true && shouldShowSeasonBadge(product)),
+        new Set(),
+        12
+      );
     }
     if (activeCollection === "chef-choice") {
       return availableProducts.filter(

@@ -17,6 +17,7 @@ import { buildCatalogItems } from "@/lib/catalog-items";
 import { pickMostPopularProducts } from "@/lib/catalogue";
 import { readCartItems } from "@/lib/cart-storage";
 import { pickMostPurchasedProducts } from "@/lib/engagement";
+import { shouldShowSeasonBadge } from "@/lib/season-badge";
 
 const RECENTLY_VIEWED_STORAGE_KEY = "meal05_recently_viewed";
 const PAGE_SIZE = 20;
@@ -102,7 +103,7 @@ export default function SectionViewPage() {
       return;
     }
     if (slug === "in-season") {
-      setItems(sectionProducts.filter((p) => p.inSeason === true).slice(0, 48));
+      setItems(sectionProducts.filter((p) => p.inSeason === true && shouldShowSeasonBadge(p)).slice(0, 48));
       return;
     }
     setItems(catalogItems.slice(0, 48));

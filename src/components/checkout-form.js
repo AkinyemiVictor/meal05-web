@@ -26,7 +26,6 @@ import { isCheckoutPaymentMethodEnabled } from "@/lib/payments/payment-methods";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import {
   buildCityServiceMessage,
-  buildSameDayDeliveryNotice,
   findMatchingServiceZone,
   getDeliverySummaryConfig,
   normalizeServiceZoneFees,
@@ -68,6 +67,7 @@ const EMAIL_PATTERN = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}";
 const PHONE_PATTERN = "\\+?[0-9]{10,15}";
 const ADDRESS_MIN_LENGTH = 10;
 const ADDRESS_PATTERN = "[A-Za-z0-9.,'\\-\\s]{10,}";
+const NEW_ADDRESS_OPTION = "__new_address__";
 const createAddressId = () => `addr_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 6)}`;
 const createCheckoutIdempotencyKey = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -152,9 +152,9 @@ const formatCardCvc = (value) => value.replace(/\D/g, "").slice(0, 3);
 
 const deriveFirstName = (fullName) => {
   const trimmed = String(fullName || "").trim();
-  if (!trimmed) return "friend";
+  if (!trimmed) return "there";
   const [first] = trimmed.split(/\s+/);
-  return first || "friend";
+  return first || "there";
 };
 
 const getDeliverySlotLabel = (slot) => DELIVERY_SLOT_LABELS[slot] ?? slot;
@@ -298,6 +298,7 @@ export default function CheckoutForm({
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [savedDefaultAddressId, setSavedDefaultAddressId] = useState("");
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
+  const [addressEntryMode, setAddressEntryMode] = useState("new");
   const [overlayStatus, setOverlayStatus] = useState(null); // "success" | "failure" | null
   const [overlayMessage, setOverlayMessage] = useState("");
   const [orderSettings, setOrderSettings] = useState(null);
@@ -338,7 +339,11 @@ export default function CheckoutForm({
     [serviceZoneOptions]
   );
   const cityServiceMessage = useMemo(() => buildCityServiceMessage(deliverySettings), [deliverySettings]);
-  const sameDayNotice = useMemo(() => buildSameDayDeliveryNotice(deliverySettings), [deliverySettings]);
+  const selectedSavedAddress = useMemo(
+    () => savedAddresses.find((addr) => addr.id === selectedSavedAddressId) || null,
+    [savedAddresses, selectedSavedAddressId]
+  );
+  const usingNewAddress = fulfillmentType === "delivery" && (!savedAddresses.length || addressEntryMode === "new");
 
   useEffect(() => {
     if (!serviceZoneOptions.length) return;
@@ -439,11 +444,11 @@ export default function CheckoutForm({
           : normalized[0]?.id || "";
       setSavedDefaultAddressId(defaultId);
       setSelectedSavedAddressId(defaultId);
+      setAddressEntryMode(normalized.length ? "saved" : "new");
       if (defaultId) {
         const match = normalized.find((addr) => addr.id === defaultId);
         if (match) {
           setFormState((prev) => {
-            if (prev.address) return prev;
             return {
               ...prev,
               address: match.line,
@@ -561,9 +566,35 @@ export default function CheckoutForm({
         return next;
       });
     }
+
+    if (["address", "houseNumber"].includes(name) && addressEntryMode !== "new") {
+      setAddressEntryMode("new");
+      setSelectedSavedAddressId("");
+    }
   };
 
   const handleSelectSavedAddress = (id) => {
+    if (id === NEW_ADDRESS_OPTION) {
+      setAddressEntryMode("new");
+      setSelectedSavedAddressId("");
+      setFormState((prev) => ({
+        ...prev,
+        address: "",
+        houseNumber: "",
+        landmark: "",
+        addressLabel: "Home",
+      }));
+      setErrors((prev) => {
+        if (!prev.address && !prev.houseNumber) return prev;
+        const next = { ...prev };
+        delete next.address;
+        delete next.houseNumber;
+        return next;
+      });
+      return;
+    }
+
+    setAddressEntryMode("saved");
     setSelectedSavedAddressId(id);
     const match = savedAddresses.find((addr) => addr.id === id);
     if (!match) return;
@@ -576,9 +607,10 @@ export default function CheckoutForm({
       city: resolveCitySelection(match.city || defaultServiceCity, defaultServiceCity, serviceZoneOptions, deliverySettings),
     }));
     setErrors((prev) => {
-      if (!prev.address && !prev.city) return prev;
+      if (!prev.address && !prev.houseNumber && !prev.city) return prev;
       const next = { ...prev };
       delete next.address;
+      delete next.houseNumber;
       delete next.city;
       return next;
     });
@@ -610,10 +642,18 @@ export default function CheckoutForm({
       nextErrors.phone = validation.phone;
     }
     if (fulfillmentType === "delivery") {
-      if (!state.houseNumber.trim()) nextErrors.houseNumber = "Enter the house, flat, shop or gate number.";
-      const addressTrimmed = state.address.trim();
-      if (!addressTrimmed) nextErrors.address = validation.required;
-      else if (addressTrimmed.length < ADDRESS_MIN_LENGTH) nextErrors.address = validation.addressLength ?? validation.required;
+      const usingSavedAddress = savedAddresses.length > 0 && addressEntryMode !== "new";
+      if (usingSavedAddress) {
+        const selectedAddress = savedAddresses.find((addr) => addr.id === selectedSavedAddressId);
+        if (!selectedAddress?.line?.trim()) {
+          nextErrors.address = "Select a delivery address.";
+        }
+      } else {
+        if (!state.houseNumber.trim()) nextErrors.houseNumber = "Enter the house, flat, shop or gate number.";
+        const addressTrimmed = state.address.trim();
+        if (!addressTrimmed) nextErrors.address = validation.required;
+        else if (addressTrimmed.length < ADDRESS_MIN_LENGTH) nextErrors.address = validation.addressLength ?? validation.required;
+      }
       const cityTrimmed = state.city.trim();
       const resolvedArea = resolveDeliveryArea(deliverySettings, cityTrimmed);
       if (!cityTrimmed) nextErrors.city = validation.required;
@@ -1309,7 +1349,7 @@ export default function CheckoutForm({
       id="checkout-order-form"
       ref={formRef}
       className="checkout-card"
-      aria-describedby="checkout-payment-description"
+      aria-describedby={paymentHint ? "checkout-payment-description" : undefined}
       noValidate
       onSubmit={handleSubmit}
     >
@@ -1321,9 +1361,9 @@ export default function CheckoutForm({
       ) : null}
 
       <section className="checkout-section">
-        <div className="checkout-section__heading"><span className="checkout-section__icon"><i className="fa-solid fa-box" /></span><h2>How would you like to receive your order?</h2></div>
+        <div className="checkout-section__heading"><span className="checkout-section__icon"><i className="fa-solid fa-box" /></span><h2>Receive order</h2></div>
         <div className="checkout-payment-options">
-          {[{ value: "pickup", title: "Pickup", subtitle: "Collect your prepaid order from a Meal05 pickup point." }, { value: "delivery", title: "Delivery", subtitle: "Choose an available delivery company after confirming your location." }].map(option => <label key={option.value} className={`checkout-payment-tile${fulfillmentType === option.value ? " checkout-payment-tile--active" : ""}`}><input type="radio" name="fulfillmentType" value={option.value} checked={fulfillmentType === option.value} onChange={event => onFulfillmentChange?.(event.target.value)} /><span className="checkout-payment-icon"><i className={option.value === "pickup" ? "fa-solid fa-store" : "fa-solid fa-truck"} /></span><div><span className="checkout-payment-title">{option.title}</span><span className="checkout-payment-subtitle">{option.subtitle}</span></div></label>)}
+          {[{ value: "pickup", title: "Pickup" }, { value: "delivery", title: "Delivery" }].map(option => <label key={option.value} className={`checkout-payment-tile${fulfillmentType === option.value ? " checkout-payment-tile--active" : ""}`}><input type="radio" name="fulfillmentType" value={option.value} checked={fulfillmentType === option.value} onChange={event => onFulfillmentChange?.(event.target.value)} /><span className="checkout-payment-icon"><i className={option.value === "pickup" ? "fa-solid fa-store" : "fa-solid fa-truck"} /></span><div><span className="checkout-payment-title">{option.title}</span></div></label>)}
         </div>
       </section>
 
@@ -1334,10 +1374,6 @@ export default function CheckoutForm({
           </span>
           <h2>{copy.checkout.deliveryDetails}</h2>
         </div>
-        <p className="checkout-section__hint checkout-section__notice">
-          <i className="fa-solid fa-circle-info" aria-hidden="true" />
-          <span>{sameDayNotice}</span>
-        </p>
         <div className="checkout-field-grid">
           <label className={errors.fullName ? "checkout-field has-error" : "checkout-field"}>
             <span>{copy.checkout.labels.fullName}</span>
@@ -1402,57 +1438,75 @@ export default function CheckoutForm({
             ) : null}
           </label>
         </div>
-        {fulfillmentType === "pickup" ? <label className={errors.pickupLocation ? "checkout-field has-error" : "checkout-field"}><span>Pickup location</span><select value={pickupLocationId} onChange={event => onPickupLocationChange?.(event.target.value)}><option value="">Select a pickup point</option>{pickupLocations.map(location => <option key={location.id} value={location.id}>{location.name} — {location.address}</option>)}</select>{errors.pickupLocation ? <span className="checkout-field__error">{errors.pickupLocation}</span> : null}<small>Your order must be paid before collection.</small></label> : <>
+        {fulfillmentType === "pickup" ? <label className={errors.pickupLocation ? "checkout-field has-error" : "checkout-field"}><span>Pickup location</span><select value={pickupLocationId} onChange={event => onPickupLocationChange?.(event.target.value)}><option value="">Select a pickup point</option>{pickupLocations.map(location => <option key={location.id} value={location.id}>{location.name} - {location.address}</option>)}</select>{errors.pickupLocation ? <span className="checkout-field__error">{errors.pickupLocation}</span> : null}</label> : <>
         <div className="checkout-pin-confirmation">
           <span className="checkout-pin-confirmation__icon"><i className="fa-solid fa-location-dot" /></span>
-          <div><small>Confirmed delivery pin</small><strong>{checkoutLocation?.serviceable ? (checkoutLocation.line || checkoutLocation.zone?.name || "Location confirmed") : "Confirm the pin at your gate"}</strong><p>The rider will navigate to this pin. Adjust it if it is not on your entrance.</p></div>
+          <div><small>Delivery pin</small><strong>{checkoutLocation?.serviceable ? (checkoutLocation.line || checkoutLocation.zone?.name || "Location confirmed") : "Confirm location"}</strong></div>
           <DeferredLocationPicker />
         </div>
-        <div className="checkout-field-grid checkout-field-grid--address-meta">
-          <label className={errors.houseNumber ? "checkout-field has-error" : "checkout-field"}><span>House / flat / shop number</span><input name="houseNumber" value={formState.houseNumber} onChange={handleChange} placeholder="e.g. No. 8 or Flat 2B" autoComplete="address-line1" required aria-invalid={Boolean(errors.houseNumber)}/>{errors.houseNumber ? <span className="checkout-field__error">{errors.houseNumber}</span> : null}</label>
-          <label className="checkout-field"><span>Save address as</span><select name="addressLabel" value={formState.addressLabel} onChange={handleChange}><option>Home</option><option>Office</option><option>Shop</option><option>Other</option></select></label>
-        </div>
-        <label className={errors.address ? "checkout-textarea has-error" : "checkout-textarea"}>
-          <div className="checkout-address-row">
-            <span>Street, estate and area</span>
-            {savedAddresses.length ? (
-              <div className="checkout-address-picker">
-                <label className="sr-only" htmlFor="checkout-saved-address">
-                  Choose a saved address
-                </label>
-                <select
-                  id="checkout-saved-address"
-                  value={selectedSavedAddressId || ""}
-                  onChange={(event) => handleSelectSavedAddress(event.target.value)}
-                >
-                  {savedAddresses.map((addr) => (
-                    <option key={addr.id} value={addr.id}>
-                      {addr.label || "Saved address"} - {addr.line}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        {savedAddresses.length ? (
+          <label className={errors.address && !usingNewAddress ? "checkout-field has-error" : "checkout-field"}>
+            <span>Delivery address</span>
+            <select
+              id="checkout-saved-address"
+              name="savedAddressId"
+              value={addressEntryMode === "new" ? NEW_ADDRESS_OPTION : selectedSavedAddressId || ""}
+              onChange={(event) => handleSelectSavedAddress(event.target.value)}
+              required
+              aria-invalid={Boolean(errors.address && !usingNewAddress)}
+              aria-describedby={errors.address && !usingNewAddress ? "checkout-address-error" : undefined}
+            >
+              <option value="">Select saved address</option>
+              {savedAddresses.map((addr) => (
+                <option key={addr.id} value={addr.id}>
+                  {addr.label || "Saved address"} - {addr.line}
+                </option>
+              ))}
+              <option value={NEW_ADDRESS_OPTION}>Use a new address</option>
+            </select>
+            {errors.address && !usingNewAddress ? (
+              <span className="checkout-field__error" id="checkout-address-error">
+                {errors.address}
+              </span>
             ) : null}
+          </label>
+        ) : null}
+        {!usingNewAddress && selectedSavedAddress ? (
+          <div className="checkout-address-summary">
+            <strong>{selectedSavedAddress.label || "Saved address"}</strong>
+            <span>{selectedSavedAddress.line}</span>
+            {selectedSavedAddress.landmark ? <small>{selectedSavedAddress.landmark}</small> : null}
           </div>
-          <textarea
-            name="address"
-            value={formState.address}
-            onChange={handleChange}
-            rows={3}
-            placeholder="Street name, estate, area and closest junction"
-            minLength={ADDRESS_MIN_LENGTH}
-            title={`Address should be at least ${ADDRESS_MIN_LENGTH} characters.`}
-            required
-            aria-invalid={Boolean(errors.address)}
-            aria-describedby={getFieldErrorId("address")}
-          />
-          {errors.address ? (
-            <span className="checkout-field__error" id="checkout-address-error">
-              {errors.address}
-            </span>
-          ) : null}
-        </label>
-        <label className="checkout-textarea"><span>Landmark / directions for the rider <small>(recommended)</small></span><textarea name="landmark" value={formState.landmark} onChange={handleChange} rows={2} placeholder="e.g. White gate opposite Peace Model School; call when outside" maxLength={300}/></label>
+        ) : null}
+        {usingNewAddress ? (
+          <>
+            <div className="checkout-field-grid checkout-field-grid--address-meta">
+              <label className={errors.houseNumber ? "checkout-field has-error" : "checkout-field"}><span>House / flat / shop number</span><input name="houseNumber" value={formState.houseNumber} onChange={handleChange} placeholder="e.g. No. 8 or Flat 2B" autoComplete="address-line1" required aria-invalid={Boolean(errors.houseNumber)}/>{errors.houseNumber ? <span className="checkout-field__error">{errors.houseNumber}</span> : null}</label>
+              <label className="checkout-field"><span>Save address as</span><select name="addressLabel" value={formState.addressLabel} onChange={handleChange}><option>Home</option><option>Office</option><option>Shop</option><option>Other</option></select></label>
+            </div>
+            <label className={errors.address ? "checkout-textarea has-error" : "checkout-textarea"}>
+              <span>Street, estate and area</span>
+              <textarea
+                name="address"
+                value={formState.address}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Street name, estate, area and closest junction"
+                minLength={ADDRESS_MIN_LENGTH}
+                title={`Address should be at least ${ADDRESS_MIN_LENGTH} characters.`}
+                required
+                aria-invalid={Boolean(errors.address)}
+                aria-describedby={getFieldErrorId("address")}
+              />
+              {errors.address ? (
+                <span className="checkout-field__error" id="checkout-address-error">
+                  {errors.address}
+                </span>
+              ) : null}
+            </label>
+            <label className="checkout-textarea"><span>Landmark / directions <small>(optional)</small></span><textarea name="landmark" value={formState.landmark} onChange={handleChange} rows={2} placeholder="e.g. White gate opposite Peace Model School" maxLength={300}/></label>
+          </>
+        ) : null}
         <div className="checkout-field-grid">
           <label className={cityFieldHasError ? "checkout-field has-error" : "checkout-field"}>
             <span>{copy.checkout.labels.city}</span>
@@ -1506,7 +1560,6 @@ export default function CheckoutForm({
           <div className="checkout-dispatch__header">
             <div>
               <h3 id="checkout-dispatch-heading">Choose dispatch company</h3>
-              <p>Pick the delivery partner you want to handle this order.</p>
             </div>
             {selectedDispatchOption?.name ? (
               <span className="checkout-dispatch__current">
@@ -1572,9 +1625,11 @@ export default function CheckoutForm({
           </span>
           <h2>{copy.checkout.paymentHeading}</h2>
         </div>
-        <p id="checkout-payment-description" className="checkout-section__hint">
-          {paymentHint}
-        </p>
+        {paymentHint ? (
+          <p id="checkout-payment-description" className="checkout-section__hint">
+            {paymentHint}
+          </p>
+        ) : null}
         <div className="checkout-payment-options">
           {enabledPaymentMethods.map((method) => (
             <label

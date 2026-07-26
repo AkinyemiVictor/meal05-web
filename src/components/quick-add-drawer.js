@@ -14,7 +14,6 @@ import {
   PURCHASE_MODE_FIXED,
   PURCHASE_MODE_LOOSE,
   clampQuantityToRules,
-  formatQuantity,
   getVariantPurchaseRules,
   normalizePurchaseMode,
   validateVariantQuantity,
@@ -372,10 +371,6 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     if (!displayProduct) return "";
     return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), getVariantUnit(effectiveVariant, displayProduct));
   }, [displayProduct, effectiveVariant]);
-  const addTotalLabel = useMemo(() => {
-    const price = getVariantPrice(effectiveVariant, displayProduct) * normaliseOrderCount(quantity, effectiveVariant, 1);
-    return formatProductPrice(price, "").replace(/\/$/, "");
-  }, [displayProduct, effectiveVariant, quantity]);
   const categoryLabel = useMemo(() => {
     const category = displayProduct?.category || displayProduct?.categorySlug || "";
     return CATEGORY_LABELS.get(category) || category || "Produce";
@@ -494,14 +489,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           }
         } catch (_) {}
 
-        if (!isDropdown) {
-          showNotice({
-            tone: "success",
-            title: "Added to cart",
-            message: `${baseProduct.name} added to your cart.`,
-            autoClose: true,
-          });
-        }
+        showNotice({
+          tone: "success",
+          title: "Added to cart",
+          message: `${baseProduct.name} added to your cart.`,
+          autoClose: true,
+        });
         setStatus("ready");
         if (closeAfter) onClose?.();
       } catch (err) {
@@ -559,7 +552,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
                       onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
                       aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
                     >
-                      <span className="product-variant-picker__option-main">Fixed pack</span>
+                      <span className="product-variant-picker__option-main">Pack</span>
                     </button>
                     <button
                       type="button"
@@ -567,7 +560,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
                       onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
                       aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
                     >
-                      <span className="product-variant-picker__option-main">Loose quantity</span>
+                      <span className="product-variant-picker__option-main">Loose</span>
                     </button>
                   </div>
                 </div>
@@ -628,14 +621,6 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               </button>
             </div>
           </div>
-          <p className="quick-add-status">
-            Minimum {formatQuantity(purchaseRules.minQuantity, getVariantUnit(effectiveVariant, displayProduct))}
-            {" · "}Increases by {formatQuantity(purchaseRules.stepQuantity, getVariantUnit(effectiveVariant, displayProduct))}
-            {purchaseRules.maxQuantity != null
-              ? ` · Standard checkout limit ${formatQuantity(purchaseRules.maxQuantity, getVariantUnit(effectiveVariant, displayProduct))}`
-              : ""}
-          </p>
-
           {error ? <p className="quick-add-status is-error">{error}</p> : null}
 
           <button
@@ -651,7 +636,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             ) : (
               <>
                 <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
-                Add to cart · {addTotalLabel}
+                Add to cart
               </>
             )}
           </button>

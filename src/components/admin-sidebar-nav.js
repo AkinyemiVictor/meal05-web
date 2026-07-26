@@ -244,10 +244,23 @@ export default function AdminSidebarNav({ navItems = [], userEmail = "" }) {
           border-radius: 8px;
           background: #111827;
           color: #e2e8f0;
-          padding: 6px 10px;
-          font-size: 16px;
+          width: 42px;
+          height: 38px;
+          padding: 0;
+          font-size: 0;
           font-weight: 700;
           cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .admin-hamburger::before {
+          content: "";
+          width: 18px;
+          height: 2px;
+          border-radius: 999px;
+          background: currentColor;
+          box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor;
         }
         .admin-topbar__title {
           font-weight: 700;
@@ -278,11 +291,40 @@ export default function AdminSidebarNav({ navItems = [], userEmail = "" }) {
         }
         .admin-main {
           margin-left: var(--admin-sidebar-width);
-          padding-top: 20px;
+          min-width: 0;
+          width: 100%;
+          padding: 24px 16px 32px;
+          overflow-x: hidden;
+        }
+        .admin-main * {
+          box-sizing: border-box;
+        }
+        .admin-main input,
+        .admin-main select,
+        .admin-main textarea,
+        .admin-main button {
+          max-width: 100%;
+        }
+        .admin-main form {
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+        .admin-main form > *,
+        .admin-main label {
+          min-width: 0;
+        }
+        .admin-main div[style*="overflow-x: auto"] {
+          max-width: 100%;
+          -webkit-overflow-scrolling: touch;
+        }
+        .admin-main table {
+          font-size: 14px;
         }
         @media (max-width: 900px) {
           .admin-sidebar {
             transform: translateX(-100%);
+            width: min(86vw, var(--admin-sidebar-width));
+            padding-bottom: max(16px, env(safe-area-inset-bottom));
           }
           .admin-sidebar.open {
             transform: translateX(0);
@@ -292,7 +334,37 @@ export default function AdminSidebarNav({ navItems = [], userEmail = "" }) {
           }
           .admin-main {
             margin-left: 0;
-            padding-top: calc(var(--admin-topbar-height) + 12px);
+            padding: calc(var(--admin-topbar-height) + 12px) 10px 28px;
+          }
+          .admin-main h1 {
+            font-size: 24px;
+            line-height: 1.15;
+          }
+          .admin-main h2 {
+            font-size: 20px;
+            line-height: 1.2;
+          }
+          .admin-main form {
+            align-items: stretch !important;
+          }
+          .admin-main form input,
+          .admin-main form select,
+          .admin-main form button,
+          .admin-main form textarea {
+            width: 100%;
+            min-height: 44px;
+          }
+          .admin-main form label {
+            width: 100%;
+          }
+          .admin-main table {
+            font-size: 13px;
+          }
+          .admin-topbar__title {
+            max-width: 42%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
         }
       `}</style>

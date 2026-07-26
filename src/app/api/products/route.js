@@ -115,7 +115,7 @@ const buildImageIndex = (rows, storage) => {
     if (!url) return;
     const isPrimary = [row?.is_primary, row?.isPrimary, row?.primary, row?.is_main, row?.isMain, row?.main]
       .some((v) => v === true || v === 1 || String(v).toLowerCase() === "true");
-    const sortOrderRaw = row?.sort_order ?? row?.sortOrder ?? row?.order ?? 0;
+    const sortOrderRaw = row?.position ?? row?.sort_order ?? row?.sortOrder ?? row?.order ?? 0;
     const sortOrder = Number.isFinite(Number(sortOrderRaw)) ? Number(sortOrderRaw) : 0;
     if (!byProduct[productId]) byProduct[productId] = [];
     byProduct[productId].push({ url, isPrimary, sortOrder });

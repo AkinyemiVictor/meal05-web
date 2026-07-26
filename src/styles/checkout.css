@@ -153,6 +153,26 @@
   outline: none;
 }
 
+.checkout-address-summary {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid rgba(0, 172, 17, 0.24);
+  border-radius: 14px;
+  background: rgba(0, 172, 17, 0.07);
+  padding: 0.9rem 1rem;
+  color: var(--mk-text);
+}
+
+.checkout-address-summary strong {
+  font-size: 0.95rem;
+}
+
+.checkout-address-summary span,
+.checkout-address-summary small {
+  color: var(--mk-text-subtle);
+  line-height: 1.45;
+}
+
 .checkout-card input:focus,
 .checkout-card textarea:focus,
 .checkout-card select:focus {

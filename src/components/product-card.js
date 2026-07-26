@@ -7,6 +7,7 @@ import { IconShoppingCart, IconSparkles } from "@tabler/icons-react";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { resolveProductImage } from "@/lib/product-image";
 import { getProductHref } from "@/lib/products";
+import { shouldShowSeasonBadge } from "@/lib/season-badge";
 
 const classNames = (...items) => items.filter(Boolean).join(" ");
 const canUseNextImageOptimization = (src) =>
@@ -23,6 +24,7 @@ const formatNaira = (value) =>
 function ProductImage({ product, showSeasonBadge = true, compact = false, priority = false }) {
   const src = resolveProductImage(product.cardImageUrl, product.image, product.mainImageUrl);
   const unavailable = resolveStockClass(product.stock) === "is-unavailable";
+  const canShowSeasonBadge = showSeasonBadge && shouldShowSeasonBadge(product);
   const shouldOptimize = canUseNextImageOptimization(src);
   const imageSizes = compact
     ? "(max-width: 767px) 42vw, (max-width: 1023px) 24vw, 180px"
@@ -56,7 +58,7 @@ function ProductImage({ product, showSeasonBadge = true, compact = false, priori
         ) : (
           <span className="min-w-0" aria-hidden="true" />
         )}
-        {showSeasonBadge && product.inSeason ? (
+        {canShowSeasonBadge && product.inSeason ? (
           <span
             className={classNames(
               "ml-auto max-w-[calc(50%-0.25rem)] shrink truncate rounded-lg bg-meal-green/20 font-medium uppercase leading-none tracking-wider text-meal-text",

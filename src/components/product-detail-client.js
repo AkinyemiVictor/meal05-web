@@ -2,12 +2,16 @@
 
 import Image from "next/image";
 import { useMemo, useState, useEffect } from "react";
-import { getStockLabel, resolveStockClass } from "@/lib/catalogue";
+import { resolveStockClass } from "@/lib/catalogue";
 import AddToCartForm from "@/components/add-to-cart-form";
 import VariantPicker from "@/components/variant-picker";
+import { useNotice } from "@/components/notice-provider";
+import { readStoredUser } from "@/lib/auth";
+import { buildSignInHref } from "@/lib/auth-redirect";
 import { resolveProductImage } from "@/lib/product-image";
 import { formatMoney } from "@/lib/region";
 import { PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE, normalizePurchaseMode } from "@/lib/purchase-quantities";
+import { shouldShowSeasonBadge } from "@/lib/season-badge";
 import { IconSparkles } from "@tabler/icons-react";
 
 const isVariantInactive = (variant) => {
@@ -51,6 +55,7 @@ const formatCategory = (value) =>
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
 export default function ProductDetailClient({ product, variations = [], fallbackImage, ratings }) {
+  const { showNotice } = useNotice();
   const defaultVariant = useMemo(() => pickDefaultVariant(variations), [variations]);
   const [selectedVariant, setSelectedVariant] = useState(defaultVariant || null);
   const [purchaseMode, setPurchaseMode] = useState(() =>
@@ -94,6 +99,30 @@ export default function ProductDetailClient({ product, variations = [], fallback
   useEffect(() => {
     setActiveImageIndex(0);
   }, [product?.id, selectedVariant]);
+
+  const handleSaveToggle = () => {
+    if (!readStoredUser()) {
+      const next = typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : "/shop";
+      const href = buildSignInHref({ tab: "login", next, hash: "loginForm" });
+      showNotice({
+        tone: "info",
+        title: "Sign in required",
+        message: "Create or sign in to your account to use wishlist.",
+        dismissText: "Later",
+        actions: [
+          {
+            label: "Sign in",
+            variant: "primary",
+            onClick: () => {
+              if (typeof window !== "undefined") window.location.href = href;
+            },
+          },
+        ],
+      });
+      return;
+    }
+    setSaved((current) => !current);
+  };
 
   const display = useMemo(() => {
     if (!selectedVariant) return { ...product, image: resolveProductImage(product.image, fallbackImage) };
@@ -170,7 +199,9 @@ export default function ProductDetailClient({ product, variations = [], fallback
 
   const stockClass = resolveStockClass(display.stock);
   const isUnavailable = stockClass === "is-unavailable";
-  const stockLabel = getStockLabel(display.stock) || (isUnavailable ? "Out of stock" : "In stock");
+  const showSeasonBadge = shouldShowSeasonBadge(display);
+  const isInSeason = display.inSeason !== false;
+  const seasonLabel = isInSeason ? "In season" : "Off season";
   const unitLabel = formatUnitLabel(display.unit);
   const categoryLabel = formatCategory(display.category || product.category);
   const ratingAverage = Number(ratings?.average || 4.6);
@@ -183,10 +214,11 @@ export default function ProductDetailClient({ product, variations = [], fallback
         <div className="product-detail-media">
           <div className="product-detail-badges product-detail-badges--media">
             {display.discount ? <span className="product-detail-discount">{display.discount}% Off</span> : null}
-            <span className={`product-detail-season ${isUnavailable ? "is-off-season" : "is-in-season"}`}>
-              <i className="fa-solid fa-leaf" aria-hidden="true" />
-              {stockLabel}
-            </span>
+            {showSeasonBadge ? (
+              <span className={`product-detail-season ${isInSeason ? "is-in-season" : "is-off-season"}`}>
+                {seasonLabel}
+              </span>
+            ) : null}
           </div>
           <Image
             className="product-detail-media__image"
@@ -259,7 +291,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
                 onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
                 aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
               >
-                <span className="product-variant-picker__option-main">Fixed pack</span>
+                <span className="product-variant-picker__option-main">Pack</span>
               </button>
               <button
                 type="button"
@@ -267,7 +299,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
                 onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
                 aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
               >
-                <span className="product-variant-picker__option-main">Loose quantity</span>
+                <span className="product-variant-picker__option-main">Loose</span>
               </button>
             </div>
           </div>
@@ -293,23 +325,12 @@ export default function ProductDetailClient({ product, variations = [], fallback
         <button
           type="button"
           className={`product-detail-save${saved ? " is-saved" : ""}`}
-          onClick={() => setSaved((current) => !current)}
+          onClick={handleSaveToggle}
           aria-pressed={saved}
         >
           <IconSparkles size={19} stroke={saved ? 2.4 : 1.8} aria-hidden="true" />
           <span>{saved ? "Saved for later" : "Save for later"}</span>
         </button>
-
-        <div className="product-detail-service-notes" aria-label="Delivery and return notes">
-          <p>
-            <span aria-hidden="true"><i className="fa-solid fa-truck-fast" /></span>
-            Same-day delivery in Ibadan before 2pm
-          </p>
-          <p>
-            <span aria-hidden="true"><i className="fa-solid fa-rotate-left" /></span>
-            Free returns within 24h if not fresh
-          </p>
-        </div>
       </div>
     </>
   );

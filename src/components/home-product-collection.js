@@ -44,9 +44,7 @@ export default function HomeProductCollection({
         <>
           <div className="mt-6 md:hidden">
             <div
-              className={`home-product-collection__grid home-product-collection__grid--mobile ${
-                isLandingVariant ? "gap-4 grid grid-cols-2" : "gap-3 grid grid-cols-2"
-              }`}
+              className="home-product-collection__grid home-product-collection__grid--mobile grid grid-cols-2 gap-[0.85rem]"
             >
               {mobileProducts.map((product) => (
                 <div key={product.variantId || product.id} className="min-w-0">
@@ -55,7 +53,6 @@ export default function HomeProductCollection({
                     onAdd={onAdd}
                     showSeasonBadge={showSeasonBadge}
                     actionLabel={actionLabel}
-                    compact
                     className={
                       isLandingVariant
                         ? "home-product-collection__product-card--landing-mobile"

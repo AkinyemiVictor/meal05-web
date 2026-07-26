@@ -8,7 +8,7 @@ import { useNotice } from "@/components/notice-provider";
 import { useSearchParams } from "next/navigation";
 
 import "@/styles/sign-in.css";
-import { clearStoredUser, persistStoredUser, readStoredUser } from "@/lib/auth";
+import { clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
 import { migrateGuestCartToUser } from "@/lib/cart-storage";
 import { BRAND_WORDMARK_SRC } from "@/lib/theme-logo";
@@ -409,13 +409,12 @@ function SignInPageContent() {
         });
         return;
       }
-      const nameFromEmail = email.includes("@") ? email.split("@")[0] : "Meal05 Friend";
-      const cleaned = nameFromEmail.replace(/[\.\_\-]+/g, " ").trim();
-      const parts = cleaned.split(/\s+/);
-      const firstName = (parts[0] || "Meal05").toUpperCase();
-      const lastName = (parts[1] || "Friend").toUpperCase();
-      const fullName = `${firstName} ${lastName}`.trim();
-      const user = { firstName, lastName, fullName, email, ...(phone ? { phone } : {}) };
+      const authenticatedUser = loginData?.user || null;
+      if (!authenticatedUser?.id) {
+        await showNotice({ tone: "error", title: "Login failed", message: "We could not verify this account session. Please try again." });
+        return;
+      }
+      const user = deriveStoredUserFromAuthUser(authenticatedUser, { email, phone });
       persistStoredUser(user);
       try {
         if (rememberMe) {
@@ -429,7 +428,7 @@ function SignInPageContent() {
         await withTimeout(fetch("/api/users/sync", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ first_name: firstName, last_name: lastName }),
+          body: JSON.stringify({ first_name: user.firstName, ...(user.lastName ? { last_name: user.lastName } : {}), ...(phone ? { phone } : {}) }),
         }), 8000, "Profile sync took too long.");
       } catch {}
       window.location.replace(fallbackAfterAuth);

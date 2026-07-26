@@ -3,20 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
-import { persistStoredUser } from "@/lib/auth";
+import { deriveStoredUserFromAuthUser, persistStoredUser } from "@/lib/auth";
 import { buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
 import { migrateGuestCartToUser } from "@/lib/cart-storage";
-
-const toNameParts = (email, metadata) => {
-  const fallback = (email && email.includes("@")) ? email.split("@")[0] : "Meal05 Friend";
-  const fromMeta = (metadata?.full_name || metadata?.name || metadata?.user_name || "").trim();
-  const source = fromMeta || fallback;
-  const cleaned = String(source).replace(/[._-]+/g, " ").trim();
-  const pieces = cleaned.split(/\s+/);
-  const first = (pieces[0] || "Meal05").toUpperCase();
-  const last = (pieces[1] || "Friend").toUpperCase();
-  return { firstName: first, lastName: last, fullName: `${first} ${last}`.trim() };
-};
 
 const withTimeout = (promise, ms, message) =>
   Promise.race([
@@ -51,16 +40,18 @@ export default function OAuthCompletePage() {
           return;
         }
 
-        const { firstName, lastName, fullName } = toNameParts(user.email, user.user_metadata || {});
-        const phone = String(user.user_metadata?.phone || "").trim();
-        const localUser = { firstName, lastName, fullName, email: user.email || "", ...(phone ? { phone } : {}) };
+        const localUser = deriveStoredUserFromAuthUser(user);
         persistStoredUser(localUser);
 
         try {
           await withTimeout(fetch("/api/users/sync", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ first_name: firstName, last_name: lastName, ...(phone ? { phone } : {}) }),
+            body: JSON.stringify({
+              first_name: localUser.firstName,
+              ...(localUser.lastName ? { last_name: localUser.lastName } : {}),
+              ...(localUser.phone ? { phone: localUser.phone } : {}),
+            }),
           }), 8000, "Profile sync took too long.");
         } catch {}
 

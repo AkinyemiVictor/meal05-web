@@ -8,8 +8,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import styles from "./account.module.css";
 import ProductCard from "@/components/product-card";
-import { AUTH_EVENT, clearStoredUser, persistStoredUser, readStoredUser } from "@/lib/auth";
+import { AUTH_EVENT, clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
+import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import { ORDERS_EVENT, readUserOrders, updateUserOrderStatus, setUserOrders } from "@/lib/orders";
 import { CART_UPDATED_EVENT, readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { formatProductPrice } from "@/lib/catalogue";
@@ -112,8 +113,8 @@ const getAccountRoute = (tab) => {
 };
 
 const FALLBACK_USER = {
-  fullName: "Meal05 Friend",
-  email: "hello@mealkit.ng",
+  fullName: "Customer",
+  email: "",
 };
 
 const PHONE_INPUT_PATTERN = "[0-9\\s().-]{4,24}";
@@ -129,10 +130,10 @@ const getCurrentTab = (slug) =>
   ACCOUNT_TABS.some((tab) => tab.slug === slug) ? slug : DEFAULT_TAB;
 
 const formatName = (user) => {
-  if (!user) return "Meal05 Friend";
+  if (!user) return "Customer";
   if (user.fullName && user.fullName.trim()) return user.fullName.trim();
   if (user.email) return user.email.split("@")[0];
-  return "Meal05 Friend";
+  return "Customer";
 };
 
 const formatMoney = (amount, currency = "NGN") =>
@@ -326,6 +327,19 @@ const saveProfileToServer = (patch) => {
   }).catch(() => {});
 };
 
+const clearLocalAccountData = (account) => {
+  if (typeof window === "undefined") return;
+  const emailKey = String(account?.email || "").trim().toLowerCase();
+  if (!emailKey) return;
+  ["meal05_cart", "mealkit_orders", "meal05_notifications"].forEach((prefix) => {
+    try {
+      window.localStorage.removeItem(`${prefix}_${emailKey}`);
+    } catch {
+      /* ignore local cleanup failures */
+    }
+  });
+};
+
 export function AccountPageContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -364,6 +378,8 @@ export function AccountPageContent() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorRect, setQuickAddAnchorRect] = useState(null);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
+  const [deleteAccountStatus, setDeleteAccountStatus] = useState("idle");
+  const [deleteAccountMessage, setDeleteAccountMessage] = useState("");
   const orderProductIds = useMemo(() => {
     const ids = [];
     orders.forEach((order) => {
@@ -504,19 +520,49 @@ export function AccountPageContent() {
   }, [syncWalletFromServer, walletTopupAmount, walletTopupProvider]);
 
   useEffect(() => {
-    const stored = ensureUserAddressBook(readStoredUser());
-    if (!stored) {
-      setUser(null);
-      setOrders([]);
-      setSavedCart([]);
-      router.replace(signInRedirectHref);
-      return;
-    }
-    setUser(stored);
-    setOrders(readUserOrders(stored));
-    setSavedCart(readCartItems(stored));
-    persistStoredUser(stored);
-    setHydrated(true);
+    let cancelled = false;
+    const loadAuthenticatedUser = async () => {
+      const stored = ensureUserAddressBook(readStoredUser());
+      try {
+        const supabase = getBrowserSupabaseClient();
+        const { data: { user: authUser }, error } = await supabase.auth.getUser();
+        if (error || !authUser) {
+          if (cancelled) return;
+          clearStoredUser();
+          setUser(null);
+          setOrders([]);
+          setSavedCart([]);
+          router.replace(signInRedirectHref);
+          return;
+        }
+        if (cancelled) return;
+        const verified = ensureUserAddressBook(deriveStoredUserFromAuthUser(authUser, stored || {}));
+        setUser(verified);
+        setOrders(readUserOrders(verified));
+        setSavedCart(readCartItems(verified));
+        persistStoredUser(verified);
+        setHydrated(true);
+      } catch {
+        if (cancelled) return;
+        if (!stored) {
+          clearStoredUser();
+          setUser(null);
+          setOrders([]);
+          setSavedCart([]);
+          router.replace(signInRedirectHref);
+          return;
+        }
+        setUser(stored);
+        setOrders(readUserOrders(stored));
+        setSavedCart(readCartItems(stored));
+        setHydrated(true);
+      }
+    };
+
+    loadAuthenticatedUser();
+    return () => {
+      cancelled = true;
+    };
   }, [router, signInRedirectHref]);
 
   useEffect(() => {
@@ -610,6 +656,47 @@ export function AccountPageContent() {
     setSavedCart([]);
     router.replace(signInRedirectHref);
   };
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!user || deleteAccountStatus === "loading") return;
+    const confirmed = window.confirm(
+      "Delete your Meal05 account? This removes your saved data and closes sign-in access. Active orders or a non-zero Meal05 Balance must be resolved first."
+    );
+    if (!confirmed) return;
+
+    setDeleteAccountStatus("loading");
+    setDeleteAccountMessage("");
+    try {
+      const response = await fetch("/api/account/delete", {
+        method: "DELETE",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: "DELETE" }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setDeleteAccountStatus("error");
+        setDeleteAccountMessage(payload?.error || "Unable to delete account right now.");
+        return;
+      }
+
+      clearLocalAccountData(user);
+      clearStoredUser();
+      profileLoadedRef.current = false;
+      setUser(null);
+      setOrders([]);
+      setSavedCart([]);
+      try {
+        await getBrowserSupabaseClient().auth.signOut({ scope: "global" });
+      } catch {
+        /* Local auth state has already been cleared. */
+      }
+      router.replace("/");
+    } catch {
+      setDeleteAccountStatus("error");
+      setDeleteAccountMessage("Unable to delete account right now.");
+    }
+  }, [deleteAccountStatus, router, user]);
 
   const resolvedUser = user || FALLBACK_USER;
   useEffect(() => {
@@ -1773,6 +1860,29 @@ export function AccountPageContent() {
                 </div>
               </form>
             ) : null}
+            <div className={styles.dangerZone}>
+              <h3 className={styles.sectionTitle}>Delete account</h3>
+              <p className={styles.cardBody}>
+                Permanently close this account and remove saved cart, wishlist, addresses, payment methods, notifications, reviews, and profile data.
+              </p>
+              <button
+                type="button"
+                className={styles.dangerAction}
+                onClick={handleDeleteAccount}
+                disabled={deleteAccountStatus === "loading"}
+              >
+                {deleteAccountStatus === "loading" ? "Deleting..." : "Delete my account"}
+              </button>
+              {deleteAccountMessage ? (
+                <span
+                  className={styles.profileMessage}
+                  role={deleteAccountStatus === "error" ? "alert" : "status"}
+                  aria-live="polite"
+                >
+                  {deleteAccountMessage}
+                </span>
+              ) : null}
+            </div>
           </div>
         );
       }
