@@ -232,6 +232,32 @@
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
+.checkout-payment-options--providers {
+  grid-template-columns: 1fr;
+}
+
+.checkout-payment-provider-panel {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  border: 1px solid var(--mk-border);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.72);
+  padding: 1rem;
+}
+
+.checkout-payment-provider-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--mk-text);
+  font-weight: 800;
+}
+
+.checkout-payment-tile--provider {
+  min-height: 5.7rem;
+}
+
 .checkout-payment-tile {
   position: relative;
   border: 1px solid var(--mk-border);
@@ -1224,6 +1250,10 @@
   gap: 1rem;
 }
 
+.checkout-payment-options--providers {
+  grid-template-columns: 1fr;
+}
+
 .checkout-payment-tile {
   min-height: 7.1rem;
   display: grid;
@@ -1297,7 +1327,57 @@
 }
 
 .checkout-payment-badges {
-  display: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.checkout-payment-provider-panel {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  border: 1px solid #eceef2;
+  border-radius: 1rem;
+  background: #fbfcf8;
+  padding: 1rem;
+}
+
+.checkout-payment-provider-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #141622;
+  font-weight: 900;
+}
+
+.checkout-payment-tile--provider {
+  min-height: 5.8rem;
+  padding: 1rem;
+}
+
+.checkout-payment-badge {
+  min-height: 1.75rem;
+  border: 1px solid #e8e9ed;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1d3150;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.checkout-payment-badge--image {
+  min-width: 3.25rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.checkout-payment-badge--text {
+  color: #087a35;
 }
 
 .checkout-accepted-row {
@@ -1364,17 +1444,6 @@
   overflow: hidden;
   border-radius: 0.85rem;
   background: #f1f2f4;
-}
-
-.checkout-summary__thumb::after {
-  content: "";
-  position: absolute;
-  top: -0.35rem;
-  right: -0.35rem;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 999px;
-  background: #151621;
 }
 
 .checkout-summary__thumb img {

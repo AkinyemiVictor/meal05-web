@@ -36,10 +36,25 @@ const copy = {
     deliveryDetails: "Delivery details",
     paymentHeading: "Payment method",
     paymentHint: "",
+    paymentGroups: [
+      {
+        value: "wallet",
+        title: "Meal05 Wallet",
+        subtitle: "Use your verified wallet balance.",
+        icon: "fa-solid fa-wallet",
+      },
+      {
+        value: "gateway",
+        title: "Card, bank transfer, USSD",
+        subtitle: "Choose Moniepoint, OPay, or card payment.",
+        icon: "fa-regular fa-credit-card",
+      },
+    ],
     deliverySlots: {
-      morning: "Morning (8am - 11am)",
-      afternoon: "Afternoon (12pm - 3pm)",
-      evening: "Evening (4pm - 8pm)",
+      "same-day-evening": "Same day (4pm - 8pm)",
+      "next-day-morning": "Next day morning (8am - 11am)",
+      "next-day-afternoon": "Next day afternoon (12pm - 3pm)",
+      "next-day-evening": "Next day evening (4pm - 8pm)",
     },
     paymentMethods: [
       {
@@ -67,7 +82,7 @@ const copy = {
       },
       {
         value: "paystack",
-        title: "Card, USSD and Paystack",
+        title: "Card, USSD",
         subtitle: "Coming later.",
         badges: [
           { type: "text", label: "Coming later" },

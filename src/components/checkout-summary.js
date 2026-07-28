@@ -185,7 +185,7 @@ export default function CheckoutSummary({
             )}
           </span>
           <span>
-            {fulfillmentType === "pickup" ? "Free" : deliveryUnavailable
+            {fulfillmentType === "pickup" ? formatProductPrice(0) : deliveryUnavailable
               ? "Unavailable"
               : summary.deliveryFee === 0
               ? copy.checkout.freeDeliveryLabel
@@ -210,10 +210,6 @@ export default function CheckoutSummary({
             <i className="fa-solid fa-lock" aria-hidden="true" />
             {copy.checkout.completeOrder}
           </button>
-          <p className="checkout-summary__secure">
-            <i className="fa-solid fa-shield-halved" aria-hidden="true" />
-            Encrypted & secure - Free returns within 24h
-          </p>
         </div>
       ) : null}
 

@@ -44,8 +44,8 @@ const INITIAL_FORM_STATE = {
   landmark: "",
   addressLabel: "Home",
   city: "",
-  deliverySlot: "morning",
-  paymentMethod: "paystack",
+  deliverySlot: "same-day-evening",
+  paymentMethod: "moniepoint_transfer",
   cardName: "",
   cardNumber: "",
   cardExpiry: "",
@@ -61,6 +61,8 @@ const PAYMENT_METHOD_LABELS = copy.checkout.paymentMethods.reduce((accumulator, 
 const DELIVERY_SLOT_LABELS = { ...copy.checkout.deliverySlots };
 
 const CARD_FIELDS = ["cardName", "cardNumber", "cardExpiry", "cardCvc"];
+const WALLET_PAYMENT_METHOD = "wallet";
+const DEFAULT_GATEWAY_PAYMENT_METHOD = "moniepoint_transfer";
 
 const NAME_PATTERN = "[A-Za-z ]+";
 const EMAIL_PATTERN = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}";
@@ -294,6 +296,7 @@ export default function CheckoutForm({
   const [formError, setFormError] = useState(null);
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
+  const [selectedGatewayPaymentMethod, setSelectedGatewayPaymentMethod] = useState(DEFAULT_GATEWAY_PAYMENT_METHOD);
   const checkoutIdempotencyKeyRef = useRef(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [savedDefaultAddressId, setSavedDefaultAddressId] = useState("");
@@ -477,20 +480,31 @@ export default function CheckoutForm({
   const showCardFields = false;
   const isProcessing = status === "processing";
   const paymentMethods = useMemo(() => copy.checkout.paymentMethods, []);
+  const paymentGroups = useMemo(() => copy.checkout.paymentGroups || [], []);
+  const gatewayPaymentMethods = useMemo(
+    () => paymentMethods.filter((method) => method.value !== WALLET_PAYMENT_METHOD),
+    [paymentMethods]
+  );
+  const selectedPaymentGroup = formState.paymentMethod === WALLET_PAYMENT_METHOD ? WALLET_PAYMENT_METHOD : "gateway";
   const enabledPaymentMethods = useMemo(
     () => paymentMethods.filter((method) => isCheckoutPaymentMethodEnabled(method.value)),
     [paymentMethods]
   );
-  const acceptedBadges = useMemo(
-    () => copy.checkout.paymentMethods.find((method) => method.value === "paystack")?.badges || [],
-    []
+  const enabledGatewayPaymentMethods = useMemo(
+    () => gatewayPaymentMethods.filter((method) => isCheckoutPaymentMethodEnabled(method.value)),
+    [gatewayPaymentMethods]
   );
-
   useEffect(() => {
     if (!enabledPaymentMethods.length) return;
     if (enabledPaymentMethods.some((method) => method.value === formState.paymentMethod)) return;
-    setFormState((prev) => ({ ...prev, paymentMethod: enabledPaymentMethods[0].value }));
-  }, [enabledPaymentMethods, formState.paymentMethod]);
+    const fallback = enabledGatewayPaymentMethods[0] || enabledPaymentMethods[0];
+    setFormState((prev) => ({ ...prev, paymentMethod: fallback.value }));
+  }, [enabledGatewayPaymentMethods, enabledPaymentMethods, formState.paymentMethod]);
+
+  useEffect(() => {
+    if (formState.paymentMethod === WALLET_PAYMENT_METHOD) return;
+    setSelectedGatewayPaymentMethod(formState.paymentMethod || DEFAULT_GATEWAY_PAYMENT_METHOD);
+  }, [formState.paymentMethod]);
 
   const scrollToSubmitFeedback = () => {
     if (typeof window === "undefined") return;
@@ -513,6 +527,9 @@ export default function CheckoutForm({
     }
     if (lower.includes("not authenticated") || lower.includes("auth session missing")) {
       return "Your login session has expired. Please sign in again, then complete checkout.";
+    }
+    if (lower.includes("insufficient") && (lower.includes("wallet") || lower.includes("balance"))) {
+      return "Insufficient wallet funds. Please fund your wallet or choose another payment method.";
     }
     return raw;
   };
@@ -574,6 +591,21 @@ export default function CheckoutForm({
     }
   };
 
+  const handlePaymentGroupChange = (group) => {
+    if (group === WALLET_PAYMENT_METHOD) {
+      setFormState((prev) => ({ ...prev, paymentMethod: WALLET_PAYMENT_METHOD }));
+      return;
+    }
+    const fallbackGateway = enabledGatewayPaymentMethods[0]?.value || DEFAULT_GATEWAY_PAYMENT_METHOD;
+    setFormState((prev) => ({ ...prev, paymentMethod: selectedGatewayPaymentMethod || fallbackGateway }));
+  };
+
+  const handleGatewayPaymentMethodChange = (event) => {
+    const { value } = event.target;
+    setSelectedGatewayPaymentMethod(value);
+    handleChange(event);
+  };
+
   const handleSelectSavedAddress = (id) => {
     if (id === NEW_ADDRESS_OPTION) {
       setAddressEntryMode("new");
@@ -629,10 +661,12 @@ export default function CheckoutForm({
     }
 
     const normalizedEmail = state.email.trim().toLowerCase();
-    if (!normalizedEmail) {
-      nextErrors.email = validation.required;
-    } else if (!EMAIL_REGEX.test(normalizedEmail)) {
-      nextErrors.email = validation.email;
+    if (fulfillmentType === "delivery") {
+      if (!normalizedEmail) {
+        nextErrors.email = validation.required;
+      } else if (!EMAIL_REGEX.test(normalizedEmail)) {
+        nextErrors.email = validation.email;
+      }
     }
 
     const normalizedPhone = state.phone.trim();
@@ -906,7 +940,7 @@ export default function CheckoutForm({
 
       // Improve UX: scroll to the first invalid field and focus it
       try {
-        const order = ["fullName", "email", "phone", "houseNumber", "address", "city", ...CARD_FIELDS];
+        const order = ["fullName", ...(fulfillmentType === "delivery" ? ["email"] : []), "phone", "pickupLocation", "houseNumber", "address", "city", ...CARD_FIELDS];
         const firstInvalid = order.find((key) => fieldErrors[key]);
         const formEl = formRef.current;
         if (formEl && firstInvalid) {
@@ -1031,7 +1065,7 @@ export default function CheckoutForm({
       landmark: formState.landmark.trim(),
       addressLabel: formState.addressLabel.trim() || "Home",
       city: canonicalCity,
-      notes: formState.notes.trim(),
+      notes: fulfillmentType === "delivery" ? formState.notes.trim() : "",
       cardName: formState.cardName.trim(),
       cardExpiry: formState.cardExpiry.trim(),
     };
@@ -1399,7 +1433,7 @@ export default function CheckoutForm({
           <span className="checkout-section__icon" aria-hidden="true">
             <i className="fa-solid fa-location-dot" />
           </span>
-          <h2>{copy.checkout.deliveryDetails}</h2>
+          <h2>{fulfillmentType === "pickup" ? "Pickup details" : copy.checkout.deliveryDetails}</h2>
         </div>
         <div className="checkout-field-grid">
           <label className={errors.fullName ? "checkout-field has-error" : "checkout-field"}>
@@ -1422,27 +1456,29 @@ export default function CheckoutForm({
               </span>
             ) : null}
           </label>
-          <label className={errors.email ? "checkout-field has-error" : "checkout-field"}>
-            <span>{copy.checkout.labels.email}</span>
-            <input
-              type="email"
-              name="email"
-              value={formState.email}
-              onChange={handleChange}
-              placeholder={copy.checkout.placeholders.email}
-              autoComplete="email"
-              pattern={EMAIL_PATTERN}
-              title="Use letters or numbers, followed by @, ending with .com"
-              required
-              aria-invalid={Boolean(errors.email)}
-              aria-describedby={getFieldErrorId("email")}
-            />
-            {errors.email ? (
-              <span className="checkout-field__error" id="checkout-email-error">
-                {errors.email}
-              </span>
-            ) : null}
-          </label>
+          {fulfillmentType === "delivery" ? (
+            <label className={errors.email ? "checkout-field has-error" : "checkout-field"}>
+              <span>{copy.checkout.labels.email}</span>
+              <input
+                type="email"
+                name="email"
+                value={formState.email}
+                onChange={handleChange}
+                placeholder={copy.checkout.placeholders.email}
+                autoComplete="email"
+                pattern={EMAIL_PATTERN}
+                title="Use letters or numbers, followed by @, ending with .com"
+                required
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={getFieldErrorId("email")}
+              />
+              {errors.email ? (
+                <span className="checkout-field__error" id="checkout-email-error">
+                  {errors.email}
+                </span>
+              ) : null}
+            </label>
+          ) : null}
           <label className={errors.phone ? "checkout-field has-error" : "checkout-field"}>
             <span>{copy.checkout.labels.phone}</span>
             <input
@@ -1465,12 +1501,7 @@ export default function CheckoutForm({
             ) : null}
           </label>
         </div>
-        {fulfillmentType === "pickup" ? <label className={errors.pickupLocation ? "checkout-field has-error" : "checkout-field"}><span>Pickup location</span><select value={pickupLocationId} onChange={event => onPickupLocationChange?.(event.target.value)}><option value="">Select a pickup point</option>{pickupLocations.map(location => <option key={location.id} value={location.id}>{location.name} - {location.address}</option>)}</select>{errors.pickupLocation ? <span className="checkout-field__error">{errors.pickupLocation}</span> : null}</label> : <>
-        <div className="checkout-pin-confirmation">
-          <span className="checkout-pin-confirmation__icon"><i className="fa-solid fa-location-dot" /></span>
-          <div><small>Delivery pin</small><strong>{checkoutLocation?.serviceable ? (checkoutLocation.line || checkoutLocation.zone?.name || "Location confirmed") : "Confirm location"}</strong></div>
-          <DeferredLocationPicker />
-        </div>
+        {fulfillmentType === "pickup" ? <label className={errors.pickupLocation ? "checkout-field has-error" : "checkout-field"}><span>Pickup location</span><select name="pickupLocation" value={pickupLocationId} onChange={event => onPickupLocationChange?.(event.target.value)} required aria-invalid={Boolean(errors.pickupLocation)}><option value="">Select a pickup point</option>{pickupLocations.map(location => <option key={location.id} value={location.id}>{location.name} - {location.address}</option>)}</select>{errors.pickupLocation ? <span className="checkout-field__error" id="checkout-pickupLocation-error">{errors.pickupLocation}</span> : null}</label> : <>
         {savedAddresses.length ? (
           <label className={errors.address && !usingNewAddress ? "checkout-field has-error" : "checkout-field"}>
             <span>Delivery address</span>
@@ -1509,7 +1540,6 @@ export default function CheckoutForm({
           <>
             <div className="checkout-field-grid checkout-field-grid--address-meta">
               <label className={errors.houseNumber ? "checkout-field has-error" : "checkout-field"}><span>House / flat / shop number</span><input name="houseNumber" value={formState.houseNumber} onChange={handleChange} placeholder="e.g. No. 8 or Flat 2B" autoComplete="address-line1" required aria-invalid={Boolean(errors.houseNumber)}/>{errors.houseNumber ? <span className="checkout-field__error">{errors.houseNumber}</span> : null}</label>
-              <label className="checkout-field"><span>Save address as</span><select name="addressLabel" value={formState.addressLabel} onChange={handleChange}><option>Home</option><option>Office</option><option>Shop</option><option>Other</option></select></label>
             </div>
             <label className={errors.address ? "checkout-textarea has-error" : "checkout-textarea"}>
               <span>Street, estate and area</span>
@@ -1574,12 +1604,17 @@ export default function CheckoutForm({
               </span>
             ) : null}
           </label>
+          {usingNewAddress ? (
+            <label className="checkout-field"><span>Save address as</span><select name="addressLabel" value={formState.addressLabel} onChange={handleChange}><option>Home</option><option>Office</option><option>Shop</option><option>Other</option></select></label>
+          ) : null}
+        </div>
+        <div className="checkout-field-grid">
           <label className="checkout-field">
-            <span>{copy.checkout.labels.deliverySlot}</span>
+            <span>Delivery window</span>
             <select name="deliverySlot" value={formState.deliverySlot} onChange={handleChange}>
-              <option value="morning">{copy.checkout.deliverySlots.morning}</option>
-              <option value="afternoon">{copy.checkout.deliverySlots.afternoon}</option>
-              <option value="evening">{copy.checkout.deliverySlots.evening}</option>
+              {Object.entries(copy.checkout.deliverySlots).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
             </select>
           </label>
         </div>
@@ -1633,16 +1668,25 @@ export default function CheckoutForm({
           </div>
         </div>
         </>}
-        <label className="checkout-textarea">
-          <span>{copy.checkout.labels.notes}</span>
-          <textarea
-            name="notes"
-            value={formState.notes}
-            onChange={handleChange}
-            rows={3}
-            placeholder={copy.checkout.placeholders.notes}
-          />
-        </label>
+        {fulfillmentType === "delivery" ? (
+          <>
+            <label className="checkout-textarea">
+              <span>{copy.checkout.labels.notes}</span>
+              <textarea
+                name="notes"
+                value={formState.notes}
+                onChange={handleChange}
+                rows={3}
+                placeholder={copy.checkout.placeholders.notes}
+              />
+            </label>
+            <div className="checkout-pin-confirmation">
+              <span className="checkout-pin-confirmation__icon"><i className="fa-solid fa-location-dot" /></span>
+              <div><small>Delivery pin</small><strong>{checkoutLocation?.serviceable ? (checkoutLocation.line || checkoutLocation.zone?.name || "Location confirmed") : "Confirm location"}</strong></div>
+              <DeferredLocationPicker />
+            </div>
+          </>
+        ) : null}
       </section>
 
       <section className="checkout-section">
@@ -1657,81 +1701,113 @@ export default function CheckoutForm({
             {paymentHint}
           </p>
         ) : null}
-        <div className="checkout-payment-options">
-          {paymentMethods.map((method) => {
-            const enabled = isCheckoutPaymentMethodEnabled(method.value);
+        <div className="checkout-payment-options checkout-payment-options--groups">
+          {paymentGroups.map((group) => {
+            const active = selectedPaymentGroup === group.value;
             return (
-            <label
-              key={method.value}
-              className={`checkout-payment-tile${
-                formState.paymentMethod === method.value ? " checkout-payment-tile--active" : ""
-              }${enabled ? "" : " checkout-payment-tile--disabled"}`}
-            >
-              <input
-                type="radio"
-                name="paymentMethod"
-                value={method.value}
-                checked={formState.paymentMethod === method.value}
-                disabled={!enabled}
-                onChange={handleChange}
-              />
-              <span className="checkout-payment-icon" aria-hidden="true">
-                <i
-                  className={
-                    method.value === "opay_transfer"
-                      ? "fa-solid fa-qrcode"
-                      : method.value === "moniepoint_transfer"
-                        ? "fa-solid fa-building-columns"
-                      : method.value === "wallet"
-                        ? "fa-regular fa-wallet"
-                        : "fa-regular fa-credit-card"
-                  }
+              <label
+                key={group.value}
+                className={`checkout-payment-tile checkout-payment-tile--group${active ? " checkout-payment-tile--active" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="paymentGroup"
+                  value={group.value}
+                  checked={active}
+                  onChange={() => handlePaymentGroupChange(group.value)}
                 />
-              </span>
-              <div>
-                <span className="checkout-payment-title">{method.title}</span>
-                <span className="checkout-payment-subtitle">{method.subtitle}</span>
-                {Array.isArray(method.badges) && method.badges.length ? (
-                  <div className="checkout-payment-badges">
-                    {method.badges.map((badge, index) => {
-                      const key = `${badge.label}-${index}`;
-                      if (badge.type === "image" && badge.src) {
-                        const imageSrc = encodeURI(badge.src);
-                        return (
-                          <span key={key} className="checkout-payment-badge checkout-payment-badge--image">
-                            <Image
-                              src={imageSrc}
-                              alt={badge.label}
-                              width={44}
-                              height={26}
-                              sizes="44px"
-                              loading="lazy"
-                              style={{ width: "auto", height: "24px", objectFit: "contain" }}
-                            />
-                          </span>
-                        );
-                      }
-                      if (badge.icon) {
-                        return (
-                          <span key={key} className="checkout-payment-badge">
-                            <i className={badge.icon} aria-hidden="true" />
-                            <span className="sr-only">{badge.label}</span>
-                          </span>
-                        );
-                      }
-                      return (
-                        <span key={key} className="checkout-payment-badge checkout-payment-badge--text">
-                          {badge.label}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
-            </label>
+                <span className="checkout-payment-icon" aria-hidden="true">
+                  <i className={group.icon} />
+                </span>
+                <div>
+                  <span className="checkout-payment-title">{group.title}</span>
+                  <span className="checkout-payment-subtitle">{group.subtitle}</span>
+                </div>
+              </label>
             );
           })}
         </div>
+
+        {selectedPaymentGroup === "gateway" ? (
+          <div className="checkout-payment-provider-panel">
+            <div className="checkout-payment-provider-panel__header">
+              <strong>Choose payment provider</strong>
+            </div>
+            <div className="checkout-payment-options checkout-payment-options--providers">
+              {gatewayPaymentMethods.map((method) => {
+                const enabled = isCheckoutPaymentMethodEnabled(method.value);
+                return (
+                  <label
+                    key={method.value}
+                    className={`checkout-payment-tile checkout-payment-tile--provider${
+                      formState.paymentMethod === method.value ? " checkout-payment-tile--active" : ""
+                    }${enabled ? "" : " checkout-payment-tile--disabled"}`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={method.value}
+                      checked={formState.paymentMethod === method.value}
+                      disabled={!enabled}
+                      onChange={handleGatewayPaymentMethodChange}
+                    />
+                    <span className="checkout-payment-icon" aria-hidden="true">
+                      <i
+                        className={
+                          method.value === "opay_transfer"
+                            ? "fa-solid fa-qrcode"
+                            : method.value === "moniepoint_transfer"
+                              ? "fa-solid fa-building-columns"
+                              : "fa-regular fa-credit-card"
+                        }
+                      />
+                    </span>
+                    <div>
+                      <span className="checkout-payment-title">{method.title}</span>
+                      <span className="checkout-payment-subtitle">{method.subtitle}</span>
+                      {Array.isArray(method.badges) && method.badges.length ? (
+                        <div className="checkout-payment-badges">
+                          {method.badges.map((badge, index) => {
+                            const key = `${badge.label}-${index}`;
+                            if (badge.type === "image" && badge.src) {
+                              const imageSrc = encodeURI(badge.src);
+                              return (
+                                <span key={key} className="checkout-payment-badge checkout-payment-badge--image">
+                                  <Image
+                                    src={imageSrc}
+                                    alt={badge.label}
+                                    width={44}
+                                    height={26}
+                                    sizes="44px"
+                                    loading="lazy"
+                                    style={{ width: "auto", height: "24px", objectFit: "contain" }}
+                                  />
+                                </span>
+                              );
+                            }
+                            if (badge.icon) {
+                              return (
+                                <span key={key} className="checkout-payment-badge">
+                                  <i className={badge.icon} aria-hidden="true" />
+                                  <span className="sr-only">{badge.label}</span>
+                                </span>
+                              );
+                            }
+                            return (
+                              <span key={key} className="checkout-payment-badge checkout-payment-badge--text">
+                                {badge.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
         {showCardFields ? (
           <div className="checkout-field-grid">
@@ -1809,16 +1885,6 @@ export default function CheckoutForm({
                 </span>
               ) : null}
             </label>
-          </div>
-        ) : null}
-        {acceptedBadges.length ? (
-          <div className="checkout-accepted-row" aria-label="Accepted payment cards">
-            <span>We accept</span>
-            {acceptedBadges.map((badge, index) => (
-              <span key={`${badge.label}-${index}`} className="checkout-payment-badge checkout-payment-badge--text">
-                {badge.label}
-              </span>
-            ))}
           </div>
         ) : null}
       </section>
