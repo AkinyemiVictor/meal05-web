@@ -1,6 +1,7 @@
 .next
 .open-next
 .wrangler
+.eslintcache
 node_modules
 .env*
 !.env.example
