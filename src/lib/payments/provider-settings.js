@@ -68,7 +68,7 @@ export const sanitizeProvider = (provider, capability = "checkout") => {
     logoUrl: provider.logo_url || "",
     customerNotice: provider.customer_notice || "",
     available: usable,
-    badge: usable && provider.is_recommended ? "Recommended" : provider.code === "paystack" ? "Coming later" : "Unavailable for now",
+    badge: usable ? (provider.is_recommended ? "Recommended" : "") : provider.code === "paystack" ? "Coming later" : "Unavailable for now",
     bankName: usable && isBankTransfer ? provider.bank_name : "",
     accountName: usable && isBankTransfer ? provider.account_name : "",
     accountNumber: usable && isBankTransfer ? provider.account_number : "",

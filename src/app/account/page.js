@@ -1,7 +1,6 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -370,6 +369,7 @@ export function AccountPageContent() {
   const addressFeedbackTimeoutRef = useRef(null);
   const addressFormMessageTimeoutRef = useRef(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
   const [deliveryContacts, setDeliveryContacts] = useState({});
   const deliveryContactRequestsRef = useRef(new Set());
   const { ordered: homeProducts } = useCatalogProducts("/api/catalog/home?limit=12");
@@ -995,13 +995,22 @@ export function AccountPageContent() {
     scheduleAddressFeedbackClear();
   };
 
-  const presentOrders = useMemo(
-    () => orders.filter((order) => !["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const paymentStatus = String(order.paymentStatus || "").toLowerCase();
+        const status = String(order.status || "").toLowerCase();
+        return !["pending", "awaiting payment", "unpaid"].includes(paymentStatus || status);
+      }),
     [orders]
   );
+  const presentOrders = useMemo(
+    () => visibleOrders.filter((order) => !["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
+    [visibleOrders]
+  );
   const pastOrders = useMemo(
-    () => orders.filter((order) => ["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
-    [orders]
+    () => visibleOrders.filter((order) => ["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
+    [visibleOrders]
   );
   const wishlistProducts = useMemo(() => homeProducts.slice(0, 6), [homeProducts]);
   const recentlyViewed = useMemo(
@@ -1013,7 +1022,7 @@ export function AccountPageContent() {
     return `${words[0]?.[0] || "M"}${words[1]?.[0] || words[0]?.[1] || "F"}`.toUpperCase();
   }, [resolvedUser]);
   const getTabBadge = (slug) => {
-    if (slug === "orders") return presentOrders.length || orders.length || "";
+    if (slug === "orders") return presentOrders.length || pastOrders.length || "";
     if (slug === "wishlist") return wishlistProducts.length || "";
     if (slug === "voucher") return 2;
     return "";
@@ -1261,19 +1270,17 @@ export function AccountPageContent() {
                         <span>Placed {formatOrderDate(order.placedAt)}</span>
                         <span>Total {formatProductPrice(order.summary?.total || 0)}</span>
                         <span>Status: {formatStatusLabel(order.status)}</span>
-                        {expandedOrderId === order.orderId ? (
-                          <>
-                            <OrderTracker order={order} />
-                            <DeliveryContactCard contactState={deliveryContacts[order.orderId]} />
-                          </>
-                        ) : null}
                       </div>
                       <div className={styles.orderActions}>
                         <button
                           type="button"
                           className={styles.orderActionButton}
                           aria-expanded={expandedOrderId === order.orderId}
-                          onClick={() => setExpandedOrderId(expandedOrderId === order.orderId ? null : order.orderId)}
+                          onClick={() => {
+                            const isOpen = expandedOrderId === order.orderId;
+                            setExpandedOrderId(isOpen ? null : order.orderId);
+                            if (isOpen) setTrackingOrderId(null);
+                          }}
                         >
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span>{expandedOrderId === order.orderId ? "Hide details" : "View details"}</span>
@@ -1292,39 +1299,20 @@ export function AccountPageContent() {
                         </button>
                       </div>
                       {expandedOrderId === order.orderId ? (
-                        <div style={{ marginTop: 12, borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
-                          <strong style={{ display: "block", marginBottom: 8 }}>Items</strong>
-                          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
-                            {(Array.isArray(order.items) ? order.items : []).map((it, idx) => (
-                              <li key={idx} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                {it?.product?.image ? (
-                                  <Image
-                                    src={resolveProductImage(it.product.image)}
-                                    alt=""
-                                    width={44}
-                                    height={44}
-                                    sizes="44px"
-                                    loading="lazy"
-                                    style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e7eb" }}
-                                  />
-                                ) : (
-                                  <div style={{ width: 44, height: 44, borderRadius: 6, border: "1px solid #e5e7eb", background: "#f8fafc" }} />
-                                )}
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {it?.product?.title || it?.product?.name || `Item ${idx + 1}`}
-                                  </div>
-                                  <div style={{ color: "#6b7280", fontSize: 13 }}>
-                                    {it?.product?.unit ? `${it.product.unit} - ` : ""}Qty {it?.quantity ?? 0}
-                                  </div>
-                                </div>
-                                <div style={{ textAlign: "right" }}>
-                                  <div style={{ fontWeight: 600 }}>{formatProductPrice(Number(it?.lineTotal) || (Number(it?.unitPrice) || 0) * (Number(it?.quantity) || 0))}</div>
-                                  <div style={{ color: "#6b7280", fontSize: 12 }}>{formatProductPrice(Number(it?.unitPrice) || 0)} each</div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
+                        <div className={styles.orderDetailsPanel}>
+                          <div className={styles.orderReferenceRow}>
+                            <span>Order reference</span>
+                            <strong>{order.orderId}</strong>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.orderActionButton}
+                            onClick={() => setTrackingOrderId(trackingOrderId === order.orderId ? null : order.orderId)}
+                          >
+                            {trackingOrderId === order.orderId ? "Hide tracking" : "Track order"}
+                          </button>
+                          {trackingOrderId === order.orderId ? <OrderTracker order={order} /> : null}
+                          <DeliveryContactCard contactState={deliveryContacts[order.orderId]} />
                         </div>
                       ) : null}
                     </div>
@@ -1350,7 +1338,20 @@ export function AccountPageContent() {
                         <span>Delivered {formatOrderDate(order.placedAt)}</span>
                         <span>Total {formatProductPrice(order.summary?.total || 0)}</span>
                         {expandedOrderId === order.orderId ? (
-                          <OrderTracker order={{ ...order, status: "delivered" }} />
+                          <div className={styles.orderDetailsPanel}>
+                            <div className={styles.orderReferenceRow}>
+                              <span>Order reference</span>
+                              <strong>{order.orderId}</strong>
+                            </div>
+                            <button
+                              type="button"
+                              className={styles.orderActionButton}
+                              onClick={() => setTrackingOrderId(trackingOrderId === order.orderId ? null : order.orderId)}
+                            >
+                              {trackingOrderId === order.orderId ? "Hide tracking" : "Track order"}
+                            </button>
+                            {trackingOrderId === order.orderId ? <OrderTracker order={{ ...order, status: "delivered" }} /> : null}
+                          </div>
                         ) : null}
                       </div>
                       <div className={styles.orderActions}>
@@ -1358,7 +1359,11 @@ export function AccountPageContent() {
                           type="button"
                           className={styles.orderActionButton}
                           aria-expanded={expandedOrderId === order.orderId}
-                          onClick={() => setExpandedOrderId(expandedOrderId === order.orderId ? null : order.orderId)}
+                          onClick={() => {
+                            const isOpen = expandedOrderId === order.orderId;
+                            setExpandedOrderId(isOpen ? null : order.orderId);
+                            if (isOpen) setTrackingOrderId(null);
+                          }}
                         >
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span>{expandedOrderId === order.orderId ? "Hide details" : "View details"}</span>
@@ -1379,42 +1384,6 @@ export function AccountPageContent() {
                           Reorder items
                         </button>
                       </div>
-                      {expandedOrderId === order.orderId ? (
-                        <div style={{ marginTop: 12, borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
-                          <strong style={{ display: "block", marginBottom: 8 }}>Items</strong>
-                          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
-                            {(Array.isArray(order.items) ? order.items : []).map((it, idx) => (
-                              <li key={idx} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                {it?.product?.image ? (
-                                  <Image
-                                    src={resolveProductImage(it.product.image)}
-                                    alt=""
-                                    width={44}
-                                    height={44}
-                                    sizes="44px"
-                                    loading="lazy"
-                                    style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e7eb" }}
-                                  />
-                                ) : (
-                                  <div style={{ width: 44, height: 44, borderRadius: 6, border: "1px solid #e5e7eb", background: "#f8fafc" }} />
-                                )}
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {it?.product?.title || it?.product?.name || `Item ${idx + 1}`}
-                                  </div>
-                                  <div style={{ color: "#6b7280", fontSize: 13 }}>
-                                    {it?.product?.unit ? `${it.product.unit} - ` : ""}Qty {it?.quantity ?? 0}
-                                  </div>
-                                </div>
-                                <div style={{ textAlign: "right" }}>
-                                  <div style={{ fontWeight: 600 }}>{formatProductPrice(Number(it?.lineTotal) || (Number(it?.unitPrice) || 0) * (Number(it?.quantity) || 0))}</div>
-                                  <div style={{ color: "#6b7280", fontSize: 12 }}>{formatProductPrice(Number(it?.unitPrice) || 0)} each</div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -1574,7 +1543,7 @@ export function AccountPageContent() {
                       <strong>{formatMoney(topup.amount, topup.currency_code)}</strong>
                       <div>
                         <h4>{formatWalletReason(topup.status)}</h4>
-                        <p>{topup.provider} · {topup.merchant_reference}</p>
+                        <p>{topup.provider} Â· {topup.merchant_reference}</p>
                       </div>
                       {topup.authorization_url ? <a href={topup.authorization_url}>Continue</a> : null}
                     </div>
@@ -1638,7 +1607,7 @@ export function AccountPageContent() {
             <div className={styles.creditBanner}>
               <div>
                 <span>Store credit balance</span>
-                <strong>₦0.00</strong>
+                <strong>â‚¦0.00</strong>
               </div>
               <i className="fa-solid fa-wallet" aria-hidden="true" />
             </div>
@@ -2210,39 +2179,30 @@ function OrderTracker({ order }) {
   const currentIndex = (() => {
     if (statusKey === "delivered") return 3;
     if (statusKey.includes("awaiting") && statusKey.includes("delivery")) return 2;
-    // Treat any other non-delivered as step 1 or 0
-    return 1; // packed
+    if (statusKey.includes("packed")) return 1;
+    return 0;
   })();
 
-  const etaText = (() => {
-    if (currentIndex >= 3) return "Delivered";
-    if (currentIndex === 2) return "ETA: within 1–2 hours";
-    return "Preparing your items";
-  })();
 
   return (
     <div className={styles.orderTracker} role="status" aria-live="polite">
-      <div className={styles.orderTrackerHeader}>
-        <strong>Tracking</strong>
-        <span className={styles.orderTrackerEta}>{etaText}</span>
-      </div>
-      <div className={styles.orderTrackerSteps}>
+      <ol className={styles.orderTrackerSteps}>
         {steps.map((step, index) => {
           const className = [
             styles.orderTrackerStep,
             index === currentIndex ? styles.isActive : "",
-            index < currentIndex ? styles.isDone : "",
+            index <= currentIndex ? styles.isDone : "",
           ]
             .filter(Boolean)
             .join(" ");
           return (
-            <div key={step.key} className={className}>
-              {step.label}
-            </div>
+            <li key={step.key} className={className}>
+              <span aria-hidden="true">{index <= currentIndex ? "\u2713" : ""}</span>
+              <strong>{step.label}</strong>
+            </li>
           );
         })}
-      </div>
-      <p className={styles.orderTrackerNote}>Order {order?.orderId}</p>
+      </ol>
     </div>
   );
 }

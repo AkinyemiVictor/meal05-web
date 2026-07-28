@@ -399,56 +399,100 @@
 /* Order tracker */
 .orderTracker {
   margin-top: 0.75rem;
-  padding: 0.9rem 1rem;
-  border-radius: 12px;
-  background: var(--mk-surface-muted);
-  border: 1px dashed var(--mk-border);
-}
-
-.orderTrackerHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.orderTrackerEta {
-  color: var(--mk-text-subtle);
-  font-size: 0.9rem;
+  padding: 1rem 0.25rem 0.25rem;
 }
 
 .orderTrackerSteps {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.6rem;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.orderTrackerSteps::before {
+  content: "";
+  position: absolute;
+  top: 1rem;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: #dbe3df;
 }
 
 .orderTrackerStep {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+  width: 25%;
   text-align: center;
-  padding: 0.55rem 0.5rem;
-  border-radius: 10px;
+  color: #667085;
+  font-weight: 850;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.orderTrackerStep span {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 2px solid #dbe3df;
+  border-radius: 999px;
   background: #ffffff;
-  border: 1px solid var(--mk-border);
-  color: var(--mk-text-subtle);
-  font-weight: 600;
-  font-size: 0.9rem;
+  color: transparent;
+  font-size: 0.82rem;
+  font-weight: 950;
+}
+
+.orderTrackerStep strong {
+  font: inherit;
 }
 
 .orderTrackerStep.isActive,
 .orderTrackerStep.isDone {
-  border-color: rgba(0, 172, 17, 0.35);
-  color: var(--mk-accent);
-  background: rgba(0, 172, 17, 0.08);
+  color: #166534;
+}
+
+.orderTrackerStep.isActive span,
+.orderTrackerStep.isDone span {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #ffffff;
 }
 
 /* marker classes exported for CSS Modules */
 .isActive {}
 .isDone {}
 
-.orderTrackerNote {
-  margin-top: 0.6rem;
-  color: var(--mk-text-subtle);
-  font-size: 0.85rem;
+.orderDetailsPanel {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #edf0f3;
+}
+
+.orderReferenceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.9rem;
+  background: #f6fbf8;
+  padding: 0.8rem 0.95rem;
+  color: #667085;
+  font-weight: 800;
+}
+
+.orderReferenceRow strong {
+  color: #101828;
 }
 
 .deliveryContactCard {
@@ -1729,7 +1773,7 @@
   height: 4.45rem;
   place-items: center;
   border-radius: 1rem;
-  background: linear-gradient(135deg, #f34920, #22a968);
+  background: linear-gradient(135deg, #0f9f4d, #19c86f);
   color: #ffffff;
   font-size: 1.35rem;
   font-weight: 950;
@@ -1759,14 +1803,14 @@
 }
 
 .accountEditLink {
-  color: #f34920;
+  color: #0f9f4d;
   font-weight: 950;
   text-decoration: none;
 }
 
 .accountEditLink:hover,
 .accountEditLink:focus-visible {
-  color: #d83f19;
+  color: #087a38;
   outline: none;
 }
 
@@ -1811,7 +1855,7 @@
 .accountMenuRow:focus-visible,
 .accountLogoutRow:hover,
 .accountLogoutRow:focus-visible {
-  background: #fff8f4;
+  background: #f4fbf7;
   outline: none;
 }
 
@@ -1821,14 +1865,14 @@
   height: 2.45rem;
   place-items: center;
   border-radius: 0.8rem;
-  background: #fff0ea;
-  color: #f34920;
+  background: #e8fbf1;
+  color: #0f9f4d;
   font-size: 1rem;
 }
 
 .accountMenuRow:nth-child(2n) .accountMenuIcon {
   background: #e8fbf1;
-  color: #1f9f61;
+  color: #0f9f4d;
 }
 
 .accountMenuBody {

@@ -235,7 +235,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   const [error, setError] = useState("");
 
   const productId = product?.id;
-  const useCenteredModal = isDropdown;
+  const useCenteredModal = true;
   const isModalPresentation = !isDropdown || useCenteredModal;
 
   useEffect(() => {

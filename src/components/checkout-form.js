@@ -63,6 +63,7 @@ const DELIVERY_SLOT_LABELS = { ...copy.checkout.deliverySlots };
 const CARD_FIELDS = ["cardName", "cardNumber", "cardExpiry", "cardCvc"];
 const WALLET_PAYMENT_METHOD = "wallet";
 const DEFAULT_GATEWAY_PAYMENT_METHOD = "moniepoint_transfer";
+const TRANSFER_PAYMENT_METHODS = ["moniepoint_transfer", "opay_transfer"];
 
 const NAME_PATTERN = "[A-Za-z ]+";
 const EMAIL_PATTERN = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}";
@@ -162,6 +163,115 @@ const deriveFirstName = (fullName) => {
 const getDeliverySlotLabel = (slot) => DELIVERY_SLOT_LABELS[slot] ?? slot;
 
 const getPaymentMethodLabel = (method) => PAYMENT_METHOD_LABELS[method] ?? method;
+
+function CheckoutStatusOverlay({ status, message, onClose }) {
+  if (!status) return null;
+  return (
+    <div className="checkout-status-overlay" role="alert" aria-live="assertive">
+      <div className={`checkout-status-overlay__card checkout-status-overlay__card--${status}`}>
+        <div className="checkout-status-overlay__icon" aria-hidden="true">
+          {status === "success" ? "OK" : "X"}
+        </div>
+        <div className="checkout-status-overlay__body">
+          <h2>{status === "success" ? "Payment submitted" : "Payment unsuccessful"}</h2>
+          <p>{message}</p>
+          <button type="button" onClick={onClose} className="checkout-status-overlay__close">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TransferPaymentPanel({ details, status, onSubmitPayment, onBack }) {
+  const payment = details?.payment || {};
+  const provider = details?.provider || {};
+  const amount = Number(payment.amount ?? details?.order?.summary?.total ?? 0) || 0;
+  const expiresAt = payment.expires_at ? new Date(payment.expires_at) : null;
+  const expiryLabel = expiresAt && Number.isFinite(expiresAt.getTime())
+    ? expiresAt.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })
+    : "";
+  const copyText = (value) => {
+    if (typeof navigator === "undefined" || !navigator.clipboard || !value) return;
+    navigator.clipboard.writeText(String(value)).catch(() => {});
+  };
+
+  return (
+    <section className="checkout-card checkout-transfer" aria-labelledby="checkout-transfer-heading">
+      <div className="checkout-transfer__topbar">
+        <button type="button" className="checkout-transfer__back" onClick={onBack}>
+          <i className="fa-solid fa-arrow-left" aria-hidden="true" />
+          Back
+        </button>
+        <span>Deposit</span>
+      </div>
+
+      <div className="checkout-transfer__hero">
+        {provider.logoUrl ? (
+          <Image src={provider.logoUrl} alt="" width={52} height={52} sizes="52px" />
+        ) : (
+          <span className="checkout-transfer__provider-mark" aria-hidden="true">
+            {String(provider.displayName || "M5").slice(0, 2).toUpperCase()}
+          </span>
+        )}
+        <p>Total to be paid</p>
+        <h2 id="checkout-transfer-heading">{formatProductPrice(amount)}</h2>
+        <button type="button" onClick={() => copyText(amount)} className="checkout-transfer__copy">
+          Copy amount
+        </button>
+      </div>
+
+      <div className="checkout-transfer__notice">
+        Transfer exactly <strong>{formatProductPrice(amount)}</strong> to the account below.
+      </div>
+
+      <dl className="checkout-transfer__account">
+        <div>
+          <dt>Bank name</dt>
+          <dd>{provider.bankName || "Bank transfer"}</dd>
+        </div>
+        <div>
+          <dt>Account number</dt>
+          <dd>
+            <span>{provider.accountNumber || "Unavailable"}</span>
+            {provider.accountNumber ? (
+              <button type="button" onClick={() => copyText(provider.accountNumber)} aria-label="Copy account number">
+                <i className="fa-regular fa-copy" aria-hidden="true" />
+              </button>
+            ) : null}
+          </dd>
+        </div>
+        <div>
+          <dt>Account name</dt>
+          <dd>{provider.accountName || "Meal05"}</dd>
+        </div>
+        <div>
+          <dt>Reference</dt>
+          <dd>
+            <span>{payment.reference || details?.order?.orderId}</span>
+            {payment.reference ? (
+              <button type="button" onClick={() => copyText(payment.reference)} aria-label="Copy payment reference">
+                <i className="fa-regular fa-copy" aria-hidden="true" />
+              </button>
+            ) : null}
+          </dd>
+        </div>
+      </dl>
+
+      {expiryLabel ? <p className="checkout-transfer__expiry">This account expires at {expiryLabel}</p> : null}
+
+      <button
+        type="button"
+        className="checkout-transfer__submit"
+        onClick={onSubmitPayment}
+        disabled={status === "processing"}
+      >
+        {status === "processing" ? "Submitting..." : "I've sent the money"}
+      </button>
+    </section>
+  );
+}
 
 function CheckoutConfirmation({ order }) {
   const firstName = deriveFirstName(order.fullName);
@@ -297,6 +407,10 @@ export default function CheckoutForm({
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
   const [selectedGatewayPaymentMethod, setSelectedGatewayPaymentMethod] = useState(DEFAULT_GATEWAY_PAYMENT_METHOD);
+  const [paymentStep, setPaymentStep] = useState("checkout");
+  const [paymentProviderOptions, setPaymentProviderOptions] = useState([]);
+  const [paymentProvidersStatus, setPaymentProvidersStatus] = useState("idle");
+  const [transferDetails, setTransferDetails] = useState(null);
   const checkoutIdempotencyKeyRef = useRef(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [savedDefaultAddressId, setSavedDefaultAddressId] = useState("");
@@ -494,6 +608,54 @@ export default function CheckoutForm({
     () => gatewayPaymentMethods.filter((method) => isCheckoutPaymentMethodEnabled(method.value)),
     [gatewayPaymentMethods]
   );
+  const transferPaymentMethods = useMemo(() => {
+    return TRANSFER_PAYMENT_METHODS.map((code) => {
+      const method = paymentMethods.find((entry) => entry.value === code) || {
+        value: code,
+        title: code,
+        subtitle: "Bank Transfer.",
+        badges: [],
+      };
+      const provider = paymentProviderOptions.find((entry) => entry.code === code);
+      const hasProvider = Boolean(provider);
+      const available = hasProvider
+        ? Boolean(provider.available)
+        : paymentProvidersStatus === "idle" && paymentStep !== "provider"
+          ? isCheckoutPaymentMethodEnabled(code)
+          : false;
+      return {
+        ...method,
+        title: provider?.displayName || method.title,
+        subtitle: provider?.customerNotice || method.subtitle,
+        provider,
+        available,
+        badge: provider?.badge || (method.badges?.[0]?.label ?? ""),
+      };
+    });
+  }, [paymentMethods, paymentProviderOptions, paymentProvidersStatus, paymentStep]);
+
+  useEffect(() => {
+    if (paymentStep !== "provider" && selectedPaymentGroup !== "gateway") return;
+    const controller = new AbortController();
+    setPaymentProvidersStatus("loading");
+    fetch("/api/payment-methods", { cache: "no-store", signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("Unable to load payment methods."))))
+      .then((payload) => {
+        const methods = Array.isArray(payload?.methods) ? payload.methods : [];
+        setPaymentProviderOptions(
+          methods
+            .filter((method) => TRANSFER_PAYMENT_METHODS.includes(method?.code))
+            .sort((a, b) => Number(a.displayOrder || 100) - Number(b.displayOrder || 100))
+        );
+        setPaymentProvidersStatus("ready");
+      })
+      .catch((error) => {
+        if (error?.name === "AbortError") return;
+        setPaymentProvidersStatus("error");
+      });
+    return () => controller.abort();
+  }, [paymentStep, selectedPaymentGroup]);
+
   useEffect(() => {
     if (!enabledPaymentMethods.length) return;
     if (enabledPaymentMethods.some((method) => method.value === formState.paymentMethod)) return;
@@ -592,6 +754,9 @@ export default function CheckoutForm({
   };
 
   const handlePaymentGroupChange = (group) => {
+    setPaymentStep("checkout");
+    setTransferDetails(null);
+    setFormError(null);
     if (group === WALLET_PAYMENT_METHOD) {
       setFormState((prev) => ({ ...prev, paymentMethod: WALLET_PAYMENT_METHOD }));
       return;
@@ -603,6 +768,7 @@ export default function CheckoutForm({
   const handleGatewayPaymentMethodChange = (event) => {
     const { value } = event.target;
     setSelectedGatewayPaymentMethod(value);
+    setFormError(null);
     handleChange(event);
   };
 
@@ -990,7 +1156,11 @@ export default function CheckoutForm({
       showSubmitError(copy.checkout.emptyDescription);
       return;
     }
-    if (!isCheckoutPaymentMethodEnabled(formState.paymentMethod)) {
+    const paymentMethodForOrder =
+      selectedPaymentGroup === WALLET_PAYMENT_METHOD
+        ? WALLET_PAYMENT_METHOD
+        : selectedGatewayPaymentMethod || DEFAULT_GATEWAY_PAYMENT_METHOD;
+    if (!isCheckoutPaymentMethodEnabled(paymentMethodForOrder)) {
       showSubmitError("That payment method is not available right now. Please choose another option.");
       return;
     }
@@ -1043,10 +1213,31 @@ export default function CheckoutForm({
     });
     const summary = applyStoredPromoToSummary(baseSummary, readStoredPromo());
 
-    const status =
-      formState.paymentMethod === "moniepoint_transfer"
-          ? "awaiting payment"
-          : "processing";
+    if (selectedPaymentGroup === "gateway" && paymentStep === "checkout") {
+      setPaymentStep("provider");
+      setFormState((prev) => ({ ...prev, paymentMethod: paymentMethodForOrder }));
+      setStatus("idle");
+      requestAnimationFrame(() => {
+        const target = formRef.current?.querySelector?.(".checkout-payment-provider-panel");
+        if (target && typeof target.scrollIntoView === "function") {
+          try { target.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (_) { target.scrollIntoView(); }
+        }
+      });
+      return;
+    }
+
+    if (selectedPaymentGroup === "gateway" && !TRANSFER_PAYMENT_METHODS.includes(paymentMethodForOrder)) {
+      showSubmitError("Choose Moniepoint or OPay transfer to continue.");
+      return;
+    }
+
+    const selectedTransferMethod = transferPaymentMethods.find((method) => method.value === paymentMethodForOrder);
+    if (selectedPaymentGroup === "gateway" && selectedTransferMethod && !selectedTransferMethod.available) {
+      showSubmitError(`${selectedTransferMethod.title} is not available right now. Please choose another transfer option.`);
+      return;
+    }
+
+    const orderStatus = selectedPaymentGroup === "gateway" ? "awaiting payment" : "processing";
     const storedUser = readStoredUser();
 
     const cityTrimmed = formState.city.trim();
@@ -1065,6 +1256,7 @@ export default function CheckoutForm({
       landmark: formState.landmark.trim(),
       addressLabel: formState.addressLabel.trim() || "Home",
       city: canonicalCity,
+      paymentMethod: paymentMethodForOrder,
       notes: fulfillmentType === "delivery" ? formState.notes.trim() : "",
       cardName: formState.cardName.trim(),
       cardExpiry: formState.cardExpiry.trim(),
@@ -1129,7 +1321,7 @@ export default function CheckoutForm({
       summary,
       dispatchPartner: selectedDispatchOption,
       createdAt: new Date().toISOString(),
-      status,
+      status: orderStatus,
       user: nextUserRecord
         ? {
             name: nextUserRecord.fullName || nextUserRecord.email,
@@ -1213,7 +1405,7 @@ export default function CheckoutForm({
       persistCheckoutReceipt(finalOrder);
       clearStoredCart();
       clearStoredPromo();
-      addUserOrder(finalOrder, status, nextUserRecord);
+      addUserOrder(finalOrder, finalOrder.status, nextUserRecord);
       dispatchCheckoutCompletedEvent({ items: cartItems, summary: serverSummary, order: finalOrder });
       checkoutIdempotencyKeyRef.current = null;
       trackPurchase({
@@ -1287,7 +1479,7 @@ export default function CheckoutForm({
         throw err;
       }
 
-      if (formState.paymentMethod === "moniepoint_transfer") {
+      if (TRANSFER_PAYMENT_METHODS.includes(paymentMethodForOrder)) {
         if (!createdOrderId) {
           throw new Error("Unable to create order for bank transfer");
         }
@@ -1295,19 +1487,26 @@ export default function CheckoutForm({
           method: "POST",
           headers: buildCheckoutRequestHeaders(authToken, `${orderIdempotencyKey}:payment`),
           cache: "no-store",
-          body: JSON.stringify({ orderId: createdOrderId, providerCode: "moniepoint_transfer" }),
+          body: JSON.stringify({ orderId: createdOrderId, providerCode: paymentMethodForOrder }),
         });
         const transferPayload = await transferResponse.json().catch(() => ({}));
         if (!transferResponse.ok) {
           throw new Error(transferPayload?.error || "Unable to prepare bank transfer details.");
         }
-        createdOrderPayload = {
-          ...createdOrderPayload,
+        setTransferDetails({
+          order: {
+            ...order,
+            orderId: String(createdOrderId),
+            summary: createdOrderPayload?.summary || summary,
+          },
           payment: transferPayload.payment,
-          paymentProvider: transferPayload.provider,
-        };
-        order.isOnlinePaid = false;
-      } else if (formState.paymentMethod === "paystack") {
+          provider: transferPayload.provider,
+        });
+        setPaymentStep("transfer");
+        setStatus("idle");
+        checkoutIdempotencyKeyRef.current = null;
+        return;
+      } else if (paymentMethodForOrder === "paystack") {
         if (!createdOrderId) {
           throw new Error("Unable to create order for secure payment");
         }
@@ -1325,13 +1524,13 @@ export default function CheckoutForm({
           reference: paystackSession.reference,
         });
         order.isOnlinePaid = true;
-      } else if (formState.paymentMethod === "palmpay") {
+      } else if (paymentMethodForOrder === "palmpay") {
         await launchPalmPay({
           amount: createdOrderPayload?.summary?.total || summary.total,
           orderId: createdOrderId || generateOrderId(),
         });
         order.isOnlinePaid = false;
-      } else if (formState.paymentMethod === "opay") {
+      } else if (paymentMethodForOrder === "opay") {
         await launchOpay({
           amount: createdOrderPayload?.summary?.total || summary.total,
           orderId: createdOrderId || generateOrderId(),
@@ -1342,13 +1541,11 @@ export default function CheckoutForm({
       await finalize(createdOrderId, createdOrderPayload);
       setOverlayStatus("success");
       setOverlayMessage(
-        formState.paymentMethod === "moniepoint_transfer"
-          ? "Your order is waiting for bank transfer confirmation."
-          : "Your order is confirmed. We are preparing it now."
+        "Your order is confirmed. We are preparing it now."
       );
     } catch (err) {
       console.warn("Checkout error", err);
-      if (createdOrderId && !["delivery", "wallet", "moniepoint_transfer"].includes(formState.paymentMethod)) {
+      if (createdOrderId && !["delivery", "wallet", ...TRANSFER_PAYMENT_METHODS].includes(paymentMethodForOrder)) {
         await markOrderPaymentFailed(createdOrderId, authToken, err?.message || "Payment was not completed");
       }
       showSubmitError(err?.message || "Payment was not completed");
@@ -1358,30 +1555,66 @@ export default function CheckoutForm({
     }
   };
 
+  const handleTransferSubmitted = async () => {
+    if (!transferDetails?.payment?.id || status === "processing") return;
+    const authToken = await getCheckoutAuthToken();
+    if (!authToken) {
+      showSubmitError("Your login session has expired. Please sign in again to continue checkout.");
+      return;
+    }
+    setStatus("processing");
+    setFormError(null);
+    try {
+      const response = await fetch("/api/payments/bank-transfer/submit", {
+        method: "POST",
+        headers: buildCheckoutRequestHeaders(authToken, `${transferDetails.payment.id}:submit`),
+        cache: "no-store",
+        body: JSON.stringify({
+          paymentId: transferDetails.payment.id,
+          payerAccountName: transferDetails.order?.fullName || "Meal05 customer",
+          payerBankName: "Customer bank",
+          customerTransactionReference: "",
+          exactAmountConfirmed: true,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Unable to submit payment.");
+      }
+      setStatus("idle");
+      setOverlayStatus("success");
+      setOverlayMessage(payload?.message || "Payment submitted. Meal05 will confirm it before the order appears in your active orders.");
+    } catch (error) {
+      setStatus("idle");
+      setOverlayStatus("failure");
+      setOverlayMessage(error?.message || "Unable to submit payment.");
+    }
+  };
+
   if (result) {
     return (
       <>
-        {overlayStatus ? (
-          <div className="checkout-status-overlay" role="alert" aria-live="assertive">
-            <div className={`checkout-status-overlay__card checkout-status-overlay__card--${overlayStatus}`}>
-              <div className="checkout-status-overlay__icon" aria-hidden="true">
-                {overlayStatus === "success" ? "OK" : "X"}
-              </div>
-              <div className="checkout-status-overlay__body">
-                <h2>{overlayStatus === "success" ? "Payment successful" : "Payment unsuccessful"}</h2>
-                <p>{overlayMessage}</p>
-                <button
-                  type="button"
-                  onClick={() => setOverlayStatus(null)}
-                  className="checkout-status-overlay__close"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+        <CheckoutStatusOverlay status={overlayStatus} message={overlayMessage} onClose={() => setOverlayStatus(null)} />
         <CheckoutConfirmation order={result} />
+      </>
+    );
+  }
+
+  if (paymentStep === "transfer" && transferDetails) {
+    return (
+      <>
+        <CheckoutStatusOverlay status={overlayStatus} message={overlayMessage} onClose={() => setOverlayStatus(null)} />
+        <TransferPaymentPanel
+          details={transferDetails}
+          status={status}
+          onSubmitPayment={handleTransferSubmitted}
+          onBack={() => {
+            setPaymentStep("provider");
+            setTransferDetails(null);
+            setOverlayStatus(null);
+            setFormError(null);
+          }}
+        />
       </>
     );
   }
@@ -1406,6 +1639,8 @@ export default function CheckoutForm({
   })();
 
   return (
+    <>
+    <CheckoutStatusOverlay status={overlayStatus} message={overlayMessage} onClose={() => setOverlayStatus(null)} />
     <form
       id="checkout-order-form"
       ref={formRef}
@@ -1728,26 +1963,27 @@ export default function CheckoutForm({
           })}
         </div>
 
-        {selectedPaymentGroup === "gateway" ? (
+        {selectedPaymentGroup === "gateway" && paymentStep === "provider" ? (
           <div className="checkout-payment-provider-panel">
             <div className="checkout-payment-provider-panel__header">
-              <strong>Choose payment provider</strong>
+              <strong>Choose transfer provider</strong>
+              {paymentProvidersStatus === "loading" ? <span>Loading...</span> : null}
             </div>
             <div className="checkout-payment-options checkout-payment-options--providers">
-              {gatewayPaymentMethods.map((method) => {
-                const enabled = isCheckoutPaymentMethodEnabled(method.value);
+              {transferPaymentMethods.map((method) => {
+                const enabled = method.available;
                 return (
                   <label
                     key={method.value}
                     className={`checkout-payment-tile checkout-payment-tile--provider${
-                      formState.paymentMethod === method.value ? " checkout-payment-tile--active" : ""
+                      selectedGatewayPaymentMethod === method.value ? " checkout-payment-tile--active" : ""
                     }${enabled ? "" : " checkout-payment-tile--disabled"}`}
                   >
                     <input
                       type="radio"
                       name="paymentMethod"
                       value={method.value}
-                      checked={formState.paymentMethod === method.value}
+                      checked={selectedGatewayPaymentMethod === method.value}
                       disabled={!enabled}
                       onChange={handleGatewayPaymentMethodChange}
                     />
@@ -1765,9 +2001,9 @@ export default function CheckoutForm({
                     <div>
                       <span className="checkout-payment-title">{method.title}</span>
                       <span className="checkout-payment-subtitle">{method.subtitle}</span>
-                      {Array.isArray(method.badges) && method.badges.length ? (
+                      {method.badge || (Array.isArray(method.badges) && method.badges.length) ? (
                         <div className="checkout-payment-badges">
-                          {method.badges.map((badge, index) => {
+                          {(method.badge ? [{ type: "text", label: method.badge }] : method.badges).map((badge, index) => {
                             const key = `${badge.label}-${index}`;
                             if (badge.type === "image" && badge.src) {
                               const imageSrc = encodeURI(badge.src);
@@ -1897,5 +2133,6 @@ export default function CheckoutForm({
         ) : null}
       </div>
     </form>
+    </>
   );
 }

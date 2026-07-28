@@ -1017,7 +1017,7 @@ export async function POST(request) {
 
   // 4) Clear cart only for payment methods that complete at order creation.
   // Gateway payments keep the cart until server-side verification succeeds.
-  if (requestedPaymentMethod !== "paystack") {
+  if (requestedPaymentMethod === "wallet") {
     const { error: clearErr } = await admin.from("cart_items").delete().eq("user_id", user.id);
     if (clearErr) {
       await logAdminError(clearErr, { route: "/api/orders", stage: "clear:cart", order_id: orderId, user_id: user.id });
@@ -1217,7 +1217,9 @@ export async function GET(request) {
       }),
     };
   };
-  const orders = rows.map(normalize);
+  const orders = rows
+    .map(normalize)
+    .filter((order) => !["pending", "awaiting payment", "unpaid"].includes(String(order.paymentStatus || order.status || "").toLowerCase()));
   return applyRateLimitHeaders(NextResponse.json({ orders }, { status: 200 }), rl);
 }
 

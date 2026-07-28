@@ -46,7 +46,7 @@ const copy = {
       {
         value: "gateway",
         title: "Card, bank transfer, USSD",
-        subtitle: "Choose Moniepoint, OPay, or card payment.",
+        subtitle: "Continue to bank transfer options.",
         icon: "fa-regular fa-credit-card",
       },
     ],
@@ -74,10 +74,9 @@ const copy = {
       {
         value: "opay_transfer",
         title: "OPay Transfer",
-        subtitle: "Unavailable for now.",
+        subtitle: "Bank Transfer.",
         badges: [
           { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png", label: "OPay" },
-          { type: "text", label: "Unavailable for now" },
         ],
       },
       {

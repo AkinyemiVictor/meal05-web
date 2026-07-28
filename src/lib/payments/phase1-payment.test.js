@@ -21,11 +21,12 @@ test("Phase 1 seeds Moniepoint active and recommended", () => {
   assert.match(migration, /payment_provider_one_recommended_transfer_idx/i);
 });
 
-test("OPay and Paystack are visible but disabled at launch", () => {
+test("OPay transfer can be activated from provider settings while Paystack stays disabled", () => {
   assert.match(migration, /'opay_transfer', 'OPay Transfer', 'bank_transfer', false, false, false, false/i);
   assert.match(migration, /'paystack', 'Card, USSD and Paystack', 'gateway', false, false, false, false/i);
   assert.match(read("./payment-methods.js"), /case "paystack":\s*return false;/);
-  assert.match(read("./payment-methods.js"), /export const isOpayEnabled = \(\) => false;/);
+  assert.match(read("./payment-methods.js"), /export const isOpayEnabled = \(\) => true;/);
+  assert.match(read("./payment-methods.js"), /case "opay_transfer":\s*return isOpayEnabled\(\);/);
 });
 
 test("disabled Paystack and OPay initialization are rejected server-side", () => {

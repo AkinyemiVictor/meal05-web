@@ -584,7 +584,7 @@
 }
 
 .emptyCartHero {
-  min-height: min(52vh, 520px);
+  min-height: min(76vh, 720px);
   display: grid;
   grid-template-columns: minmax(220px, 0.82fr) minmax(0, 1fr);
   align-items: center;
@@ -949,7 +949,7 @@
   }
 
   .emptyCartHero {
-    min-height: 46vh;
+    min-height: 72vh;
     grid-template-columns: 1fr;
     justify-items: center;
     text-align: center;

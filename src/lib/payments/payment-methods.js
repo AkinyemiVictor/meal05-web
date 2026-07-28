@@ -4,7 +4,7 @@ export const isPaystackEnabled = () => /^pk_(test|live)_/.test(process.env.NEXT_
 
 export const isPalmPayEnabled = () => process.env.NEXT_PUBLIC_ENABLE_PALMPAY === "true";
 
-export const isOpayEnabled = () => false;
+export const isOpayEnabled = () => true;
 
 export const isWalletPaymentVisible = () => true;
 
@@ -20,6 +20,7 @@ export const isCheckoutPaymentMethodEnabled = (method) => {
     case "palmpay":
       return isPalmPayEnabled();
     case "opay":
+    case "opay_transfer":
       return isOpayEnabled();
     case "wallet":
       return isWalletPaymentVisible();
