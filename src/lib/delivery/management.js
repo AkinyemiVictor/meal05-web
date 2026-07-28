@@ -2,6 +2,7 @@ import "server-only";
 
 import crypto from "crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
+import { buildWhatsappUrl, normalizePhoneContact } from "../phone-links.js";
 
 const TOKEN_BYTES = 32;
 const DEFAULT_TOKEN_HOURS = 48;
@@ -60,17 +61,15 @@ export const getGoogleMapsUrl = (stop) => {
 };
 
 export const getWhatsAppUrl = (stop) => {
-  const phone = String(stop?.customer_phone || "").replace(/\D/g, "");
+  const phone = normalizePhoneContact(stop?.customer_phone);
   const reference = stop?.orders?.order_reference || stop?.order_reference || stop?.order_id || "your Meal05 order";
-  const message = encodeURIComponent(
-    `Hello, I am the Meal05 delivery partner handling order ${reference}. I am currently heading toward your delivery location.`
-  );
-  return phone ? `https://wa.me/${phone}?text=${message}` : "";
+  const message = `Hello, I am the Meal05 delivery partner handling order ${reference}. I am currently heading toward your delivery location.`;
+  return phone ? buildWhatsappUrl(phone.whatsappNumber, message) : "";
 };
 
 export const getCallUrl = (stop) => {
-  const phone = String(stop?.customer_phone || "").replace(/[^\d+]/g, "");
-  return phone ? `tel:${phone}` : "";
+  const phone = normalizePhoneContact(stop?.customer_phone);
+  return phone?.callUrl || "";
 };
 
 export async function logDeliveryAudit(admin, payload = {}) {

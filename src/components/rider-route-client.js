@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { buildRiderCustomerContact } from "@/lib/delivery/contact-window";
 
 const text = (value) =>
   String(value || "")
@@ -19,20 +20,6 @@ const mapsUrl = (stop) => {
   const lng = Number(stop?.delivery_longitude);
   const destination = Number.isFinite(lat) && Number.isFinite(lng) ? `${lat},${lng}` : encodeURIComponent(stop?.delivery_address || "");
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
-};
-
-const whatsAppUrl = (stop) => {
-  const phone = String(stop?.customer_phone || "").replace(/\D/g, "");
-  const reference = stop?.orders?.order_reference || stop?.order_id || "your Meal05 order";
-  const message = encodeURIComponent(
-    `Hello, I am the Meal05 delivery partner handling order ${reference}. I am currently heading toward your delivery location.`
-  );
-  return phone ? `https://wa.me/${phone}?text=${message}` : "";
-};
-
-const callUrl = (stop) => {
-  const phone = String(stop?.customer_phone || "").replace(/[^\d+]/g, "");
-  return phone ? `tel:${phone}` : "";
 };
 
 const MAX_PROOF_PHOTO_DIMENSION = 1280;
@@ -110,6 +97,7 @@ export default function RiderRouteClient({ token }) {
     () => stops.find((stop) => ["next", "en_route", "arrived"].includes(stop.status)) || stops.find((stop) => !["delivered", "failed", "returned", "skipped"].includes(stop.status)) || null,
     [stops]
   );
+  const activeStopContact = useMemo(() => buildRiderCustomerContact({ route, stop: activeStop }), [activeStop, route]);
   const completedCount = stops.filter((stop) => stop.status === "delivered").length;
 
   const loadRoute = async () => {
@@ -251,16 +239,24 @@ export default function RiderRouteClient({ token }) {
               <p>Stop {activeStop.stop_number}</p>
               <h2>Order #{activeStop.orders?.order_reference || activeStop.order_id}</h2>
               <strong>{activeStop.customer_name?.split(" ")[0] || "Customer"}</strong>
-              <span>{activeStop.customer_phone}</span>
               <address>{activeStop.delivery_address}</address>
               {activeStop.delivery_landmark ? <small>Landmark: {activeStop.delivery_landmark}</small> : null}
               {activeStop.delivery_notes ? <small>Notes: {activeStop.delivery_notes}</small> : null}
 
               <div className="rider-link-grid">
                 <a href={mapsUrl(activeStop)} target="_blank" rel="noreferrer">Open Google Maps</a>
-                {whatsAppUrl(activeStop) ? <a href={whatsAppUrl(activeStop)} target="_blank" rel="noreferrer">WhatsApp Customer</a> : null}
-                {callUrl(activeStop) ? <a href={callUrl(activeStop)}>Call Customer</a> : null}
+                {activeStopContact.available ? (
+                  <>
+                    <a href={activeStopContact.whatsappUrl} target="_blank" rel="noreferrer">WhatsApp Customer</a>
+                    <a href={activeStopContact.callUrl}>Call Customer</a>
+                  </>
+                ) : null}
               </div>
+              {activeStopContact.available ? (
+                <p className="rider-contact-note">{activeStopContact.note}</p>
+              ) : (
+                <p className="rider-contact-note">Customer contact is not available for this stop. Contact dispatch if you need help.</p>
+              )}
 
               <div className="rider-actions">
                 <button type="button" onClick={() => postAction({ action: "stop_status", stopId: activeStop.id, status: "en_route" })}>Mark En Route</button>
@@ -440,6 +436,13 @@ export default function RiderRouteClient({ token }) {
         .rider-link-grid a:nth-child(2) {
           background: #f04e1f;
           border-color: #f04e1f;
+        }
+        .rider-contact-note {
+          margin: 0;
+          color: #64748b;
+          font-size: 0.9rem;
+          font-weight: 700;
+          line-height: 1.45;
         }
         button:disabled {
           opacity: 0.55;

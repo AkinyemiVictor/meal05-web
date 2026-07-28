@@ -132,6 +132,9 @@ export default function Footer() {
               <li>
                 <a href="mailto:hello@meal05.com">hello@meal05.com</a>
               </li>
+              <li>
+                <Link href="/rider">Rider Portal</Link>
+              </li>
               <li>No 8, Bel Air Estate<br />Akala Expressway, Ibadan</li>
             </ul>
           </div>

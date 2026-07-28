@@ -11,7 +11,7 @@ import ProductCard from "@/components/product-card";
 import { AUTH_EVENT, clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
-import { ORDERS_EVENT, readUserOrders, updateUserOrderStatus, setUserOrders } from "@/lib/orders";
+import { ORDERS_EVENT, readUserOrders, setUserOrders } from "@/lib/orders";
 import { CART_UPDATED_EVENT, readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { formatProductPrice } from "@/lib/catalogue";
 import { useCatalogProducts, useProductsByIds } from "@/lib/use-catalog-products";
@@ -370,6 +370,8 @@ export function AccountPageContent() {
   const addressFeedbackTimeoutRef = useRef(null);
   const addressFormMessageTimeoutRef = useRef(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [deliveryContacts, setDeliveryContacts] = useState({});
+  const deliveryContactRequestsRef = useRef(new Set());
   const { ordered: homeProducts } = useCatalogProducts("/api/catalog/home?limit=12");
   const [recentProductIds, setRecentProductIds] = useState([]);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
@@ -1014,10 +1016,35 @@ export function AccountPageContent() {
     return "";
   };
 
-  const handleMarkOrderDelivered = (orderId) => {
-    updateUserOrderStatus(orderId, "delivered");
-    setOrders(readUserOrders());
-  };
+  const loadDeliveryContact = useCallback(
+    async (orderId) => {
+      if (!user || !orderId) return;
+      const key = String(orderId);
+      if (deliveryContactRequestsRef.current.has(key) || deliveryContacts[key]?.status === "ready") return;
+      deliveryContactRequestsRef.current.add(key);
+      setDeliveryContacts((current) => ({ ...current, [key]: { status: "loading", available: false } }));
+      try {
+        const response = await fetch(`/api/orders/${encodeURIComponent(key)}/delivery-contact`, { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        setDeliveryContacts((current) => ({
+          ...current,
+          [key]: response.ok ? { status: "ready", ...payload } : { status: "error", available: false },
+        }));
+      } catch {
+        setDeliveryContacts((current) => ({ ...current, [key]: { status: "error", available: false } }));
+      } finally {
+        deliveryContactRequestsRef.current.delete(key);
+      }
+    },
+    [deliveryContacts, user]
+  );
+
+  useEffect(() => {
+    if (activeTab !== "orders" || !expandedOrderId) return;
+    const expandedOrder = presentOrders.find((order) => order.orderId === expandedOrderId);
+    if (!expandedOrder) return;
+    void loadDeliveryContact(expandedOrder.orderId);
+  }, [activeTab, expandedOrderId, loadDeliveryContact, presentOrders]);
 
   const handleReorder = (order) => {
     const orderItems = Array.isArray(order?.items) ? order.items : [];
@@ -1232,7 +1259,10 @@ export function AccountPageContent() {
                         <span>Total {formatProductPrice(order.summary?.total || 0)}</span>
                         <span>Status: {formatStatusLabel(order.status)}</span>
                         {expandedOrderId === order.orderId ? (
-                          <OrderTracker order={order} />
+                          <>
+                            <OrderTracker order={order} />
+                            <DeliveryContactCard contactState={deliveryContacts[order.orderId]} />
+                          </>
                         ) : null}
                       </div>
                       <div className={styles.orderActions}>
@@ -1256,13 +1286,6 @@ export function AccountPageContent() {
                               <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                           </span>
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.orderActionButton}
-                          onClick={() => handleMarkOrderDelivered(order.orderId)}
-                        >
-                          Mark as delivered
                         </button>
                       </div>
                       {expandedOrderId === order.orderId ? (
@@ -1395,7 +1418,7 @@ export function AccountPageContent() {
               ) : (
                 <div className={styles.sectionEmpty}>
                   <i className="fa-regular fa-calendar" aria-hidden="true" style={{ fontSize: "1.4rem" }} />
-                  <p>No completed orders yet. Once an order is marked delivered it will appear here.</p>
+                  <p>No completed orders yet. Once delivery is completed it will appear here.</p>
                 </div>
               )}
             </div>
@@ -2151,6 +2174,23 @@ export default function AccountPage() {
     <Suspense fallback={<div>Loading account...</div>}>
       <AccountPageContent />
     </Suspense>
+  );
+}
+
+function DeliveryContactCard({ contactState }) {
+  if (contactState?.status !== "ready" || !contactState?.available || !contactState?.rider) return null;
+  return (
+    <div className={styles.deliveryContactCard}>
+      <div>
+        <strong>Contact your rider</strong>
+        <span>{contactState.rider.name}</span>
+      </div>
+      <div className={styles.deliveryContactActions}>
+        <a href={contactState.rider.callUrl}>Call</a>
+        <a href={contactState.rider.whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a>
+      </div>
+      {contactState.note ? <p>{contactState.note}</p> : null}
+    </div>
   );
 }
 

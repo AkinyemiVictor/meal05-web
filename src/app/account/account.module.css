@@ -451,6 +451,55 @@
   font-size: 0.85rem;
 }
 
+.deliveryContactCard {
+  margin-top: 0.75rem;
+  border: 1px solid rgba(0, 172, 17, 0.22);
+  border-radius: 12px;
+  background: rgba(0, 172, 17, 0.06);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.deliveryContactCard > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.deliveryContactCard strong {
+  color: var(--mk-text);
+}
+
+.deliveryContactCard span,
+.deliveryContactCard p {
+  margin: 0;
+  color: var(--mk-text-subtle);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.deliveryContactActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.deliveryContactActions a {
+  min-height: 42px;
+  border-radius: 10px;
+  background: var(--mk-accent);
+  color: var(--mk-accent-contrast, #fff);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.deliveryContactActions a:first-child {
+  background: #0f172a;
+}
+
 .twoColumn {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
