@@ -23,7 +23,7 @@ import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-co
 import { insertOrderStatusHistory } from "@/lib/order-status-history";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { toCategorySlug } from "@/lib/categories-server";
-import { isCheckoutPaymentMethodEnabled } from "@/lib/payments/payment-methods";
+import { normalizeProviderCode, requireUsableProvider } from "@/lib/payments/provider-settings";
 import { loadWalletSettings } from "@/lib/wallet/server";
 import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 import { calculateOrderCapacity } from "@/lib/order-capacity";
@@ -126,7 +126,7 @@ export async function POST(request) {
     deliveryPartnerId: z.string().uuid().optional(),
     pickupLocationId: z.coerce.number().int().positive().optional(),
     note: z.string().max(500).optional(),
-    paymentMethod: z.string().max(64).optional().default("paystack"),
+    paymentMethod: z.string().max(64).optional().default("moniepoint_transfer"),
     preview: z.boolean().optional().default(false),
     promo_code: z.string().trim().max(64).optional(),
     items: z
@@ -755,7 +755,7 @@ export async function POST(request) {
 
   const finalSummary = promoValidation?.ok ? applyPromoToOrderSummary(baseSummary, promoValidation) : baseSummary;
   const orderTotal = finalSummary.total;
-  const requestedPaymentMethod = String(parsed.data.paymentMethod || "").trim().toLowerCase() || "paystack";
+  const requestedPaymentMethod = normalizeProviderCode(parsed.data.paymentMethod || "moniepoint_transfer");
   if (requestedPaymentMethod === "wallet") {
     const { settings, error: walletSettingsError } = await loadWalletSettings(admin);
     if (walletSettingsError) {
@@ -770,11 +770,18 @@ export async function POST(request) {
         rl
       );
     }
-  } else if (!isCheckoutPaymentMethodEnabled(requestedPaymentMethod)) {
-    return applyRateLimitHeaders(
-      NextResponse.json({ error: "Unsupported payment method or payment method is not enabled." }, { status: 400 }),
-      rl
-    );
+  } else {
+    try {
+      await requireUsableProvider(admin, requestedPaymentMethod, "checkout");
+    } catch (error) {
+      return applyRateLimitHeaders(
+        NextResponse.json(
+          { error: error.message || "This payment method is currently unavailable.", code: error.code || "PAYMENT_METHOD_DISABLED" },
+          { status: error.status || 503 }
+        ),
+        rl
+      );
+    }
   }
 
   if (isPreview) {

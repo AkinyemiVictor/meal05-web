@@ -354,7 +354,7 @@ export function AccountPageContent() {
   const [walletStatus, setWalletStatus] = useState("idle");
   const [walletMessage, setWalletMessage] = useState("");
   const [walletTopupAmount, setWalletTopupAmount] = useState("");
-  const [walletTopupProvider, setWalletTopupProvider] = useState("paystack");
+  const [walletTopupProvider, setWalletTopupProvider] = useState("moniepoint_transfer");
   const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneFeedback, setPhoneFeedback] = useState("");
@@ -489,7 +489,6 @@ export function AccountPageContent() {
         body: JSON.stringify({
           amount: walletTopupAmount,
           provider: walletTopupProvider,
-          returnUrl: `${window.location.origin}/api/wallet/topups/callback`,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -502,7 +501,11 @@ export function AccountPageContent() {
         window.location.href = payload.authorizationUrl;
         return;
       }
-      setWalletMessage("Top-up started. Open the pending top-up to continue.");
+      setWalletMessage(
+        payload?.payment?.reference
+          ? `Wallet deposit awaiting verification. Use reference ${payload.payment.reference}.`
+          : "Wallet deposit awaiting verification."
+      );
       await syncWalletFromServer();
     } catch {
       setWalletMessage("Unable to start top-up.");
@@ -1503,7 +1506,7 @@ export function AccountPageContent() {
         const currencyCode = walletSnapshot?.currencyCode || "NGN";
         const pendingTopups = Array.isArray(walletSnapshot?.pendingTopups) ? walletSnapshot.pendingTopups : [];
         const walletEnabled = settings.walletEnabled === true;
-        const paystackEnabled = settings.paystackTopupsEnabled === true;
+        const moniepointEnabled = settings.monnifyTopupsEnabled === true;
         return (
           <>
             <div className={styles.creditBanner}>
@@ -1543,11 +1546,11 @@ export function AccountPageContent() {
                   />
                 </label>
                 <label className={styles.profileField}>
-                  <span>Provider</span>
+                  <span>Funding method</span>
                   <select value={walletTopupProvider} onChange={(event) => setWalletTopupProvider(event.target.value)}>
-                    <option value="paystack" disabled={!paystackEnabled}>Paystack{paystackEnabled ? "" : " (disabled)"}</option>
-                    <option value="monnify" disabled={!settings.monnifyTopupsEnabled}>Monnify (disabled)</option>
-                    <option value="opay" disabled={!settings.opayTopupsEnabled}>OPay (disabled)</option>
+                    <option value="moniepoint_transfer" disabled={!moniepointEnabled}>Moniepoint Transfer (Recommended)</option>
+                    <option value="opay_transfer" disabled>OPay Transfer (Unavailable for now)</option>
+                    <option value="paystack" disabled>Card, USSD and Paystack (Coming later)</option>
                   </select>
                 </label>
                 {settings.minimumTopupAmount || settings.maximumTopupAmount ? (

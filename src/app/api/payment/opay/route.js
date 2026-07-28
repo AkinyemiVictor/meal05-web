@@ -6,11 +6,12 @@ export const dynamic = "force-dynamic";
 const disabled = () =>
   NextResponse.json(
     {
-      error: "OPay API integration is temporarily disabled pending secure webhook verification.",
+      error: "This payment method is currently unavailable.",
+      code: "PAYMENT_METHOD_DISABLED",
     },
     {
-      status: 410,
-      headers: { "Cache-Control": "no-store" },
+      status: 503,
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" },
     }
   );
 

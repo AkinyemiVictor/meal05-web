@@ -5,13 +5,15 @@ import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { applyVerifiedPaystackWalletTopup } from "@/lib/payments/paystack-wallet";
+import { PAYMENT_METHOD_DISABLED, requireUsableProvider } from "@/lib/payments/provider-settings";
+import { withNoStore } from "@/lib/api/no-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const text = (value) => String(value ?? "").trim();
 const errorJson = (message, status, rl) =>
-  applyRateLimitHeaders(NextResponse.json({ error: message }, { status }), rl);
+  applyRateLimitHeaders(withNoStore(NextResponse.json({ error: message }, { status })), rl);
 
 export async function POST(request, { params }) {
   let rl = await checkRateLimit({ request, id: "wallet:topups:verify:ip", limit: 60, windowMs: 60_000 });
@@ -31,6 +33,12 @@ export async function POST(request, { params }) {
   if (!userRl.allowed) return errorJson("Too many requests", 429, userRl);
   rl = userRl;
 
+  try {
+    await requireUsableProvider(admin, "paystack", "wallet_topup");
+  } catch {
+    return applyRateLimitHeaders(withNoStore(NextResponse.json(PAYMENT_METHOD_DISABLED, { status: 503 })), rl);
+  }
+
   const id = text((await params)?.id);
   if (!id) return errorJson("Missing top-up id", 400, rl);
 
@@ -46,11 +54,11 @@ export async function POST(request, { params }) {
   });
 
   if (!result.ok) {
-    return applyRateLimitHeaders(NextResponse.json(
+    return applyRateLimitHeaders(withNoStore(NextResponse.json(
       { verified: Boolean(result.verified), error: result.error },
       { status: result.status || 400 }
-    ), rl);
+    )), rl);
   }
 
-  return applyRateLimitHeaders(NextResponse.json(result.body, { status: result.status || 200 }), rl);
+  return applyRateLimitHeaders(withNoStore(NextResponse.json(result.body, { status: result.status || 200 })), rl);
 }

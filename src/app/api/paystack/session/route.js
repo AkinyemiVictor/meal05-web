@@ -5,6 +5,7 @@ import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { getOriginTrustContext } from "@/lib/api/request-origin";
+import { withNoStore } from "@/lib/api/no-store";
 import { issuePaystackReference } from "@/lib/payments/paystack-reference";
 import {
   initialisePaystackTransaction,
@@ -12,6 +13,7 @@ import {
   resolvePaystackSecret,
   toPaystackSubunit,
 } from "@/lib/payments/paystack";
+import { PAYMENT_METHOD_DISABLED, requireUsableProvider } from "@/lib/payments/provider-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +24,7 @@ const payloadSchema = z.object({
 });
 
 const errorJson = (message, status, rl) =>
-  applyRateLimitHeaders(NextResponse.json({ error: message }, { status }), rl);
+  applyRateLimitHeaders(withNoStore(NextResponse.json({ error: message }, { status })), rl);
 
 export async function POST(request) {
   let rl = await checkRateLimit({ request, id: "paystack:session:ip", limit: 60, windowMs: 60_000 });
@@ -46,6 +48,15 @@ export async function POST(request) {
   });
   if (!userRl.allowed) return errorJson("Too many requests", 429, userRl);
   rl = userRl;
+
+  try {
+    await requireUsableProvider(admin, "paystack", "checkout");
+  } catch {
+    return applyRateLimitHeaders(
+      withNoStore(NextResponse.json(PAYMENT_METHOD_DISABLED, { status: 503 })),
+      rl
+    );
+  }
 
   let body;
   try {
@@ -120,7 +131,7 @@ export async function POST(request) {
   }
 
   return applyRateLimitHeaders(
-    NextResponse.json(
+    withNoStore(NextResponse.json(
       {
         reference: issued.reference,
         orderId: String(order.id),
@@ -133,7 +144,7 @@ export async function POST(request) {
         expiresAt: issued.expiresAt,
       },
       { status: 200 }
-    ),
+    )),
     rl
   );
 }

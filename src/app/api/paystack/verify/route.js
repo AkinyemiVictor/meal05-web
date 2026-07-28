@@ -5,6 +5,7 @@ import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { applyVerifiedPaystackPayment } from "@/lib/payments/paystack-verify";
+import { withNoStore } from "@/lib/api/no-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 const normaliseText = (value) => String(value ?? "").trim();
 
 const errorJson = (message, status, rl) =>
-  applyRateLimitHeaders(NextResponse.json({ error: message }, { status }), rl);
+  applyRateLimitHeaders(withNoStore(NextResponse.json({ error: message }, { status })), rl);
 
 export async function POST(req) {
   let rl = await checkRateLimit({ request: req, id: "paystack:verify:ip", limit: 60, windowMs: 60_000 });
@@ -47,16 +48,16 @@ export async function POST(req) {
 
     const result = await applyVerifiedPaystackPayment({ reference, providedOrderId: orderId, userId: user.id });
     if (!result.ok) {
-      return applyRateLimitHeaders(NextResponse.json(
+      return applyRateLimitHeaders(withNoStore(NextResponse.json(
         {
           verified: Boolean(result.verified),
           stockUpdated: result.stockUpdated ?? false,
           error: result.error,
         },
         { status: result.status || 400 }
-      ), rl);
+      )), rl);
     }
-    return applyRateLimitHeaders(NextResponse.json(result.body, { status: result.status || 200 }), rl);
+    return applyRateLimitHeaders(withNoStore(NextResponse.json(result.body, { status: result.status || 200 })), rl);
   } catch (error) {
     return errorJson(error?.message || "Server error", 500, rl);
   }

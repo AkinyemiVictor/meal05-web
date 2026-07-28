@@ -43,37 +43,34 @@ const copy = {
     },
     paymentMethods: [
       {
-        value: "paystack",
-        title: "Pay online",
-        subtitle: "Card, transfer, or USSD.",
-        badges: [
-          { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/visa card.png", label: "Visa" },
-          { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/master card.png", label: "Mastercard" },
-          { type: "image", src: "/assets/icons/png/thumbnails/bank card thumbnails/verve card.png", label: "Verve" },
-        ],
-      },
-      {
         value: "wallet",
-        title: "Meal05 Balance",
-        subtitle: "Available balance.",
+        title: "Meal05 Wallet",
+        subtitle: "Pay with Wallet using verified wallet funds.",
         badges: [
           { type: "icon", icon: "fa-solid fa-wallet", label: "Closed-loop balance" },
         ],
       },
       {
-        value: "palmpay",
-        title: "Pay with PalmPay",
-        subtitle: "PalmPay app or wallet.",
+        value: "moniepoint_transfer",
+        title: "Moniepoint Transfer",
+        subtitle: "Bank Transfer - Recommended.",
+        badges: [{ type: "text", label: "Recommended" }],
+      },
+      {
+        value: "opay_transfer",
+        title: "OPay Transfer",
+        subtitle: "Unavailable for now.",
         badges: [
-          { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/palmpay logo.png", label: "PalmPay" },
+          { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png", label: "OPay" },
+          { type: "text", label: "Unavailable for now" },
         ],
       },
       {
-        value: "opay",
-        title: "Pay with OPay",
-        subtitle: "OPay wallet or QR.",
+        value: "paystack",
+        title: "Card, USSD and Paystack",
+        subtitle: "Coming later.",
         badges: [
-          { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png", label: "OPay" },
+          { type: "text", label: "Coming later" },
         ],
       },
     ],

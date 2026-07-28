@@ -20,12 +20,12 @@ export const createWalletReference = (provider = "paystack") => {
 };
 
 export const defaultWalletSettings = {
-  walletEnabled: false,
+  walletEnabled: true,
   paystackTopupsEnabled: false,
-  monnifyTopupsEnabled: false,
+  monnifyTopupsEnabled: true,
   opayTopupsEnabled: false,
-  walletPaymentEnabled: false,
-  walletRefundsEnabled: false,
+  walletPaymentEnabled: true,
+  walletRefundsEnabled: true,
   mixedPaymentEnabled: false,
   minimumTopupAmount: null,
   maximumTopupAmount: null,
@@ -74,7 +74,7 @@ export const loadWalletSnapshot = async (admin, userId) => {
       .from("wallet_topups")
       .select("id, provider, amount, currency_code, status, merchant_reference, provider_reference, authorization_url, failure_reason, created_at, updated_at")
       .eq("user_id", userId)
-      .in("status", ["pending", "processing"])
+      .in("status", ["pending", "awaiting_transfer", "submitted", "processing"])
       .order("created_at", { ascending: false })
       .limit(10),
   ]);
@@ -97,6 +97,8 @@ export const isProviderTopupEnabled = (settings, provider) => {
   switch (normaliseWalletProvider(provider)) {
     case "paystack":
       return settings.walletEnabled && settings.paystackTopupsEnabled;
+    case "moniepoint_transfer":
+    case "moniepoint":
     case "monnify":
       return settings.walletEnabled && settings.monnifyTopupsEnabled;
     case "opay":

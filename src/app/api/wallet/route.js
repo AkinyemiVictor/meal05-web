@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
+import { withNoStore } from "@/lib/api/no-store";
 import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { loadWalletSnapshot } from "@/lib/wallet/server";
 
@@ -10,7 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const errorJson = (message, status, rl) =>
-  applyRateLimitHeaders(NextResponse.json({ error: message }, { status }), rl);
+  applyRateLimitHeaders(withNoStore(NextResponse.json({ error: message }, { status })), rl);
 
 export async function GET(request) {
   let rl = await checkRateLimit({ request, id: "wallet:get:ip", limit: 120, windowMs: 60_000 });
@@ -32,7 +33,7 @@ export async function GET(request) {
 
   try {
     const snapshot = await loadWalletSnapshot(admin, user.id);
-    return applyRateLimitHeaders(NextResponse.json(snapshot, { status: 200 }), rl);
+    return applyRateLimitHeaders(withNoStore(NextResponse.json(snapshot, { status: 200 })), rl);
   } catch (error) {
     return errorJson(error?.message || "Unable to load Meal05 Balance.", 500, rl);
   }

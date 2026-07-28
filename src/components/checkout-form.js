@@ -472,13 +472,14 @@ export default function CheckoutForm({
     };
   }, [defaultServiceCity, deliverySettings, serviceZoneOptions]);
 
-  // We use Paystack for all online payments; never collect raw card details in our UI.
+  // Gateway options stay visible but disabled until server-side provider settings activate them.
   const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "";
   const showCardFields = false;
   const isProcessing = status === "processing";
+  const paymentMethods = useMemo(() => copy.checkout.paymentMethods, []);
   const enabledPaymentMethods = useMemo(
-    () => copy.checkout.paymentMethods.filter((method) => isCheckoutPaymentMethodEnabled(method.value)),
-    []
+    () => paymentMethods.filter((method) => isCheckoutPaymentMethodEnabled(method.value)),
+    [paymentMethods]
   );
   const acceptedBadges = useMemo(
     () => copy.checkout.paymentMethods.find((method) => method.value === "paystack")?.badges || [],
@@ -1009,7 +1010,7 @@ export default function CheckoutForm({
     const summary = applyStoredPromoToSummary(baseSummary, readStoredPromo());
 
     const status =
-      formState.paymentMethod === "palmpay" || formState.paymentMethod === "opay"
+      formState.paymentMethod === "moniepoint_transfer"
           ? "awaiting payment"
           : "processing";
     const storedUser = readStoredUser();
@@ -1171,6 +1172,8 @@ export default function CheckoutForm({
         orderId: String(serverOrderId || order.orderId || ""),
         summary: serverSummary,
         promoCode: serverSummary?.promoCode || "",
+        payment: serverPayload?.payment || null,
+        paymentProvider: serverPayload?.paymentProvider || null,
       };
 
       persistCheckoutReceipt(finalOrder);
@@ -1250,7 +1253,27 @@ export default function CheckoutForm({
         throw err;
       }
 
-      if (formState.paymentMethod === "paystack") {
+      if (formState.paymentMethod === "moniepoint_transfer") {
+        if (!createdOrderId) {
+          throw new Error("Unable to create order for bank transfer");
+        }
+        const transferResponse = await fetch("/api/payments/bank-transfer/initialize", {
+          method: "POST",
+          headers: buildCheckoutRequestHeaders(authToken, `${orderIdempotencyKey}:payment`),
+          cache: "no-store",
+          body: JSON.stringify({ orderId: createdOrderId, providerCode: "moniepoint_transfer" }),
+        });
+        const transferPayload = await transferResponse.json().catch(() => ({}));
+        if (!transferResponse.ok) {
+          throw new Error(transferPayload?.error || "Unable to prepare bank transfer details.");
+        }
+        createdOrderPayload = {
+          ...createdOrderPayload,
+          payment: transferPayload.payment,
+          paymentProvider: transferPayload.provider,
+        };
+        order.isOnlinePaid = false;
+      } else if (formState.paymentMethod === "paystack") {
         if (!createdOrderId) {
           throw new Error("Unable to create order for secure payment");
         }
@@ -1284,10 +1307,14 @@ export default function CheckoutForm({
 
       await finalize(createdOrderId, createdOrderPayload);
       setOverlayStatus("success");
-      setOverlayMessage("Your order is confirmed. We are preparing it now.");
+      setOverlayMessage(
+        formState.paymentMethod === "moniepoint_transfer"
+          ? "Your order is waiting for bank transfer confirmation."
+          : "Your order is confirmed. We are preparing it now."
+      );
     } catch (err) {
       console.warn("Checkout error", err);
-      if (createdOrderId && !["delivery", "wallet"].includes(formState.paymentMethod)) {
+      if (createdOrderId && !["delivery", "wallet", "moniepoint_transfer"].includes(formState.paymentMethod)) {
         await markOrderPaymentFailed(createdOrderId, authToken, err?.message || "Payment was not completed");
       }
       showSubmitError(err?.message || "Payment was not completed");
@@ -1631,26 +1658,31 @@ export default function CheckoutForm({
           </p>
         ) : null}
         <div className="checkout-payment-options">
-          {enabledPaymentMethods.map((method) => (
+          {paymentMethods.map((method) => {
+            const enabled = isCheckoutPaymentMethodEnabled(method.value);
+            return (
             <label
               key={method.value}
               className={`checkout-payment-tile${
                 formState.paymentMethod === method.value ? " checkout-payment-tile--active" : ""
-              }`}
+              }${enabled ? "" : " checkout-payment-tile--disabled"}`}
             >
               <input
                 type="radio"
                 name="paymentMethod"
                 value={method.value}
                 checked={formState.paymentMethod === method.value}
+                disabled={!enabled}
                 onChange={handleChange}
               />
               <span className="checkout-payment-icon" aria-hidden="true">
                 <i
                   className={
-                    method.value === "opay"
+                    method.value === "opay_transfer"
                       ? "fa-solid fa-qrcode"
-                      : method.value === "palmpay" || method.value === "wallet"
+                      : method.value === "moniepoint_transfer"
+                        ? "fa-solid fa-building-columns"
+                      : method.value === "wallet"
                         ? "fa-regular fa-wallet"
                         : "fa-regular fa-credit-card"
                   }
@@ -1697,7 +1729,8 @@ export default function CheckoutForm({
                 ) : null}
               </div>
             </label>
-          ))}
+            );
+          })}
         </div>
 
         {showCardFields ? (

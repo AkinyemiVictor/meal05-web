@@ -4,12 +4,13 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { getOriginTrustContext } from "@/lib/api/request-origin";
+import { withNoStore } from "@/lib/api/no-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const errorJson = (message, status, rl) =>
-  applyRateLimitHeaders(NextResponse.json({ error: message }, { status }), rl);
+  applyRateLimitHeaders(withNoStore(NextResponse.json({ error: message }, { status })), rl);
 
 export async function GET(request) {
   let rl = await checkRateLimit({ request, id: "wallet:transactions:ip", limit: 120, windowMs: 60_000 });
@@ -33,5 +34,5 @@ export async function GET(request) {
     .limit(100);
 
   if (error) return errorJson(error.message || "Unable to load transactions.", 500, rl);
-  return applyRateLimitHeaders(NextResponse.json({ transactions: data || [] }, { status: 200 }), rl);
+  return applyRateLimitHeaders(withNoStore(NextResponse.json({ transactions: data || [] }, { status: 200 })), rl);
 }

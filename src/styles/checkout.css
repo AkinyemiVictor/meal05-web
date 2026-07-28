@@ -274,6 +274,21 @@
   border-color: rgba(0, 172, 17, 0.35);
 }
 
+.checkout-payment-tile--disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+  background: #f8fafc;
+}
+
+.checkout-payment-tile--disabled input {
+  cursor: not-allowed;
+}
+
+.checkout-payment-tile--disabled:hover {
+  transform: none;
+  border-color: var(--mk-border);
+}
+
 .checkout-payment-tile--active {
   border-color: rgba(0, 172, 17, 0.45);
   box-shadow: 0 18px 34px rgba(0, 172, 17, 0.18);
@@ -1246,6 +1261,13 @@
 .checkout-payment-tile:hover {
   transform: none;
   border-color: #141622;
+}
+
+.checkout-payment-tile--disabled,
+.checkout-payment-tile--disabled:hover {
+  transform: none;
+  border-color: #e5e5e5;
+  box-shadow: none;
 }
 
 .checkout-payment-icon {

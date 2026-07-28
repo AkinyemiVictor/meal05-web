@@ -59,6 +59,9 @@ export default function CheckoutReceipt({ status = "success", reason }) {
   const summary = receipt?.summary ?? { subtotal: 0, total: 0, packagingFee: 0, deliveryFee: 0 };
   const deliverySlot = getDeliverySlotLabel(receipt?.deliverySlot);
   const paymentLabel = getPaymentMethodLabel(receipt?.paymentMethod);
+  const payment = receipt?.payment || null;
+  const paymentProvider = receipt?.paymentProvider || null;
+  const showTransferPanel = receipt?.paymentMethod === "moniepoint_transfer" && payment && paymentProvider;
 
   const heading =
     status === "failure" ? copy.checkout.receiptPage.failureHeading : copy.checkout.receiptPage.successHeading;
@@ -141,6 +144,39 @@ export default function CheckoutReceipt({ status = "success", reason }) {
         </dl>
 
         {renderItems(receipt.items)}
+
+        {showTransferPanel ? (
+          <div className="checkout-confirmation__notice checkout-transfer-panel">
+            <h3>Complete your bank transfer</h3>
+            <p>Transfer the exact amount to the account below. Add the Meal05 payment reference to your transfer description where your bank allows it.</p>
+            <dl className="checkout-confirmation__details">
+              <div>
+                <dt>Amount to transfer</dt>
+                <dd>{formatProductPrice(payment.amount)}</dd>
+              </div>
+              <div>
+                <dt>Bank name</dt>
+                <dd>{paymentProvider.bankName}</dd>
+              </div>
+              <div>
+                <dt>Account name</dt>
+                <dd>{paymentProvider.accountName}</dd>
+              </div>
+              <div>
+                <dt>Account number</dt>
+                <dd>{paymentProvider.accountNumber}</dd>
+              </div>
+              <div>
+                <dt>Payment reference</dt>
+                <dd>{payment.reference}</dd>
+              </div>
+            </dl>
+            <p><strong>Your order will remain unpaid until Meal05 confirms that the transfer has reached our account.</strong></p>
+            <Link href={`/account/orders`} className="checkout-confirmation__action">
+              I have made the transfer
+            </Link>
+          </div>
+        ) : null}
 
         <div className="checkout-confirmation__notice">
           <ul>

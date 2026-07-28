@@ -4,12 +4,13 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { getOriginTrustContext } from "@/lib/api/request-origin";
+import { withNoStore } from "@/lib/api/no-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const errorJson = (message, status, rl) =>
-  applyRateLimitHeaders(NextResponse.json({ error: message }, { status }), rl);
+  applyRateLimitHeaders(withNoStore(NextResponse.json({ error: message }, { status })), rl);
 
 export async function GET(request, { params }) {
   let rl = await checkRateLimit({ request, id: "wallet:topups:get:ip", limit: 120, windowMs: 60_000 });
@@ -38,5 +39,5 @@ export async function GET(request, { params }) {
   if (error) return errorJson(error.message || "Unable to load top-up.", 500, rl);
   if (!data) return errorJson("Top-up not found", 404, rl);
 
-  return applyRateLimitHeaders(NextResponse.json({ topup: data }, { status: 200 }), rl);
+  return applyRateLimitHeaders(withNoStore(NextResponse.json({ topup: data }, { status: 200 })), rl);
 }

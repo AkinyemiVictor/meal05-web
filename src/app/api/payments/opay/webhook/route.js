@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { creditWalletOverpaymentChange } from "@/lib/wallet/server";
+import { PAYMENT_METHOD_DISABLED, isProviderUsable, loadPaymentProvider } from "@/lib/payments/provider-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const json = (body, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+const json = (body, status = 200) =>
+  NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" },
+  });
 const normaliseText = (value) => String(value ?? "").trim();
 
 const verifySharedSecret = (request) => {
@@ -119,6 +124,13 @@ const comparePaidAmount = (paidAmount, orderTotal) => {
 export async function POST(request) {
   const admin = getSupabaseAdminClient();
   const payload = await readPayload(request);
+
+  const gatewayProvider = await loadPaymentProvider(admin, "opay_gateway").catch(() => null);
+  const transferProvider = await loadPaymentProvider(admin, "opay_transfer").catch(() => null);
+  if (!isProviderUsable(gatewayProvider, "checkout") && !isProviderUsable(transferProvider, "checkout")) {
+    await logAdminEvent({ route: "/api/payments/opay/webhook", provider: "opay", event: "disabled_provider_rejected" });
+    return json(PAYMENT_METHOD_DISABLED, 503);
+  }
 
   if (!verifySharedSecret(request)) {
     await logAdminError("Invalid OPay webhook signature", { route: "/api/payments/opay/webhook" });

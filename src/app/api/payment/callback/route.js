@@ -4,11 +4,16 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { applyVerifiedPaystackPayment } from "@/lib/payments/paystack-verify";
 import { applyVerifiedPaystackWalletTopup } from "@/lib/payments/paystack-wallet";
+import { PAYMENT_METHOD_DISABLED, isProviderUsable, loadPaymentProvider } from "@/lib/payments/provider-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const json = (body, status = 200, headers = {}) => NextResponse.json(body, { status, headers });
+const json = (body, status = 200, headers = {}) =>
+  NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0", ...headers },
+  });
 const normaliseText = (value) => String(value ?? "").trim();
 
 const verifyPaystackSignature = (bodyRaw, signature) => {
@@ -71,6 +76,12 @@ export async function POST(request) {
   if (!verifyPaystackSignature(bodyRaw, paystackSignature)) {
     await logAdminError("Invalid Paystack webhook signature", { route: "/api/payment/callback", provider: "paystack" });
     return json({ error: "Invalid signature" }, 401);
+  }
+
+  const paystackProvider = await loadPaymentProvider(admin, "paystack").catch(() => null);
+  if (!isProviderUsable(paystackProvider, "checkout") && !isProviderUsable(paystackProvider, "wallet_topup")) {
+    await logAdminEvent({ route: "/api/payment/callback", provider: "paystack", event: "disabled_provider_rejected" });
+    return json(PAYMENT_METHOD_DISABLED, 503, { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" });
   }
 
   const event = resolveEvent(payload);
