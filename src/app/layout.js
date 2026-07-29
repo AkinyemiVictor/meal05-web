@@ -12,6 +12,7 @@ import Meal05Header from "@/components/meal05-header";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
 import PageScaler from "@/components/page-scaler";
+import SiteNotificationPopup from "@/components/site-notification-popup";
 
 const GOOGLE_ANALYTICS_ID = "G-LYL783RTRN";
 
@@ -71,15 +72,16 @@ export default function RootLayout({ children }) {
             window.gtag('config', '${GOOGLE_ANALYTICS_ID}');
           `}
         </Script>
-        <PageScaler>
-          <NoticeProvider>
-            <Meal05Header />
+        <NoticeProvider>
+          <SiteNotificationPopup />
+          <Meal05Header />
+          <PageScaler>
             <div className="layout-main">
               {children}
             </div>
             <Footer />
-          </NoticeProvider>
-        </PageScaler>
+          </PageScaler>
+        </NoticeProvider>
         <Suspense fallback={null}>
           <MobileBottomNav />
         </Suspense>

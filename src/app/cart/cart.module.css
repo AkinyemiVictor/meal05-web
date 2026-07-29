@@ -5,6 +5,23 @@
   overflow-x: hidden;
 }
 
+.pageEmpty {
+  min-height: 100vh;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: #f5f6f8;
+}
+
+.emptyCartOnly {
+  color: #080d1d;
+  font-size: clamp(2.1rem, 9vw, 4.5rem);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-align: center;
+}
+
 .pageInner {
   width: 100%;
   max-width: 1100px;
@@ -74,7 +91,7 @@
 .cartHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
 }
 

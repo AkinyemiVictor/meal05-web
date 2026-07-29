@@ -7,15 +7,19 @@ import { usePathname } from "next/navigation";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { shouldShowCommerceFooter } from "@/lib/commerce-chrome";
 import { BRAND_MARK_SRC, BRAND_WORDMARK_DARK_SRC } from "@/lib/theme-logo";
+import { useCartHasItems } from "@/lib/use-cart-has-items";
 import NewsletterSignup from "@/components/newsletter-signup";
 
 export default function Footer() {
   const pathname = usePathname();
+  const isCartPath = pathname === "/cart";
+  const cartHasItems = useCartHasItems(isCartPath);
   const [locationSearch, setLocationSearch] = useState("");
   useEffect(() => {
     setLocationSearch(window.location.search || "");
   }, [pathname]);
   if (!shouldShowCommerceFooter(pathname)) return null;
+  if (isCartPath && cartHasItems !== true) return null;
   const currentPathForAuth = `${pathname || "/"}${locationSearch}`;
   const loginHref = buildSignInHref({ tab: "login", next: currentPathForAuth, hash: "loginForm" });
 

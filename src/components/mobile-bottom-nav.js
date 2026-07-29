@@ -13,6 +13,7 @@ import {
 import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
 import { readCartItems } from "@/lib/cart-storage";
 import { shouldShowMobileBottomNav } from "@/lib/commerce-chrome";
+import { useCartHasItems } from "@/lib/use-cart-has-items";
 
 const items = [
   { label: "Home", icon: IconHome, href: "/home", match: (pathname) => pathname === "/home" },
@@ -56,9 +57,12 @@ function useCartCount() {
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const isCartPath = pathname === "/cart";
+  const cartHasItems = useCartHasItems(isCartPath);
   const cartCount = useCartCount();
 
   if (!shouldShowMobileBottomNav(pathname)) return null;
+  if (isCartPath && cartHasItems !== true) return null;
 
   return (
     <nav className="site-mobile-bottom-nav md:hidden" aria-label="Primary mobile navigation">

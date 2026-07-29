@@ -51,10 +51,7 @@ const copy = {
       },
     ],
     deliverySlots: {
-      "same-day-evening": "Same day (4pm - 8pm)",
-      "next-day-morning": "Next day morning (8am - 11am)",
-      "next-day-afternoon": "Next day afternoon (12pm - 3pm)",
-      "next-day-evening": "Next day evening (4pm - 8pm)",
+      "same-day-evening": "Same day (4PM - 8PM)",
     },
     paymentMethods: [
       {
@@ -176,7 +173,7 @@ const copy = {
     emptyTitle: "Cart empty",
     emptyDescription: "Add fresh groceries to your cart to continue to checkout.",
     emptyCta: "Browse products",
-    completeOrder: "Pay & place order",
+    completeOrder: "Proceed to payment",
   },
   general: {
     continueShopping: "Continue shopping",

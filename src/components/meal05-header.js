@@ -9,6 +9,7 @@ import { IconSearch } from "@tabler/icons-react";
 
 import DeferredLocationPicker from "@/components/deferred-location-picker";
 import { shouldShowCommerceHeader } from "@/lib/commerce-chrome";
+import { useCartHasItems } from "@/lib/use-cart-has-items";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 const Meal05HeaderActions = dynamic(() => import("@/components/meal05-header-actions"), { ssr: false });
@@ -54,20 +55,20 @@ function SearchForm({ id, compact = false }) {
 
 export default function Meal05Header() {
   const pathname = usePathname();
+  const isCartPath = pathname === "/cart";
+  const cartHasItems = useCartHasItems(isCartPath);
 
   if (!shouldShowCommerceHeader(pathname)) return null;
+  if (isCartPath && cartHasItems !== true) return null;
 
   return (
     <>
-      <header className="meal05-header meal05-header--mobile fixed inset-x-0 top-0 z-50 bg-meal-paper px-5 pb-4 pt-4 shadow-sm md:hidden">
+      <header className="meal05-header meal05-header--mobile fixed inset-x-0 top-0 z-50 bg-meal-paper px-5 py-4 shadow-sm md:hidden">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="w-[10.5rem] max-w-[42vw] shrink-0">
             <DeferredLocationPicker mobileHeader />
           </div>
           <Meal05HeaderActions mobile />
-        </div>
-        <div className="mt-4">
-          <SearchForm id="header-search-mobile" compact />
         </div>
       </header>
 
@@ -85,18 +86,15 @@ export default function Meal05Header() {
             />
           </Link>
 
-          <div className="hidden flex-1 lg:block">
-            <SearchForm id="header-search-desktop" compact />
-          </div>
-
           <Meal05HeaderActions />
         </div>
-
-        <div className="mx-auto mt-4 max-w-[1440px] lg:hidden">
-          <SearchForm id="header-search-tablet" compact />
-        </div>
       </header>
-      <div aria-hidden="true" className="h-36 md:h-[145px] lg:h-[81px]" />
+      <div aria-hidden="true" className="h-[76px] md:h-[81px]" />
+      <div className="meal05-header-search-strip bg-meal-paper px-5 pb-4 md:px-6 md:py-4">
+        <div className="mx-auto max-w-[1440px]">
+          <SearchForm id="header-search" compact />
+        </div>
+      </div>
     </>
   );
 }

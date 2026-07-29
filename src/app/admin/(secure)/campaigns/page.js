@@ -1,6 +1,8 @@
 import Link from "next/link";
 import AdminBannerControl from "@/components/admin-banner-control";
+import AdminSiteNotificationControl from "@/components/admin-site-notification-control";
 import { adminFormatters, loadBannerAdminData } from "@/lib/admin-dashboard-data";
+import { loadSiteNotificationsAdminData } from "@/lib/site-notifications-server";
 
 export const dynamic = "force-dynamic";
 
@@ -206,12 +208,17 @@ export default async function AdminCampaignsPage({ searchParams }) {
   const pageSize = Math.max(10, Math.min(100, toPositiveInt(params?.pageSize, 20)));
   const requestedPage = toPositiveInt(params?.page, 1);
 
-  const [heroBanners, advertBanners] = await Promise.all([
+  const [heroBanners, advertBanners, siteNotifications] = await Promise.all([
     loadBannerAdminData({ page: requestedPage, pageSize, query, placement: "hero" }),
     loadBannerAdminData({ page: 1, pageSize: 25, query, placement: "advert" }),
+    loadSiteNotificationsAdminData({ limit: 25 }),
   ]);
 
-  const warnings = Array.from(new Set([...(heroBanners.warnings || []), ...(advertBanners.warnings || [])]));
+  const warnings = Array.from(new Set([
+    ...(heroBanners.warnings || []),
+    ...(advertBanners.warnings || []),
+    ...(siteNotifications.warnings || []),
+  ]));
   const currentPage = heroBanners.page;
   const totalPages = heroBanners.totalPages;
   const startIndex = heroBanners.totalCount ? (currentPage - 1) * pageSize + 1 : 0;
@@ -330,6 +337,8 @@ export default async function AdminCampaignsPage({ searchParams }) {
           Filter
         </button>
       </form>
+
+      <AdminSiteNotificationControl records={siteNotifications.records} />
 
       <BannerSection
         createTitle="Create Hero Banner"

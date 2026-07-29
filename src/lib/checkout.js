@@ -99,6 +99,7 @@ export const generateOrderId = () => {
 };
 
 const RECEIPT_STORAGE_KEY = "meal05_checkout_receipt";
+const PENDING_PAYMENT_STORAGE_KEY = "meal05_pending_checkout_payment";
 
 export const persistCheckoutReceipt = (order) => {
   if (typeof window === "undefined" || !order) return;
@@ -127,6 +128,39 @@ export const clearCheckoutReceipt = () => {
     window.sessionStorage.removeItem(RECEIPT_STORAGE_KEY);
   } catch (error) {
     console.warn("Unable to clear checkout receipt", error);
+  }
+};
+
+export const persistPendingCheckoutPayment = (payload) => {
+  if (typeof window === "undefined" || !payload) return false;
+  try {
+    window.sessionStorage.setItem(PENDING_PAYMENT_STORAGE_KEY, JSON.stringify(payload));
+    return true;
+  } catch (error) {
+    console.warn("Unable to persist pending checkout payment", error);
+    return false;
+  }
+};
+
+export const readPendingCheckoutPayment = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_PAYMENT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    console.warn("Unable to read pending checkout payment", error);
+    return null;
+  }
+};
+
+export const clearPendingCheckoutPayment = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(PENDING_PAYMENT_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Unable to clear pending checkout payment", error);
   }
 };
 

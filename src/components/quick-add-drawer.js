@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import VariantPicker from "@/components/variant-picker";
 import categories from "@/data/categories";
@@ -645,7 +646,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     </div>
   );
 
-  return (
+  const overlay = (
     <div className={`quick-add-overlay${useCenteredModal ? " quick-add-overlay--centered" : ""}`.trim()}>
       <button
         type="button"
@@ -656,4 +657,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       {panelContent}
     </div>
   );
+
+  if (typeof document === "undefined") return overlay;
+  return createPortal(overlay, document.body);
 }

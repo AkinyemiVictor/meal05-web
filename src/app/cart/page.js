@@ -790,6 +790,22 @@ function CartPageContent() {
   const cartLayoutClassName = [styles.cartLayout, cartIsEmpty ? styles.cartLayoutEmpty : ""].filter(Boolean).join(" ");
   const wishlistProducts = cartIsEmpty && currentUser ? crossSellProducts : [];
 
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    document.body.classList.toggle("cart-is-empty", cartIsEmpty);
+    return () => {
+      document.body.classList.remove("cart-is-empty");
+    };
+  }, [cartIsEmpty]);
+
+  if (cartIsEmpty) {
+    return (
+      <main className={`${styles.page} ${styles.pageEmpty}`.trim()}>
+        <div className={styles.emptyCartOnly}>EMPTY CART</div>
+      </main>
+    );
+  }
+
   return (
     <>
     <div className={styles.page}>
@@ -805,40 +821,13 @@ function CartPageContent() {
         <div className={cartLayoutClassName}>
           <section className={styles.cartBoard} aria-labelledby="cart-title">
             <header className={styles.cartHeader}>
-              <div className={styles.cartTitleGroup}>
-                <p className={styles.cartSubtitle}>Your Basket</p>
-                <h1 id="cart-title" className={styles.cartTitle}>
-                  Shopping Cart
-                </h1>
-              </div>
-              <span className={styles.cartTag}>
-                {formattedItemsCount} {itemLabel} · ready for delivery
+              <span id="cart-title" className={styles.cartTag}>
+                {formattedItemsCount} {itemLabel}. ready for delivery
               </span>
             </header>
 
             <div className={styles.cartMain}>
-              {cartIsEmpty ? (
-                <div className={styles.emptyCartHero}>
-                  <Image
-                    src="/assets/img/empty-cart.svg"
-                    alt=""
-                    width={360}
-                    height={280}
-                    sizes="(max-width: 640px) 72vw, 280px"
-                    priority
-                    className={styles.emptyCartImage}
-                  />
-                  <div className={styles.emptyCartCopy}>
-                    <p className={styles.emptyCartEyebrow}>Your basket is waiting</p>
-                    <h2>Cart empty</h2>
-                    <p>{copy.cart.emptyMessage}</p>
-                    <Link href="/shop" className={styles.emptyCartCta}>
-                      Start shopping
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                cartItems.map((item) => {
+              {cartItems.map((item) => {
                   const product = productIndex.get(String(item.productId || item.id));
                   const status = stockStatus.map.get(item.id);
                   const quantity = getItemQuantity(item);
@@ -931,8 +920,7 @@ function CartPageContent() {
                       </div>
                     </article>
                   );
-                })
-              )}
+                })}
             </div>
 
           </section>
@@ -1091,7 +1079,6 @@ function CartPageContent() {
         </CartProductSection>
       ) : null}
 
-      {/* Category aisle */}
       <CategoryCarousel
         cards={CATEGORY_CARDS}
         heading="Browse categories"

@@ -6,6 +6,12 @@ body {
   margin: 0;
 }
 
+body.cart-is-empty .meal05-header,
+body.cart-is-empty .meal05-header-search-strip,
+body.cart-is-empty .site-footer {
+  display: none !important;
+}
+
 :root {
   --site-header-height: 88px;
 }
@@ -6135,6 +6141,7 @@ main > section:not(.home-hero) {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .quick-add-overlay--centered {
@@ -6470,6 +6477,7 @@ main > section:not(.home-hero) {
   width: min(460px, calc(100vw - 2rem));
   min-width: 0;
   max-width: min(460px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
   border: 0;
   border-radius: 24px;
   background: #ffffff;
@@ -6639,6 +6647,42 @@ main > section:not(.home-hero) {
 
 .quick-add-panel--mobile-modal .quick-add-cta:hover {
   background: #ef320d;
+}
+
+@media (max-width: 480px) {
+  .quick-add-overlay--centered {
+    padding: 0.75rem;
+  }
+
+  .quick-add-panel--mobile-modal {
+    width: min(22.5rem, calc(100vw - 1.5rem));
+    max-width: calc(100vw - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+    padding: 1.15rem;
+    border-radius: 20px;
+  }
+
+  .quick-add-panel--mobile-modal .quick-add-header {
+    gap: 0.75rem;
+  }
+
+  .quick-add-panel--mobile-modal .quick-add-title {
+    font-size: 1.25rem;
+  }
+
+  .quick-add-panel--mobile-modal .quick-add-summary {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .quick-add-panel--mobile-modal .quick-add-summary__value {
+    font-size: 1.2rem;
+  }
+
+  .quick-add-panel--mobile-modal .quick-add-qty {
+    align-self: flex-start;
+  }
 }
 
 .stock-badge {
