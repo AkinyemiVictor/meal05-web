@@ -63,7 +63,7 @@ export default function Meal05Header() {
 
   return (
     <>
-      <header className="meal05-header meal05-header--mobile fixed inset-x-0 top-0 z-50 bg-meal-paper px-5 py-4 shadow-sm md:hidden">
+      <header className="meal05-header meal05-header--mobile z-50 bg-meal-paper px-5 py-4 shadow-sm md:hidden">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="w-[10.5rem] max-w-[42vw] shrink-0">
             <DeferredLocationPicker mobileHeader />
@@ -72,7 +72,7 @@ export default function Meal05Header() {
         </div>
       </header>
 
-      <header className="meal05-header meal05-header--desktop fixed inset-x-0 top-0 z-50 hidden min-h-20 border-b border-meal-line bg-meal-paper px-6 py-4 md:block">
+      <header className="meal05-header meal05-header--desktop z-50 hidden min-h-20 border-b border-meal-line bg-meal-paper px-6 py-4 md:block">
         <div className="mx-auto flex max-w-[1440px] items-center gap-4">
           <Link href="/home" aria-label="Meal05 home" prefetch={false}>
             <Image
@@ -89,7 +89,6 @@ export default function Meal05Header() {
           <Meal05HeaderActions />
         </div>
       </header>
-      <div aria-hidden="true" className="h-[76px] md:h-[81px]" />
       <div className="meal05-header-search-strip bg-meal-paper px-5 pb-4 md:px-6 md:py-4">
         <div className="mx-auto max-w-[1440px]">
           <SearchForm id="header-search" compact />

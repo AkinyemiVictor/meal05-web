@@ -2009,7 +2009,6 @@ export default function CheckoutForm({
                 </span>
                 <div>
                   <span className="checkout-payment-title">{group.title}</span>
-                  <span className="checkout-payment-subtitle">{group.subtitle}</span>
                 </div>
               </label>
             );
@@ -2053,7 +2052,6 @@ export default function CheckoutForm({
                     </span>
                     <div>
                       <span className="checkout-payment-title">{method.title}</span>
-                      <span className="checkout-payment-subtitle">{method.subtitle}</span>
                       {method.badge || (Array.isArray(method.badges) && method.badges.length) ? (
                         <div className="checkout-payment-badges">
                           {(method.badge ? [{ type: "text", label: method.badge }] : method.badges).map((badge, index) => {

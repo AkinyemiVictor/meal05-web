@@ -18,19 +18,23 @@ const FALLBACK_METHODS = [
   {
     code: "moniepoint_transfer",
     displayName: "Monie Point",
-    customerNotice: "Pay by bank transfer with Monie Point.",
     available: true,
     displayOrder: 1,
   },
   {
     code: "opay_transfer",
     displayName: "OPay",
-    customerNotice: "Pay by bank transfer with OPay.",
     available: true,
     displayOrder: 2,
     logoUrl: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png",
   },
 ];
+
+const mergeDisplayMethod = (fallback, liveMethod) => ({
+  ...fallback,
+  available: liveMethod ? liveMethod.available !== false : fallback.available,
+  logoUrl: liveMethod?.logoUrl || fallback.logoUrl || "",
+});
 
 const createIdempotencyKey = (prefix = "checkout-payment") => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -254,10 +258,9 @@ export default function ProviderPaymentPage() {
               }))
               .sort((a, b) => Number(a.displayOrder || 100) - Number(b.displayOrder || 100))
           : [];
-        setMethods(FALLBACK_METHODS.map((fallback) => ({
-          ...fallback,
-          ...(liveMethods.find((method) => method.code === fallback.code) || {}),
-        })));
+        setMethods(FALLBACK_METHODS.map((fallback) =>
+          mergeDisplayMethod(fallback, liveMethods.find((method) => method.code === fallback.code))
+        ));
       })
       .catch(() => {});
     return () => controller.abort();

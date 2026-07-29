@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const SCALE_TRIGGER_WIDTH = 620;
 const SCALE_BASE_WIDTH = 620;
@@ -11,7 +12,9 @@ const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export default function PageScaler({ children }) {
+  const pathname = usePathname();
   const innerRef = useRef(null);
+  const disableScaling = pathname === "/checkout/payment" || pathname?.startsWith("/checkout/payment/");
   const [scaleState, setScaleState] = useState({
     scale: 1,
     scaledDocHeight: null,
@@ -20,6 +23,10 @@ export default function PageScaler({ children }) {
 
   useIsomorphicLayoutEffect(() => {
     if (typeof window === "undefined") return undefined;
+    if (disableScaling) {
+      setScaleState({ scale: 1, scaledDocHeight: null, isScaling: false });
+      return undefined;
+    }
 
     let rafId = 0;
 
@@ -69,7 +76,7 @@ export default function PageScaler({ children }) {
       resizeObserver.disconnect();
       window.removeEventListener("resize", scheduleMeasure);
     };
-  }, []);
+  }, [disableScaling]);
 
   const style = scaleState.isScaling
     ? {
@@ -80,12 +87,12 @@ export default function PageScaler({ children }) {
 
   return (
     <div
-      className="page-scale-outer"
+      className={`page-scale-outer${disableScaling ? " page-scale-outer--no-scale" : ""}`}
       style={style}
     >
       <div
         ref={innerRef}
-        className="page-scale-inner"
+        className={`page-scale-inner${disableScaling ? " page-scale-inner--no-scale" : ""}`}
       >
         {children}
       </div>

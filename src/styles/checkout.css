@@ -1308,12 +1308,21 @@
 }
 
 .checkout-card {
-  padding: 2.35rem;
-  gap: 2rem;
+  padding: 0;
+  gap: 1.15rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .checkout-section {
   gap: 1.45rem;
+  border: 1px solid #e6e8ed;
+  border-radius: 24px;
+  background: #ffffff;
+  padding: 1.75rem;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
 }
 
 .checkout-section__heading {
@@ -1823,6 +1832,16 @@
     padding: 1.25rem;
   }
 
+  .checkout-card {
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .checkout-section {
+    border-radius: 1.25rem;
+    padding: 1.15rem;
+  }
+
   .checkout-field-grid,
   .checkout-payment-options {
     grid-template-columns: 1fr;
@@ -2052,6 +2071,7 @@
 
 .checkout-transfer-screen {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #ffffff;
   color: #111827;
 }
@@ -2087,6 +2107,7 @@
 .checkout-transfer-screen__content {
   width: min(100%, 532px);
   min-height: calc(100vh - 56px);
+  min-height: calc(100dvh - 56px);
   margin: 0 auto;
   display: grid;
   align-content: start;
@@ -2402,15 +2423,127 @@
 }
 
 @media (max-width: 520px) {
+  .checkout-payment-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    align-items: center;
+    padding-block: max(1.25rem, env(safe-area-inset-top, 0px)) max(1.25rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .checkout-transfer-screen__content {
-    padding-inline: 1.9rem;
+    align-content: center;
+    gap: clamp(0.8rem, 2.2dvh, 1.15rem);
+    padding-inline: clamp(1.2rem, 5vw, 1.9rem);
+    padding-block: clamp(0.85rem, 2.5dvh, 1.35rem);
   }
 
   .checkout-transfer-screen__hero {
-    padding-bottom: 2.35rem;
+    gap: 0.45rem;
+    padding-bottom: clamp(0.7rem, 2dvh, 1.1rem);
+  }
+
+  .checkout-transfer-screen__provider-logo,
+  .checkout-transfer-screen__provider-mark--large {
+    width: 48px;
+    height: 48px;
   }
 
   .checkout-transfer-screen__bank-icon {
-    margin-top: 2.5rem;
+    margin-top: clamp(0.55rem, 2dvh, 1.15rem);
+    font-size: 1.65rem;
+  }
+
+  .checkout-transfer-screen__hero h1 {
+    font-size: clamp(1.45rem, 5.4vw, 1.75rem);
+  }
+
+  .checkout-transfer-screen__copy-amount {
+    font-size: 0.86rem;
+  }
+
+  .checkout-transfer-screen__content > h2 {
+    margin-bottom: clamp(0.75rem, 2dvh, 1.1rem);
+    font-size: clamp(1.15rem, 4.7vw, 1.35rem);
+  }
+
+  .checkout-transfer-screen__rules {
+    gap: clamp(0.85rem, 2.2dvh, 1.15rem);
+    border-radius: 22px;
+    padding: clamp(1.1rem, 3dvh, 1.45rem) 1.1rem clamp(1.15rem, 3dvh, 1.5rem);
+  }
+
+  .checkout-transfer-screen__rule {
+    grid-template-columns: 1.8rem minmax(0, 1fr);
+    gap: 0.6rem;
+  }
+
+  .checkout-transfer-screen__rule > span,
+  .checkout-transfer-screen__agree input {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .checkout-transfer-screen__rule p,
+  .checkout-transfer-screen__agree {
+    font-size: 0.9rem;
+  }
+
+  .checkout-transfer-screen__rule small {
+    font-size: 0.84rem;
+  }
+
+  .checkout-transfer-screen__continue,
+  .checkout-transfer-screen__sent {
+    min-height: 54px;
+    font-size: 0.95rem;
+  }
+
+  .checkout-transfer-screen__exact {
+    margin-bottom: 0;
+    padding: 1.05rem 0.95rem;
+    font-size: clamp(1rem, 4.5vw, 1.2rem);
+  }
+
+  .checkout-transfer-screen__bank-dot {
+    width: 3rem;
+    height: 3rem;
+    margin-top: 1.35rem;
+  }
+
+  .checkout-transfer-screen__account-card h2 {
+    margin-top: 0.6rem;
+    font-size: clamp(1.2rem, 4.8vw, 1.4rem);
+  }
+
+  .checkout-transfer-screen__account-number {
+    font-size: clamp(1.25rem, 5.4vw, 1.55rem);
+  }
+
+  .checkout-transfer-screen__account-card > p {
+    margin-bottom: 1.35rem;
+  }
+
+  .checkout-transfer-screen__footer {
+    gap: 1rem;
+    margin-top: clamp(0.8rem, 2.2dvh, 1.35rem);
+  }
+
+  .checkout-transfer-screen__footer > div span {
+    height: 2.7rem;
+  }
+
+  .checkout-transfer-screen__footer p {
+    font-size: 0.82rem;
+  }
+
+  .checkout-transfer-screen__footer p i {
+    width: 1.2rem;
+    height: 1.2rem;
+    font-size: 0.65rem;
+  }
+
+  .checkout-transfer-screen__confirmation {
+    margin-block: clamp(1rem, 3dvh, 1.75rem) clamp(0.8rem, 2.2dvh, 1.2rem);
+    font-size: 0.9rem;
   }
 }

@@ -13,19 +13,23 @@ const FALLBACK_METHODS = [
   {
     code: "moniepoint_transfer",
     displayName: "Monie Point",
-    customerNotice: "Pay by bank transfer with Monie Point.",
     available: true,
     displayOrder: 1,
   },
   {
     code: "opay_transfer",
     displayName: "OPay",
-    customerNotice: "Pay by bank transfer with OPay.",
     available: true,
     displayOrder: 2,
     logoUrl: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png",
   },
 ];
+
+const mergeDisplayMethod = (fallback, liveMethod) => ({
+  ...fallback,
+  available: liveMethod ? liveMethod.available !== false : fallback.available,
+  logoUrl: liveMethod?.logoUrl || fallback.logoUrl || "",
+});
 
 function ProviderMark({ method }) {
   if (method.logoUrl) {
@@ -73,10 +77,9 @@ export default function CheckoutPaymentPage() {
               }))
               .sort((a, b) => Number(a.displayOrder || 100) - Number(b.displayOrder || 100))
           : [];
-        const merged = FALLBACK_METHODS.map((fallback) => ({
-          ...fallback,
-          ...(liveMethods.find((method) => method.code === fallback.code) || {}),
-        }));
+        const merged = FALLBACK_METHODS.map((fallback) =>
+          mergeDisplayMethod(fallback, liveMethods.find((method) => method.code === fallback.code))
+        );
         setMethods(merged);
       })
       .catch(() => {});
@@ -123,7 +126,6 @@ export default function CheckoutPaymentPage() {
                 <ProviderMark method={method} />
                 <span>
                   <strong>{method.code === "moniepoint_transfer" ? "Monie Point" : method.displayName}</strong>
-                  <small>{method.customerNotice || "Bank transfer"}</small>
                 </span>
               </button>
             );
