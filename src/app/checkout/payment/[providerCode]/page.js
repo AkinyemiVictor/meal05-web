@@ -19,14 +19,14 @@ const FALLBACK_METHODS = [
   {
     code: "moniepoint_transfer",
     displayName: "Moniepoint",
-    available: true,
+    available: false,
     displayOrder: 1,
     logoUrl: MONIEPOINT_LOGO_URL,
   },
   {
     code: "opay_transfer",
     displayName: "OPay",
-    available: true,
+    available: false,
     displayOrder: 2,
     logoUrl: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png",
   },
@@ -68,6 +68,31 @@ const formatTransferAmount = (amount) =>
     maximumFractionDigits: 2,
   })}`;
 
+const copyToClipboard = async (value) => {
+  const text = String(value ?? "").trim();
+  if (!text || typeof window === "undefined") return false;
+  if (navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {}
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    return document.execCommand("copy");
+  } catch (_) {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+};
+
 function ProviderLogo({ method, large = false }) {
   if (method?.logoUrl) {
     const size = large ? 58 : 42;
@@ -108,19 +133,27 @@ function TransferShell({ children, onBack }) {
 }
 
 function PaymentHero({ provider, amount }) {
-  const copyAmount = () => {
-    if (typeof navigator === "undefined" || !navigator.clipboard) return;
-    navigator.clipboard.writeText(String(Math.round(Number(amount) || 0))).catch(() => {});
+  const [copied, setCopied] = useState(false);
+  const copyAmount = async () => {
+    const ok = await copyToClipboard(Math.round(Number(amount) || 0));
+    if (!ok) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
   };
 
   return (
     <section className="checkout-transfer-screen__hero">
       <ProviderLogo method={provider} large />
       <i className="fa-solid fa-building-columns checkout-transfer-screen__bank-icon" aria-hidden="true" />
-      <h1>Pay {formatTransferAmount(amount)}</h1>
-      <button type="button" onClick={copyAmount} className="checkout-transfer-screen__copy-amount">
-        Copy amount <i className="fa-regular fa-copy" aria-hidden="true" />
-      </button>
+      <h1>
+        Pay <span>{formatTransferAmount(amount)}</span>
+        <button type="button" onClick={copyAmount} className="checkout-transfer-screen__copy-amount" aria-label="Copy payment amount">
+          <i className={copied ? "fa-solid fa-check" : "fa-regular fa-copy"} aria-hidden="true" />
+        </button>
+      </h1>
+      <p className="checkout-transfer-screen__copy-feedback" aria-live="polite">
+        {copied ? "Copied" : "Copy amount"}
+      </p>
     </section>
   );
 }
@@ -168,10 +201,7 @@ function AccountDetailsStep({ provider, details, pending, busy, message, onSubmi
   const activeProvider = { ...(provider || {}), ...(details?.provider || {}) };
   const amount = Number(payment.amount ?? details?.order?.summary?.total ?? pending?.summary?.total ?? 0) || 0;
 
-  const copyText = (value) => {
-    if (!value || typeof navigator === "undefined" || !navigator.clipboard) return;
-    navigator.clipboard.writeText(String(value)).catch(() => {});
-  };
+  const copyText = (value) => copyToClipboard(value);
 
   return (
     <div className="checkout-transfer-screen__content">
@@ -219,7 +249,7 @@ function TransferFooter() {
       </div>
       <p>
         <i className="fa-solid fa-lock" aria-hidden="true" />
-        Secured by Meal05
+        Secured
       </p>
     </footer>
   );

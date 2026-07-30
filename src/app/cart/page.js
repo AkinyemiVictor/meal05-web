@@ -82,16 +82,26 @@ const normaliseQuantityForItem = (item, value) => {
 const hydrateCartItem = (item) => {
   if (!item || typeof item !== "object") return null;
   const draft = { ...item };
-  const productId = draft.productId || draft.id;
-  const variantId = draft.variantId || null;
+  const productId = draft.productId ?? draft.product_id ?? draft.product?.id ?? draft.id;
+  const variantId = draft.variantId ?? draft.variant_id ?? null;
+  const cartItemId = draft.cartItemId ?? draft.cart_item_id ?? (draft.variant_id ? draft.id : null);
   const lineId = variantId || draft.id || productId;
   const quantity = normaliseQuantityForItem(draft, getItemQuantity(draft));
 
   return {
     ...draft,
     id: lineId,
+    cartItemId,
     productId,
     variantId,
+    name: draft.name || draft.productName || draft.product_name || draft.products?.name || draft.variant_name || "Fresh produce",
+    variantName: draft.variantName || draft.variant_name || "",
+    price: Number(draft.price ?? draft.unitPrice ?? draft.unit_price_at_add ?? 0),
+    image: draft.image || draft.imageUrl || draft.image_url || draft.products?.image_url || "",
+    unit: draft.unit || draft.base_unit || "",
+    minQuantity: draft.minQuantity ?? draft.min_quantity,
+    maxQuantity: draft.maxQuantity ?? draft.max_quantity,
+    stepQuantity: draft.stepQuantity ?? draft.step_quantity,
     orderSize: 1,
     orderCount: quantity,
     quantity,
@@ -240,6 +250,8 @@ function CartPageContent() {
   const [promoMessage, setPromoMessage] = useState({ text: "", tone: "neutral" });
   const [activePromo, setActivePromo] = useState(() => (typeof window !== "undefined" ? readStoredPromo() : null));
   const [promoBusy, setPromoBusy] = useState(false);
+  const [cartUpdateState, setCartUpdateState] = useState({});
+  const [cartUpdateMessage, setCartUpdateMessage] = useState("");
   const [orderSettings, setOrderSettings] = useState(null);
   const [recentProductIds, setRecentProductIds] = useState([]);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
@@ -447,9 +459,13 @@ function CartPageContent() {
     const controller = new AbortController();
     fetch(`/api/cart`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then(() => {
-        // This endpoint returns rows in Supabase shape.
-        // Leaving local cart as source of truth for now unless product mapping is added.
+      .then((rows) => {
+        if (!Array.isArray(rows) || !rows.length) return;
+        const serverItems = hydrateCartItems(rows);
+        if (!serverItems.length) return;
+        setCartItems((current) =>
+          getCartItemsSignature(current) === getCartItemsSignature(serverItems) ? current : serverItems
+        );
       })
       .catch(() => {});
     return () => controller.abort();
@@ -567,7 +583,7 @@ function CartPageContent() {
   );
   const baseSummary = useMemo(
     () =>
-      computeOrderSummary(pricingItems, deliverySummaryConfig),
+      computeOrderSummary(pricingItems, { ...deliverySummaryConfig, deliveryFee: 0 }),
     [pricingItems, deliverySummaryConfig]
   );
 
@@ -635,7 +651,7 @@ function CartPageContent() {
           code,
           subtotal: baseSummary.subtotal,
           itemsCount: baseSummary.itemsCount,
-          deliveryFee: baseSummary.deliveryFee,
+          deliveryFee: 0,
           signal: controller.signal,
         });
 
@@ -665,25 +681,68 @@ function CartPageContent() {
 
     run();
     return () => controller.abort();
-  }, [activePromo?.code, activePromo?.promo?.code, baseSummary.deliveryFee, baseSummary.itemsCount, baseSummary.subtotal, cartItems.length, hydrated, setPromoFeedback]);
+  }, [activePromo?.code, activePromo?.promo?.code, baseSummary.itemsCount, baseSummary.subtotal, cartItems.length, hydrated, setPromoFeedback]);
 
-  const handleQtyChange = useCallback((id, delta) => {
-  setCartItems((prev) =>
-    prev.map((item) => {
-      if (item.id !== id) return item;
-      const currentQuantity = getItemQuantity(item);
-      const nextQuantity = clampQuantityToRules(item, currentQuantity + delta);
-      const validation = validateVariantQuantity(item, nextQuantity);
-      if (!validation.ok) return item;
-      return {
-        ...item,
-        orderSize: 1,
-        orderCount: validation.quantity,
-        quantity: validation.quantity,
-      };
-    })
-  );
-}, []);
+  const handleQtyChange = useCallback(async (id, delta) => {
+    const target = cartItems.find((item) => item.id === id);
+    if (!target || cartUpdateState[id]) return;
+
+    const currentQuantity = getItemQuantity(target);
+    const nextQuantity = clampQuantityToRules(target, currentQuantity + delta);
+    const validation = validateVariantQuantity(target, nextQuantity);
+    if (!validation.ok) {
+      setCartUpdateMessage(`${target.name || "Item"}: ${validation.error}`);
+      return;
+    }
+    if (validation.quantity === currentQuantity) return;
+
+    const previousItems = cartItems;
+    const nextItems = cartItems.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            orderSize: 1,
+            orderCount: validation.quantity,
+            quantity: validation.quantity,
+          }
+        : item
+    );
+
+    setCartUpdateMessage("");
+    setCartUpdateState((prev) => ({ ...prev, [id]: true }));
+    setCartItems(nextItems);
+
+    try {
+      if (currentUser) {
+        const cartItemId = target.cartItemId;
+        if (!cartItemId) {
+          throw new Error("Unable to update cart quantity. Refresh your cart and try again.");
+        }
+        const response = await fetch(`/api/cart/${encodeURIComponent(cartItemId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ quantity: validation.quantity }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || "Unable to update cart quantity.");
+        }
+      } else {
+        persistCart(nextItems);
+      }
+    } catch (error) {
+      setCartItems(previousItems);
+      persistCart(previousItems);
+      setCartUpdateMessage(error?.message || "Unable to update cart quantity.");
+    } finally {
+      setCartUpdateState((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+  }, [cartItems, cartUpdateState, currentUser, persistCart]);
 
   const handleRemove = useCallback((id) => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
@@ -712,7 +771,7 @@ function CartPageContent() {
         code,
         subtotal: baseSummary.subtotal,
         itemsCount: baseSummary.itemsCount,
-        deliveryFee: baseSummary.deliveryFee,
+        deliveryFee: 0,
       });
 
       if (!result.ok) {
@@ -738,7 +797,7 @@ function CartPageContent() {
     } finally {
       setPromoBusy(false);
     }
-  }, [baseSummary.deliveryFee, baseSummary.itemsCount, baseSummary.subtotal, promoInput, setPromoFeedback]);
+  }, [baseSummary.itemsCount, baseSummary.subtotal, promoInput, setPromoFeedback]);
 
   const handleCheckout = useCallback(() => {
     if (!cartItems.length || hasCheckoutBlocker || bulkRequired) {
@@ -790,18 +849,32 @@ function CartPageContent() {
   const cartLayoutClassName = [styles.cartLayout, cartIsEmpty ? styles.cartLayoutEmpty : ""].filter(Boolean).join(" ");
   const wishlistProducts = cartIsEmpty && currentUser ? crossSellProducts : [];
 
-  useEffect(() => {
-    if (typeof document === "undefined") return undefined;
-    document.body.classList.toggle("cart-is-empty", cartIsEmpty);
-    return () => {
-      document.body.classList.remove("cart-is-empty");
-    };
-  }, [cartIsEmpty]);
-
   if (cartIsEmpty) {
     return (
       <main className={`${styles.page} ${styles.pageEmpty}`.trim()}>
-        <div className={styles.emptyCartOnly}>EMPTY CART</div>
+        <section className={styles.emptyCartState} aria-labelledby="empty-cart-title">
+          <Image
+            src="/assets/img/empty-cart.svg"
+            alt=""
+            width={220}
+            height={220}
+            priority
+            className={styles.emptyCartImage}
+          />
+          <div className={styles.emptyCartCopy}>
+            <p className={styles.emptyCartKicker}>Cart</p>
+            <h1 id="empty-cart-title">Your cart is empty.</h1>
+            <p>Add fresh groceries, proteins, grains, and pantry staples to start your Meal05 order.</p>
+          </div>
+          <div className={styles.emptyCartActions}>
+            <Link href="/shop" className={styles.emptyCartPrimary}>
+              Start shopping
+            </Link>
+            <Link href="/home" className={styles.emptyCartSecondary}>
+              Go home
+            </Link>
+          </div>
+        </section>
       </main>
     );
   }
@@ -845,6 +918,7 @@ function CartPageContent() {
                   const stepQuantity = Number(item.stepQuantity ?? item.step_quantity ?? 1) || 1;
                   const canDecrement = quantity > minQuantity;
                   const canIncrement = maxQuantity == null || quantity < maxQuantity;
+                  const lineBusy = Boolean(cartUpdateState[item.id]);
                   const lineClassNames = [styles.cartLine];
                   if (status?.level === "error") {
                     lineClassNames.push(styles.cartLineUnavailable);
@@ -886,7 +960,8 @@ function CartPageContent() {
                             type="button"
                             className={styles.qtyButton}
                             onClick={() => handleQtyChange(item.id, -stepQuantity)}
-                            disabled={!canDecrement}
+                            disabled={!canDecrement || lineBusy}
+                            aria-busy={lineBusy}
                             aria-label={`Decrease order count for ${item.name}`}
                           >
                             -
@@ -898,7 +973,8 @@ function CartPageContent() {
                             type="button"
                             className={styles.qtyButton}
                             onClick={() => handleQtyChange(item.id, stepQuantity)}
-                            disabled={!canIncrement}
+                            disabled={!canIncrement || lineBusy}
+                            aria-busy={lineBusy}
                             aria-label={`Increase order count for ${item.name}`}
                           >
                             +
@@ -922,6 +998,11 @@ function CartPageContent() {
                   );
                 })}
             </div>
+            {cartUpdateMessage ? (
+              <p className={styles.cartUpdateMessage} role="alert">
+                {cartUpdateMessage}
+              </p>
+            ) : null}
 
           </section>
 
@@ -965,10 +1046,6 @@ function CartPageContent() {
                   <span>{formatCurrency(summary.handling)}</span>
                 </div>
               ) : null}
-              <div className={styles.summaryRow}>
-                <span>Delivery fee</span>
-                <span>{formatCurrency(summary.delivery)}</span>
-              </div>
               {summary.discount > 0 ? (
                 <div className={`${styles.summaryRow} ${styles.summaryRowSavings}`.trim()}>
                   <span><i className="fa-solid fa-tag" aria-hidden="true"></i> Savings</span>
@@ -1036,7 +1113,7 @@ function CartPageContent() {
               </button>
             ) : null}
             <p className={styles.summaryHint}>
-              <i className="fa-solid fa-lock" aria-hidden="true"></i> Secure checkout · Free returns within 24h
+              <i className="fa-solid fa-lock" aria-hidden="true"></i> Secure checkout
             </p>
           </aside>
           ) : null}

@@ -51,7 +51,16 @@ export async function POST(request) {
     return send({ error: "Invalid JSON payload" }, 400, rl);
   }
   const parsed = schema.safeParse(body || {});
-  if (!parsed.success) return send({ error: "Validation failed", issues: parsed.error.issues }, 400, rl);
+  if (!parsed.success) {
+    const missingExactConfirmation = parsed.error.issues.some((issue) => issue.path?.[0] === "exactAmountConfirmed");
+    return send(
+      {
+        error: missingExactConfirmation ? "Please confirm that you will transfer the exact amount." : "Payment submission details are incomplete.",
+      },
+      400,
+      rl
+    );
+  }
 
   const paymentId = Number(parsed.data.paymentId);
   if (!Number.isSafeInteger(paymentId) || paymentId <= 0) return send({ error: "Payment not found." }, 404, rl);

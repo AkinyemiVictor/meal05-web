@@ -508,10 +508,13 @@ export async function POST(request) {
 
   if (issues.length) {
     const primary = issues[0] || {};
+    const primaryMessage = /^maximum is\b/i.test(String(primary.message || ""))
+      ? `Adjust cart quantity${primary.product ? ` for ${primary.product}` : ""}.`
+      : primary.message || "Insufficient stock for one or more items";
     return applyRateLimitHeaders(
       NextResponse.json(
         {
-          error: primary.message || "Insufficient stock for one or more items",
+          error: primaryMessage,
           available: primary.available,
           requested: primary.requested,
           product: primary.product,
@@ -998,12 +1001,16 @@ export async function POST(request) {
       p_idempotency_key: walletPaymentKey,
     });
     if (walletPaymentError) {
+      const insufficientWalletBalance = /insufficient/i.test(walletPaymentError.message || "");
       try { await admin.from("order_items").delete().eq("order_id", orderId); } catch {}
       try { await admin.from("orders").delete().eq("id", orderId); } catch {}
       await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
       await logAdminError(walletPaymentError, { route: "/api/orders", stage: "wallet_payment", order_id: orderId, user_id: user.id });
       return applyRateLimitHeaders(
-        NextResponse.json({ error: walletPaymentError.message || "Unable to pay with Meal05 Balance." }, { status: /insufficient/i.test(walletPaymentError.message || "") ? 402 : 409 }),
+        NextResponse.json(
+          { error: insufficientWalletBalance ? "Payment unsuccessful. Insufficient wallet balance." : walletPaymentError.message || "Unable to pay with Meal05 Balance." },
+          { status: insufficientWalletBalance ? 402 : 409 }
+        ),
         rl
       );
     }

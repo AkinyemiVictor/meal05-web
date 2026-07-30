@@ -14,16 +14,18 @@ const FALLBACK_METHODS = [
   {
     code: "moniepoint_transfer",
     displayName: "Moniepoint",
-    available: true,
+    available: false,
     displayOrder: 1,
     logoUrl: MONIEPOINT_LOGO_URL,
+    description: "Transfer to Meal05's Moniepoint account. We confirm the payment before fulfilment.",
   },
   {
     code: "opay_transfer",
     displayName: "OPay",
-    available: true,
+    available: false,
     displayOrder: 2,
     logoUrl: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png",
+    description: "Transfer from any bank or OPay wallet to the Meal05 OPay account.",
   },
 ];
 
@@ -31,6 +33,8 @@ const mergeDisplayMethod = (fallback, liveMethod) => ({
   ...fallback,
   available: liveMethod ? liveMethod.available !== false : fallback.available,
   logoUrl: liveMethod?.logoUrl || fallback.logoUrl || "",
+  badge: liveMethod?.badge || "",
+  description: liveMethod?.customerNotice || fallback.description || "",
 });
 
 function ProviderMark({ method }) {
@@ -58,9 +62,12 @@ export default function CheckoutPaymentPage() {
   const router = useRouter();
   const [methods, setMethods] = useState(FALLBACK_METHODS);
   const [status, setStatus] = useState("loading");
+  const [selectedMethod, setSelectedMethod] = useState("moniepoint_transfer");
+  const [amount, setAmount] = useState(0);
 
   useEffect(() => {
     const stored = readPendingCheckoutPayment();
+    setAmount(Number(stored?.summary?.total || 0));
     setStatus(stored ? "ready" : "missing");
   }, []);
 
@@ -88,6 +95,12 @@ export default function CheckoutPaymentPage() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    if (methods.some((method) => method.code === selectedMethod && method.available !== false)) return;
+    const firstAvailable = methods.find((method) => method.available !== false);
+    if (firstAvailable) setSelectedMethod(firstAvailable.code);
+  }, [methods, selectedMethod]);
+
   if (status === "loading") {
     return (
       <main className="checkout-payment-page" role="status">
@@ -110,29 +123,49 @@ export default function CheckoutPaymentPage() {
     );
   }
 
+  const activeMethod = methods.find((method) => method.code === selectedMethod && method.available !== false);
+
   return (
     <main className="checkout-payment-page">
       <section className="checkout-payment-page__panel" aria-labelledby="payment-title">
-        <h1 id="payment-title">Choose payment option</h1>
-        <div className="checkout-payment-page__options">
+        <div>
+          <p className="checkout-payment-page__eyebrow">Final payable amount</p>
+          <h1 id="payment-title">Pay {new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(amount)}</h1>
+        </div>
+        <div className="checkout-payment-page__options" role="radiogroup" aria-label="Payment provider">
           {methods.map((method) => {
             const disabled = method.available === false;
+            const selected = selectedMethod === method.code;
             return (
               <button
                 type="button"
                 key={method.code}
-                className={`checkout-payment-page__option${disabled ? " is-disabled" : ""}`}
-                onClick={() => router.push(`/checkout/payment/${method.code}`)}
+                role="radio"
+                aria-checked={selected}
+                className={`checkout-payment-page__option${selected ? " is-active" : ""}${disabled ? " is-disabled" : ""}`}
+                onClick={() => {
+                  if (!disabled) setSelectedMethod(method.code);
+                }}
                 disabled={disabled}
               >
                 <ProviderMark method={method} />
                 <span>
                   <strong>{method.code === "moniepoint_transfer" ? "Moniepoint" : method.displayName}</strong>
+                  <small>{method.description || "Transfer the exact amount to the account shown on the next screen."}</small>
+                  {method.badge ? <em>{method.badge}</em> : null}
                 </span>
               </button>
             );
           })}
         </div>
+        <button
+          type="button"
+          className="checkout-payment-page__submit"
+          disabled={!activeMethod}
+          onClick={() => activeMethod && router.push(`/checkout/payment/${activeMethod.code}`)}
+        >
+          Continue
+        </button>
       </section>
     </main>
   );

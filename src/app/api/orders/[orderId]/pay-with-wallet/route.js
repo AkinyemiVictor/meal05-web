@@ -37,11 +37,12 @@ export async function POST(request, { params }) {
     p_idempotency_key: String(idempotencyKey).slice(0, 180),
   });
   if (error) {
+    const insufficient = /insufficient/i.test(error.message || "");
     return send(
-      { error: error.message || "Unable to pay with Meal05 Wallet." },
-      /insufficient/i.test(error.message || "") ? 402 : 409,
+      { error: insufficient ? "Payment unsuccessful. Insufficient wallet balance." : error.message || "Unable to pay with Meal05 Wallet." },
+      insufficient ? 402 : 409,
       rl
     );
   }
-  return send({ ok: true, result: data }, 200, rl);
+  return send({ ok: true, message: "Payment successful. Your Meal05 Wallet has been charged.", result: data }, 200, rl);
 }

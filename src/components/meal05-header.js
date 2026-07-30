@@ -9,7 +9,6 @@ import { IconSearch } from "@tabler/icons-react";
 
 import DeferredLocationPicker from "@/components/deferred-location-picker";
 import { shouldShowCommerceHeader } from "@/lib/commerce-chrome";
-import { useCartHasItems } from "@/lib/use-cart-has-items";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 const Meal05HeaderActions = dynamic(() => import("@/components/meal05-header-actions"), { ssr: false });
@@ -55,11 +54,8 @@ function SearchForm({ id, compact = false }) {
 
 export default function Meal05Header() {
   const pathname = usePathname();
-  const isCartPath = pathname === "/cart";
-  const cartHasItems = useCartHasItems(isCartPath);
 
   if (!shouldShowCommerceHeader(pathname)) return null;
-  if (isCartPath && cartHasItems !== true) return null;
 
   return (
     <>

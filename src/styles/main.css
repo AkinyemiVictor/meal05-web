@@ -6,12 +6,6 @@ body {
   margin: 0;
 }
 
-body.cart-is-empty .meal05-header,
-body.cart-is-empty .meal05-header-search-strip,
-body.cart-is-empty .site-footer {
-  display: none !important;
-}
-
 :root {
   --site-header-height: 88px;
 }

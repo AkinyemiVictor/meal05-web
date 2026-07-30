@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import DeferredLocationPicker from "@/components/deferred-location-picker";
 
 import copy from "@/data/copy";
@@ -24,7 +25,6 @@ import { formatProductPrice } from "@/lib/catalogue";
 import { AUTH_EVENT, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { addUserOrder } from "@/lib/orders";
 import { trackPurchase } from "@/lib/analytics";
-import { isCheckoutPaymentMethodEnabled } from "@/lib/payments/payment-methods";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import {
   buildCityServiceMessage,
@@ -175,22 +175,82 @@ function RequiredMark() {
 }
 
 function CheckoutStatusOverlay({ status, message, onClose }) {
-  if (!status) return null;
-  return (
-    <div className="checkout-status-overlay" role="alert" aria-live="assertive">
-      <div className={`checkout-status-overlay__card checkout-status-overlay__card--${status}`}>
+  const dialogRef = useRef(null);
+  const closeRef = useRef(null);
+  const [mounted, setMounted] = useState(false);
+  const titleId = "checkout-status-overlay-title";
+  const descriptionId = "checkout-status-overlay-description";
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!status || typeof document === "undefined") return undefined;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => closeRef.current?.focus());
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose?.();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = dialogRef.current?.querySelectorAll(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+      );
+      const nodes = Array.from(focusable || []).filter((node) => !node.hasAttribute("disabled"));
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus && typeof previousFocus.focus === "function") {
+        try {
+          previousFocus.focus();
+        } catch (_) {}
+      }
+    };
+  }, [onClose, status]);
+
+  if (!status || !mounted || typeof document === "undefined") return null;
+  return createPortal(
+    <div className="checkout-status-overlay" aria-live="assertive">
+      <div
+        ref={dialogRef}
+        className={`checkout-status-overlay__card checkout-status-overlay__card--${status}`}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+      >
         <div className="checkout-status-overlay__icon" aria-hidden="true">
           {status === "success" ? "OK" : "X"}
         </div>
         <div className="checkout-status-overlay__body">
-          <h2>{status === "success" ? "Payment submitted" : "Payment unsuccessful"}</h2>
-          <p>{message}</p>
-          <button type="button" onClick={onClose} className="checkout-status-overlay__close">
+          <h2 id={titleId}>{status === "success" ? "Payment submitted" : "Payment unsuccessful"}</h2>
+          <p id={descriptionId}>{message}</p>
+          <button ref={closeRef} type="button" onClick={onClose} className="checkout-status-overlay__close">
             Close
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -611,14 +671,6 @@ export default function CheckoutForm({
     [paymentMethods]
   );
   const selectedPaymentGroup = formState.paymentMethod === WALLET_PAYMENT_METHOD ? WALLET_PAYMENT_METHOD : "gateway";
-  const enabledPaymentMethods = useMemo(
-    () => paymentMethods.filter((method) => isCheckoutPaymentMethodEnabled(method.value)),
-    [paymentMethods]
-  );
-  const enabledGatewayPaymentMethods = useMemo(
-    () => gatewayPaymentMethods.filter((method) => isCheckoutPaymentMethodEnabled(method.value)),
-    [gatewayPaymentMethods]
-  );
   const transferPaymentMethods = useMemo(() => {
     return TRANSFER_PAYMENT_METHODS.map((code) => {
       const method = paymentMethods.find((entry) => entry.value === code) || {
@@ -629,11 +681,7 @@ export default function CheckoutForm({
       };
       const provider = paymentProviderOptions.find((entry) => entry.code === code);
       const hasProvider = Boolean(provider);
-      const available = hasProvider
-        ? Boolean(provider.available)
-        : paymentProvidersStatus === "idle" && paymentStep !== "provider"
-          ? isCheckoutPaymentMethodEnabled(code)
-          : false;
+      const available = hasProvider ? Boolean(provider.available) : false;
       return {
         ...method,
         title: provider?.displayName || method.title,
@@ -643,7 +691,15 @@ export default function CheckoutForm({
         badge: provider?.badge || (method.badges?.[0]?.label ?? ""),
       };
     });
-  }, [paymentMethods, paymentProviderOptions, paymentProvidersStatus, paymentStep]);
+  }, [paymentMethods, paymentProviderOptions]);
+  const enabledGatewayPaymentMethods = useMemo(
+    () => gatewayPaymentMethods.filter((method) => transferPaymentMethods.some((entry) => entry.value === method.value && entry.available)),
+    [gatewayPaymentMethods, transferPaymentMethods]
+  );
+  const enabledPaymentMethods = useMemo(
+    () => paymentMethods.filter((method) => method.value === WALLET_PAYMENT_METHOD || enabledGatewayPaymentMethods.some((entry) => entry.value === method.value)),
+    [enabledGatewayPaymentMethods, paymentMethods]
+  );
 
   useEffect(() => {
     if (paymentStep !== "provider" && selectedPaymentGroup !== "gateway") return;
@@ -668,11 +724,12 @@ export default function CheckoutForm({
   }, [paymentStep, selectedPaymentGroup]);
 
   useEffect(() => {
+    if (paymentProvidersStatus !== "ready") return;
     if (!enabledPaymentMethods.length) return;
     if (enabledPaymentMethods.some((method) => method.value === formState.paymentMethod)) return;
     const fallback = enabledGatewayPaymentMethods[0] || enabledPaymentMethods[0];
     setFormState((prev) => ({ ...prev, paymentMethod: fallback.value }));
-  }, [enabledGatewayPaymentMethods, enabledPaymentMethods, formState.paymentMethod]);
+  }, [enabledGatewayPaymentMethods, enabledPaymentMethods, formState.paymentMethod, paymentProvidersStatus]);
 
   useEffect(() => {
     if (formState.paymentMethod === WALLET_PAYMENT_METHOD) return;
@@ -702,7 +759,10 @@ export default function CheckoutForm({
       return "Your login session has expired. Please sign in again, then complete checkout.";
     }
     if (lower.includes("insufficient") && (lower.includes("wallet") || lower.includes("balance"))) {
-      return "Insufficient wallet funds. Please fund your wallet or choose another payment method.";
+      return "Payment unsuccessful. Insufficient wallet balance.";
+    }
+    if (/^maximum is\b/i.test(raw)) {
+      return "Adjust cart quantity before continuing to payment.";
     }
     return raw;
   };
@@ -1178,7 +1238,7 @@ export default function CheckoutForm({
       selectedPaymentGroup === WALLET_PAYMENT_METHOD
         ? WALLET_PAYMENT_METHOD
         : selectedGatewayPaymentMethod || DEFAULT_GATEWAY_PAYMENT_METHOD;
-    if (!isCheckoutPaymentMethodEnabled(paymentMethodForOrder)) {
+    if (paymentMethodForOrder !== WALLET_PAYMENT_METHOD && !TRANSFER_PAYMENT_METHODS.includes(paymentMethodForOrder)) {
       showSubmitError("That payment method is not available right now. Please choose another option.");
       return;
     }
@@ -1590,7 +1650,9 @@ export default function CheckoutForm({
       await finalize(createdOrderId, createdOrderPayload);
       setOverlayStatus("success");
       setOverlayMessage(
-        "Your order is confirmed. We are preparing it now."
+        paymentMethodForOrder === WALLET_PAYMENT_METHOD
+          ? "Payment successful. Your Meal05 Wallet has been charged."
+          : "Your order is confirmed. We are preparing it now."
       );
     } catch (err) {
       console.warn("Checkout error", err);

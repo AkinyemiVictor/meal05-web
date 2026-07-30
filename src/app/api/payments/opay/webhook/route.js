@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { creditWalletOverpaymentChange } from "@/lib/wallet/server";
@@ -14,16 +15,33 @@ const json = (body, status = 200) =>
   });
 const normaliseText = (value) => String(value ?? "").trim();
 
+const timingSafeEqualText = (left, right) => {
+  const a = Buffer.from(String(left || ""), "utf8");
+  const b = Buffer.from(String(right || ""), "utf8");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+
+const verifyOpaySignature = (request, rawBody) => {
+  const merchantId = process.env.OPAY_MERCHANT_ID || process.env.OPAY_HEAD_MERCHANT_ID || "";
+  const privateKey = process.env.OPAY_MERCHANT_PRIVATE_KEY || "";
+  const receivedMerchant = request.headers.get("MerchantId") || request.headers.get("merchantId") || request.headers.get("merchantid") || "";
+  const receivedSignature = request.headers.get("Signature") || request.headers.get("signature") || "";
+  if (!merchantId || !privateKey || !receivedMerchant || !receivedSignature) return false;
+  if (!timingSafeEqualText(receivedMerchant, merchantId)) return false;
+  const expected = crypto.createHmac("sha512", privateKey).update(rawBody).digest("hex");
+  return timingSafeEqualText(receivedSignature.toLowerCase(), expected.toLowerCase());
+};
+
 const verifySharedSecret = (request) => {
   const expected = process.env.PAYMENT_WEBHOOK_SECRET;
   if (!expected) return false;
   const got = request.headers.get("x-webhook-secret") || request.headers.get("X-Webhook-Secret") || "";
-  return Boolean(got && got === expected);
+  return Boolean(got && timingSafeEqualText(got, expected));
 };
 
-const readPayload = async (request) => {
+const readPayload = (rawBody) => {
   try {
-    return await request.json();
+    return JSON.parse(rawBody || "{}");
   } catch {
     return {};
   }
@@ -106,6 +124,18 @@ const resolvePaidAmount = (payload, orderTotal) => {
   return null;
 };
 
+const resolveCurrency = (payload) =>
+  normaliseText(
+    payload?.currency ||
+      payload?.currencyCode ||
+      payload?.currency_code ||
+      payload?.data?.currency ||
+      payload?.data?.currencyCode ||
+      payload?.data?.currency_code ||
+      payload?.amount?.currency ||
+      payload?.data?.amount?.currency
+  ).toUpperCase();
+
 const comparePaidAmount = (paidAmount, orderTotal) => {
   const actual = Math.round((Number(paidAmount) || 0) * 100);
   const expected = Math.round((Number(orderTotal) || 0) * 100);
@@ -123,7 +153,8 @@ const comparePaidAmount = (paidAmount, orderTotal) => {
 
 export async function POST(request) {
   const admin = getSupabaseAdminClient();
-  const payload = await readPayload(request);
+  const rawBody = await request.text();
+  const payload = readPayload(rawBody);
 
   const gatewayProvider = await loadPaymentProvider(admin, "opay_gateway").catch(() => null);
   const transferProvider = await loadPaymentProvider(admin, "opay_transfer").catch(() => null);
@@ -132,7 +163,7 @@ export async function POST(request) {
     return json(PAYMENT_METHOD_DISABLED, 503);
   }
 
-  if (!verifySharedSecret(request)) {
+  if (!verifyOpaySignature(request, rawBody) && !verifySharedSecret(request)) {
     await logAdminError("Invalid OPay webhook signature", { route: "/api/payments/opay/webhook" });
     return json({ error: "Invalid signature" }, 401);
   }
@@ -158,6 +189,20 @@ export async function POST(request) {
   if (!existingOrder) return json({ error: "Order not found" }, 404);
 
   const paidAmount = paymentStatus === "paid" ? resolvePaidAmount(payload, existingOrder.total) : null;
+  const paidCurrency = paymentStatus === "paid" ? resolveCurrency(payload) : "";
+  const expectedCurrency = normaliseText(existingOrder.currency_code || "NGN").toUpperCase() || "NGN";
+  if (paymentStatus === "paid" && (!paidCurrency || paidCurrency !== expectedCurrency)) {
+    await logAdminEvent({
+      route: "/api/payments/opay/webhook",
+      order_id: orderId,
+      provider: "opay",
+      payment_status: "failed",
+      event: paidCurrency ? "currency_mismatch_rejected" : "missing_currency_rejected",
+      paid_currency: paidCurrency,
+      expected_currency: expectedCurrency,
+    });
+    return json({ error: "The verified currency does not match this order." }, 409);
+  }
   const amountComparison = paymentStatus === "paid" ? comparePaidAmount(paidAmount, existingOrder.total) : null;
   if (paymentStatus === "paid" && !amountComparison.valid) {
     await admin
@@ -175,7 +220,7 @@ export async function POST(request) {
       expected_amount: existingOrder.total,
     });
     return json(
-      { error: amountComparison.underpaid ? "Payment is less than order total" : "Payment amount is required" },
+      { error: amountComparison.underpaid ? "The verified amount does not match this order." : "Payment amount is required." },
       409
     );
   }
