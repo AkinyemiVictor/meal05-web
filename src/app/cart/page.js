@@ -34,6 +34,7 @@ import { computeOrderSummary } from "@/lib/order-pricing";
 import {
   clampQuantityToRules,
   formatQuantity,
+  getVariantPurchaseRules,
   roundQuantity,
   validateVariantQuantity,
 } from "@/lib/purchase-quantities";
@@ -77,6 +78,17 @@ const normaliseQuantityForItem = (item, value) => {
   const quantity = Number.isFinite(requested) && requested > 0 ? requested : getItemQuantity(item);
   const validation = validateVariantQuantity(item, quantity);
   return validation.ok ? validation.quantity : clampQuantityToRules(item, quantity);
+};
+
+const normaliseCartQuantityMessage = (message) => {
+  const raw = String(message || "").trim();
+  if (!raw) return "Unable to update cart quantity.";
+  if (/^quantity must be positive/i.test(raw)) return "Quantity cannot go below the minimum.";
+  if (/^minimum is\b/i.test(raw)) return raw.replace(/^Minimum is\b/i, "Minimum quantity is");
+  if (/^maximum is\b/i.test(raw)) return raw.replace(/^Maximum is\b/i, "Maximum quantity is");
+  if (/^quantity must increase by\b/i.test(raw)) return raw;
+  if (/product option|variant/i.test(raw)) return "This item option is unavailable. Remove it and add it again.";
+  return raw;
 };
 
 const hydrateCartItem = (item) => {
@@ -687,11 +699,19 @@ function CartPageContent() {
     const target = cartItems.find((item) => item.id === id);
     if (!target || cartUpdateState[id]) return;
 
+    const rules = getVariantPurchaseRules(target);
+    const step = rules.stepQuantity > 0 ? rules.stepQuantity : 1;
     const currentQuantity = getItemQuantity(target);
-    const nextQuantity = clampQuantityToRules(target, currentQuantity + delta);
+    let requestedQuantity = currentQuantity + (delta < 0 ? -step : step);
+    if (rules.maxQuantity != null && currentQuantity > rules.maxQuantity && delta < 0) {
+      requestedQuantity = rules.maxQuantity;
+    } else if (currentQuantity < rules.minQuantity && delta > 0) {
+      requestedQuantity = rules.minQuantity;
+    }
+    const nextQuantity = clampQuantityToRules(target, requestedQuantity);
     const validation = validateVariantQuantity(target, nextQuantity);
     if (!validation.ok) {
-      setCartUpdateMessage(`${target.name || "Item"}: ${validation.error}`);
+      setCartUpdateMessage(`${target.name || "Item"}: ${normaliseCartQuantityMessage(validation.error)}`);
       return;
     }
     if (validation.quantity === currentQuantity) return;
@@ -726,7 +746,7 @@ function CartPageContent() {
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(payload?.error || "Unable to update cart quantity.");
+          throw new Error(normaliseCartQuantityMessage(payload?.error));
         }
       } else {
         persistCart(nextItems);
@@ -734,7 +754,7 @@ function CartPageContent() {
     } catch (error) {
       setCartItems(previousItems);
       persistCart(previousItems);
-      setCartUpdateMessage(error?.message || "Unable to update cart quantity.");
+      setCartUpdateMessage(normaliseCartQuantityMessage(error?.message));
     } finally {
       setCartUpdateState((prev) => {
         const next = { ...prev };
@@ -915,7 +935,8 @@ function CartPageContent() {
                   const minQuantity = Number(item.minQuantity ?? item.min_quantity ?? 1) || 1;
                   const maxQuantityRaw = Number(item.maxQuantity ?? item.max_quantity);
                   const maxQuantity = Number.isFinite(maxQuantityRaw) && maxQuantityRaw > 0 ? maxQuantityRaw : null;
-                  const stepQuantity = Number(item.stepQuantity ?? item.step_quantity ?? 1) || 1;
+                  const rules = getVariantPurchaseRules(item);
+                  const stepQuantity = rules.stepQuantity > 0 ? rules.stepQuantity : 1;
                   const canDecrement = quantity > minQuantity;
                   const canIncrement = maxQuantity == null || quantity < maxQuantity;
                   const lineBusy = Boolean(cartUpdateState[item.id]);

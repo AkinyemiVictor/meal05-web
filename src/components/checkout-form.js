@@ -761,7 +761,16 @@ export default function CheckoutForm({
     if (lower.includes("insufficient") && (lower.includes("wallet") || lower.includes("balance"))) {
       return "Payment unsuccessful. Insufficient wallet balance.";
     }
-    if (/^maximum is\b/i.test(raw)) {
+    if (
+      /^maximum is\b/i.test(raw) ||
+      /^minimum is\b/i.test(raw) ||
+      /^quantity must\b/i.test(raw) ||
+      /^fixed packs\b/i.test(raw) ||
+      lower.includes("adjust cart quantity") ||
+      lower.includes("product option") ||
+      lower.includes("product and variant") ||
+      lower.includes("variant")
+    ) {
       return "Adjust cart quantity before continuing to payment.";
     }
     return raw;
@@ -2114,42 +2123,6 @@ export default function CheckoutForm({
                     </span>
                     <div>
                       <span className="checkout-payment-title">{method.title}</span>
-                      {method.badge || (Array.isArray(method.badges) && method.badges.length) ? (
-                        <div className="checkout-payment-badges">
-                          {(method.badge ? [{ type: "text", label: method.badge }] : method.badges).map((badge, index) => {
-                            const key = `${badge.label}-${index}`;
-                            if (badge.type === "image" && badge.src) {
-                              const imageSrc = encodeURI(badge.src);
-                              return (
-                                <span key={key} className="checkout-payment-badge checkout-payment-badge--image">
-                                  <Image
-                                    src={imageSrc}
-                                    alt={badge.label}
-                                    width={44}
-                                    height={26}
-                                    sizes="44px"
-                                    loading="lazy"
-                                    style={{ width: "auto", height: "24px", objectFit: "contain" }}
-                                  />
-                                </span>
-                              );
-                            }
-                            if (badge.icon) {
-                              return (
-                                <span key={key} className="checkout-payment-badge">
-                                  <i className={badge.icon} aria-hidden="true" />
-                                  <span className="sr-only">{badge.label}</span>
-                                </span>
-                              );
-                            }
-                            return (
-                              <span key={key} className="checkout-payment-badge checkout-payment-badge--text">
-                                {badge.label}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      ) : null}
                     </div>
                   </label>
                 );

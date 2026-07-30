@@ -394,6 +394,16 @@ export async function POST(request) {
     const variant = resolveCartVariant(row);
     return variant?.name || productNameIndex.get(String(variant?.product_id ?? productId)) || "";
   };
+  const resolveCartProductDisplayName = (row) => {
+    const productId = row?.product_id != null ? String(row.product_id) : "";
+    const variant = resolveCartVariant(row);
+    return (
+      String(row?.product_name || row?.productName || "").trim() ||
+      productNameIndex.get(String(variant?.product_id ?? productId)) ||
+      resolveCartItemName(row) ||
+      "this item"
+    );
+  };
   const cartVariantNames = new Map();
   const cartProductNames = new Map();
   cart.forEach((row) => {
@@ -452,8 +462,7 @@ export async function POST(request) {
         return;
       }
       const label =
-        row?.name ||
-        cartVariantNames.get(variantId) ||
+        resolveCartProductDisplayName(row) ||
         (row?.product_id != null ? cartProductNames.get(String(row.product_id)) : "") ||
         "";
       const quantityValidation = validateVariantQuantity(row, requested);
@@ -508,9 +517,13 @@ export async function POST(request) {
 
   if (issues.length) {
     const primary = issues[0] || {};
-    const primaryMessage = /^maximum is\b/i.test(String(primary.message || ""))
+    const rawMessage = String(primary.message || "");
+    const isQuantityRule =
+      /^(minimum is|maximum is|quantity must|fixed packs)/i.test(rawMessage) ||
+      /product option|variant/i.test(rawMessage);
+    const primaryMessage = isQuantityRule
       ? `Adjust cart quantity${primary.product ? ` for ${primary.product}` : ""}.`
-      : primary.message || "Insufficient stock for one or more items";
+      : rawMessage || "Insufficient stock for one or more items";
     return applyRateLimitHeaders(
       NextResponse.json(
         {

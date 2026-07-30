@@ -21,14 +21,34 @@ const timingSafeEqualText = (left, right) => {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 };
 
-const verifyOpaySignature = (request, rawBody) => {
-  const merchantId = process.env.OPAY_MERCHANT_ID || process.env.OPAY_HEAD_MERCHANT_ID || "";
+const getOpayCallbackPayload = (body) =>
+  body?.payload && typeof body.payload === "object" && !Array.isArray(body.payload) ? body.payload : null;
+
+const stringifyCallbackField = (value) => String(value ?? "").trim();
+
+const opayRefundedFlag = (value) => {
+  if (value === true) return "t";
+  const text = stringifyCallbackField(value).toLowerCase();
+  return text === "true" || text === "t" || text === "1" ? "t" : "f";
+};
+
+const buildOpayCallbackSignaturePayload = (body) => {
+  const event = getOpayCallbackPayload(body);
+  if (!event) return "";
+  return `{Amount:"${stringifyCallbackField(event.amount)}",Currency:"${stringifyCallbackField(event.currency)}",Reference:"${stringifyCallbackField(event.reference)}",Refunded:${opayRefundedFlag(event.refunded)},Status:"${stringifyCallbackField(event.status)}",Timestamp:"${stringifyCallbackField(event.timestamp)}",Token:"${stringifyCallbackField(event.token)}",TransactionID:"${stringifyCallbackField(event.transactionId)}"}`;
+};
+
+const verifyOpayCallbackSignature = (body) => {
   const privateKey = process.env.OPAY_MERCHANT_PRIVATE_KEY || "";
-  const receivedMerchant = request.headers.get("MerchantId") || request.headers.get("merchantId") || request.headers.get("merchantid") || "";
-  const receivedSignature = request.headers.get("Signature") || request.headers.get("signature") || "";
-  if (!merchantId || !privateKey || !receivedMerchant || !receivedSignature) return false;
-  if (!timingSafeEqualText(receivedMerchant, merchantId)) return false;
-  const expected = crypto.createHmac("sha512", privateKey).update(rawBody).digest("hex");
+  const receivedSignature = stringifyCallbackField(body?.sha512).toLowerCase();
+  const signaturePayload = buildOpayCallbackSignaturePayload(body);
+  if (!privateKey || !receivedSignature || !signaturePayload) return false;
+  let expected = "";
+  try {
+    expected = crypto.createHmac("sha3-512", privateKey).update(signaturePayload).digest("hex");
+  } catch {
+    return false;
+  }
   return timingSafeEqualText(receivedSignature.toLowerCase(), expected.toLowerCase());
 };
 
@@ -53,6 +73,8 @@ const resolveOrderId = (payload) =>
       payload?.order_id ||
       payload?.merchantOrderNo ||
       payload?.merchant_order_no ||
+      payload?.payload?.orderId ||
+      payload?.payload?.order_id ||
       payload?.data?.orderId ||
       payload?.data?.order_id ||
       payload?.data?.merchantOrderNo ||
@@ -67,6 +89,8 @@ const resolvePaymentStatus = (payload) => {
       payload?.status ||
       payload?.orderStatus ||
       payload?.paymentStatus ||
+      payload?.payload?.status ||
+      payload?.payload?.event ||
       payload?.data?.event ||
       payload?.data?.status ||
       payload?.data?.orderStatus ||
@@ -85,6 +109,8 @@ const resolvePaymentReference = (payload) =>
       payload?.transaction_reference ||
       payload?.transactionId ||
       payload?.transaction_id ||
+      payload?.payload?.reference ||
+      payload?.payload?.transactionId ||
       payload?.data?.reference ||
       payload?.data?.transactionReference ||
       payload?.data?.transaction_reference ||
@@ -103,6 +129,7 @@ const resolvePaidAmount = (payload, orderTotal) => {
     payload?.amount,
     payload?.totalAmount,
     payload?.total_amount,
+    payload?.payload?.amount,
     payload?.data?.paidAmount,
     payload?.data?.paid_amount,
     payload?.data?.amountPaid,
@@ -129,6 +156,7 @@ const resolveCurrency = (payload) =>
     payload?.currency ||
       payload?.currencyCode ||
       payload?.currency_code ||
+      payload?.payload?.currency ||
       payload?.data?.currency ||
       payload?.data?.currencyCode ||
       payload?.data?.currency_code ||
@@ -151,6 +179,49 @@ const comparePaidAmount = (paidAmount, orderTotal) => {
   };
 };
 
+const selectPaymentFields =
+  "id, reference, transaction_ref, user_id, order_id, wallet_topup_id, amount, currency, status, provider_code";
+
+const findCallbackPayments = async (admin, { orderId, reference }) => {
+  const matches = new Map();
+  const addRows = (rows) => {
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      if (row?.id != null) matches.set(String(row.id), row);
+    });
+  };
+
+  if (reference) {
+    const byReference = await admin
+      .from("payments")
+      .select(selectPaymentFields)
+      .eq("reference", reference)
+      .in("provider_code", ["opay_gateway", "opay_transfer"]);
+    if (byReference.error) return { rows: [], error: byReference.error };
+    addRows(byReference.data);
+
+    const byTransactionReference = await admin
+      .from("payments")
+      .select(selectPaymentFields)
+      .eq("transaction_ref", reference)
+      .in("provider_code", ["opay_gateway", "opay_transfer"]);
+    if (byTransactionReference.error) return { rows: [], error: byTransactionReference.error };
+    addRows(byTransactionReference.data);
+  }
+
+  const numericOrderId = Number(orderId);
+  if (!matches.size && Number.isSafeInteger(numericOrderId) && numericOrderId > 0) {
+    const byOrder = await admin
+      .from("payments")
+      .select(selectPaymentFields)
+      .eq("order_id", numericOrderId)
+      .in("provider_code", ["opay_gateway", "opay_transfer"]);
+    if (byOrder.error) return { rows: [], error: byOrder.error };
+    addRows(byOrder.data);
+  }
+
+  return { rows: Array.from(matches.values()), error: null };
+};
+
 export async function POST(request) {
   const admin = getSupabaseAdminClient();
   const rawBody = await request.text();
@@ -163,12 +234,43 @@ export async function POST(request) {
     return json(PAYMENT_METHOD_DISABLED, 503);
   }
 
-  if (!verifyOpaySignature(request, rawBody) && !verifySharedSecret(request)) {
+  const hasOpayPrivateKey = Boolean(process.env.OPAY_MERCHANT_PRIVATE_KEY);
+  if (!verifyOpayCallbackSignature(payload) && !(hasOpayPrivateKey === false && verifySharedSecret(request))) {
     await logAdminError("Invalid OPay webhook signature", { route: "/api/payments/opay/webhook" });
     return json({ error: "Invalid signature" }, 401);
   }
 
-  const orderId = resolveOrderId(payload);
+  let orderId = resolveOrderId(payload);
+  const paymentReference = resolvePaymentReference(payload);
+  const { rows: callbackPayments, error: paymentLookupError } = await findCallbackPayments(admin, {
+    orderId,
+    reference: paymentReference,
+  });
+  if (paymentLookupError) {
+    await logAdminError(paymentLookupError, { route: "/api/payments/opay/webhook", stage: "load_payment" });
+    return json({ error: "Unable to load payment" }, 500);
+  }
+  if (callbackPayments.length > 1) {
+    await logAdminError("Ambiguous OPay callback payment reference", {
+      route: "/api/payments/opay/webhook",
+      reference: paymentReference,
+      order_id: orderId || null,
+      count: callbackPayments.length,
+    });
+    return json({ error: "Payment reference matched more than one record." }, 409);
+  }
+  const callbackPayment = callbackPayments[0] || null;
+  if (!callbackPayment) {
+    await logAdminError("OPay callback payment reference not found", {
+      route: "/api/payments/opay/webhook",
+      reference: paymentReference,
+      order_id: orderId || null,
+    });
+    return json({ error: "Payment record not found." }, 404);
+  }
+  if (!orderId && callbackPayment?.order_id != null) {
+    orderId = String(callbackPayment.order_id);
+  }
   if (!orderId) return json({ error: "Missing orderId" }, 400);
 
   const paymentStatus = resolvePaymentStatus(payload);
@@ -210,6 +312,19 @@ export async function POST(request) {
       .update({ payment_status: "failed", status: "payment_failed" })
       .eq("id", orderId)
       .neq("payment_status", "paid");
+    await admin
+      .from("payments")
+      .update({
+        status: "failed",
+        rejected_at: new Date().toISOString(),
+        rejection_reason: amountComparison.underpaid
+          ? "The verified amount does not match this order."
+          : "Payment amount is required.",
+        provider_reference: paymentReference || `opay-order-${orderId}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", callbackPayment.id)
+      .select("id");
     await logAdminEvent({
       route: "/api/payments/opay/webhook",
       order_id: orderId,
@@ -226,8 +341,19 @@ export async function POST(request) {
   }
 
   const currentPaymentStatus = normaliseText(existingOrder.payment_status).toLowerCase();
-  const paymentReference = resolvePaymentReference(payload) || `opay-order-${orderId}`;
+  const providerReference = paymentReference || `opay-order-${orderId}`;
   if (currentPaymentStatus === "paid") {
+    if (callbackPayment) {
+      await admin
+        .from("payments")
+        .update({
+          status: "verified",
+          verified_at: new Date().toISOString(),
+          provider_reference: providerReference,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", callbackPayment.id);
+    }
     if (paymentStatus === "paid" && amountComparison?.overpaid) {
       try {
         await creditWalletOverpaymentChange({
@@ -237,8 +363,8 @@ export async function POST(request) {
           amount: amountComparison.difference,
           currencyCode: existingOrder.currency_code || "NGN",
           provider: "opay",
-          providerReference: paymentReference,
-          idempotencyKey: `opay:order:${orderId}:overpayment:${paymentReference}`,
+          providerReference,
+          idempotencyKey: `opay:order:${orderId}:overpayment:${providerReference}`,
         });
       } catch (error) {
         await logAdminError(error, { route: "/api/payments/opay/webhook", order_id: orderId, stage: "wallet_change_credit" });
@@ -256,6 +382,42 @@ export async function POST(request) {
   if (updateErr) {
     await logAdminError(updateErr, { route: "/api/payments/opay/webhook", order_id: orderId, stage: "update_order" });
     return json({ error: "Unable to update order" }, 500);
+  }
+
+  if (callbackPayment) {
+    const paymentPatch =
+      paymentStatus === "paid"
+        ? {
+            status: "verified",
+            verified_at: new Date().toISOString(),
+            provider_reference: providerReference,
+            updated_at: new Date().toISOString(),
+          }
+        : {
+            status: "failed",
+            rejected_at: new Date().toISOString(),
+            rejection_reason: "OPay callback reported payment failure.",
+            provider_reference: providerReference,
+            updated_at: new Date().toISOString(),
+          };
+    const { data: updatedPayments, error: paymentUpdateError } = await admin
+      .from("payments")
+      .update(paymentPatch)
+      .eq("id", callbackPayment.id)
+      .select("id");
+    if (paymentUpdateError) {
+      await logAdminError(paymentUpdateError, { route: "/api/payments/opay/webhook", order_id: orderId, stage: "update_payment" });
+      return json({ error: "Unable to update payment" }, 500);
+    }
+    if (!Array.isArray(updatedPayments) || updatedPayments.length !== 1) {
+      await logAdminError("OPay callback did not update exactly one payment record", {
+        route: "/api/payments/opay/webhook",
+        order_id: orderId,
+        payment_id: callbackPayment.id,
+        count: Array.isArray(updatedPayments) ? updatedPayments.length : 0,
+      });
+      return json({ error: "Payment update count mismatch." }, 409);
+    }
   }
 
   if (paymentStatus === "paid") {
@@ -277,8 +439,8 @@ export async function POST(request) {
           amount: amountComparison.difference,
           currencyCode: existingOrder.currency_code || "NGN",
           provider: "opay",
-          providerReference: paymentReference,
-          idempotencyKey: `opay:order:${orderId}:overpayment:${paymentReference}`,
+          providerReference,
+          idempotencyKey: `opay:order:${orderId}:overpayment:${providerReference}`,
         });
       } catch (error) {
         await logAdminError(error, { route: "/api/payments/opay/webhook", order_id: orderId, stage: "wallet_change_credit" });
@@ -298,6 +460,7 @@ export async function POST(request) {
     order_id: orderId,
     payment_status: paymentStatus,
     paidAmount,
+    paymentId: callbackPayment?.id || null,
     walletChangeAmount: amountComparison?.overpaid ? amountComparison.difference : 0,
   });
 }

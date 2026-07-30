@@ -12,6 +12,16 @@ import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity }
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const normaliseQuantityError = (message) => {
+  const raw = String(message || "").trim();
+  if (!raw) return "Unable to update cart quantity.";
+  if (/^quantity must be positive/i.test(raw)) return "Quantity cannot go below the minimum.";
+  if (/^minimum is\b/i.test(raw)) return raw.replace(/^Minimum is\b/i, "Minimum quantity is");
+  if (/^maximum is\b/i.test(raw)) return raw.replace(/^Maximum is\b/i, "Maximum quantity is");
+  if (/product option|variant/i.test(raw)) return "This item option is unavailable. Remove it and add it again.";
+  return raw;
+};
+
 export async function PATCH(req, { params }) {
   const { id } = (await params) || {};
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -68,7 +78,7 @@ export async function PATCH(req, { params }) {
   const quantityValidation = validateVariantQuantity(variant, quantityNum);
   if (!quantityValidation.ok) {
     return applyRateLimitHeaders(
-      NextResponse.json({ error: quantityValidation.error, requested: formatQuantity(quantityNum) }, { status: 400 }),
+      NextResponse.json({ error: normaliseQuantityError(quantityValidation.error), requested: formatQuantity(quantityNum) }, { status: 400 }),
       rl
     );
   }

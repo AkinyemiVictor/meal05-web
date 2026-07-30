@@ -17,7 +17,6 @@ const FALLBACK_METHODS = [
     available: false,
     displayOrder: 1,
     logoUrl: MONIEPOINT_LOGO_URL,
-    description: "Transfer to Meal05's Moniepoint account. We confirm the payment before fulfilment.",
   },
   {
     code: "opay_transfer",
@@ -25,7 +24,6 @@ const FALLBACK_METHODS = [
     available: false,
     displayOrder: 2,
     logoUrl: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png",
-    description: "Transfer from any bank or OPay wallet to the Meal05 OPay account.",
   },
 ];
 
@@ -34,7 +32,6 @@ const mergeDisplayMethod = (fallback, liveMethod) => ({
   available: liveMethod ? liveMethod.available !== false : fallback.available,
   logoUrl: liveMethod?.logoUrl || fallback.logoUrl || "",
   badge: liveMethod?.badge || "",
-  description: liveMethod?.customerNotice || fallback.description || "",
 });
 
 function ProviderMark({ method }) {
@@ -124,14 +121,19 @@ export default function CheckoutPaymentPage() {
   }
 
   const activeMethod = methods.find((method) => method.code === selectedMethod && method.available !== false);
+  const formattedAmount = new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    maximumFractionDigits: 0,
+  }).format(amount);
 
   return (
     <main className="checkout-payment-page">
       <section className="checkout-payment-page__panel" aria-labelledby="payment-title">
-        <div>
-          <p className="checkout-payment-page__eyebrow">Final payable amount</p>
-          <h1 id="payment-title">Pay {new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(amount)}</h1>
-        </div>
+        <header className="checkout-payment-page__header">
+          <h1 id="payment-title">Choose payment method</h1>
+          <p>{formattedAmount}</p>
+        </header>
         <div className="checkout-payment-page__options" role="radiogroup" aria-label="Payment provider">
           {methods.map((method) => {
             const disabled = method.available === false;
@@ -149,10 +151,8 @@ export default function CheckoutPaymentPage() {
                 disabled={disabled}
               >
                 <ProviderMark method={method} />
-                <span>
+                <span className="checkout-payment-page__option-name">
                   <strong>{method.code === "moniepoint_transfer" ? "Moniepoint" : method.displayName}</strong>
-                  <small>{method.description || "Transfer the exact amount to the account shown on the next screen."}</small>
-                  {method.badge ? <em>{method.badge}</em> : null}
                 </span>
               </button>
             );

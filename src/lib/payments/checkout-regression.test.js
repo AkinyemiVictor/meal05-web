@@ -58,6 +58,7 @@ test("wallet and quantity errors use flow-specific messages", () => {
 
   assert.match(checkoutForm, /Payment unsuccessful\. Insufficient wallet balance\./);
   assert.match(checkoutForm, /Adjust cart quantity before continuing to payment\./);
+  assert.match(checkoutForm, /product option/);
   assert.match(orderRoute, /Payment unsuccessful\. Insufficient wallet balance\./);
   assert.match(orderRoute, /Adjust cart quantity/);
   assert.match(walletRoute, /Payment successful\. Your Meal05 Wallet has been charged\./);
@@ -70,7 +71,8 @@ test("transfer pages use server-controlled availability and exact amount copy UI
 
   assert.match(paymentPage, /available:\s*false/);
   assert.match(paymentPage, /role="radiogroup"/);
-  assert.match(paymentPage, /Final payable amount/);
+  assert.match(paymentPage, /Choose payment method/);
+  assert.doesNotMatch(paymentPage, /method\.description/);
   assert.match(providerPage, /available:\s*false/);
   assert.match(providerPage, /aria-label="Copy payment amount"/);
   assert.match(providerPage, /copyToClipboard/);
@@ -85,8 +87,9 @@ test("bank transfer acknowledgement and OPay webhook fail closed", () => {
   const migration = read("supabase/migrations/20260730111500_activate_opay_transfer_when_configured.sql");
 
   assert.match(submitRoute, /Please confirm that you will transfer the exact amount\./);
-  assert.match(opayWebhook, /createHmac\("sha512"/);
-  assert.match(opayWebhook, /MerchantId/);
+  assert.match(opayWebhook, /createHmac\("sha3-512"/);
+  assert.match(opayWebhook, /buildOpayCallbackSignaturePayload/);
+  assert.match(opayWebhook, /Payment update count mismatch/);
   assert.match(opayWebhook, /The verified currency does not match this order\./);
   assert.match(opayWebhook, /The verified amount does not match this order\./);
   assert.match(migration, /where code = 'opay_transfer'/);
