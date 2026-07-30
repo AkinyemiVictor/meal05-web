@@ -14,7 +14,7 @@ const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : us
 export default function PageScaler({ children }) {
   const pathname = usePathname();
   const innerRef = useRef(null);
-  const disableScaling = pathname === "/checkout/payment" || pathname?.startsWith("/checkout/payment/");
+  const disableScaling = pathname?.startsWith("/checkout/payment/");
   const [scaleState, setScaleState] = useState({
     scale: 1,
     scaledDocHeight: null,

@@ -2257,6 +2257,16 @@
   cursor: pointer;
 }
 
+.checkout-transfer-screen__continue:not(:disabled) {
+  background: #10b981;
+  box-shadow: 0 14px 28px rgba(16, 185, 129, 0.24);
+}
+
+.checkout-transfer-screen__continue:not(:disabled):hover,
+.checkout-transfer-screen__continue:not(:disabled):focus-visible {
+  background: #059669;
+}
+
 .checkout-transfer-screen__continue:disabled,
 .checkout-transfer-screen__sent:disabled {
   cursor: not-allowed;
@@ -2428,6 +2438,11 @@
     min-height: 100dvh;
     align-items: center;
     padding-block: max(1.25rem, env(safe-area-inset-top, 0px)) max(1.25rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .page-scale-inner:not(.page-scale-inner--no-scale) .checkout-payment-page {
+    min-height: calc(100vh / var(--page-scale, 1));
+    min-height: calc(100dvh / var(--page-scale, 1));
   }
 
   .checkout-transfer-screen__content {

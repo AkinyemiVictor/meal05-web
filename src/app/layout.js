@@ -74,8 +74,8 @@ export default function RootLayout({ children }) {
         </Script>
         <NoticeProvider>
           <SiteNotificationPopup />
-          <Meal05Header />
           <PageScaler>
+            <Meal05Header />
             <div className="layout-main">
               {children}
             </div>

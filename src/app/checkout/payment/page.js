@@ -8,13 +8,15 @@ import { useEffect, useState } from "react";
 import { readPendingCheckoutPayment } from "@/lib/checkout";
 
 const TRANSFER_METHODS = ["moniepoint_transfer", "opay_transfer"];
+const MONIEPOINT_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/moniepoint logo.png";
 
 const FALLBACK_METHODS = [
   {
     code: "moniepoint_transfer",
-    displayName: "Monie Point",
+    displayName: "Moniepoint",
     available: true,
     displayOrder: 1,
+    logoUrl: MONIEPOINT_LOGO_URL,
   },
   {
     code: "opay_transfer",
@@ -72,7 +74,7 @@ export default function CheckoutPaymentPage() {
               .filter((method) => TRANSFER_METHODS.includes(method?.code))
               .map((method) => ({
                 ...method,
-                displayName: method.code === "moniepoint_transfer" ? "Monie Point" : method.displayName,
+                displayName: method.code === "moniepoint_transfer" ? "Moniepoint" : method.displayName,
                 available: method.available !== false,
               }))
               .sort((a, b) => Number(a.displayOrder || 100) - Number(b.displayOrder || 100))
@@ -125,7 +127,7 @@ export default function CheckoutPaymentPage() {
               >
                 <ProviderMark method={method} />
                 <span>
-                  <strong>{method.code === "moniepoint_transfer" ? "Monie Point" : method.displayName}</strong>
+                  <strong>{method.code === "moniepoint_transfer" ? "Moniepoint" : method.displayName}</strong>
                 </span>
               </button>
             );

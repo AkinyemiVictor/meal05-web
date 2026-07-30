@@ -13,13 +13,15 @@ import {
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 
 const TRANSFER_METHODS = ["moniepoint_transfer", "opay_transfer"];
+const MONIEPOINT_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/moniepoint logo.png";
 
 const FALLBACK_METHODS = [
   {
     code: "moniepoint_transfer",
-    displayName: "Monie Point",
+    displayName: "Moniepoint",
     available: true,
     displayOrder: 1,
+    logoUrl: MONIEPOINT_LOGO_URL,
   },
   {
     code: "opay_transfer",
@@ -95,7 +97,7 @@ function TransferShell({ children, onBack }) {
         <button type="button" onClick={onBack} aria-label="Back to payment options">
           <i className="fa-solid fa-chevron-left" aria-hidden="true" />
         </button>
-        <strong>Deposit</strong>
+        <strong>Payment</strong>
         <Link href="/checkout" aria-label="Close payment">
           <i className="fa-solid fa-xmark" aria-hidden="true" />
         </Link>
@@ -163,7 +165,7 @@ function AgreementStep({ provider, amount, agreed, setAgreed, onContinue, busy, 
 
 function AccountDetailsStep({ provider, details, pending, busy, message, onSubmit }) {
   const payment = details?.payment || {};
-  const activeProvider = details?.provider || provider || {};
+  const activeProvider = { ...(provider || {}), ...(details?.provider || {}) };
   const amount = Number(payment.amount ?? details?.order?.summary?.total ?? pending?.summary?.total ?? 0) || 0;
 
   const copyText = (value) => {
@@ -253,7 +255,7 @@ export default function ProviderPaymentPage() {
               .filter((method) => TRANSFER_METHODS.includes(method?.code))
               .map((method) => ({
                 ...method,
-                displayName: method.code === "moniepoint_transfer" ? "Monie Point" : method.displayName,
+                displayName: method.code === "moniepoint_transfer" ? "Moniepoint" : method.displayName,
                 available: method.available !== false,
               }))
               .sort((a, b) => Number(a.displayOrder || 100) - Number(b.displayOrder || 100))
