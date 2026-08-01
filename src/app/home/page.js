@@ -11,6 +11,7 @@ import {
   IconFlame,
   IconHelpCircle,
   IconLeaf,
+  IconPackage,
 } from "@tabler/icons-react";
 import {
   pickInSeasonProducts,
@@ -29,14 +30,15 @@ import FilterChips from "@/components/filter-chips";
 import HomeProductCollection from "@/components/home-product-collection";
 import useCategories from "@/lib/use-categories";
 import { useCatalogProducts } from "@/lib/use-catalog-products";
+import { getHomeSidebarFrame } from "@/lib/home-sidebar";
 
-const DESKTOP_NAVBAR_HEIGHT = 81;
 const FOOTER_SCROLL_ROOM_PX = 112;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
 
 const filters = [
   { value: "popular", label: "Popular", icon: IconFlame },
   { value: "under-15m", label: "Under 15m", icon: IconClock },
+  { value: "bundles", label: "MealKit", icon: IconPackage },
   { value: "chef-choice", label: "Chef Choice", icon: IconChefHat },
   { value: "fresh-in-stock", label: "Fresh In Stock", icon: IconBasketCheck },
   { value: "in-season", label: "In Season", icon: IconLeaf },
@@ -53,6 +55,12 @@ const COLLECTION_COPY = {
     eyebrow: "Quick picks",
     title: "Under 15m",
     emptyMessage: "No under-15m products are available yet.",
+  },
+  bundles: {
+    eyebrow: "Curated packs",
+    title: "MealKit",
+    emptyMessage: "No bundle products are available yet.",
+    seeAllHref: "/section/bundle-plans",
   },
   "chef-choice": {
     eyebrow: "Chef picks",
@@ -158,24 +166,10 @@ export default function Home() {
   useEffect(() => {
     let frame = null;
 
-    const measureSidebarHeight = (sidebar) => {
-      const previousHeight = sidebar.style.height;
-      const previousMaxHeight = sidebar.style.maxHeight;
-      const maxHeight = Math.max(0, window.innerHeight - DESKTOP_NAVBAR_HEIGHT);
-
-      sidebar.style.height = "auto";
-      sidebar.style.maxHeight = `${maxHeight}px`;
-      const height = sidebar.getBoundingClientRect().height;
-      sidebar.style.height = previousHeight;
-      sidebar.style.maxHeight = previousMaxHeight;
-
-      return height;
-    };
-
-    const applyFixed = (sidebar, height) => {
+    const applyFixed = (sidebar, top, height) => {
       sidebar.style.position = "fixed";
       sidebar.style.left = "max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem))";
-      sidebar.style.top = `${DESKTOP_NAVBAR_HEIGHT}px`;
+      sidebar.style.top = `${top}px`;
       sidebar.style.bottom = "";
       sidebar.style.height = `${height}px`;
       sidebar.style.maxHeight = `${height}px`;
@@ -210,15 +204,19 @@ export default function Home() {
         return;
       }
 
+      const boundaryRect = boundary.getBoundingClientRect();
+      const { top, height } = getHomeSidebarFrame({
+        viewportHeight: window.innerHeight,
+        boundaryTop: boundaryRect.top,
+        boundaryBottom: boundaryRect.bottom,
+      });
       const footerTop = footerBoundary.getBoundingClientRect().top;
-      const boundaryHeight = boundary.getBoundingClientRect().height;
-      const height = Math.min(measureSidebarHeight(sidebar), boundaryHeight);
-      const shouldRelease = footerTop <= DESKTOP_NAVBAR_HEIGHT + height;
+      const shouldRelease = footerTop <= top + height;
 
       if (shouldRelease) {
         applyAbsolute(sidebar, boundary, height);
       } else {
-        applyFixed(sidebar, height);
+        applyFixed(sidebar, top, height);
       }
     };
 
@@ -320,6 +318,9 @@ export default function Home() {
         12
       );
     }
+    if (activeCollection === "bundles") {
+      return availableProducts.filter((product) => product.isBundleEligible);
+    }
     if (activeCollection === "chef-choice") {
       return availableProducts.filter(
         (product) => product.isChefChoice || product.collectionSlug === "chef-choice"
@@ -352,10 +353,11 @@ export default function Home() {
   };
 
   const sidebarStyle = {
-    position: "fixed",
-    top: DESKTOP_NAVBAR_HEIGHT,
-    left: "max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem))",
-    height: `calc(100dvh - ${DESKTOP_NAVBAR_HEIGHT}px)`,
+    position: "absolute",
+    top: 0,
+    left: "1.5rem",
+    height: "100dvh",
+    maxHeight: "100dvh",
   };
 
   return (
@@ -377,7 +379,7 @@ export default function Home() {
         <div
           ref={contentBoundaryRef}
           className="home-content-boundary relative z-0 flex overflow-visible lg:pl-72"
-          style={{ minHeight: `calc(100dvh - ${DESKTOP_NAVBAR_HEIGHT}px)` }}
+          style={{ minHeight: "100dvh" }}
         >
           <DesktopCategorySidebar
             categories={categories}
