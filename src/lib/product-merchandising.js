@@ -4,6 +4,7 @@ export const PRODUCT_MERCHANDISING_FLAGS = [
   { field: "is_bestseller", camelKey: "isBestseller", value: "bestseller", label: "Bestseller" },
   { field: "is_new_arrival", camelKey: "isNewArrival", value: "new_arrival", label: "New Arrival" },
   { field: "is_homepage_pick", camelKey: "isHomepagePick", value: "homepage_pick", label: "Homepage Pick" },
+  { field: "is_chef_choice", camelKey: "isChefChoice", value: "chef_choice", label: "Chef Choice" },
   { field: "is_bundle_eligible", camelKey: "isBundleEligible", value: "bundle_eligible", label: "Bundle Eligible" },
 ];
 
