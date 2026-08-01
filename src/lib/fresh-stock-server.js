@@ -10,7 +10,7 @@ export async function loadRecentRestockedProductIds({ limit = 48 } = {}) {
 
   const { data, error } = await admin
     .from("product_variants")
-    .select("product_id, restocked_at, last_restock_quantity")
+    .select("id, product_id, name, unit, price, old_price, stock_count, restocked_at, last_restock_quantity")
     .eq("market_id", market.id)
     .eq("is_active", true)
     .gt("stock_count", 0)
@@ -28,6 +28,12 @@ export async function loadRecentRestockedProductIds({ limit = 48 } = {}) {
     if (!productId || metadata.has(productId)) continue;
 
     metadata.set(productId, {
+      variantId: row?.id ? String(row.id) : null,
+      variantName: String(row?.name || ""),
+      unit: String(row?.unit || ""),
+      price: Number(row?.price || 0) || 0,
+      oldPrice: Number(row?.old_price || 0) || 0,
+      stockCount: Number(row?.stock_count || 0) || 0,
       restockedAt: row?.restocked_at || null,
       lastRestockQuantity: Number(row?.last_restock_quantity || 0) || 0,
     });
@@ -44,8 +50,23 @@ export function attachFreshStockMetadata(products = [], metadata = new Map()) {
     .map((product) => {
       const meta = metadata.get(String(product?.id || ""));
       if (!meta) return null;
+
+      const price = meta.price > 0 ? meta.price : Number(product?.price || 0) || 0;
+      const oldPriceCandidate = meta.oldPrice > 0 ? meta.oldPrice : Number(product?.oldPrice || price) || price;
+      const oldPrice = Math.max(price, oldPriceCandidate);
+      const discount = oldPrice > price && price > 0
+        ? Math.round(((oldPrice - price) / oldPrice) * 100)
+        : 0;
+
       return {
         ...product,
+        variantId: meta.variantId || product?.variantId,
+        variantName: meta.variantName || product?.variantName || "",
+        unit: meta.unit || product?.unit || "",
+        price,
+        oldPrice,
+        discount,
+        stock: meta.stockCount,
         isNewArrival: true,
         isFreshInStock: true,
         restockedAt: meta.restockedAt,
