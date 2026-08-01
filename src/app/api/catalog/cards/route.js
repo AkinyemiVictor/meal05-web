@@ -1,4 +1,9 @@
 import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
+import {
+  attachFreshStockMetadata,
+  groupCatalogProducts,
+  loadRecentRestockedProductIds,
+} from "@/lib/fresh-stock-server";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
@@ -7,10 +12,34 @@ export const fetchCache = "default-cache";
 export async function GET(request) {
   try {
     const searchParams = new URL(request.url).searchParams;
+    const view = searchParams.get("view") || "default";
+    const limit = Math.min(Math.max(Number(searchParams.get("limit") || 48), 1), 120);
+
+    if (view === "new") {
+      const { ids, metadata, market } = await loadRecentRestockedProductIds({ limit });
+      if (!ids.length) {
+        return publicCatalogJson(
+          { grouped: {}, flat: [], market },
+          { headers: { "Cache-Control": "no-store" } }
+        );
+      }
+
+      const payload = await loadPublicCatalogProducts({ ids, limit: ids.length });
+      const flat = attachFreshStockMetadata(payload?.flat, metadata);
+      return publicCatalogJson(
+        {
+          ...payload,
+          grouped: groupCatalogProducts(flat),
+          flat,
+        },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const payload = await loadPublicCatalogProducts({
       category: searchParams.get("category") || "",
-      view: searchParams.get("view") || "default",
-      limit: Number(searchParams.get("limit") || 48),
+      view,
+      limit,
     });
     return publicCatalogJson(payload);
   } catch (error) {
