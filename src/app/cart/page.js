@@ -94,8 +94,9 @@ const normaliseCartQuantityMessage = (message) => {
 const hydrateCartItem = (item) => {
   if (!item || typeof item !== "object") return null;
   const draft = { ...item };
-  const productId = draft.productId ?? draft.product_id ?? draft.product?.id ?? draft.id;
   const variantId = draft.variantId ?? draft.variant_id ?? null;
+  const rawProductId = draft.productId ?? draft.product_id ?? draft.product?.id ?? (variantId ? null : draft.id);
+  const productId = variantId != null && String(rawProductId ?? "") === String(variantId) ? null : rawProductId;
   const cartItemId = draft.cartItemId ?? draft.cart_item_id ?? (draft.variant_id ? draft.id : null);
   const lineId = variantId || draft.id || productId;
   const quantity = normaliseQuantityForItem(draft, getItemQuantity(draft));
@@ -733,11 +734,9 @@ function CartPageContent() {
     setCartItems(nextItems);
 
     try {
-      if (currentUser) {
+      persistCart(nextItems);
+      if (currentUser && target.cartItemId) {
         const cartItemId = target.cartItemId;
-        if (!cartItemId) {
-          throw new Error("Unable to update cart quantity. Refresh your cart and try again.");
-        }
         const response = await fetch(`/api/cart/${encodeURIComponent(cartItemId)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -748,8 +747,6 @@ function CartPageContent() {
         if (!response.ok) {
           throw new Error(normaliseCartQuantityMessage(payload?.error));
         }
-      } else {
-        persistCart(nextItems);
       }
     } catch (error) {
       setCartItems(previousItems);

@@ -604,6 +604,44 @@ export async function POST(request) {
         .map((id) => String(id))
     )
   );
+  const toPriceCents = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.round(number * 100) : null;
+  };
+  const priceChanges = cart
+    .map((row) => {
+      if (row?.unit_price_at_add == null) return null;
+      const submittedPrice = Number(row.unit_price_at_add);
+      const currentPrice = resolveUnitPrice(row);
+      const submittedCents = toPriceCents(submittedPrice);
+      const currentCents = toPriceCents(currentPrice);
+      if (submittedCents == null || currentCents == null || submittedCents === currentCents) return null;
+      const variant = resolveCartVariant(row);
+      return {
+        productId: variant?.product_id ?? row?.product_id ?? null,
+        variantId: resolveVariantIdForOrderItem(row),
+        productName: resolveProductName(row),
+        variantName: resolveVariantName(row),
+        submittedPrice: Math.round(submittedPrice),
+        currentPrice: Math.round(currentPrice),
+      };
+    })
+    .filter(Boolean);
+
+  if (priceChanges.length) {
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        {
+          error: "Some prices changed. Review your cart before payment.",
+          code: "PRICE_CHANGED",
+          priceChanged: true,
+          items: priceChanges,
+        },
+        { status: 409 }
+      ),
+      rl
+    );
+  }
 
   const orderSettings = await loadPublicOrderSettings(admin);
   const capacityLines = cart.map((row) => {

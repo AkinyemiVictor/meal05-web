@@ -675,7 +675,7 @@ export default function CheckoutForm({
     return TRANSFER_PAYMENT_METHODS.map((code) => {
       const method = paymentMethods.find((entry) => entry.value === code) || {
         value: code,
-        title: code,
+        title: code === "moniepoint_transfer" ? "Moniepoint" : code === "opay_transfer" ? "OPay" : code,
         subtitle: "Bank Transfer.",
         badges: [],
       };
@@ -684,11 +684,11 @@ export default function CheckoutForm({
       const available = hasProvider ? Boolean(provider.available) : false;
       return {
         ...method,
-        title: provider?.displayName || method.title,
-        subtitle: provider?.customerNotice || method.subtitle,
+        title: code === "moniepoint_transfer" ? "Moniepoint" : provider?.displayName || method.title,
+        subtitle: "",
         provider,
         available,
-        badge: provider?.badge || (method.badges?.[0]?.label ?? ""),
+        badge: "",
       };
     });
   }, [paymentMethods, paymentProviderOptions]);
@@ -1182,6 +1182,72 @@ export default function CheckoutForm({
     return payload?.error || "Unable to create order.";
   };
 
+  const applyServerPriceChangesToCart = (payload, fallbackItems = []) => {
+    const changes = Array.isArray(payload?.items) ? payload.items : [];
+    if (!changes.length) return false;
+
+    const currentCart = readStoredCart();
+    const sourceCart = Array.isArray(currentCart) && currentCart.length ? currentCart : fallbackItems;
+    if (!Array.isArray(sourceCart) || !sourceCart.length) return false;
+
+    const byVariant = new Map();
+    const byProduct = new Map();
+    changes.forEach((change) => {
+      const price = Number(change?.currentPrice);
+      if (!Number.isFinite(price) || price < 0) return;
+      const normalized = { ...change, currentPrice: price };
+      const variantKey = String(change?.variantId ?? change?.variant_id ?? "").trim();
+      const productKey = String(change?.productId ?? change?.product_id ?? "").trim();
+      if (variantKey) byVariant.set(variantKey, normalized);
+      if (productKey) byProduct.set(productKey, normalized);
+    });
+
+    let changed = false;
+    const nextCart = sourceCart.map((item) => {
+      const variantKey = String(item?.variantId ?? item?.variant_id ?? "").trim();
+      const productKey = String(item?.productId ?? item?.product_id ?? item?.id ?? "").trim();
+      const change = (variantKey && byVariant.get(variantKey)) || (productKey && byProduct.get(productKey));
+      if (!change) return item;
+      changed = true;
+      return {
+        ...item,
+        price: change.currentPrice,
+        unit_price_at_add: change.currentPrice,
+      };
+    });
+
+    if (!changed) return false;
+    writeStoredCart(nextCart);
+    return true;
+  };
+
+  const handleOrderApiError = (payload, fallbackItems, defaultMessage = "Unable to create order.") => {
+    if (payload?.code === "PRICE_CHANGED" || payload?.priceChanged) {
+      applyServerPriceChangesToCart(payload, fallbackItems);
+      return payload?.error || "Some prices changed. Review your cart before payment.";
+    }
+    if (payload?.bulkOrderRequired || payload?.error === "BULK_ORDER_REQUIRED") {
+      const capacityText = [
+        Number(payload?.capacity?.weightKg) > Number(payload?.capacity?.maxWeightKg)
+          ? `approximately ${formatQuantity(payload.capacity.weightKg, "kg")}`
+          : "",
+        Number(payload?.capacity?.liquidLiters) > Number(payload?.capacity?.maxLiquidLiters)
+          ? `approximately ${formatQuantity(payload.capacity.liquidLiters, "L")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" + ");
+      return `${payload?.heading || "Planning a larger order?"} ${payload?.message || "Meal05 handles larger orders too."}${
+        capacityText ? ` Estimated basket capacity: ${capacityText}.` : ""
+      }`;
+    }
+    const removedFromCart = removeOutOfStockItemsFromCart(payload);
+    if (removedFromCart || hasStockIssue(payload)) {
+      return formatStockError(payload, { removedFromCart });
+    }
+    return payload?.error || defaultMessage;
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (isProcessing) return;
@@ -1253,8 +1319,9 @@ export default function CheckoutForm({
     }
     const checkoutItemsPayload = cartItems
       .map((item) => {
-        const productId = item?.productId ?? item?.id ?? null;
         const variantId = item?.variantId ?? null;
+        const rawProductId = item?.productId ?? item?.product_id ?? (variantId ? null : item?.id) ?? null;
+        const productId = variantId != null && String(rawProductId ?? "") === String(variantId) ? null : rawProductId;
         const quantity = Number(item?.quantity) || Number(item?.orderCount) || 1;
         return {
           product_id: productId != null ? String(productId) : null,
@@ -1320,6 +1387,51 @@ export default function CheckoutForm({
         notes: fulfillmentType === "delivery" ? formState.notes.trim() : "",
         deliverySlot: "same-day-evening",
       };
+      const previewAuthToken = await getCheckoutAuthToken();
+      if (!previewAuthToken) {
+        showSubmitError("Your login session has expired. Please sign in again to continue checkout.");
+        setStatus("idle");
+        return;
+      }
+      setStatus("processing");
+      let previewPayload = null;
+      try {
+        const previewResponse = await fetch("/api/orders", {
+          method: "POST",
+          headers: buildCheckoutRequestHeaders(previewAuthToken, `${createCheckoutIdempotencyKey()}:preview`),
+          cache: "no-store",
+          body: JSON.stringify({
+            preview: true,
+            deliveryAddress: pendingForm.address,
+            deliveryHouseNumber: pendingForm.houseNumber,
+            deliveryStreet: pendingForm.address,
+            deliveryLandmark: pendingForm.landmark,
+            deliveryAddressLabel: pendingForm.addressLabel,
+            deliveryContactName: pendingForm.fullName,
+            deliveryContactPhone: pendingForm.phone,
+            deliveryCity: pendingCanonicalCity,
+            deliveryLatitude: fulfillmentType === "delivery" ? deliveryLatitude : undefined,
+            deliveryLongitude: fulfillmentType === "delivery" ? deliveryLongitude : undefined,
+            fulfillmentType,
+            pickupLocationId: fulfillmentType === "pickup" ? pickupLocationId : undefined,
+            deliveryPartnerId: fulfillmentType === "delivery" ? selectedDispatchOption?.id : undefined,
+            note: pendingForm.notes,
+            paymentMethod: DEFAULT_GATEWAY_PAYMENT_METHOD,
+            promo_code: summary.promoCode || undefined,
+            items: checkoutItemsPayload,
+          }),
+        });
+        previewPayload = await previewResponse.json().catch(() => ({}));
+        if (!previewResponse.ok) {
+          showSubmitError(handleOrderApiError(previewPayload, cartItems, previewResponse.statusText || "Unable to verify cart prices."));
+          setStatus("idle");
+          return;
+        }
+      } catch (error) {
+        showSubmitError(error?.message || "Unable to verify cart prices.");
+        setStatus("idle");
+        return;
+      }
       persistPendingCheckoutPayment({
         createdAt: new Date().toISOString(),
         form: pendingForm,
@@ -1333,8 +1445,8 @@ export default function CheckoutForm({
           longitude: deliveryLongitude,
           label: deliveryLocation?.line || deliveryLocation?.zone?.name || "",
         },
-        summary,
-        promoCode: summary.promoCode || "",
+        summary: previewPayload?.summary || summary,
+        promoCode: previewPayload?.summary?.promoCode || summary.promoCode || "",
         items: checkoutItemsPayload,
         cartItems,
       });
@@ -1479,28 +1591,7 @@ export default function CheckoutForm({
         });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
-          if (payload?.bulkOrderRequired || payload?.error === "BULK_ORDER_REQUIRED") {
-            const capacityText = [
-              Number(payload?.capacity?.weightKg) > Number(payload?.capacity?.maxWeightKg)
-                ? `approximately ${formatQuantity(payload.capacity.weightKg, "kg")}`
-                : "",
-              Number(payload?.capacity?.liquidLiters) > Number(payload?.capacity?.maxLiquidLiters)
-                ? `approximately ${formatQuantity(payload.capacity.liquidLiters, "L")}`
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" + ");
-            throw new Error(
-              `${payload?.heading || "Planning a larger order?"} ${payload?.message || "Meal05 handles larger orders too."}${
-                capacityText ? ` Estimated basket capacity: ${capacityText}.` : ""
-              }`
-            );
-          }
-          const removedFromCart = removeOutOfStockItemsFromCart(payload);
-          if (removedFromCart || hasStockIssue(payload)) {
-            throw new Error(formatStockError(payload, { removedFromCart }));
-          }
-          throw new Error(payload?.error || res.statusText || "Unable to create order.");
+          throw new Error(handleOrderApiError(payload, cartItems, res.statusText || "Unable to create order."));
         }
         serverOrderId = payload?.order?.id || null;
         serverPayload = payload;
@@ -1588,8 +1679,7 @@ export default function CheckoutForm({
         });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const removedFromCart = removeOutOfStockItemsFromCart(payload);
-          throw new Error(formatStockError(payload, { removedFromCart }));
+          throw new Error(handleOrderApiError(payload, cartItems, res.statusText || "Unable to create order."));
         }
         createdOrderId = payload?.order?.id || null;
         createdOrderPayload = payload;
@@ -2089,7 +2179,7 @@ export default function CheckoutForm({
         {selectedPaymentGroup === "gateway" && paymentStep === "provider" ? (
           <div className="checkout-payment-provider-panel">
             <div className="checkout-payment-provider-panel__header">
-              <strong>Choose transfer provider</strong>
+              <strong>Choose payment method</strong>
               {paymentProvidersStatus === "loading" ? <span>Loading...</span> : null}
             </div>
             <div className="checkout-payment-options checkout-payment-options--providers">
