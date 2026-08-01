@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconSearch } from "@tabler/icons-react";
 
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
@@ -144,6 +145,22 @@ export default function ShopPage() {
           </div>
         </div>
       </div>
+
+      <form action="/search" method="get" className="shop-page__search" role="search">
+        <IconSearch size={19} stroke={1.9} aria-hidden="true" />
+        <label htmlFor="shop-mobile-search" className="sr-only">Search products</label>
+        <input
+          id="shop-mobile-search"
+          type="search"
+          name="q"
+          placeholder="Search tomatoes, yam, fish..."
+          autoComplete="off"
+          required
+        />
+        <button type="submit" aria-label="Search">
+          <IconSearch size={17} stroke={2} aria-hidden="true" />
+        </button>
+      </form>
 
       {/* Product grid */}
       <section className="category-products" aria-live="polite">

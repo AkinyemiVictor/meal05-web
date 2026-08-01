@@ -1773,7 +1773,7 @@
   height: 4.45rem;
   place-items: center;
   border-radius: 1rem;
-  background: linear-gradient(135deg, #0f9f4d, #19c86f);
+  background: #141622;
   color: #ffffff;
   font-size: 1.35rem;
   font-weight: 950;
@@ -1803,14 +1803,14 @@
 }
 
 .accountEditLink {
-  color: #0f9f4d;
+  color: #141622;
   font-weight: 950;
   text-decoration: none;
 }
 
 .accountEditLink:hover,
 .accountEditLink:focus-visible {
-  color: #087a38;
+  color: #f4511e;
   outline: none;
 }
 
@@ -1855,7 +1855,7 @@
 .accountMenuRow:focus-visible,
 .accountLogoutRow:hover,
 .accountLogoutRow:focus-visible {
-  background: #f4fbf7;
+  background: #f5f6f8;
   outline: none;
 }
 
@@ -1865,14 +1865,14 @@
   height: 2.45rem;
   place-items: center;
   border-radius: 0.8rem;
-  background: #e8fbf1;
-  color: #0f9f4d;
+  background: #eef0f4;
+  color: #141622;
   font-size: 1rem;
 }
 
 .accountMenuRow:nth-child(2n) .accountMenuIcon {
-  background: #e8fbf1;
-  color: #0f9f4d;
+  background: #eef0f4;
+  color: #141622;
 }
 
 .accountMenuBody {

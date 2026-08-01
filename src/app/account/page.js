@@ -4,6 +4,26 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  IconAddressBook,
+  IconBell,
+  IconClock,
+  IconFileDescription,
+  IconGift,
+  IconHeart,
+  IconHelpCircle,
+  IconLogout,
+  IconMail,
+  IconMapPin,
+  IconMessageCircle,
+  IconPackage,
+  IconReceiptRefund,
+  IconShoppingBag,
+  IconUser,
+  IconUserCog,
+  IconUsersPlus,
+  IconWallet,
+} from "@tabler/icons-react";
 
 import styles from "./account.module.css";
 import ProductCard from "@/components/product-card";
@@ -28,21 +48,21 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), {
 });
 
 const ACCOUNT_TABS = [
-  { slug: "overview", label: "My Account", iconClass: "fa-solid fa-user" },
-  { slug: "orders", label: "Orders", iconClass: "fa-solid fa-box" },
-  { slug: "balance", label: "Meal05 Balance", iconClass: "fa-solid fa-wallet" },
-  { slug: "refunds", label: "Refunds", iconClass: "fa-solid fa-rotate-left" },
-  { slug: "referrals", label: "Refer & Earn", iconClass: "fa-solid fa-hand-holding-heart" },
-  { slug: "wishlist", label: "Wishlist", iconClass: "fa-solid fa-wand-magic-sparkles" },
-  { slug: "voucher", label: "Voucher", iconClass: "fa-solid fa-ticket" },
-  { slug: "recent", label: "Recently Viewed", iconClass: "fa-solid fa-clock-rotate-left" },
-  { slug: "management", label: "Account Management", iconClass: "fa-solid fa-user-gear" },
-  { slug: "addresses", label: "Address Book", iconClass: "fa-solid fa-location-dot" },
-  { slug: "newsletter", label: "Newsletter Preferences", iconClass: "fa-solid fa-envelope-open-text" },
-  { slug: "faqs", label: "FAQs", iconClass: "fa-regular fa-circle-question" },
-  { slug: "help", label: "Help & Support", iconClass: "fa-regular fa-comments" },
-  { slug: "notifications", label: "Notification Settings", iconClass: "fa-regular fa-bell" },
-  { slug: "legal", label: "Legal & System", iconClass: "fa-regular fa-file-lines" },
+  { slug: "overview", label: "My Account", icon: IconUser },
+  { slug: "orders", label: "Orders", icon: IconPackage },
+  { slug: "balance", label: "Meal05 Balance", icon: IconWallet },
+  { slug: "refunds", label: "Refunds", icon: IconReceiptRefund },
+  { slug: "referrals", label: "Refer & Earn", icon: IconUsersPlus },
+  { slug: "wishlist", label: "Wishlist", icon: IconHeart },
+  { slug: "voucher", label: "Voucher", icon: IconGift },
+  { slug: "recent", label: "Recently Viewed", icon: IconClock },
+  { slug: "management", label: "Account Management", icon: IconUserCog },
+  { slug: "addresses", label: "Address Book", icon: IconAddressBook },
+  { slug: "newsletter", label: "Newsletter Preferences", icon: IconMail },
+  { slug: "faqs", label: "FAQs", icon: IconHelpCircle },
+  { slug: "help", label: "Help & Support", icon: IconMessageCircle },
+  { slug: "notifications", label: "Notification Settings", icon: IconBell },
+  { slug: "legal", label: "Legal & System", icon: IconFileDescription },
 ];
 
 const ACCOUNT_SUBTITLES = {
@@ -1129,31 +1149,31 @@ export function AccountPageContent() {
         slug: "addresses",
         label: "Saved addresses",
         body: addressBook.length ? `${addressBook.length} saved delivery ${addressBook.length === 1 ? "address" : "addresses"}` : "Set your default delivery address",
-        iconClass: "fa-solid fa-location-dot",
+        icon: IconMapPin,
       },
       {
         slug: "orders",
         label: "Order history",
         body: orders.length ? `${orders.length} order${orders.length === 1 ? "" : "s"} on this account` : "Track current and past orders",
-        iconClass: "fa-solid fa-box",
+        icon: IconPackage,
       },
       {
         slug: "balance",
         label: "Wallet",
         body: `Balance: ${formatMoney(walletSnapshot?.balance || 0, walletSnapshot?.currencyCode || "NGN")}`,
-        iconClass: "fa-solid fa-wallet",
+        icon: IconWallet,
       },
       {
         slug: "refunds",
         label: "Refunds",
         body: "Review refund requests and wallet reversals",
-        iconClass: "fa-solid fa-rotate-left",
+        icon: IconReceiptRefund,
       },
       {
         slug: "referrals",
         label: "Refer & Earn",
         body: "Invite friends and track referral rewards",
-        iconClass: "fa-solid fa-hand-holding-heart",
+        icon: IconUsersPlus,
       },
     ];
     const appRows = [
@@ -1161,25 +1181,25 @@ export function AccountPageContent() {
         slug: "faqs",
         label: "FAQs",
         body: "Answers to common Meal05 questions",
-        iconClass: "fa-regular fa-circle-question",
+        icon: IconHelpCircle,
       },
       {
         slug: "help",
         label: "Help & support",
         body: "Get support for orders, delivery and refunds",
-        iconClass: "fa-regular fa-comments",
+        icon: IconMessageCircle,
       },
       {
         slug: "notifications",
         label: "Notification settings",
         body: "Choose the alerts you want from Meal05",
-        iconClass: "fa-regular fa-bell",
+        icon: IconBell,
       },
       {
         slug: "legal",
         label: "Legal & System",
         body: "Policies, terms and app information",
-        iconClass: "fa-regular fa-file-lines",
+        icon: IconFileDescription,
       },
     ];
     const renderMenuGroup = (title, rows) => (
@@ -1190,10 +1210,11 @@ export function AccountPageContent() {
         <div className={styles.accountMenuList}>
           {rows.map((row) => {
             const badge = getTabBadge(row.slug);
+            const RowIcon = row.icon || IconShoppingBag;
             return (
               <Link key={row.slug} href={getAccountRoute(row.slug)} className={styles.accountMenuRow}>
                 <span className={styles.accountMenuIcon}>
-                  <i className={row.iconClass} aria-hidden="true" />
+                  <RowIcon size={19} stroke={1.9} aria-hidden="true" />
                 </span>
                 <span className={styles.accountMenuBody}>
                   <strong>{row.label}</strong>
@@ -1225,7 +1246,7 @@ export function AccountPageContent() {
         {renderMenuGroup("App", appRows)}
         <button type="button" className={styles.accountLogoutRow} onClick={handleLogout}>
           <span className={styles.accountMenuIcon}>
-            <i className="fa-solid fa-arrow-right-from-bracket" aria-hidden="true" />
+            <IconLogout size={19} stroke={1.9} aria-hidden="true" />
           </span>
           <span className={styles.accountMenuBody}>
             <strong>Log out</strong>

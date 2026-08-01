@@ -111,7 +111,7 @@ export function validateVariantQuantity(variant, requestedQuantity) {
     return invalid(quantity, rules, `Minimum is ${formatQuantity(rules.minQuantity)}`);
   }
   if (rules.maxQuantity != null && quantity > rules.maxQuantity) {
-    return invalid(quantity, rules, `Maximum is ${formatQuantity(rules.maxQuantity)}`);
+    return invalid(quantity, rules, `Maximum for this option is ${formatQuantity(rules.maxQuantity)}.`);
   }
   if (!isStepAligned(quantity, rules.minQuantity, rules.stepQuantity)) {
     return invalid(quantity, rules, `Quantity must increase by ${formatQuantity(rules.stepQuantity)}`);
