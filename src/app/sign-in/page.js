@@ -11,6 +11,7 @@ import "@/styles/sign-in.css";
 import { clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
 import { migrateGuestCartToUser } from "@/lib/cart-storage";
+import { syncGuestAdditionsAfterSignIn } from "@/lib/cart-sync";
 import { BRAND_WORDMARK_SRC } from "@/lib/theme-logo";
 import { DEFAULT_PHONE_COUNTRY_CODE, PHONE_COUNTRY_OPTIONS } from "@/lib/phone-country-options";
 
@@ -423,7 +424,12 @@ function SignInPageContent() {
           window.localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
         }
       } catch {}
-      migrateGuestCartToUser(user);
+      const guestCart = migrateGuestCartToUser(user);
+      try {
+        await syncGuestAdditionsAfterSignIn(guestCart);
+      } catch (cartError) {
+        console.warn("Unable to sync cart after sign-in", cartError);
+      }
       try {
         await withTimeout(fetch("/api/users/sync", {
           method: "PUT",
@@ -647,7 +653,12 @@ function SignInPageContent() {
       }
 
       persistStoredUser(user);
-      migrateGuestCartToUser(user);
+      const guestCart = migrateGuestCartToUser(user);
+      try {
+        await syncGuestAdditionsAfterSignIn(guestCart);
+      } catch (cartError) {
+        console.warn("Unable to sync cart after sign-up", cartError);
+      }
       // If email confirmation is disabled and a session exists, sync names into public.users
       try {
         if (data?.session) {

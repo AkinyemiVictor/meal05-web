@@ -11,6 +11,7 @@ import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
 import { resolveProductImage } from "@/lib/product-image";
 import { readStoredUser } from "@/lib/auth";
+import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 import {
   PURCHASE_MODE_FIXED,
   PURCHASE_MODE_LOOSE,
@@ -468,25 +469,14 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image));
         }
 
-        writeCartItems(items, undefined, { source: "quick-add" });
-
-        try {
-          if (readStoredUser()) {
-            fetch("/api/cart", {
-              method: "POST",
-              cache: "no-store",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                product_id: baseProduct.id,
-                variant_id: variantId,
-                variant_name: buildVariantName(targetVariant) || targetVariant?.name || baseProduct.unit || "Default",
-                product_name: baseProduct.name,
-                unit_price_at_add: getVariantPrice(targetVariant, baseProduct),
-                quantity: safeQty,
-              }),
-            }).catch(() => {});
-          }
-        } catch (_) {}
+        if (readStoredUser()) {
+          await addAuthenticatedCartItem(
+            buildCartItem(baseProduct, targetVariant, safeQty, product?.image),
+            { source: "quick-add" }
+          );
+        } else {
+          writeCartItems(items, undefined, { source: "quick-add" });
+        }
 
         showNotice({
           tone: "success",
@@ -498,7 +488,9 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         if (closeAfter) onClose?.();
       } catch (err) {
         setStatus("ready");
-        setError(err?.message || "Unable to add to cart.");
+        const message = err?.message || "Unable to add to cart.";
+        setError(message);
+        showNotice({ tone: "error", title: "Cart not updated", message });
       }
     },
     [displayProduct, effectiveVariant, isDropdown, onClose, product?.image, quantity, showNotice]

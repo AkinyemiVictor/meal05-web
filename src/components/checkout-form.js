@@ -1222,6 +1222,10 @@ export default function CheckoutForm({
   };
 
   const handleOrderApiError = (payload, fallbackItems, defaultMessage = "Unable to create order.") => {
+    if (payload?.code === "CART_CHANGED" || payload?.cartChanged) {
+      if (Array.isArray(payload?.cart)) writeStoredCart(payload.cart);
+      return payload?.error || "Your cart changed. Review it before continuing to payment.";
+    }
     if (payload?.code === "PRICE_CHANGED" || payload?.priceChanged) {
       applyServerPriceChangesToCart(payload, fallbackItems);
       return payload?.error || "Some prices changed. Review your cart before payment.";

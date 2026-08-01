@@ -34,44 +34,50 @@ const loadVariantStock = async (client, variantId, marketId) => {
   return { row: result.data, error: result.error };
 };
 
-export async function GET(req) {
-  const authClient = getSupabaseRouteClient(await cookies());
-  const rl = await checkRateLimit({ request: req, id: "cart:list", limit: 120, windowMs: 60_000 });
-  const { data: { user } } = await authClient.auth.getUser();
-  if (!user) return new Response(JSON.stringify({ error: "Not logged in" }), { status: 401 });
-
-  const { data, error } = await authClient
+const loadCanonicalCart = async (admin, userId, catalog) => {
+  const { data: rows, error: cartError } = await admin
     .from("cart_items")
-    .select("id, quantity, product_id, variant_id, unit_price_at_add, variant_name, product_name, products(name, image_url)")
-    .eq("user_id", user.id)
+    .select("id, quantity, product_id, variant_id, unit_price_at_add, variant_name, product_name")
+    .eq("user_id", userId)
     .order("id", { ascending: true });
+  if (cartError) throw cartError;
 
-  if (error) return new Response(JSON.stringify({ error }), { status: 400 });
+  const cartRows = Array.isArray(rows) ? rows : [];
+  if (!cartRows.length) return [];
 
-  const admin = getSupabaseAdminClient();
-  const catalog = await loadMarketCatalog(admin);
-  const rows = Array.isArray(data) ? data : [];
-  const variantIds = rows.map((row) => row?.variant_id).filter(Boolean);
-  if (!variantIds.length) return applyRateLimitHeaders(new Response(JSON.stringify([]), { status: 200 }), rl);
+  const variantIds = [...new Set(cartRows.map((row) => row.variant_id).filter(Boolean))];
   const { data: variants, error: variantError } = await admin
     .from("product_variants")
     .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
     .in("id", variantIds)
     .eq("market_id", catalog.market.id)
     .eq("is_active", true);
-  if (variantError) return new Response(JSON.stringify({ error: variantError.message }), { status: 400 });
+  if (variantError) throw variantError;
+
+  const productIds = [...new Set((variants || []).map((variant) => variant.product_id).filter(Boolean))];
+  const { data: products, error: productError } = productIds.length
+    ? await admin.from("products").select("id, name, main_image_url").in("id", productIds)
+    : { data: [], error: null };
+  if (productError) throw productError;
+
   const variantIndex = new Map((variants || []).map((variant) => [String(variant.id), variant]));
-  const validRows = rows.flatMap((row) => {
+  const productIndex = new Map((products || []).map((product) => [String(product.id), product]));
+
+  return cartRows.flatMap((row) => {
     const variant = variantIndex.get(String(row.variant_id));
     if (!variant || !catalog.listings.has(String(variant.product_id))) return [];
     const listing = catalog.listings.get(String(variant.product_id));
+    const product = productIndex.get(String(variant.product_id));
     return [{
       ...row,
       product_id: variant.product_id,
       variant_name: variant.name,
-      product_name: listing?.local_name || row?.products?.name || row?.product_name || "",
+      product_name: listing?.local_name || product?.name || row.product_name || "",
+      image_url: product?.main_image_url || "",
       unit_price_at_add: Number(variant.price),
       currency_code: catalog.market.currencyCode,
+      unit: variant.unit,
+      stock_count: variant.stock_count,
       purchase_mode: variant.purchase_mode,
       min_quantity: variant.min_quantity,
       max_quantity: variant.max_quantity,
@@ -87,7 +93,22 @@ export async function GET(req) {
       option_role: variant.option_role,
     }];
   });
-  return applyRateLimitHeaders(new Response(JSON.stringify(validRows), { status: 200 }), rl);
+};
+
+export async function GET(req) {
+  const authClient = getSupabaseRouteClient(await cookies());
+  const rl = await checkRateLimit({ request: req, id: "cart:list", limit: 120, windowMs: 60_000 });
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) return new Response(JSON.stringify({ error: "Not logged in" }), { status: 401 });
+
+  const admin = getSupabaseAdminClient();
+  const catalog = await loadMarketCatalog(admin);
+  try {
+    const cart = await loadCanonicalCart(admin, user.id, catalog);
+    return applyRateLimitHeaders(Response.json(cart), rl);
+  } catch (error) {
+    return applyRateLimitHeaders(Response.json({ error: error.message || "Unable to load cart" }, { status: 400 }), rl);
+  }
 }
 
 export async function POST(req) {
@@ -111,6 +132,7 @@ export async function POST(req) {
     product_name: z.string().min(1).max(200).optional(),
     unit_price_at_add: z.number().nonnegative().optional(),
     quantity: z.number().finite().positive().max(9999).refine((value) => decimalPlaces(value) <= 3, "Quantity may use no more than three decimal places").optional().default(1),
+    operation: z.enum(["increment", "set"]).optional().default("increment"),
   });
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
@@ -148,7 +170,9 @@ export async function POST(req) {
   if (findError) return new Response(JSON.stringify({ error: findError }), { status: 400 });
 
   const existing = Array.isArray(existingRows) ? existingRows[0] : null;
-  const nextQuantity = roundQuantity(Number(existing?.quantity || 0) + quantity);
+  const nextQuantity = parsed.data.operation === "set"
+    ? quantity
+    : roundQuantity(Number(existing?.quantity || 0) + quantity);
   const quantityValidation = validateVariantQuantity(stockSource, nextQuantity);
   if (!quantityValidation.ok) {
     return new Response(
@@ -182,20 +206,18 @@ export async function POST(req) {
     unit_price_at_add: Number(stockSource.price),
   };
 
-  const writeRequest = existing?.id
-    ? authClient
-        .from("cart_items")
-        .update({ ...payload, quantity: nextQuantity })
-        .eq("id", existing.id)
-        .eq("user_id", user.id)
-    : authClient.from("cart_items").insert({
-        user_id: user.id,
-        ...payload,
-        quantity,
-      });
+  const { error } = await authClient
+    .from("cart_items")
+    .upsert(
+      { user_id: user.id, ...payload, quantity: nextQuantity, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,variant_id" }
+    );
 
-  const { error } = await writeRequest;
-
-  if (error) return new Response(JSON.stringify({ error }), { status: 400 });
-  return applyRateLimitHeaders(new Response(JSON.stringify({ message: "Item added to cart" }), { status: 201 }), rl);
+  if (error) return Response.json({ error: error.message || "Unable to update cart" }, { status: 400 });
+  try {
+    const cart = await loadCanonicalCart(admin, user.id, catalog);
+    return applyRateLimitHeaders(Response.json({ message: "Cart updated", cart }, { status: 201 }), rl);
+  } catch (cartError) {
+    return applyRateLimitHeaders(Response.json({ error: cartError.message || "Unable to reload cart" }, { status: 400 }), rl);
+  }
 }

@@ -153,12 +153,13 @@ export const clearCartItems = (user, options = {}) => {
 };
 
 export const migrateGuestCartToUser = (user = readStoredUser()) => {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return [];
   const guestCart = readRawCart(null);
-  if (!guestCart.length) return;
+  if (!guestCart.length) return [];
   const userCart = readRawCart(user);
   writeRawCart(mergeCartLines(userCart, guestCart), user, { source: "guest-migration" });
   clearCartItems(null, { source: "guest-migration" });
+  return guestCart;
 };
 
 export const dispatchCartUpdatedEvent = (detail) => {

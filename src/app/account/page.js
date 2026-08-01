@@ -12,6 +12,7 @@ import { buildSignInHref } from "@/lib/auth-redirect";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import { ORDERS_EVENT, readUserOrders, setUserOrders } from "@/lib/orders";
 import { CART_UPDATED_EVENT, readCartItems, writeCartItems } from "@/lib/cart-storage";
+import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 import { formatProductPrice } from "@/lib/catalogue";
 import { useCatalogProducts, useProductsByIds } from "@/lib/use-catalog-products";
 import { RECENTLY_VIEWED_KEY } from "@/lib/engagement";
@@ -1058,7 +1059,7 @@ export function AccountPageContent() {
     void loadDeliveryContact(expandedOrder.orderId);
   }, [activeTab, expandedOrderId, loadDeliveryContact, presentOrders]);
 
-  const handleReorder = (order) => {
+  const handleReorder = async (order) => {
     const orderItems = Array.isArray(order?.items) ? order.items : [];
     const incoming = orderItems
       .map((item) => buildCartItemFromOrderItem(item, productIndex))
@@ -1069,26 +1070,25 @@ export function AccountPageContent() {
       return;
     }
 
-    const nextCart = mergeCartItems(readCartItems(), incoming);
-    writeCartItems(nextCart, undefined, { source: "account-reorder" });
-    setSavedCart(nextCart);
-    setCartMessage(`${incoming.length} item${incoming.length === 1 ? "" : "s"} added back to your cart.`);
-
-    incoming.forEach((item) => {
-      fetch("/api/cart", {
-        method: "POST",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product_id: item.productId,
-          variant_id: item.variantId || item.productId,
-          variant_name: item.variantName,
-          product_name: item.name,
-          unit_price_at_add: item.price,
-          quantity: normaliseOrderQuantity(item.quantity),
-        }),
-      }).catch(() => {});
-    });
+    try {
+      let nextCart;
+      if (readStoredUser()) {
+        for (const item of incoming) {
+          nextCart = await addAuthenticatedCartItem(
+            { ...item, quantity: normaliseOrderQuantity(item.quantity) },
+            { source: "account-reorder" }
+          );
+        }
+      } else {
+        nextCart = mergeCartItems(readCartItems(), incoming);
+        writeCartItems(nextCart, undefined, { source: "account-reorder" });
+      }
+      setSavedCart(Array.isArray(nextCart) ? nextCart : readCartItems());
+      setCartMessage(`${incoming.length} item${incoming.length === 1 ? "" : "s"} added back to your cart.`);
+    } catch (error) {
+      setCartMessage(error?.message || "Unable to add this order back to your cart.");
+      return;
+    }
 
     const params = new URLSearchParams(searchParams?.toString() || "");
     params.set("tab", "cart");

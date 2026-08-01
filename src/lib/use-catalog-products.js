@@ -93,24 +93,29 @@ export function useProductsByIds(ids = []) {
   const orderedIds = useMemo(() => normaliseIds(ids), [ids]);
   const key = orderedIds.join(",");
   const url = key ? `/api/products/by-ids?ids=${encodeURIComponent(key)}` : "";
-  const [state, setState] = useState(() => ({ ...EMPTY_LOOKUP, status: key ? "loading" : "ready", error: null }));
+  const [state, setState] = useState(() => ({
+    ...EMPTY_LOOKUP,
+    requestKey: key,
+    status: key ? "loading" : "ready",
+    error: null,
+  }));
 
   useEffect(() => {
     let cancelled = false;
     if (!key) {
-      setState({ ...EMPTY_LOOKUP, status: "ready", error: null });
+      setState({ ...EMPTY_LOOKUP, requestKey: "", status: "ready", error: null });
       return () => {
         cancelled = true;
       };
     }
 
-    setState((current) => ({ ...current, status: "loading", error: null }));
+    setState((current) => ({ ...current, requestKey: key, status: "loading", error: null }));
     fetchCatalog(url, orderedIds)
       .then((lookup) => {
-        if (!cancelled) setState({ ...lookup, status: "ready", error: null });
+        if (!cancelled) setState({ ...lookup, requestKey: key, status: "ready", error: null });
       })
       .catch((error) => {
-        if (!cancelled) setState({ ...EMPTY_LOOKUP, status: "error", error });
+        if (!cancelled) setState({ ...EMPTY_LOOKUP, requestKey: key, status: "error", error });
       });
 
     return () => {
@@ -118,5 +123,8 @@ export function useProductsByIds(ids = []) {
     };
   }, [key, orderedIds, url]);
 
+  if (key && state.requestKey !== key) {
+    return { ...state, status: "loading" };
+  }
   return state;
 }

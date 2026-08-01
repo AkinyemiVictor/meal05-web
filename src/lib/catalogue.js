@@ -126,6 +126,12 @@ export const normaliseProductCatalogue = (catalogue) => {
 
       const normalised = {
         id: item.id != null ? String(item.id) : "",
+        variantId:
+          variant.variantId ??
+          variant.variationId ??
+          item.variantId ??
+          item.variationId ??
+          null,
         name: item.name || "Fresh produce",
         image: resolveProductImage(variant.image, item.image),
         price,
@@ -140,6 +146,18 @@ export const normaliseProductCatalogue = (catalogue) => {
         category: item.category || variant.category || "",
         categorySlug: toSlug(item.category || variant.category || "uncategorised"),
         variantName: variant.variantName || item.variantName || "",
+        purchaseMode: variant.purchaseMode ?? variant.purchase_mode ?? item.purchaseMode ?? item.purchase_mode,
+        purchase_mode: variant.purchase_mode ?? variant.purchaseMode ?? item.purchase_mode ?? item.purchaseMode,
+        minQuantity: variant.minQuantity ?? variant.min_quantity ?? item.minQuantity ?? item.min_quantity,
+        min_quantity: variant.min_quantity ?? variant.minQuantity ?? item.min_quantity ?? item.minQuantity,
+        maxQuantity: variant.maxQuantity ?? variant.max_quantity ?? item.maxQuantity ?? item.max_quantity,
+        max_quantity: variant.max_quantity ?? variant.maxQuantity ?? item.max_quantity ?? item.maxQuantity,
+        stepQuantity: variant.stepQuantity ?? variant.step_quantity ?? item.stepQuantity ?? item.step_quantity,
+        step_quantity: variant.step_quantity ?? variant.stepQuantity ?? item.step_quantity ?? item.stepQuantity,
+        baseUnit: variant.baseUnit ?? variant.base_unit ?? item.baseUnit ?? item.base_unit,
+        base_unit: variant.base_unit ?? variant.baseUnit ?? item.base_unit ?? item.baseUnit,
+        baseQuantity: variant.baseQuantity ?? variant.base_quantity ?? item.baseQuantity ?? item.base_quantity,
+        base_quantity: variant.base_quantity ?? variant.baseQuantity ?? item.base_quantity ?? item.baseQuantity,
         promoTagEnabled: normalizePromoEnabled(
           item.promoTagEnabled ?? item.promo_tag_enabled ?? item.promoEnabled ?? item.promo_enabled
         ),

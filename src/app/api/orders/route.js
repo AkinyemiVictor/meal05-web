@@ -248,24 +248,47 @@ export async function POST(request) {
     },
   ];
   const payloadCartItems = normalizePayloadCartItems(parsed.data.items);
-  let cart = payloadCartItems;
+  let cart = [];
   let cartErr = null;
-  if (!cart.length) {
-    for (const candidate of cartSelectCandidates) {
-      const result = await admin.from("cart_items").select(candidate.select).eq("user_id", user.id);
-      if (!result.error) {
-        cart = Array.isArray(result.data) ? result.data : [];
-        cartErr = null;
-        break;
-      }
-      cartErr = result.error;
-      if (isUnknownColumnError(result.error.message)) continue;
+  for (const candidate of cartSelectCandidates) {
+    const result = await admin.from("cart_items").select(candidate.select).eq("user_id", user.id);
+    if (!result.error) {
+      cart = Array.isArray(result.data) ? result.data : [];
+      cartErr = null;
       break;
     }
+    cartErr = result.error;
+    if (isUnknownColumnError(result.error.message)) continue;
+    break;
   }
   if (cartErr) return applyRateLimitHeaders(NextResponse.json({ error: cartErr.message }, { status: 400 }), rl);
   if (cart.length === 0) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Cart is empty" }, { status: 400 }), rl);
+  }
+
+  if (payloadCartItems.length) {
+    const submittedQuantities = new Map(
+      payloadCartItems.map((item) => [String(item.variant_id || ""), roundQuantity(item.quantity)])
+    );
+    const serverQuantities = new Map(
+      cart.map((item) => [String(item.variant_id || ""), roundQuantity(item.quantity)])
+    );
+    const cartMatches = submittedQuantities.size === serverQuantities.size
+      && [...serverQuantities].every(([variantId, quantity]) => submittedQuantities.get(variantId) === quantity);
+    if (!cartMatches) {
+      return applyRateLimitHeaders(
+        NextResponse.json(
+          {
+            error: "Your cart changed. Review it before continuing to payment.",
+            code: "CART_CHANGED",
+            cartChanged: true,
+            cart,
+          },
+          { status: 409 }
+        ),
+        rl
+      );
+    }
   }
 
   const catalog = await loadMarketCatalog(admin);

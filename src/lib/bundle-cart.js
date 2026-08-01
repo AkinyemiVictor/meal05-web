@@ -6,6 +6,7 @@ import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { resolveProductImage } from "@/lib/product-image";
 import { getAvailableCount } from "@/lib/stock";
 import { readStoredUser } from "@/lib/auth";
+import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 
 const DEFAULT_LINE_COUNT = 1;
 
@@ -77,24 +78,11 @@ const findCartItemIndex = (items, product) => {
 };
 
 const syncAddedItemToApi = (product, quantity) => {
-  try {
-    if (!readStoredUser()) return Promise.resolve();
-    const payload = {
-      product_id: product?.id,
-      variant_id: product?.variantId ?? product?.id,
-      variant_name: product?.variantName || "",
-      product_name: product?.name || "",
-      unit_price_at_add: Number(product?.price) || 0,
-      quantity: toPositiveInteger(quantity, DEFAULT_LINE_COUNT),
-    };
-    return fetch("/api/cart", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).catch(() => {});
-  } catch (_) {
-    return Promise.resolve();
-  }
+  if (!readStoredUser()) return Promise.resolve();
+  return addAuthenticatedCartItem(
+    buildBundleCartItem(product, toPositiveInteger(quantity, DEFAULT_LINE_COUNT), "Pack plan"),
+    { source: "bundle-plan" }
+  );
 };
 
 export const addBundlePlanToCart = async (plan, options = {}) => {
@@ -167,16 +155,23 @@ export const addBundlePlanToCart = async (plan, options = {}) => {
     };
   }
 
-  writeCartItems(items, undefined, { source: "bundle-plan" });
-  await Promise.allSettled(
-    addedEntries.map((entry) => syncAddedItemToApi(entry.product, entry.delta))
-  );
+  let syncedCount = addedEntries.length;
+  let syncFailureCount = 0;
+  if (readStoredUser()) {
+    const results = await Promise.allSettled(
+      addedEntries.map((entry) => syncAddedItemToApi(entry.product, entry.delta))
+    );
+    syncedCount = results.filter((result) => result.status === "fulfilled").length;
+    syncFailureCount = results.length - syncedCount;
+  } else {
+    writeCartItems(items, undefined, { source: "bundle-plan" });
+  }
 
   return {
-    status: "success",
-    totalChangedCount: addedEntries.length,
-    addedCount: addedEntries.length,
-    unavailableCount: unavailableProducts.length,
+    status: syncedCount > 0 ? "success" : "none",
+    totalChangedCount: syncedCount,
+    addedCount: syncedCount,
+    unavailableCount: unavailableProducts.length + syncFailureCount,
     unresolvedCount: unresolvedProductIds.length,
     cappedCount,
   };

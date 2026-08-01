@@ -6,6 +6,7 @@ import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import { deriveStoredUserFromAuthUser, persistStoredUser } from "@/lib/auth";
 import { buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
 import { migrateGuestCartToUser } from "@/lib/cart-storage";
+import { syncGuestAdditionsAfterSignIn } from "@/lib/cart-sync";
 
 const withTimeout = (promise, ms, message) =>
   Promise.race([
@@ -56,7 +57,8 @@ export default function OAuthCompletePage() {
         } catch {}
 
         try {
-          migrateGuestCartToUser(localUser);
+          const guestCart = migrateGuestCartToUser(localUser);
+          await syncGuestAdditionsAfterSignIn(guestCart);
         } catch {}
         router.replace(afterAuthHref);
       } catch (error) {

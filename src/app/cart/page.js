@@ -20,6 +20,7 @@ import {
 import { pickTopEngagedProducts, RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
+import { migrateLocalCartToEmptyServer, setAuthenticatedCartItem } from "@/lib/cart-sync";
 import { readStoredUser, AUTH_EVENT } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { trackBeginCheckout } from "@/lib/analytics";
@@ -290,7 +291,7 @@ function CartPageContent() {
     () => [...cartLookupIds, ...recentProductIds],
     [cartLookupIds, recentProductIds]
   );
-  const { index: productIndex } = useProductsByIds(productLookupIds);
+  const { index: productIndex, status: productLookupStatus } = useProductsByIds(productLookupIds);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -465,22 +466,23 @@ function CartPageContent() {
     };
   }, [upgradeLegacyCartItems]);
 
-  // Optional: hydrate cart from backend (Supabase-based API)
+  // Supabase is authoritative for signed-in customers; local storage mirrors it.
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!readStoredUser()) return;
     const controller = new AbortController();
-    fetch(`/api/cart`, { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : null))
+    migrateLocalCartToEmptyServer({ source: cartEventSourceRef.current })
       .then((rows) => {
-        if (!Array.isArray(rows) || !rows.length) return;
+        if (controller.signal.aborted || !Array.isArray(rows)) return;
         const serverItems = hydrateCartItems(rows);
-        if (!serverItems.length) return;
         setCartItems((current) =>
           getCartItemsSignature(current) === getCartItemsSignature(serverItems) ? current : serverItems
         );
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setCartUpdateMessage(error?.message || "Unable to sync your cart. Please refresh and try again.");
+      });
     return () => controller.abort();
   }, []);
 
@@ -550,7 +552,9 @@ function CartPageContent() {
       let message = "";
       const variantMissing = !item.variantId;
 
-      if (!product) {
+      if (!product && productLookupStatus === "loading") {
+        level = "pending";
+      } else if (!product) {
         level = "error";
         message = copy.cart.unavailableMessage;
       } else if (normalised.includes("out") || normalised.includes("sold")) {
@@ -576,10 +580,11 @@ function CartPageContent() {
       map: new Map(statuses.map((status) => [status.id, status])),
       hasError: statuses.some((status) => status.level === "error"),
       hasWarning: statuses.some((status) => status.level === "warning"),
+      hasPending: statuses.some((status) => status.level === "pending"),
     };
-  }, [cartItems, productIndex]);
+  }, [cartItems, productIndex, productLookupStatus]);
 
-  const hasCheckoutBlocker = stockStatus.hasError;
+  const hasCheckoutBlocker = stockStatus.hasError || stockStatus.hasPending;
   const deliverySummaryConfig = useMemo(() => getDeliverySummaryConfig(deliverySettings), [deliverySettings]);
   const pricingItems = useMemo(
     () =>
@@ -735,17 +740,25 @@ function CartPageContent() {
 
     try {
       persistCart(nextItems);
-      if (currentUser && target.cartItemId) {
-        const cartItemId = target.cartItemId;
-        const response = await fetch(`/api/cart/${encodeURIComponent(cartItemId)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-          body: JSON.stringify({ quantity: validation.quantity }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(normaliseCartQuantityMessage(payload?.error));
+      if (currentUser) {
+        if (target.cartItemId) {
+          const cartItemId = target.cartItemId;
+          const response = await fetch(`/api/cart/${encodeURIComponent(cartItemId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ quantity: validation.quantity }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(normaliseCartQuantityMessage(payload?.error));
+          }
+        } else {
+          const canonicalRows = await setAuthenticatedCartItem(
+            { ...target, quantity: validation.quantity, orderCount: validation.quantity },
+            { source: cartEventSourceRef.current }
+          );
+          setCartItems(hydrateCartItems(canonicalRows));
         }
       }
     } catch (error) {
@@ -761,9 +774,35 @@ function CartPageContent() {
     }
   }, [cartItems, cartUpdateState, currentUser, persistCart]);
 
-  const handleRemove = useCallback((id) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  const handleRemove = useCallback(async (id) => {
+    const target = cartItems.find((item) => item.id === id);
+    if (!target || cartUpdateState[id]) return;
+
+    setCartUpdateMessage("");
+    setCartUpdateState((prev) => ({ ...prev, [id]: true }));
+    try {
+      if (currentUser) {
+        if (!target.cartItemId) throw new Error("Your cart is still syncing. Please try again.");
+        const response = await fetch(`/api/cart/${encodeURIComponent(target.cartItemId)}`, {
+          method: "DELETE",
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || "Unable to remove this item.");
+      }
+      const nextItems = cartItems.filter((item) => item.id !== id);
+      setCartItems(nextItems);
+      persistCart(nextItems);
+    } catch (error) {
+      setCartUpdateMessage(error?.message || "Unable to remove this item.");
+    } finally {
+      setCartUpdateState((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+  }, [cartItems, cartUpdateState, currentUser, persistCart]);
 
   const handleApplyPromo = useCallback(async () => {
     const code = promoInput.trim().toUpperCase();
@@ -1006,6 +1045,8 @@ function CartPageContent() {
                             type="button"
                             className={styles.removeButton}
                             onClick={() => handleRemove(item.id)}
+                            disabled={lineBusy}
+                            aria-busy={lineBusy}
                           >
                             <i className="fa-regular fa-circle-xmark" aria-hidden="true"></i>
                             Remove

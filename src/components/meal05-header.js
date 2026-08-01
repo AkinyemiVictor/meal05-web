@@ -82,14 +82,17 @@ export default function Meal05Header() {
             />
           </Link>
 
+          <div className="hidden min-w-0 flex-1 lg:block">
+            <SearchForm id="header-search-desktop" compact />
+          </div>
+
           <Meal05HeaderActions />
         </div>
-      </header>
-      <div className="meal05-header-search-strip bg-meal-paper px-5 pb-4 md:px-6 md:py-4">
-        <div className="mx-auto max-w-[1440px]">
-          <SearchForm id="header-search" compact />
+
+        <div className="mx-auto mt-4 max-w-[1440px] lg:hidden">
+          <SearchForm id="header-search-tablet" compact />
         </div>
-      </div>
+      </header>
     </>
   );
 }

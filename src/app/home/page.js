@@ -30,7 +30,7 @@ import HomeProductCollection from "@/components/home-product-collection";
 import useCategories from "@/lib/use-categories";
 import { useCatalogProducts } from "@/lib/use-catalog-products";
 
-const DESKTOP_NAVBAR_HEIGHT = 171;
+const DESKTOP_NAVBAR_HEIGHT = 81;
 const FOOTER_SCROLL_ROOM_PX = 112;
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
 

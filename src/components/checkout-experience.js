@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 
 import copy from "@/data/copy";
 import { readStoredCart } from "@/lib/checkout";
+import { readStoredUser } from "@/lib/auth";
+import { fetchCanonicalCart } from "@/lib/cart-sync";
 import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
 import useDeliverySettings from "@/lib/use-delivery-settings";
 
@@ -39,19 +41,37 @@ export default function CheckoutExperience() {
       return;
     }
 
+    let cancelled = false;
     const evaluateCart = () => {
       const stored = readStoredCart();
       setHasItems(stored.length > 0);
       setIsHydrated(true);
     };
 
-    evaluateCart();
+    const loadCart = async () => {
+      if (!readStoredUser()) {
+        evaluateCart();
+        return;
+      }
+      try {
+        const cart = await fetchCanonicalCart({ source: "checkout-server-cart" });
+        if (!cancelled) {
+          setHasItems(cart.length > 0);
+          setIsHydrated(true);
+        }
+      } catch {
+        if (!cancelled) evaluateCart();
+      }
+    };
+
+    void loadCart();
 
     const handleCartUpdated = () => evaluateCart();
     window.addEventListener("storage", handleCartUpdated);
     window.addEventListener("cart-updated", handleCartUpdated);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", handleCartUpdated);
       window.removeEventListener("cart-updated", handleCartUpdated);
     };

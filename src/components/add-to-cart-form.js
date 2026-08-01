@@ -7,6 +7,7 @@ import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
 import { readStoredUser } from "@/lib/auth";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
+import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 import {
   PURCHASE_MODE_LOOSE,
   clampQuantityToRules,
@@ -217,22 +218,19 @@ export default function AddToCartForm({ product, fallbackImage }) {
     } else {
       items.push(buildCartItem(product, parsedQuantity, fallbackImage));
     }
-    writeCartItems(items, undefined, { source: "product-detail" });
-
-    if (readStoredUser()) {
-      fetch("/api/cart", {
-        method: "POST",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product_id: product.id,
-          variant_id: variantId,
-          variant_name: product.variantName,
-          product_name: product.name,
-          unit_price_at_add: product.price,
-          quantity: parsedQuantity,
-        }),
-      }).catch(() => {});
+    try {
+      if (readStoredUser()) {
+        await addAuthenticatedCartItem(buildCartItem(product, parsedQuantity, fallbackImage), {
+          source: "product-detail",
+        });
+      } else {
+        writeCartItems(items, undefined, { source: "product-detail" });
+      }
+    } catch (error) {
+      const message = error?.message || "Unable to add this item to your cart.";
+      setFeedback({ tone: "error", message });
+      showNotice({ tone: "error", title: "Cart not updated", message });
+      return;
     }
 
     setFeedback({

@@ -54,11 +54,24 @@ test("checkout blocks stale cart prices before transfer or wallet payment", () =
   assert.match(checkoutForm, /variantId \? null : item\?\.id/);
 });
 
-test("cart quantity updates do not require a backend cart row for local lines", () => {
+test("authenticated cart updates persist through the canonical server cart", () => {
   const cartPage = read("src/app/cart/page.js");
+  const cartRoute = read("src/app/api/cart/route.js");
+  const cartSync = read("src/lib/cart-sync.js");
+  const orderRoute = read("src/app/api/orders/route.js");
+  const migration = read("supabase/migrations/20260801101233_canonical_authenticated_cart.sql");
 
   assert.match(cartPage, /persistCart\(nextItems\)/);
-  assert.match(cartPage, /currentUser && target\.cartItemId/);
-  assert.doesNotMatch(cartPage, /Refresh your cart and try again/);
+  assert.match(cartPage, /setAuthenticatedCartItem/);
+  assert.match(cartPage, /migrateLocalCartToEmptyServer/);
   assert.match(cartPage, /variantId \? null : draft\.id/);
+  assert.doesNotMatch(cartRoute, /products\(name, image_url\)/);
+  assert.match(cartRoute, /main_image_url/);
+  assert.match(cartRoute, /onConflict:\s*"user_id,variant_id"/);
+  assert.match(cartSync, /addAuthenticatedCartItem/);
+  assert.match(orderRoute, /CART_CHANGED/);
+  assert.match(orderRoute, /let cart = \[\]/);
+  assert.match(migration, /cart_items_user_variant_unique_idx/);
+  assert.match(migration, /cart_items_owner_update/);
+  assert.match(migration, /revoke all on table public\.cart_items from anon/);
 });

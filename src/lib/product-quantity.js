@@ -4,6 +4,7 @@ export const PURCHASE_MODE_LOOSE = "loose";
 const MAX_DECIMAL_PLACES = 3;
 
 const toNumber = (value, fallback = null) => {
+  if (value == null || (typeof value === "string" && value.trim() === "")) return fallback;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
 };
