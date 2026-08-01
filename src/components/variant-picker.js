@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { resolveStockClass } from "@/lib/catalogue";
+import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 
 const normaliseText = (value) => (value == null ? "" : String(value).trim());
 const normaliseKey = (value) => normaliseText(value).toLowerCase();
@@ -209,6 +209,9 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
                   disabled={disabled}
                 >
                   <span className="product-variant-picker__option-main">{option.label}</span>
+                  <span className="product-variant-picker__option-price">
+                    {formatProductPrice(variant?.price, variant?.unit)}
+                  </span>
                 </button>
               );
             })}

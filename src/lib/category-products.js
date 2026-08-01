@@ -2,6 +2,7 @@ import { pickFirstNumber } from "@/lib/number";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { selectProductCardVariant } from "@/lib/product-card-pricing";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { loadCategoryCounts, loadCategoryRows, mapCategoryRows, toCategorySlug } from "@/lib/categories-server";
 import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
@@ -101,87 +102,12 @@ const buildVariantIndex = (rows) =>
     return acc;
   }, {});
 
-const normaliseDiscountPercent = (value) => {
-  if (!Number.isFinite(value)) return null;
-  const percent = value <= 1 ? value * 100 : value;
-  if (!Number.isFinite(percent)) return null;
-  if (percent <= 0) return 0;
-  return Math.min(100, Math.round(percent));
-};
-
-const resolvePricing = (row) => {
-  let price = pickFirstNumber(row, [
-    "price",
-    "unit_price",
-    "unitPrice",
-    "sale_price",
-    "salePrice",
-    "selling_price",
-    "sellingPrice",
-    "current_price",
-    "currentPrice",
-    "final_price",
-    "finalPrice",
-    "discounted_price",
-    "discountedPrice",
-    "amount",
-    "amount_ngn",
-    "price_ngn",
-  ]);
-  const rawOldPrice = pickFirstNumber(row, [
-    "oldPrice",
-    "old_price",
-    "compare_at_price",
-    "compareAtPrice",
-    "list_price",
-    "listPrice",
-    "regular_price",
-    "regularPrice",
-    "msrp",
-  ]);
-  if (price == null && rawOldPrice != null) price = rawOldPrice;
-  if (price == null) price = 0;
-
-  const rawDiscount = pickFirstNumber(row, [
-    "discount",
-    "discount_pct",
-    "discountPercent",
-    "discount_percent",
-    "percentage_off",
-    "percent_off",
-    "percentOff",
-  ]);
-  let oldPrice = rawOldPrice != null ? rawOldPrice : price;
-  let discount = oldPrice > price && price > 0 ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
-  if (!discount && rawDiscount != null) {
-    const pct = normaliseDiscountPercent(rawDiscount);
-    if (pct && pct > 0) {
-      discount = pct;
-      if (!(oldPrice > price) && price > 0 && pct < 100) {
-        const computed = price / (1 - pct / 100);
-        if (Number.isFinite(computed)) oldPrice = Math.round(computed);
-      }
-    }
-  }
-  if (!Number.isFinite(oldPrice) || oldPrice <= 0 || oldPrice < price) oldPrice = price;
-  return { price, oldPrice, discount };
-};
-
 const pickVariantLabel = (variant) =>
   buildVolumeLabel(variant) || pickFirst(variant, ["size_label", "sizeLabel", "size", "name", "label"]) || "";
 
 const isAvailableStock = (row) => {
   const count = getAvailableCount(resolveStockValueFromRow(row));
   return count == null || count > 0;
-};
-
-const pickVariantForCard = (variants = []) => {
-  if (!variants.length) return null;
-  const available = variants.filter(isAvailableStock);
-  const pool = available.length ? available : variants;
-  const byDefault = pool.find((variant) => variant?.is_default === true);
-  if (byDefault) return byDefault;
-  return pool.slice().sort((a, b) => resolvePricing(a).price - resolvePricing(b).price)[0] || null;
 };
 
 const productMatchesCategory = (row, category) => {
@@ -193,11 +119,13 @@ const productMatchesCategory = (row, category) => {
   return rowSlug && rowSlug === category.slug;
 };
 
-const mapProductRow = (row, category, imageIndex, variantIndex) => {
+const mapProductRow = (row, category, imageIndex, variantIndex, marketId) => {
   const productId = row?.id ?? row?.product_id;
   const variants = variantIndex[String(productId)] || [];
-  const chosenVariant = pickVariantForCard(variants);
-  const { price, oldPrice, discount } = resolvePricing(chosenVariant || row);
+  const selection = selectProductCardVariant(variants, { marketId });
+  if (!selection) return null;
+  const chosenVariant = selection.variant;
+  const { price, oldPrice, discount, variantCount, hasMultipleOptions } = selection;
   const stock = chosenVariant ? resolveStockValueFromRow(chosenVariant) : resolveStockValueFromRow(row);
   const gallery = imageIndex[String(productId)] || [];
   const mainImageUrl = resolveProductImage(
@@ -227,9 +155,11 @@ const mapProductRow = (row, category, imageIndex, variantIndex) => {
     unit:
       pickFirst(chosenVariant || {}, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) ||
       pickFirst(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]),
-    stock: variants.length && !variants.some(isAvailableStock) ? 0 : stock,
+    stock: selection.inStock ? stock : 0,
     inSeason: typeof row?.in_season === "boolean" ? row.in_season : Boolean(row?.inSeason ?? true),
     discount,
+    variantCount,
+    hasMultipleOptions,
     category: category.name || category.label,
     categorySlug: category.slug,
     variants: variants.map((variant) => ({
@@ -286,7 +216,7 @@ export const loadCategoryProductsPayload = async (supabase, slug) => {
     categories,
     market: catalog.market,
     products: products
-      .map((row) => mapProductRow(row, category, imageIndex, variantIndex))
+      .map((row) => mapProductRow(row, category, imageIndex, variantIndex, catalog.market.id))
       .filter((product) => product?.id && product.isHidden !== true),
   };
 };

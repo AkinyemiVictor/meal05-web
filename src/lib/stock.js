@@ -1,4 +1,4 @@
-import { parseNumberValue } from "@/lib/number";
+import { parseNumberValue } from "./number.js";
 
 const OUT_OF_STOCK_PATTERN = /(out[\s_-]*of[\s_-]*stock|outofstock|sold[\s_-]*out|unavailable|no stock|not available|oos)/i;
 

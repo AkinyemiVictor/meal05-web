@@ -1,4 +1,6 @@
 import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
+import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
+import { selectProductCardVariant } from "@/lib/product-card-pricing";
 
 export const toCategorySlug = (value) =>
   String(value || "")
@@ -117,7 +119,8 @@ export const loadCategoryCounts = async (supabase) => {
     const products = (Array.isArray(productResult.data) ? productResult.data : [])
       .filter(isActiveRow)
       .map((row) => applyMarketListing(row, catalog))
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((row) => normalizeProductMerchandisingRecord(row).isHidden !== true);
     const productIds = products.map((row) => row?.id ?? row?.product_id).filter(Boolean);
     let variantRows = [];
     if (productIds.length) {
@@ -146,18 +149,13 @@ export const loadCategoryCounts = async (supabase) => {
         categoriesById[String(categoryId ?? "")] ||
         toCategorySlug(row?.category_slug || row?.categorySlug || row?.category_name || row?.category || "uncategorised") ||
         "uncategorised";
+      const variants = variantsByProduct[String(row?.id ?? row?.product_id)] || [];
+      const selection = selectProductCardVariant(variants, { marketId: catalog.market.id });
+      if (!selection) return acc;
+
       if (!acc[slug]) acc[slug] = { product_count: 0, available_product_count: 0 };
       acc[slug].product_count += 1;
-
-      const variants = variantsByProduct[String(row?.id ?? row?.product_id)] || [];
-      const stockSources = variants.length ? variants : [row];
-      const isAvailable = stockSources.some((entry) => {
-        const stock = entry?.stock_count ?? entry?.stockCount ?? entry?.inventory_count ?? entry?.quantity ?? entry?.stock;
-        if (stock == null || stock === "") return true;
-        const count = Number(stock);
-        return Number.isFinite(count) ? count > 0 : !String(stock).toLowerCase().includes("out");
-      });
-      if (isAvailable) acc[slug].available_product_count += 1;
+      if (selection.inStock) acc[slug].available_product_count += 1;
       return acc;
     }, {});
   } catch {

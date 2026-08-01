@@ -51,22 +51,8 @@ export function attachFreshStockMetadata(products = [], metadata = new Map()) {
       const meta = metadata.get(String(product?.id || ""));
       if (!meta) return null;
 
-      const price = meta.price > 0 ? meta.price : Number(product?.price || 0) || 0;
-      const oldPriceCandidate = meta.oldPrice > 0 ? meta.oldPrice : Number(product?.oldPrice || price) || price;
-      const oldPrice = Math.max(price, oldPriceCandidate);
-      const discount = oldPrice > price && price > 0
-        ? Math.round(((oldPrice - price) / oldPrice) * 100)
-        : 0;
-
       return {
         ...product,
-        variantId: meta.variantId || product?.variantId,
-        variantName: meta.variantName || product?.variantName || "",
-        unit: meta.unit || product?.unit || "",
-        price,
-        oldPrice,
-        discount,
-        stock: meta.stockCount,
         isNewArrival: true,
         isFreshInStock: true,
         restockedAt: meta.restockedAt,

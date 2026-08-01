@@ -28,6 +28,7 @@ import {
 } from "@/components/home-category-navigation";
 import FilterChips from "@/components/filter-chips";
 import HomeProductCollection from "@/components/home-product-collection";
+import MealKitComingSoon from "@/components/mealkit-coming-soon";
 import useCategories from "@/lib/use-categories";
 import { useCatalogProducts } from "@/lib/use-catalog-products";
 import { getHomeSidebarFrame } from "@/lib/home-sidebar";
@@ -57,10 +58,9 @@ const COLLECTION_COPY = {
     emptyMessage: "No under-15m products are available yet.",
   },
   bundles: {
-    eyebrow: "Curated packs",
+    eyebrow: "MealKit",
     title: "MealKit",
-    emptyMessage: "No bundle products are available yet.",
-    seeAllHref: "/section/bundle-plans",
+    emptyMessage: "MealKit is coming soon.",
   },
   "chef-choice": {
     eyebrow: "Chef picks",
@@ -319,7 +319,7 @@ export default function Home() {
       );
     }
     if (activeCollection === "bundles") {
-      return availableProducts.filter((product) => product.isBundleEligible);
+      return [];
     }
     if (activeCollection === "chef-choice") {
       return availableProducts.filter(
@@ -411,16 +411,20 @@ export default function Home() {
               <FilterChips filters={filters} activeValue={activeCollection} onSelect={setActiveCollection} />
             </div>
 
-            <HomeProductCollection
-              eyebrow={activeCollectionCopy.eyebrow}
-              title={activeCollectionCopy.title}
-              products={collectionProducts}
-              status={activeCollectionStatus}
-              emptyMessage={activeCollectionCopy.emptyMessage}
-              seeAllHref={activeCollectionCopy.seeAllHref}
-              onAdd={handleQuickAdd}
-              showSeasonBadge={activeCollection !== "in-season"}
-            />
+            {activeCollection === "bundles" ? (
+              <MealKitComingSoon />
+            ) : (
+              <HomeProductCollection
+                eyebrow={activeCollectionCopy.eyebrow}
+                title={activeCollectionCopy.title}
+                products={collectionProducts}
+                status={activeCollectionStatus}
+                emptyMessage={activeCollectionCopy.emptyMessage}
+                seeAllHref={activeCollectionCopy.seeAllHref}
+                onAdd={handleQuickAdd}
+                showSeasonBadge={activeCollection !== "in-season"}
+              />
+            )}
           </section>
           </div>
       </div>

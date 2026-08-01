@@ -156,7 +156,7 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, act
             aria-label={`View ${product.name} details`}
           >
             <p className={classNames("font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
-              {formatProductPrice(product.price, "")}
+              {product.hasMultipleOptions ? "From " : ""}{formatProductPrice(product.price, "")}
             </p>
             {Number(product.oldPrice) > Number(product.price) ? (
               <p className={classNames("mt-1 font-medium text-meal-muted line-through", compact ? "text-xs" : "text-sm")}>

@@ -18,13 +18,40 @@ test("desktop category sidebar expands as the document header scrolls away", () 
   );
 });
 
-test("home restores the MealKit collection filter", () => {
+test("home presents MealKit as a dedicated coming-soon collection", () => {
   const home = read("src/app/home/page.js");
+  const comingSoon = read("src/components/mealkit-coming-soon.js");
 
   assert.match(home, /value:\s*"bundles",\s*label:\s*"MealKit"/);
   assert.match(home, /activeCollection === "bundles"/);
-  assert.match(home, /product\.isBundleEligible/);
-  assert.match(home, /seeAllHref:\s*"\/section\/bundle-plans"/);
+  assert.match(home, /<MealKitComingSoon\s*\/>/);
+  assert.match(comingSoon, /mealkit-coming-soon\.webp/);
+  assert.match(comingSoon, /Coming soon/);
+});
+
+test("product card catalogue migration selects the cheapest valid in-stock option", () => {
+  const migration = read("supabase/migrations/20260801230601_product_card_minimum_variant_price.sql");
+
+  assert.match(migration, /v\.market_id\s*=\s*pm\.market_id/i);
+  assert.match(migration, /v\.is_active[\s\S]*v\.price\s*>\s*0/i);
+  assert.match(migration, /stock_count,\s*0\)\s*>\s*0\)\s+desc,[\s\S]*v\.price\s+asc/i);
+  assert.doesNotMatch(migration, /v\.is_default\s+desc/i);
+  assert.match(migration, /active_variant_count/i);
+});
+
+test("Fresh In Stock metadata does not replace shared catalogue pricing", () => {
+  const source = read("src/lib/fresh-stock-server.js");
+
+  assert.doesNotMatch(source, /price:\s*meta\.price/);
+  assert.doesNotMatch(source, /oldPrice:\s*meta\.oldPrice/);
+  assert.match(source, /\.\.\.product,[\s\S]*isFreshInStock:\s*true/);
+});
+
+test("quick-add option buttons retain each variant's individual price", () => {
+  const picker = read("src/components/variant-picker.js");
+
+  assert.match(picker, /product-variant-picker__option-price/);
+  assert.match(picker, /formatProductPrice\(variant\?\.price,\s*variant\?\.unit\)/);
 });
 
 test("quantity-cap migration changes only options capped at ten", () => {

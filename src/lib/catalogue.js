@@ -2,6 +2,7 @@ import { formatMoney } from "@/lib/region";
 import { getAvailableCount } from "@/lib/stock";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { selectProductCardVariant } from "@/lib/product-card-pricing";
 
 export const formatProductPrice = (value, unit) => {
   const formattedPrice = formatMoney(value);
@@ -92,18 +93,14 @@ export const normaliseProductCatalogue = (catalogue) => {
     collection.forEach((item) => {
       if (!item || typeof item !== "object") return;
 
-      const variant =
-        Array.isArray(item.variations) && item.variations.length
-          ?
-              item.variations.find((entry) => {
-                if (!entry || typeof entry !== "object") return false;
-                return resolveStockClass(entry.stock) !== "is-unavailable";
-              }) || item.variations[0]
-          : item;
+      const variationSelection = Array.isArray(item.variations)
+        ? selectProductCardVariant(item.variations, { marketId: item.marketId ?? item.market_id })
+        : null;
+      const variant = variationSelection?.variant || item;
 
-      const price = variant.price ?? item.price ?? 0;
-      let oldPrice = variant.oldPrice ?? item.oldPrice ?? price;
-      let discount = oldPrice > price ? Math.round(((oldPrice - price) / (oldPrice || 1)) * 100) : 0;
+      const price = variationSelection?.price ?? variant.price ?? item.price ?? 0;
+      let oldPrice = variationSelection?.oldPrice ?? variant.oldPrice ?? item.oldPrice ?? price;
+      let discount = variationSelection?.discount ?? (oldPrice > price ? Math.round(((oldPrice - price) / (oldPrice || 1)) * 100) : 0);
       const rawDiscount = variant.discount ?? item.discount ?? null;
 
       if (!discount && rawDiscount != null) {
@@ -121,6 +118,10 @@ export const normaliseProductCatalogue = (catalogue) => {
 
       if (!Number.isFinite(oldPrice) || oldPrice <= 0) oldPrice = price;
       if (oldPrice < price) oldPrice = price;
+
+      const variantCount = Number(
+        item.variantCount ?? item.active_variant_count ?? item.variant_count ?? variationSelection?.variantCount ?? 0
+      ) || 0;
 
       const toSlug = (value) => canonicaliseCategorySlug(value);
 
@@ -143,6 +144,8 @@ export const normaliseProductCatalogue = (catalogue) => {
             ? item.inSeason
             : variant.inSeason ?? true,
         discount,
+        variantCount,
+        hasMultipleOptions: item.hasMultipleOptions === true || item.has_multiple_options === true || variantCount > 1,
         category: item.category || variant.category || "",
         categorySlug: toSlug(item.category || variant.category || "uncategorised"),
         variantName: variant.variantName || item.variantName || "",

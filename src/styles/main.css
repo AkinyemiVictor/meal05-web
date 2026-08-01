@@ -6085,6 +6085,14 @@ main > section:not(.home-hero) {
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
 }
 
+.product-variant-picker__option-price {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  opacity: 0.78;
+}
+
 .product-variant-picker__option:hover {
   border-color: #15803d;
   background: #f0fdf4;
@@ -6434,6 +6442,7 @@ main > section:not(.home-hero) {
   color: #14532d;
   font-weight: 900;
   box-shadow: 0 8px 18px rgba(17, 29, 51, 0.04);
+  text-align: left;
 }
 
 .quick-add-panel .product-variant-picker__option:hover,

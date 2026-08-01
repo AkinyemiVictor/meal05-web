@@ -6,6 +6,7 @@ import { pickFirstNumber } from "@/lib/number";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { selectProductCardVariant } from "@/lib/product-card-pricing";
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 import { getDefaultMarket } from "@/lib/market-server";
@@ -87,6 +88,7 @@ const CARD_CATALOG_FIELDS = [
   "timezone",
   "created_at",
   "search_text",
+  "active_variant_count",
 ].join(", ");
 
 const buildCategoryIndex = (rows) =>
@@ -207,6 +209,8 @@ const buildPublicCatalogProductFromCard = (row) => {
     stock: row?.stock_count ?? (row?.in_stock ? "In stock" : 0),
     inSeason: row?.in_season !== false,
     discount,
+    variantCount: Number(row?.active_variant_count || 0) || 0,
+    hasMultipleOptions: Number(row?.active_variant_count || 0) > 1,
     category: String(row?.category_name || ""),
     categorySlug,
     promoTagEnabled: normalizePromoEnabled(row?.promo_tag_visible ?? row?.promo_tag_enabled),
@@ -275,26 +279,18 @@ const uniqueIds = (ids = [], limit = 80) => {
   return out;
 };
 
-const pickPreferredVariant = (rows = []) => {
-  if (!Array.isArray(rows) || !rows.length) return null;
-  const activeRows = rows.filter((row) => row?.is_active !== false);
-  const pool = activeRows.length ? activeRows : rows;
-  const defaultRow = pool.find((row) => row?.is_default === true);
-  if (defaultRow) return defaultRow;
-  const priced = pool
-    .filter((row) => Number.isFinite(Number(row?.price)))
-    .sort((a, b) => Number(a.price) - Number(b.price));
-  return priced[0] || pool[0] || null;
-};
-
-const overlayVariantMetadata = (product, variant = null) => {
-  if (!variant) return product;
-  const price = numberOrNull(variant.price);
+const overlayVariantMetadata = (product, selection = null) => {
+  if (!selection?.variant) return null;
+  const { variant, price, oldPrice, discount, variantCount, hasMultipleOptions } = selection;
   return {
     ...product,
     variantId: variant?.id ? String(variant.id) : product.variantId,
     variantName: String(variant?.name || product.variantName || ""),
-    price: price ?? product.price,
+    price,
+    oldPrice,
+    discount,
+    variantCount,
+    hasMultipleOptions,
     unit: String(variant?.unit || product.unit || ""),
     stock: variant?.stock_count ?? product.stock,
     currencyCode: variant?.currency_code || product.currencyCode || "",
@@ -362,7 +358,9 @@ const loadPublicCatalogProductsFromCardView = async ({
   const sortedRows = requestedIds.length
     ? [...rows].sort((a, b) => requestedIds.indexOf(String(a.product_id)) - requestedIds.indexOf(String(b.product_id)))
     : rows;
-  const flat = sortedRows.map(buildPublicCatalogProductFromCard).filter((product) => product.id);
+  const flat = sortedRows
+    .map(buildPublicCatalogProductFromCard)
+    .filter((product) => product.id && product.price > 0);
 
   return {
     grouped: groupProducts(flat),
@@ -463,8 +461,8 @@ export async function loadPublicCatalogProducts({
   if (visibleProductIds.length) {
     let variantRows = [];
     const variantSelects = [
-      "id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role",
-      "id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity",
+      "id, product_id, name, price, old_price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role",
+      "id, product_id, name, price, old_price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity",
     ];
     for (const select of variantSelects) {
       const result = await admin
@@ -485,12 +483,15 @@ export async function loadPublicCatalogProducts({
       groupedVariants.get(key).push(variant);
     });
     variantByProduct = new Map(
-      Array.from(groupedVariants.entries()).map(([productId, variants]) => [productId, pickPreferredVariant(variants)])
+      Array.from(groupedVariants.entries()).map(([productId, variants]) => [
+        productId,
+        selectProductCardVariant(variants, { marketId: catalog.market.id }),
+      ])
     );
   }
   const flat = rows
     .map((row) => overlayVariantMetadata(buildPublicCatalogProduct(row, categoryIndex), variantByProduct.get(String(row?.id || ""))))
-    .filter((product) => product.id);
+    .filter((product) => product?.id && product.price > 0);
 
   return {
     grouped: groupProducts(flat),
@@ -518,6 +519,10 @@ export function toProductCardDTO(product = {}) {
     stock: product?.stock ?? "",
     inSeason: product?.inSeason !== false,
     discount: Number(product?.discount || 0) || 0,
+    variantCount: Number(product?.variantCount || product?.active_variant_count || 0) || 0,
+    hasMultipleOptions: Boolean(
+      product?.hasMultipleOptions ?? Number(product?.variantCount || product?.active_variant_count || 0) > 1
+    ),
     category: String(product?.category || ""),
     categorySlug: String(product?.categorySlug || ""),
     variantName: String(product?.variantName || ""),
