@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -142,6 +142,9 @@ export default function Home() {
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
   const { categories } = useCategories();
   const { ordered: products, status: productsStatus } = useCatalogProducts("/api/catalog/home?limit=72");
+  const { ordered: under15Products, status: under15Status } = useCatalogProducts(
+    "/api/catalog/under-15m?limit=120"
+  );
 
   const counts = useMemo(() => {
     return categories.reduce((next, category) => {
@@ -294,6 +297,11 @@ export default function Home() {
     [products]
   );
 
+  const availableUnder15Products = useMemo(
+    () => under15Products.filter((product) => resolveStockClass(product.stock) !== "is-unavailable"),
+    [under15Products]
+  );
+
   const collectionProducts = useMemo(() => {
     if (activeCollection === "popular") {
       const databasePopular = availableProducts.filter(
@@ -318,18 +326,13 @@ export default function Home() {
       );
     }
     if (activeCollection === "under-15m") {
-      return availableProducts.filter(
-        (product) =>
-          product.isUnder15m ||
-          product.isUnder15Minutes ||
-          product.collectionSlug === "under-15m" ||
-          (Number.isFinite(Number(product.prepMinutes)) && Number(product.prepMinutes) <= 15)
-      );
+      return availableUnder15Products;
     }
     return [];
-  }, [activeCollection, availableProducts]);
+  }, [activeCollection, availableProducts, availableUnder15Products]);
 
   const activeCollectionCopy = COLLECTION_COPY[activeCollection] || COLLECTION_COPY.popular;
+  const activeCollectionStatus = activeCollection === "under-15m" ? under15Status : productsStatus;
 
   const handleQuickAddClose = () => {
     setQuickAddOpen(false);
@@ -410,7 +413,7 @@ export default function Home() {
               eyebrow={activeCollectionCopy.eyebrow}
               title={activeCollectionCopy.title}
               products={collectionProducts}
-              status={productsStatus}
+              status={activeCollectionStatus}
               emptyMessage={activeCollectionCopy.emptyMessage}
               seeAllHref={activeCollectionCopy.seeAllHref}
               onAdd={handleQuickAdd}
