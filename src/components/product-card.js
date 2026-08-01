@@ -24,7 +24,7 @@ const formatNaira = (value) =>
 function ProductImage({ product, showSeasonBadge = true, compact = false, priority = false }) {
   const src = resolveProductImage(product.cardImageUrl, product.image, product.mainImageUrl);
   const unavailable = resolveStockClass(product.stock) === "is-unavailable";
-  const canShowSeasonBadge = showSeasonBadge && shouldShowSeasonBadge(product);
+  const canShowSeasonBadge = shouldShowSeasonBadge(product);
   const shouldOptimize = canUseNextImageOptimization(src);
   const imageSizes = compact
     ? "(max-width: 767px) 42vw, (max-width: 1023px) 24vw, 180px"
