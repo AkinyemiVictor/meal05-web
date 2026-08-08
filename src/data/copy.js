@@ -45,9 +45,9 @@ const copy = {
       },
       {
         value: "gateway",
-        title: "Card, bank transfer, USSD",
-        subtitle: "Continue to bank transfer options.",
-        icon: "fa-regular fa-credit-card",
+        title: "Transfer",
+        subtitle: "Transfer with Moniepoint.",
+        icon: "fa-solid fa-building-columns",
       },
     ],
     deliverySlots: {
@@ -67,22 +67,6 @@ const copy = {
         title: "Moniepoint Transfer",
         subtitle: "Bank Transfer - Recommended.",
         badges: [{ type: "text", label: "Recommended" }],
-      },
-      {
-        value: "opay_transfer",
-        title: "OPay Transfer",
-        subtitle: "Bank Transfer.",
-        badges: [
-          { type: "image", src: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png", label: "OPay" },
-        ],
-      },
-      {
-        value: "paystack",
-        title: "Card, USSD",
-        subtitle: "Coming later.",
-        badges: [
-          { type: "text", label: "Coming later" },
-        ],
       },
     ],
     labels: {

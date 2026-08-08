@@ -45,6 +45,7 @@ export const isOpayGatewayServerReady = () =>
 
 export const isProviderUsable = (provider, capability = "checkout") => {
   if (!provider || !bool(provider.is_active)) return false;
+  if (["opay_transfer", "opay_gateway"].includes(provider.code)) return false;
   if (capability === "wallet_topup" && !bool(provider.wallet_topup_enabled)) return false;
   if (capability === "checkout" && !bool(provider.checkout_enabled)) return false;
   if (provider.method_type === "bank_transfer") return Boolean(isCompleteBankProvider(provider));

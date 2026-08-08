@@ -65,20 +65,25 @@ test("wallet and quantity errors use flow-specific messages", () => {
   assert.doesNotMatch(checkoutForm, /Maximum is 10/);
 });
 
-test("transfer pages use server-controlled availability and exact amount copy UI", () => {
+test("checkout routes directly to Moniepoint with copy icons and pending confirmation UI", () => {
+  const checkoutForm = read("src/components/checkout-form.js");
   const paymentPage = read("src/app/checkout/payment/page.js");
   const providerPage = read("src/app/checkout/payment/[providerCode]/page.js");
 
-  assert.match(paymentPage, /available:\s*false/);
-  assert.match(paymentPage, /role="radiogroup"/);
-  assert.match(paymentPage, /Choose payment method/);
-  assert.doesNotMatch(paymentPage, /method\.description/);
+  assert.match(checkoutForm, /router\.push\("\/checkout\/payment\/moniepoint_transfer"\)/);
+  assert.match(paymentPage, /redirect\("\/checkout\/payment\/moniepoint_transfer"\)/);
+  assert.doesNotMatch(paymentPage, /OPay|radiogroup|Choose payment method/);
   assert.match(providerPage, /available:\s*false/);
   assert.match(providerPage, /aria-label="Copy payment amount"/);
   assert.match(providerPage, /copyToClipboard/);
+  assert.match(providerPage, /fa-regular fa-copy/);
+  assert.doesNotMatch(providerPage, /copied \? "fa-solid fa-check"/);
+  assert.match(providerPage, /We are confirming your payment\. You will receive a notification upon confirmation\./);
+  assert.match(providerPage, /IconMoodSmile/);
+  assert.match(providerPage, /IconBuildingBank/);
+  assert.match(providerPage, /role="alertdialog"/);
   assert.match(providerPage, />\s*Secured\s*</);
-  assert.doesNotMatch(providerPage, /Secured by Meal05/);
-  assert.doesNotMatch(providerPage, /Copy amount <i/);
+  assert.doesNotMatch(providerPage, /OPay|Sterling|Before you make this transfer/);
 });
 
 test("bank transfer acknowledgement and OPay webhook fail closed", () => {
@@ -110,10 +115,11 @@ test("authenticated cart additions merge matching variants and checkout retries 
   assert.match(providerPage, /pending\.orderIdempotencyKey \|\| createIdempotencyKey/);
 });
 
-test("wallet checkout is atomically idempotent and transfer checkout keeps the cart pending verification", () => {
+test("wallet checkout is atomically idempotent and submitted transfers clear the cart pending verification", () => {
   const orderRoute = read("src/app/api/orders/route.js");
   const walletMigration = read("supabase/migrations/20260719120000_meal05_balance_foundation.sql");
   const transferRoute = read("src/app/api/payments/bank-transfer/initialize/route.js");
+  const transferSubmitRoute = read("src/app/api/payments/bank-transfer/submit/route.js");
 
   assert.match(orderRoute, /rpc\("debit_wallet_for_order"/);
   assert.match(orderRoute, /p_idempotency_key:\s*walletPaymentKey/);
@@ -122,5 +128,6 @@ test("wallet checkout is atomically idempotent and transfer checkout keeps the c
   assert.match(walletMigration, /insufficient.*balance/i);
   assert.match(transferRoute, /\.eq\("order_id", order\.id\)/);
   assert.match(transferRoute, /if \(!payment\)/);
-  assert.match(orderRoute, /Gateway payments keep the cart until server-side verification succeeds/);
+  assert.match(transferSubmitRoute, /payment\.purpose === "order_payment"[\s\S]*from\("cart_items"\)[\s\S]*\.delete\(\)[\s\S]*\.eq\("user_id", auth\.user\.id\)/);
+  assert.match(orderRoute, /status:\s*"pending"[\s\S]*payment_status:\s*"pending"/);
 });

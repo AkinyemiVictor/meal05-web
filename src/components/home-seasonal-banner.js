@@ -5,24 +5,14 @@ import Link from "next/link";
 import { useLayoutEffect, useRef } from "react";
 import {
   IconArrowRight,
-  IconCarrot,
-  IconCherry,
   IconClockHour4,
   IconLeaf,
-  IconLemon2,
-  IconPepper,
 } from "@tabler/icons-react";
 
 const BANNER_CONTENT_WIDTH = 1200;
 const LEAVES_IMAGE =
   "/assets/img/Floating_Leaves_Transparent_Background__Floating_Leaves__Flying_Leaves__Flying_Leaves_Transparent_PNG_Transparent_Clipart_Image_and_PSD_File_for_Free_Download-removebg-preview.png";
-
-const picks = [
-  [IconPepper, "Sweet Peppers", "Peak season", "₦900", "pepper"],
-  [IconLemon2, "Citrus Burst", "Just in", "₦1,200", "citrus"],
-  [IconCherry, "Ripe Cherries", "Peak season", "₦1,500", "cherry"],
-  [IconCarrot, "Garden Carrots", "Just in", "₦800", "carrot"],
-];
+const MARKET_MAN_IMAGE = "/assets/img/meal05 - store man.png";
 
 export default function HomeSeasonalBanner() {
   const canvasRef = useRef(null);
@@ -91,19 +81,15 @@ export default function HomeSeasonalBanner() {
             </div>
           </div>
 
-          <div className="welcome-seasonal__cards" aria-label="Featured fresh groceries">
-            {picks.map(([Icon, name, status, price, tone], index) => (
-              <article
-                key={name}
-                className={`welcome-seasonal__card welcome-seasonal__card--${index + 1}`}
-              >
-                <i className={`welcome-seasonal__card-icon welcome-seasonal__card-icon--${tone}`}>
-                  <Icon />
-                </i>
-                <b>{name}</b>
-                <footer><span>{status}</span><strong>{price}</strong></footer>
-              </article>
-            ))}
+          <div className="welcome-seasonal__art">
+            <Image
+              src={MARKET_MAN_IMAGE}
+              alt="Meal05 market assistant with a basket of fresh groceries"
+              fill
+              priority
+              sizes="(max-width: 620px) 42vw, 430px"
+              className="welcome-seasonal__art-image"
+            />
           </div>
         </div>
       </div>

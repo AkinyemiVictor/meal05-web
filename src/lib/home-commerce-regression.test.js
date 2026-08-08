@@ -29,7 +29,7 @@ test("home presents MealKit as a dedicated coming-soon collection", () => {
   assert.match(comingSoon, /Coming soon/);
 });
 
-test("home seasonal banner scales only its design layer inside a fixed canvas", () => {
+test("home seasonal banner scales proportionally and uses the supplied market artwork", () => {
   const home = read("src/app/home/page.js");
   const banner = read("src/components/home-seasonal-banner.js");
   const styles = read("src/styles/main.css");
@@ -40,9 +40,10 @@ test("home seasonal banner scales only its design layer inside a fixed canvas", 
   assert.match(banner, /Less market stress\. Less price wahala \. More time for what matters\./);
   assert.match(banner, /<Link href="\/shop">/);
   assert.match(banner, /--welcome-content-scale/);
+  assert.match(banner, /meal05 - store man\.png/);
+  assert.doesNotMatch(banner, /welcome-seasonal__cards/);
   assert.doesNotMatch(banner, /canvas\.style\.(height|width)/);
-  assert.match(styles, /\.welcome-banner\.welcome-banner--seasonal[\s\S]*height:\s*480px/);
-  assert.match(styles, /\.page-scale-inner:not\(\.page-scale-inner--no-scale\) \.welcome-banner\.welcome-banner--seasonal[\s\S]*height:\s*calc\(480px \/ var\(--page-scale, 1\)\)/);
+  assert.match(styles, /\.welcome-banner\.welcome-banner--seasonal[\s\S]*aspect-ratio:\s*5 \/ 2/);
   assert.match(styles, /\.welcome-seasonal__content[\s\S]*width:\s*1200px;[\s\S]*height:\s*480px;[\s\S]*scale\(var\(--welcome-content-scale\)\)/);
 });
 

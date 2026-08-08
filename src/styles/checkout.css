@@ -2153,7 +2153,7 @@
   display: grid;
   justify-items: center;
   gap: 0.6rem;
-  padding: 0.2rem 0 2.5rem;
+  padding: 1rem 0 2rem;
   text-align: center;
 }
 
@@ -2183,9 +2183,20 @@
 }
 
 .checkout-transfer-screen__bank-icon {
-  margin-top: 3.2rem;
+  width: 4.5rem;
+  height: 4.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: #edf6ff;
   color: #a8b7c5;
-  font-size: 2rem;
+  font-size: 2.2rem;
+}
+
+.checkout-transfer-screen__bank-icon svg {
+  width: 2.45rem;
+  height: 2.45rem;
+  stroke-width: 1.8;
 }
 
 .checkout-transfer-screen__hero h1 {
@@ -2352,6 +2363,13 @@
   text-align: center;
 }
 
+.checkout-transfer-screen__account-card .checkout-transfer-screen__provider-logo {
+  width: 72px;
+  height: 72px;
+  margin-top: 1.7rem;
+  border-radius: 18px;
+}
+
 .checkout-transfer-screen__bank-dot {
   width: 3.55rem;
   height: 3.55rem;
@@ -2367,6 +2385,97 @@
   color: #1d2430;
   font-size: clamp(1.35rem, 5vw, 1.55rem);
   font-weight: 950;
+}
+
+.checkout-transfer-screen__content,
+.checkout-transfer-screen__account-card,
+.checkout-transfer-screen__account-number,
+.checkout-transfer-screen__confirmation,
+.checkout-transfer-screen__message {
+  text-align: center;
+}
+
+.checkout-transfer-screen__content--error {
+  align-content: center;
+}
+
+.checkout-transfer-screen--submitted {
+  display: grid;
+  place-items: center;
+}
+
+.checkout-transfer-pending {
+  position: fixed;
+  z-index: 10020;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(8, 13, 29, 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.checkout-transfer-pending__dialog {
+  width: min(100%, 420px);
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  border-radius: 26px;
+  background: #ffffff;
+  padding: 2rem 1.5rem 1.5rem;
+  color: #111827;
+  text-align: center;
+  box-shadow: 0 28px 70px rgba(8, 13, 29, 0.3);
+}
+
+.checkout-transfer-pending__smile {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #e9fbf4;
+  color: #10b981;
+  font-size: 2.5rem;
+}
+
+.checkout-transfer-pending__smile svg {
+  width: 2.8rem;
+  height: 2.8rem;
+  stroke-width: 1.8;
+}
+
+.checkout-transfer-pending__dialog h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+
+.checkout-transfer-pending__dialog p {
+  margin: 0;
+  color: #5f6979;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.checkout-transfer-pending__dialog button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 0.35rem;
+  border: 1px solid #d9dee7;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.checkout-transfer-pending__dialog button:hover,
+.checkout-transfer-pending__dialog button:focus-visible {
+  border-color: #111827;
+  background: #f7f8fa;
 }
 
 .checkout-transfer-screen__account-number {

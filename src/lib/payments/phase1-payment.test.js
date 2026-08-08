@@ -21,12 +21,13 @@ test("Phase 1 seeds Moniepoint active and recommended", () => {
   assert.match(migration, /payment_provider_one_recommended_transfer_idx/i);
 });
 
-test("OPay transfer can be activated from provider settings while Paystack stays disabled", () => {
+test("OPay and Paystack stay disabled while Moniepoint is the only transfer option", () => {
   assert.match(migration, /'opay_transfer', 'OPay Transfer', 'bank_transfer', false, false, false, false/i);
   assert.match(migration, /'paystack', 'Card, USSD and Paystack', 'gateway', false, false, false, false/i);
   assert.match(read("./payment-methods.js"), /case "paystack":\s*return false;/);
-  assert.match(read("./payment-methods.js"), /export const isOpayEnabled = \(\) => true;/);
+  assert.match(read("./payment-methods.js"), /export const isOpayEnabled = \(\) => false;/);
   assert.match(read("./payment-methods.js"), /case "opay_transfer":\s*return isOpayEnabled\(\);/);
+  assert.match(providerHelper, /\["opay_transfer", "opay_gateway"\]\.includes\(provider\.code\)/);
 });
 
 test("disabled Paystack and OPay initialization are rejected server-side", () => {
@@ -55,6 +56,7 @@ test("customer transfer submission cannot alter amount or verify payment", () =>
   assert.doesNotMatch(bankSubmitRoute, /parsed\.data\.amount|amount:/);
   assert.match(bankSubmitRoute, /status: "submitted"/);
   assert.doesNotMatch(bankSubmitRoute, /verified_at:\s*|payment_status.*paid|wallet_transactions|status:\s*"verified"/);
+  assert.match(bankSubmitRoute, /payment\.purpose === "order_payment"[\s\S]*from\("cart_items"\)[\s\S]*\.delete\(\)/);
 });
 
 test("wallet deposits are not spendable until admin verification", () => {

@@ -1097,7 +1097,7 @@ export async function POST(request) {
   }
 
   // 4) Clear cart only for payment methods that complete at order creation.
-  // Gateway payments keep the cart until server-side verification succeeds.
+  // Manual transfers keep the cart until the customer submits the payment for verification.
   if (requestedPaymentMethod === "wallet") {
     const { error: clearErr } = await admin.from("cart_items").delete().eq("user_id", user.id);
     if (clearErr) {

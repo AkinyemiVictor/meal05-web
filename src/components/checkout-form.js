@@ -73,7 +73,7 @@ const DELIVERY_SLOT_LABELS = { ...copy.checkout.deliverySlots };
 const CARD_FIELDS = ["cardName", "cardNumber", "cardExpiry", "cardCvc"];
 const WALLET_PAYMENT_METHOD = "wallet";
 const DEFAULT_GATEWAY_PAYMENT_METHOD = "moniepoint_transfer";
-const TRANSFER_PAYMENT_METHODS = ["moniepoint_transfer", "opay_transfer"];
+const TRANSFER_PAYMENT_METHODS = ["moniepoint_transfer"];
 
 const NAME_PATTERN = "[A-Za-z ]+";
 const EMAIL_PATTERN = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}";
@@ -1443,12 +1443,12 @@ export default function CheckoutForm({
       });
       setFormState((prev) => ({ ...prev, paymentMethod: DEFAULT_GATEWAY_PAYMENT_METHOD }));
       setStatus("idle");
-      router.push("/checkout/payment");
+      router.push("/checkout/payment/moniepoint_transfer");
       return;
     }
 
     if (selectedPaymentGroup === "gateway" && !TRANSFER_PAYMENT_METHODS.includes(paymentMethodForOrder)) {
-      showSubmitError("Choose Moniepoint or OPay transfer to continue.");
+      showSubmitError("Choose Moniepoint transfer to continue.");
       return;
     }
 

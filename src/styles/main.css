@@ -10059,21 +10059,13 @@ main > section:not(.home-hero) {
   --welcome-content-scale: 1;
   width: 100%;
   max-width: 1200px;
-  height: 480px;
-  min-height: 480px;
-  max-height: 480px;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: 5 / 2;
   border-radius: 26px;
   background: #10331f;
   color: #ffffff;
-}
-
-@media (max-width: 620px) {
-  .page-scale-inner:not(.page-scale-inner--no-scale) .welcome-banner.welcome-banner--seasonal {
-    height: calc(480px / var(--page-scale, 1));
-    min-height: calc(480px / var(--page-scale, 1));
-    max-height: calc(480px / var(--page-scale, 1));
-    border-radius: calc(26px / var(--page-scale, 1));
-  }
 }
 
 .welcome-banner.welcome-banner--seasonal::before {
@@ -10250,70 +10242,21 @@ main > section:not(.home-hero) {
   color: #7ee2a8;
 }
 
-.welcome-seasonal__cards {
+.welcome-seasonal__art {
   position: relative;
   z-index: 2;
-  display: grid;
-  width: 340px;
+  width: 430px;
+  height: 350px;
   flex: none;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-}
-
-.welcome-seasonal__card {
-  min-width: 0;
-  padding: 18px;
-  border-radius: 18px;
+  overflow: hidden;
+  border-radius: 26px;
   background: #ffffff;
-  color: #15161f;
+  box-shadow: 0 22px 50px -24px rgba(0, 0, 0, 0.72);
 }
 
-.welcome-seasonal__card--1 { transform: rotate(-2deg); }
-.welcome-seasonal__card--2 { margin-top: 14px; transform: rotate(2deg); }
-.welcome-seasonal__card--3 { margin-top: -4px; transform: rotate(2deg); }
-.welcome-seasonal__card--4 { margin-top: 10px; transform: rotate(-2deg); }
-
-.welcome-seasonal__card-icon {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  margin-bottom: 14px;
-  border-radius: 13px;
-}
-
-.welcome-seasonal__card-icon svg {
-  width: 26px;
-  height: 26px;
-}
-
-.welcome-seasonal__card-icon--pepper { background: #fde8df; color: #f04e1f; }
-.welcome-seasonal__card-icon--citrus { background: #fff4d6; color: #d9a400; }
-.welcome-seasonal__card-icon--cherry { background: #fde2e4; color: #e2342b; }
-.welcome-seasonal__card-icon--carrot { background: #e7f7ed; color: #ef7a1a; }
-
-.welcome-seasonal__card > b {
-  display: block;
-  font-size: 15px;
-  letter-spacing: -0.3px;
-}
-
-.welcome-seasonal__card footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.welcome-seasonal__card footer span {
-  color: #22a34d;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.welcome-seasonal__card footer strong {
-  font-size: 14px;
+.welcome-seasonal__art-image {
+  object-fit: contain;
+  object-position: center;
 }
 
 .welcome-seasonal__leaf {

@@ -94,11 +94,21 @@ export async function POST(request) {
     .single();
   if (updateError) return send({ error: updateError.message || "Unable to submit payment." }, 500, rl);
 
+  if (payment.purpose === "order_payment" && payment.order_id) {
+    const { error: clearCartError } = await admin
+      .from("cart_items")
+      .delete()
+      .eq("user_id", auth.user.id);
+    if (clearCartError) {
+      return send({ error: clearCartError.message || "Payment was submitted, but the cart could not be cleared." }, 500, rl);
+    }
+  }
+
   return send(
     {
       payment: updated,
       heading: "Payment submitted",
-      message: "Meal05 will confirm the payment after it appears in our business account. Do not make another transfer for this reference unless support asks you to.",
+      message: "We are confirming your payment. You will receive a notification upon confirmation.",
     },
     200,
     rl

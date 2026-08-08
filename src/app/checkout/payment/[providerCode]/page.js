@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IconBuildingBank, IconMoodSmile } from "@tabler/icons-react";
 
 import {
   clearPendingCheckoutPayment,
   clearStoredCart,
+  clearStoredPromo,
   readPendingCheckoutPayment,
 } from "@/lib/checkout";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
@@ -17,30 +19,23 @@ import {
   logCheckoutApiError,
 } from "@/lib/checkout-payload";
 
-const TRANSFER_METHODS = ["moniepoint_transfer", "opay_transfer"];
+const MONIEPOINT_CODE = "moniepoint_transfer";
 const MONIEPOINT_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/moniepoint logo.png";
 
-const FALLBACK_METHODS = [
-  {
-    code: "moniepoint_transfer",
-    displayName: "Moniepoint",
-    available: false,
-    displayOrder: 1,
-    logoUrl: MONIEPOINT_LOGO_URL,
-  },
-  {
-    code: "opay_transfer",
-    displayName: "OPay",
-    available: false,
-    displayOrder: 2,
-    logoUrl: "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png",
-  },
-];
+const FALLBACK_PROVIDER = {
+  code: MONIEPOINT_CODE,
+  displayName: "Moniepoint",
+  available: false,
+  displayOrder: 1,
+  logoUrl: MONIEPOINT_LOGO_URL,
+};
 
-const mergeDisplayMethod = (fallback, liveMethod) => ({
-  ...fallback,
-  available: liveMethod ? liveMethod.available !== false : fallback.available,
-  logoUrl: liveMethod?.logoUrl || fallback.logoUrl || "",
+const mergeDisplayProvider = (liveProvider) => ({
+  ...FALLBACK_PROVIDER,
+  ...liveProvider,
+  displayName: "Moniepoint",
+  available: Boolean(liveProvider) && liveProvider.available !== false,
+  logoUrl: MONIEPOINT_LOGO_URL,
 });
 
 const createIdempotencyKey = (prefix = "checkout-payment") => {
@@ -98,25 +93,16 @@ const copyToClipboard = async (value) => {
   }
 };
 
-function ProviderLogo({ method, large = false }) {
-  if (method?.logoUrl) {
-    const size = large ? 58 : 42;
-    return (
-      <Image
-        src={encodeURI(method.logoUrl)}
-        alt=""
-        width={size}
-        height={size}
-        sizes={`${size}px`}
-        className="checkout-transfer-screen__provider-logo"
-      />
-    );
-  }
-
+function ProviderLogo({ provider }) {
   return (
-    <span className={`checkout-transfer-screen__provider-mark${large ? " checkout-transfer-screen__provider-mark--large" : ""}`}>
-      {String(method?.displayName || "M5").slice(0, 2).toUpperCase()}
-    </span>
+    <Image
+      src={encodeURI(provider?.logoUrl || MONIEPOINT_LOGO_URL)}
+      alt="Moniepoint"
+      width={72}
+      height={72}
+      sizes="72px"
+      className="checkout-transfer-screen__provider-logo"
+    />
   );
 }
 
@@ -124,7 +110,7 @@ function TransferShell({ children, onBack }) {
   return (
     <main className="checkout-transfer-screen">
       <header className="checkout-transfer-screen__topbar">
-        <button type="button" onClick={onBack} aria-label="Back to payment options">
+        <button type="button" onClick={onBack} aria-label="Back to checkout">
           <i className="fa-solid fa-chevron-left" aria-hidden="true" />
         </button>
         <strong>Payment</strong>
@@ -137,23 +123,29 @@ function TransferShell({ children, onBack }) {
   );
 }
 
-function PaymentHero({ provider, amount }) {
+function PaymentHero({ amount }) {
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef(null);
+
+  useEffect(() => () => window.clearTimeout(timeoutRef.current), []);
+
   const copyAmount = async () => {
     const ok = await copyToClipboard(Math.round(Number(amount) || 0));
     if (!ok) return;
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+    window.clearTimeout(timeoutRef.current);
+    timeoutRef.current = window.setTimeout(() => setCopied(false), 1600);
   };
 
   return (
     <section className="checkout-transfer-screen__hero">
-      <ProviderLogo method={provider} large />
-      <i className="fa-solid fa-building-columns checkout-transfer-screen__bank-icon" aria-hidden="true" />
+      <span className="checkout-transfer-screen__bank-icon" aria-hidden="true">
+        <IconBuildingBank />
+      </span>
       <h1>
         Pay <span>{formatTransferAmount(amount)}</span>
         <button type="button" onClick={copyAmount} className="checkout-transfer-screen__copy-amount" aria-label="Copy payment amount">
-          <i className={copied ? "fa-solid fa-check" : "fa-regular fa-copy"} aria-hidden="true" />
+          <i className="fa-regular fa-copy" aria-hidden="true" />
         </button>
       </h1>
       <p className="checkout-transfer-screen__copy-feedback" aria-live="polite">
@@ -163,67 +155,32 @@ function PaymentHero({ provider, amount }) {
   );
 }
 
-function AgreementStep({ provider, amount, agreed, setAgreed, onContinue, busy, message }) {
-  return (
-    <div className="checkout-transfer-screen__content">
-      <PaymentHero provider={provider} amount={amount} />
-      <h2>Before you make this transfer</h2>
-
-      <section className="checkout-transfer-screen__rules">
-        <div className="checkout-transfer-screen__rule">
-          <span aria-hidden="true">
-            <i className="fa-solid fa-check" />
-          </span>
-          <p>
-            <strong>Transfer only the exact amount</strong>
-            <small>Do not transfer an incorrect amount.</small>
-          </p>
-        </div>
-
-        <label className="checkout-transfer-screen__agree">
-          <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />
-          <span>I understand this instruction.</span>
-        </label>
-
-        <button
-          type="button"
-          className="checkout-transfer-screen__continue"
-          onClick={onContinue}
-          disabled={!agreed || busy}
-        >
-          {busy ? "Preparing..." : "I understand and continue"}
-        </button>
-        {message ? <p className="checkout-transfer-screen__message">{message}</p> : null}
-      </section>
-
-      <TransferFooter />
-    </div>
-  );
-}
-
 function AccountDetailsStep({ provider, details, pending, busy, message, onSubmit }) {
   const payment = details?.payment || {};
-  const activeProvider = { ...(provider || {}), ...(details?.provider || {}) };
+  const activeProvider = { ...(provider || {}), ...(details?.provider || {}), logoUrl: MONIEPOINT_LOGO_URL };
   const amount = Number(payment.amount ?? details?.order?.summary?.total ?? pending?.summary?.total ?? 0) || 0;
-
-  const copyText = (value) => copyToClipboard(value);
 
   return (
     <div className="checkout-transfer-screen__content">
-      <PaymentHero provider={activeProvider} amount={amount} />
+      <PaymentHero amount={amount} />
 
       <section className="checkout-transfer-screen__exact">
         Transfer exactly <strong>{formatTransferAmount(amount)}</strong> to the bank account below.
       </section>
 
       <section className="checkout-transfer-screen__account-card" aria-labelledby="transfer-bank-name">
-        <span className="checkout-transfer-screen__bank-dot" aria-hidden="true" />
-        <h2 id="transfer-bank-name">{activeProvider.bankName || activeProvider.displayName || "Bank transfer"}</h2>
-        <button type="button" onClick={() => copyText(activeProvider.accountNumber)} className="checkout-transfer-screen__account-number">
+        <ProviderLogo provider={activeProvider} />
+        <h2 id="transfer-bank-name">{activeProvider.bankName || "Moniepoint Microfinance Bank"}</h2>
+        <button
+          type="button"
+          onClick={() => copyToClipboard(activeProvider.accountNumber)}
+          className="checkout-transfer-screen__account-number"
+          aria-label="Copy Moniepoint account number"
+        >
           <span>{activeProvider.accountNumber || "Unavailable"}</span>
           {activeProvider.accountNumber ? <i className="fa-regular fa-copy" aria-hidden="true" /> : null}
         </button>
-        <p>{activeProvider.accountName || "Meal05"}</p>
+        <p>{activeProvider.accountName || "Meal05 LTD"}</p>
         <div className="checkout-transfer-screen__account-note">
           <i className="fa-solid fa-circle-info" aria-hidden="true" />
           <span>Transfer only the exact amount.</span>
@@ -234,9 +191,9 @@ function AccountDetailsStep({ provider, details, pending, busy, message, onSubmi
         You will get a confirmation once we receive your payment.
       </p>
 
-      {message ? <p className="checkout-transfer-screen__message">{message}</p> : null}
+      {message ? <p className="checkout-transfer-screen__message" role="alert">{message}</p> : null}
       <button type="button" className="checkout-transfer-screen__sent" onClick={onSubmit} disabled={busy}>
-        {busy ? "Submitting..." : "I've sent the money"}
+        {busy ? "Submitting..." : "I’ve sent the money"}
       </button>
 
       <TransferFooter />
@@ -248,7 +205,7 @@ function TransferFooter() {
   return (
     <footer className="checkout-transfer-screen__footer">
       <div>
-        <Link href="/checkout/payment">Cancel</Link>
+        <Link href="/checkout">Cancel</Link>
         <span aria-hidden="true" />
         <Link href="/contact-us">Help?</Link>
       </div>
@@ -260,16 +217,34 @@ function TransferFooter() {
   );
 }
 
+function PendingConfirmationDialog({ onCancel }) {
+  return (
+    <div className="checkout-transfer-pending" role="alertdialog" aria-modal="true" aria-labelledby="transfer-pending-title" aria-describedby="transfer-pending-message">
+      <section className="checkout-transfer-pending__dialog">
+        <span className="checkout-transfer-pending__smile" aria-hidden="true">
+          <IconMoodSmile />
+        </span>
+        <h1 id="transfer-pending-title">Payment received</h1>
+        <p id="transfer-pending-message">
+          We are confirming your payment. You will receive a notification upon confirmation.
+        </p>
+        <button type="button" onClick={onCancel}>Cancel</button>
+      </section>
+    </div>
+  );
+}
+
 export default function ProviderPaymentPage() {
   const params = useParams();
   const router = useRouter();
   const providerCode = String(params?.providerCode || "");
-  if (!TRANSFER_METHODS.includes(providerCode)) notFound();
+  if (providerCode !== MONIEPOINT_CODE) notFound();
 
+  const startedRef = useRef(false);
   const [pending, setPending] = useState(null);
-  const [methods, setMethods] = useState(FALLBACK_METHODS);
+  const [provider, setProvider] = useState(FALLBACK_PROVIDER);
+  const [providerStatus, setProviderStatus] = useState("loading");
   const [status, setStatus] = useState("loading");
-  const [agreed, setAgreed] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [transferDetails, setTransferDetails] = useState(null);
@@ -277,45 +252,29 @@ export default function ProviderPaymentPage() {
   useEffect(() => {
     const stored = readPendingCheckoutPayment();
     setPending(stored);
-    setStatus(stored ? "agreement" : "missing");
+    setStatus(stored ? "preparing" : "missing");
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/payment-methods", { cache: "no-store", signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("Unable to load Moniepoint."))))
       .then((payload) => {
-        const liveMethods = Array.isArray(payload?.methods)
-          ? payload.methods
-              .filter((method) => TRANSFER_METHODS.includes(method?.code))
-              .map((method) => ({
-                ...method,
-                displayName: method.code === "moniepoint_transfer" ? "Moniepoint" : method.displayName,
-                available: method.available !== false,
-              }))
-              .sort((a, b) => Number(a.displayOrder || 100) - Number(b.displayOrder || 100))
-          : [];
-        setMethods(FALLBACK_METHODS.map((fallback) =>
-          mergeDisplayMethod(fallback, liveMethods.find((method) => method.code === fallback.code))
-        ));
+        const liveProvider = Array.isArray(payload?.methods)
+          ? payload.methods.find((method) => method?.code === MONIEPOINT_CODE)
+          : null;
+        setProvider(mergeDisplayProvider(liveProvider));
+        setProviderStatus("ready");
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (error?.name === "AbortError") return;
+        setProviderStatus("error");
+      });
     return () => controller.abort();
   }, []);
 
-  const provider = useMemo(
-    () => methods.find((method) => method.code === providerCode) || FALLBACK_METHODS.find((method) => method.code === providerCode),
-    [methods, providerCode]
-  );
-
-  const amount = Number(pending?.summary?.total ?? 0) || 0;
-
-  const createOrderAndPayment = async () => {
-    if (!pending || busy) return;
-    if (!provider || provider.available === false) {
-      setMessage("Choose an available payment option.");
-      return;
-    }
+  const createOrderAndPayment = useCallback(async () => {
+    if (!pending || !provider || provider.available === false) return;
 
     setBusy(true);
     setMessage("");
@@ -336,7 +295,7 @@ export default function ProviderPaymentPage() {
           deliveryPartnerId: pending.selectedDispatchOptionId,
           deliveryLatitude: pending.deliveryLocation?.latitude,
           deliveryLongitude: pending.deliveryLocation?.longitude,
-          paymentMethod: provider.code,
+          paymentMethod: MONIEPOINT_CODE,
           promoCode: pending.promoCode,
         })),
       });
@@ -352,8 +311,8 @@ export default function ProviderPaymentPage() {
       const transferResponse = await fetch("/api/payments/bank-transfer/initialize", {
         method: "POST",
         cache: "no-store",
-        headers: buildHeaders(token, createIdempotencyKey("checkout-payment-init")),
-        body: JSON.stringify({ orderId, providerCode: provider.code }),
+        headers: buildHeaders(token, `${pending.orderIdempotencyKey || orderId}:payment`),
+        body: JSON.stringify({ orderId, providerCode: MONIEPOINT_CODE }),
       });
       const transferPayload = await transferResponse.json().catch(() => ({}));
       if (!transferResponse.ok) {
@@ -367,15 +326,34 @@ export default function ProviderPaymentPage() {
           summary: orderPayload.summary || pending.summary,
         },
         payment: transferPayload.payment,
-        provider: transferPayload.provider,
+        provider: { ...transferPayload.provider, logoUrl: MONIEPOINT_LOGO_URL },
       });
       setStatus("details");
     } catch (error) {
       setMessage(error?.message || "Unable to continue to payment.");
+      setStatus("error");
     } finally {
       setBusy(false);
     }
-  };
+  }, [pending, provider]);
+
+  useEffect(() => {
+    if (status !== "preparing" || !pending) return;
+    if (providerStatus === "error") {
+      setMessage("Unable to load Moniepoint. Please try again.");
+      setStatus("error");
+      return;
+    }
+    if (providerStatus !== "ready") return;
+    if (!provider || provider.available === false) {
+      setMessage("Moniepoint transfer is not available right now.");
+      setStatus("error");
+      return;
+    }
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void createOrderAndPayment();
+  }, [createOrderAndPayment, pending, provider, providerStatus, status]);
 
   const submitTransfer = async () => {
     if (!transferDetails?.payment?.id || busy) return;
@@ -399,8 +377,9 @@ export default function ProviderPaymentPage() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || "Unable to submit payment.");
       clearStoredCart();
+      clearStoredPromo();
       clearPendingCheckoutPayment();
-      setMessage(payload?.message || "Payment submitted. Meal05 will verify your transfer.");
+      setStatus("submitted");
     } catch (error) {
       setMessage(error?.message || "Unable to submit payment.");
     } finally {
@@ -408,11 +387,19 @@ export default function ProviderPaymentPage() {
     }
   };
 
-  if (status === "loading") {
+  if (status === "submitted") {
     return (
-      <TransferShell onBack={() => router.push("/checkout/payment")}>
+      <main className="checkout-transfer-screen checkout-transfer-screen--submitted">
+        <PendingConfirmationDialog onCancel={() => router.replace("/account/orders")} />
+      </main>
+    );
+  }
+
+  if (status === "loading" || status === "preparing") {
+    return (
+      <TransferShell onBack={() => router.push("/checkout")}>
         <div className="checkout-transfer-screen__content" role="status">
-          <p className="checkout-transfer-screen__confirmation">Loading payment...</p>
+          <p className="checkout-transfer-screen__confirmation">Preparing your Moniepoint transfer...</p>
         </div>
       </TransferShell>
     );
@@ -420,14 +407,36 @@ export default function ProviderPaymentPage() {
 
   if (status === "missing") {
     return (
-      <TransferShell onBack={() => router.push("/checkout/payment")}>
+      <TransferShell onBack={() => router.push("/checkout")}>
         <div className="checkout-transfer-screen__content">
           <section className="checkout-payment-page__panel">
             <h1>Payment unavailable</h1>
             <p>Return to checkout and confirm your delivery details first.</p>
-            <Link href="/checkout" className="checkout-payment-page__submit">
-              Return to checkout
-            </Link>
+            <Link href="/checkout" className="checkout-payment-page__submit">Return to checkout</Link>
+          </section>
+        </div>
+      </TransferShell>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <TransferShell onBack={() => router.push("/checkout")}>
+        <div className="checkout-transfer-screen__content checkout-transfer-screen__content--error">
+          <section className="checkout-payment-page__panel">
+            <h1>Payment unavailable</h1>
+            <p role="alert">{message}</p>
+            <button
+              type="button"
+              className="checkout-payment-page__submit"
+              onClick={() => {
+                startedRef.current = false;
+                setMessage("");
+                setStatus("preparing");
+              }}
+            >
+              Try again
+            </button>
           </section>
         </div>
       </TransferShell>
@@ -435,27 +444,15 @@ export default function ProviderPaymentPage() {
   }
 
   return (
-    <TransferShell onBack={() => router.push("/checkout/payment")}>
-      {status === "details" ? (
-        <AccountDetailsStep
-          provider={provider}
-          details={transferDetails}
-          pending={pending}
-          busy={busy}
-          message={message}
-          onSubmit={submitTransfer}
-        />
-      ) : (
-        <AgreementStep
-          provider={provider}
-          amount={amount}
-          agreed={agreed}
-          setAgreed={setAgreed}
-          onContinue={createOrderAndPayment}
-          busy={busy}
-          message={message}
-        />
-      )}
+    <TransferShell onBack={() => router.push("/checkout")}>
+      <AccountDetailsStep
+        provider={provider}
+        details={transferDetails}
+        pending={pending}
+        busy={busy}
+        message={message}
+        onSubmit={submitTransfer}
+      />
     </TransferShell>
   );
 }
