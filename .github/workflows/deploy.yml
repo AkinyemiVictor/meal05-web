@@ -76,31 +76,16 @@ jobs:
       - name: Deploy to Cloudflare
         run: npm run deploy
 
-      - name: Purge deployed page cache
-        run: |
-          zone_id="${CLOUDFLARE_ZONE_ID}"
-          if [ -z "$zone_id" ]; then
-            zones="$(curl --silent --show-error --fail-with-body \
-              --get \
-              "https://api.cloudflare.com/client/v4/zones" \
-              --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-              --header "Content-Type: application/json" \
-              --data-urlencode "name=meal05.com" \
-              --data-urlencode "status=active")"
-            zone_id="$(RESPONSE="$zones" node -e '
-              const payload = JSON.parse(process.env.RESPONSE || "{}");
-              const zoneId = payload.success && payload.result?.[0]?.id;
-              if (!zoneId) {
-                console.error("Unable to resolve the Cloudflare zone", payload.errors || payload);
-                process.exit(1);
-              }
-              process.stdout.write(zoneId);
-            ')"
-          fi
+      - name: Warn when cache purge is not configured
+        if: ${{ env.CLOUDFLARE_ZONE_ID == '' }}
+        run: echo "::warning::CLOUDFLARE_ZONE_ID is not configured; cached public pages were not purged."
 
+      - name: Purge deployed page cache
+        if: ${{ env.CLOUDFLARE_ZONE_ID != '' }}
+        run: |
           response="$(curl --silent --show-error --fail-with-body \
               --request POST \
-              "https://api.cloudflare.com/client/v4/zones/${zone_id}/purge_cache" \
+              "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
               --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
               --header "Content-Type: application/json" \
               --data '{"files":["https://meal05.com/","https://meal05.com/home","https://meal05.com/shop","https://www.meal05.com/","https://www.meal05.com/home","https://www.meal05.com/shop"]}')"
