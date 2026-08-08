@@ -10067,6 +10067,15 @@ main > section:not(.home-hero) {
   color: #ffffff;
 }
 
+@media (max-width: 620px) {
+  .page-scale-inner:not(.page-scale-inner--no-scale) .welcome-banner.welcome-banner--seasonal {
+    height: calc(480px / var(--page-scale, 1));
+    min-height: calc(480px / var(--page-scale, 1));
+    max-height: calc(480px / var(--page-scale, 1));
+    border-radius: calc(26px / var(--page-scale, 1));
+  }
+}
+
 .welcome-banner.welcome-banner--seasonal::before {
   display: none;
 }

@@ -42,6 +42,7 @@ test("home seasonal banner scales only its design layer inside a fixed canvas", 
   assert.match(banner, /--welcome-content-scale/);
   assert.doesNotMatch(banner, /canvas\.style\.(height|width)/);
   assert.match(styles, /\.welcome-banner\.welcome-banner--seasonal[\s\S]*height:\s*480px/);
+  assert.match(styles, /\.page-scale-inner:not\(\.page-scale-inner--no-scale\) \.welcome-banner\.welcome-banner--seasonal[\s\S]*height:\s*calc\(480px \/ var\(--page-scale, 1\)\)/);
   assert.match(styles, /\.welcome-seasonal__content[\s\S]*width:\s*1200px;[\s\S]*height:\s*480px;[\s\S]*scale\(var\(--welcome-content-scale\)\)/);
 });
 
