@@ -2,6 +2,7 @@
 
 import { readCartItems, writeCartItems } from "./cart-storage";
 import { readStoredUser } from "./auth";
+import { normalizeCartItems } from "./cart-items";
 
 const toApiItem = (item, operation = "increment") => ({
   product_id: item?.productId ?? item?.product_id,
@@ -24,7 +25,7 @@ const parseResponse = async (response) => {
 export const fetchCanonicalCart = async ({ signal, persist = true, source = "server-cart" } = {}) => {
   const response = await fetch("/api/cart", { cache: "no-store", signal });
   const cart = await parseResponse(response);
-  const rows = Array.isArray(cart) ? cart : [];
+  const rows = normalizeCartItems(Array.isArray(cart) ? cart : []);
   if (persist) writeCartItems(rows, undefined, { source, skipAnalytics: true });
   return rows;
 };
@@ -37,7 +38,7 @@ export const addAuthenticatedCartItem = async (item, { source = "server-cart" } 
     body: JSON.stringify(toApiItem(item, "increment")),
   });
   const payload = await parseResponse(response);
-  const cart = Array.isArray(payload?.cart) ? payload.cart : [];
+  const cart = normalizeCartItems(Array.isArray(payload?.cart) ? payload.cart : []);
   writeCartItems(cart, undefined, { source, skipAnalytics: true });
   return cart;
 };
@@ -50,7 +51,7 @@ export const setAuthenticatedCartItem = async (item, { source = "server-cart" } 
     body: JSON.stringify(toApiItem(item, "set")),
   });
   const payload = await parseResponse(response);
-  const cart = Array.isArray(payload?.cart) ? payload.cart : [];
+  const cart = normalizeCartItems(Array.isArray(payload?.cart) ? payload.cart : []);
   writeCartItems(cart, undefined, { source, skipAnalytics: true });
   return cart;
 };

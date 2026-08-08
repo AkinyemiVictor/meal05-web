@@ -43,6 +43,7 @@ test("admin price manager supports filters, bulk preview, unsaved warning, and b
 test("checkout blocks stale cart prices before transfer or wallet payment", () => {
   const orderRoute = read("src/app/api/orders/route.js");
   const checkoutForm = read("src/components/checkout-form.js");
+  const checkoutPayload = read("src/lib/checkout-payload.js");
 
   assert.match(orderRoute, /PRICE_CHANGED/);
   assert.match(orderRoute, /unit_price_at_add/);
@@ -51,20 +52,24 @@ test("checkout blocks stale cart prices before transfer or wallet payment", () =
   assert.match(checkoutForm, /handleOrderApiError/);
   assert.match(checkoutForm, /preview:\s*true/);
   assert.match(checkoutForm, /writeStoredCart\(nextCart\)/);
-  assert.match(checkoutForm, /variantId \? null : item\?\.id/);
+  assert.match(checkoutForm, /buildCheckoutOrderItems/);
+  assert.match(checkoutPayload, /if \(variantId != null/);
+  assert.doesNotMatch(checkoutPayload, /variant_id:\s*null/);
 });
 
 test("authenticated cart updates persist through the canonical server cart", () => {
   const cartPage = read("src/app/cart/page.js");
   const cartRoute = read("src/app/api/cart/route.js");
   const cartSync = read("src/lib/cart-sync.js");
+  const cartItems = read("src/lib/cart-items.js");
   const orderRoute = read("src/app/api/orders/route.js");
   const migration = read("supabase/migrations/20260801101233_canonical_authenticated_cart.sql");
 
   assert.match(cartPage, /persistCart\(nextItems\)/);
   assert.match(cartPage, /setAuthenticatedCartItem/);
   assert.match(cartPage, /migrateLocalCartToEmptyServer/);
-  assert.match(cartPage, /variantId \? null : draft\.id/);
+  assert.match(cartPage, /normalizeCartItems/);
+  assert.match(cartItems, /variantId == null \? draft\.id : null/);
   assert.doesNotMatch(cartRoute, /products\(name, image_url\)/);
   assert.match(cartRoute, /main_image_url/);
   assert.match(cartRoute, /onConflict:\s*"user_id,variant_id"/);

@@ -21,6 +21,7 @@ import { pickTopEngagedProducts, RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { migrateLocalCartToEmptyServer, setAuthenticatedCartItem } from "@/lib/cart-sync";
+import { getCartItemQuantity, normalizeCartItems } from "@/lib/cart-items";
 import { readStoredUser, AUTH_EVENT } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { trackBeginCheckout } from "@/lib/analytics";
@@ -66,20 +67,7 @@ const formatOrderCount = (value) => {
   return formatQuantity(count);
 };
 
-const getItemQuantity = (item, fallback = 1) => {
-  const explicit = normaliseOrderCount(item?.quantity, 0);
-  if (explicit > 0) return explicit;
-  const legacySize = normaliseOrderCount(item?.orderSize, 1);
-  const legacyCount = normaliseOrderCount(item?.orderCount, fallback);
-  return roundQuantity(legacySize * legacyCount);
-};
-
-const normaliseQuantityForItem = (item, value) => {
-  const requested = Number(value);
-  const quantity = Number.isFinite(requested) && requested > 0 ? requested : getItemQuantity(item);
-  const validation = validateVariantQuantity(item, quantity);
-  return validation.ok ? validation.quantity : clampQuantityToRules(item, quantity);
-};
+const getItemQuantity = getCartItemQuantity;
 
 const normaliseCartQuantityMessage = (message) => {
   const raw = String(message || "").trim();
@@ -92,40 +80,7 @@ const normaliseCartQuantityMessage = (message) => {
   return raw;
 };
 
-const hydrateCartItem = (item) => {
-  if (!item || typeof item !== "object") return null;
-  const draft = { ...item };
-  const variantId = draft.variantId ?? draft.variant_id ?? null;
-  const rawProductId = draft.productId ?? draft.product_id ?? draft.product?.id ?? (variantId ? null : draft.id);
-  const productId = variantId != null && String(rawProductId ?? "") === String(variantId) ? null : rawProductId;
-  const cartItemId = draft.cartItemId ?? draft.cart_item_id ?? (draft.variant_id ? draft.id : null);
-  const lineId = variantId || draft.id || productId;
-  const quantity = normaliseQuantityForItem(draft, getItemQuantity(draft));
-
-  return {
-    ...draft,
-    id: lineId,
-    cartItemId,
-    productId,
-    variantId,
-    name: draft.name || draft.productName || draft.product_name || draft.products?.name || draft.variant_name || "Fresh produce",
-    variantName: draft.variantName || draft.variant_name || "",
-    price: Number(draft.price ?? draft.unitPrice ?? draft.unit_price_at_add ?? 0),
-    image: draft.image || draft.imageUrl || draft.image_url || draft.products?.image_url || "",
-    unit: draft.unit || draft.base_unit || "",
-    minQuantity: draft.minQuantity ?? draft.min_quantity,
-    maxQuantity: draft.maxQuantity ?? draft.max_quantity,
-    stepQuantity: draft.stepQuantity ?? draft.step_quantity,
-    orderSize: 1,
-    orderCount: quantity,
-    quantity,
-  };
-};
-
-const hydrateCartItems = (items) => {
-  if (!Array.isArray(items)) return [];
-  return items.map(hydrateCartItem).filter(Boolean);
-};
+const hydrateCartItems = normalizeCartItems;
 
 const getCartItemsSignature = (items) => {
   if (!Array.isArray(items) || items.length === 0) return "[]";

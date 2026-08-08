@@ -29,7 +29,7 @@ function renderItems(items) {
             Number(item?.quantity) || Number(item?.orderCount) || Number(item?.orderSize) || 1;
           return (
             <li key={key}>
-              <span>{item?.name ?? "Fresh produce"}</span>
+              <span>{item?.name || "Product"}</span>
               <span>{`x${quantity.toLocaleString()}`}</span>
             </li>
           );

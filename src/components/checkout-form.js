@@ -36,6 +36,14 @@ import {
 import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
 import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 import { calculateOrderCapacity, formatCapacitySummary } from "@/lib/order-capacity";
+import { normalizeCartItems } from "@/lib/cart-items";
+import {
+  buildCheckoutOrderItems,
+  buildCheckoutOrderRequest,
+  getCheckoutApiErrorMessage,
+  logCheckoutApiError,
+  normalizeDeliveryAddress,
+} from "@/lib/checkout-payload";
 
 const INITIAL_FORM_STATE = {
   fullName: "",
@@ -396,7 +404,7 @@ function CheckoutConfirmation({ order }) {
               const quantity = Number(item?.quantity) || Number(item?.orderCount) || Number(item?.orderSize) || 1;
               return (
                 <li key={key}>
-                  <span>{item?.name ?? "Fresh produce"}</span>
+                  <span>{item?.name || "Product"}</span>
                   <span>{`x${formatQuantity(quantity)}`}</span>
                 </li>
               );
@@ -1249,7 +1257,7 @@ export default function CheckoutForm({
     if (removedFromCart || hasStockIssue(payload)) {
       return formatStockError(payload, { removedFromCart });
     }
-    return payload?.error || defaultMessage;
+    return getCheckoutApiErrorMessage(payload, defaultMessage);
   };
 
   const handleSubmit = async (event) => {
@@ -1308,7 +1316,7 @@ export default function CheckoutForm({
       return;
     }
 
-    const cartItems = readStoredCart();
+    const cartItems = normalizeCartItems(readStoredCart());
     if (!cartItems.length) {
       showSubmitError(copy.checkout.emptyDescription);
       return;
@@ -1321,22 +1329,7 @@ export default function CheckoutForm({
       showSubmitError("That payment method is not available right now. Please choose another option.");
       return;
     }
-    const checkoutItemsPayload = cartItems
-      .map((item) => {
-        const variantId = item?.variantId ?? null;
-        const rawProductId = item?.productId ?? item?.product_id ?? (variantId ? null : item?.id) ?? null;
-        const productId = variantId != null && String(rawProductId ?? "") === String(variantId) ? null : rawProductId;
-        const quantity = Number(item?.quantity) || Number(item?.orderCount) || 1;
-        return {
-          product_id: productId != null ? String(productId) : null,
-          variant_id: variantId != null ? String(variantId) : null,
-          quantity: Number.isFinite(quantity) && quantity > 0 ? roundQuantity(quantity) : 1,
-          unit_price_at_add: Number.isFinite(Number(item?.price)) ? Number(item.price) : undefined,
-          variant_name: item?.variantName || undefined,
-          product_name: item?.name || undefined,
-        };
-      })
-      .filter((item) => item.product_id || item.variant_id);
+    const checkoutItemsPayload = buildCheckoutOrderItems(cartItems);
 
     const quantityIssue = cartItems
       .map((item) => ({ item, validation: validateVariantQuantity(item, Number(item?.quantity) || Number(item?.orderCount) || 1) }))
@@ -1382,7 +1375,7 @@ export default function CheckoutForm({
         fullName: formState.fullName.trim(),
         email: formState.email.trim().toLowerCase(),
         phone: formState.phone.trim().replace(/\s+/g, ""),
-        address: formState.address.trim(),
+        address: normalizeDeliveryAddress(formState.address),
         houseNumber: formState.houseNumber.trim(),
         landmark: formState.landmark.trim(),
         addressLabel: formState.addressLabel.trim() || "Home",
@@ -1404,29 +1397,22 @@ export default function CheckoutForm({
           method: "POST",
           headers: buildCheckoutRequestHeaders(previewAuthToken, `${createCheckoutIdempotencyKey()}:preview`),
           cache: "no-store",
-          body: JSON.stringify({
-            preview: true,
-            deliveryAddress: pendingForm.address,
-            deliveryHouseNumber: pendingForm.houseNumber,
-            deliveryStreet: pendingForm.address,
-            deliveryLandmark: pendingForm.landmark,
-            deliveryAddressLabel: pendingForm.addressLabel,
-            deliveryContactName: pendingForm.fullName,
-            deliveryContactPhone: pendingForm.phone,
-            deliveryCity: pendingCanonicalCity,
-            deliveryLatitude: fulfillmentType === "delivery" ? deliveryLatitude : undefined,
-            deliveryLongitude: fulfillmentType === "delivery" ? deliveryLongitude : undefined,
+          body: JSON.stringify(buildCheckoutOrderRequest({
+            form: pendingForm,
+            items: cartItems,
             fulfillmentType,
-            pickupLocationId: fulfillmentType === "pickup" ? pickupLocationId : undefined,
-            deliveryPartnerId: fulfillmentType === "delivery" ? selectedDispatchOption?.id : undefined,
-            note: pendingForm.notes,
+            pickupLocationId,
+            deliveryPartnerId: selectedDispatchOption?.id,
+            deliveryLatitude,
+            deliveryLongitude,
             paymentMethod: DEFAULT_GATEWAY_PAYMENT_METHOD,
-            promo_code: summary.promoCode || undefined,
-            items: checkoutItemsPayload,
-          }),
+            promoCode: summary.promoCode,
+            preview: true,
+          })),
         });
         previewPayload = await previewResponse.json().catch(() => ({}));
         if (!previewResponse.ok) {
+          logCheckoutApiError("/api/orders (preview)", previewResponse, previewPayload);
           showSubmitError(handleOrderApiError(previewPayload, cartItems, previewResponse.statusText || "Unable to verify cart prices."));
           setStatus("idle");
           return;
@@ -1438,6 +1424,7 @@ export default function CheckoutForm({
       }
       persistPendingCheckoutPayment({
         createdAt: new Date().toISOString(),
+        orderIdempotencyKey: createCheckoutIdempotencyKey(),
         form: pendingForm,
         fulfillmentType,
         pickupLocationId,
@@ -1485,7 +1472,7 @@ export default function CheckoutForm({
       fullName: formState.fullName.trim(),
       email: formState.email.trim().toLowerCase(),
       phone: formState.phone.trim().replace(/\s+/g, ""),
-      address: formState.address.trim(),
+      address: normalizeDeliveryAddress(formState.address),
       houseNumber: formState.houseNumber.trim(),
       landmark: formState.landmark.trim(),
       addressLabel: formState.addressLabel.trim() || "Home",
@@ -1566,6 +1553,18 @@ export default function CheckoutForm({
         : null,
     };
 
+    const orderRequestPayload = buildCheckoutOrderRequest({
+      form: order,
+      items: cartItems,
+      fulfillmentType,
+      pickupLocationId,
+      deliveryPartnerId: selectedDispatchOption?.id,
+      deliveryLatitude,
+      deliveryLongitude,
+      paymentMethod: order.paymentMethod,
+      promoCode: summary.promoCode,
+    });
+
     const finalize = async (serverOrderId, serverPayload = null) => {
       // Attempt to create server order (requires Supabase session)
       if (!serverOrderId) {
@@ -1573,28 +1572,11 @@ export default function CheckoutForm({
           method: "POST",
           headers: buildCheckoutRequestHeaders(authToken, orderIdempotencyKey),
           cache: "no-store",
-          body: JSON.stringify({
-            deliveryAddress: order.address,
-            deliveryHouseNumber: order.houseNumber,
-            deliveryStreet: order.address,
-            deliveryLandmark: order.landmark,
-            deliveryAddressLabel: order.addressLabel,
-            deliveryContactName: order.fullName,
-            deliveryContactPhone: order.phone,
-            deliveryCity: canonicalCity,
-            deliveryLatitude: fulfillmentType === "delivery" ? deliveryLatitude : undefined,
-            deliveryLongitude: fulfillmentType === "delivery" ? deliveryLongitude : undefined,
-            fulfillmentType,
-            pickupLocationId: fulfillmentType === "pickup" ? pickupLocationId : undefined,
-            deliveryPartnerId: fulfillmentType === "delivery" ? selectedDispatchOption?.id : undefined,
-            note: order.notes,
-            paymentMethod: order.paymentMethod,
-            promo_code: summary.promoCode || undefined,
-            items: checkoutItemsPayload,
-          }),
+          body: JSON.stringify(orderRequestPayload),
         });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
+          logCheckoutApiError("/api/orders", res, payload);
           throw new Error(handleOrderApiError(payload, cartItems, res.statusText || "Unable to create order."));
         }
         serverOrderId = payload?.order?.id || null;
@@ -1661,28 +1643,11 @@ export default function CheckoutForm({
           method: "POST",
           headers: buildCheckoutRequestHeaders(authToken, orderIdempotencyKey),
           cache: "no-store",
-          body: JSON.stringify({
-            deliveryAddress: order.address,
-            deliveryHouseNumber: order.houseNumber,
-            deliveryStreet: order.address,
-            deliveryLandmark: order.landmark,
-            deliveryAddressLabel: order.addressLabel,
-            deliveryContactName: order.fullName,
-            deliveryContactPhone: order.phone,
-            deliveryCity: canonicalCity,
-            deliveryLatitude: fulfillmentType === "delivery" ? deliveryLatitude : undefined,
-            deliveryLongitude: fulfillmentType === "delivery" ? deliveryLongitude : undefined,
-            fulfillmentType,
-            pickupLocationId: fulfillmentType === "pickup" ? pickupLocationId : undefined,
-            deliveryPartnerId: fulfillmentType === "delivery" ? selectedDispatchOption?.id : undefined,
-            note: order.notes,
-            paymentMethod: order.paymentMethod,
-            promo_code: summary.promoCode || undefined,
-            items: checkoutItemsPayload,
-          }),
+          body: JSON.stringify(orderRequestPayload),
         });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
+          logCheckoutApiError("/api/orders", res, payload);
           throw new Error(handleOrderApiError(payload, cartItems, res.statusText || "Unable to create order."));
         }
         createdOrderId = payload?.order?.id || null;
@@ -1703,7 +1668,8 @@ export default function CheckoutForm({
         });
         const transferPayload = await transferResponse.json().catch(() => ({}));
         if (!transferResponse.ok) {
-          throw new Error(transferPayload?.error || "Unable to prepare bank transfer details.");
+          logCheckoutApiError("/api/payments/bank-transfer/initialize", transferResponse, transferPayload);
+          throw new Error(getCheckoutApiErrorMessage(transferPayload, "Payment could not be initialized. Please try again."));
         }
         setTransferDetails({
           order: {

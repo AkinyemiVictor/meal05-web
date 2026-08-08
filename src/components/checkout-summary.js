@@ -17,6 +17,7 @@ import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-se
 import { resolveProductImage } from "@/lib/product-image";
 import { useProductsByIds } from "@/lib/use-catalog-products";
 import { formatQuantity } from "@/lib/purchase-quantities";
+import { normalizeCartItems } from "@/lib/cart-items";
 
 export default function CheckoutSummary({
   deliverySettings,
@@ -26,7 +27,7 @@ export default function CheckoutSummary({
   fulfillmentType = "delivery",
   submitFormId,
 }) {
-  const [items, setItems] = useState(() => readStoredCart());
+  const [items, setItems] = useState(() => normalizeCartItems(readStoredCart()));
   const [promoState, setPromoState] = useState(() => readStoredPromo());
   const [lastCheckout, setLastCheckout] = useState(null);
   const lookupIds = useMemo(
@@ -61,7 +62,7 @@ export default function CheckoutSummary({
     if (typeof window === "undefined") return;
 
     const handleCartUpdated = () => {
-      const updated = readStoredCart();
+      const updated = normalizeCartItems(readStoredCart());
       setItems(updated);
       if (updated.length) {
         setLastCheckout(null);
@@ -132,7 +133,12 @@ export default function CheckoutSummary({
             const product = productIndex?.get(String(item?.productId ?? item?.id ?? ""));
             const price = Number(item?.price) || Number(product?.price) || 0;
             const quantity = Number(item?.quantity) || Number(item?.orderCount) || Number(item?.orderSize) || 1;
+            const lineTotal = Number(item?.lineTotal) || price * quantity;
             const image = resolveProductImage(item?.image, product?.image);
+            const unit = item?.unit || product?.unit || "item";
+            const variantLabel = item?.variantName && !String(item?.name || "").toLowerCase().includes(String(item.variantName).toLowerCase())
+              ? item.variantName
+              : "";
             return (
               <li key={key}>
                 <div className="checkout-summary__item">
@@ -147,13 +153,17 @@ export default function CheckoutSummary({
                     />
                   </span>
                   <span>
-                    <span className="checkout-summary__name">{item?.name ?? "Fresh produce"}</span>
+                    <span className="checkout-summary__name">{item?.name || "Product"}</span>
+                    {variantLabel ? <span className="checkout-summary__variant">{variantLabel}</span> : null}
                     <span className="checkout-summary__unit">
-                      {formatQuantity(quantity)} {product?.unit || item?.unit || "item"}
+                      {formatQuantity(quantity)} {unit}
                     </span>
                   </span>
                 </div>
-                <span>{formatProductPrice(price, product?.unit)}</span>
+                <span className="checkout-summary__price">
+                  <strong>{formatProductPrice(lineTotal)}</strong>
+                  <small>{formatProductPrice(price, unit)}</small>
+                </span>
               </li>
             );
           })

@@ -11,6 +11,11 @@ import {
   readPendingCheckoutPayment,
 } from "@/lib/checkout";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
+import {
+  buildCheckoutOrderRequest,
+  getCheckoutApiErrorMessage,
+  logCheckoutApiError,
+} from "@/lib/checkout-payload";
 
 const TRANSFER_METHODS = ["moniepoint_transfer", "opay_transfer"];
 const MONIEPOINT_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/moniepoint logo.png";
@@ -322,29 +327,24 @@ export default function ProviderPaymentPage() {
       const orderResponse = await fetch("/api/orders", {
         method: "POST",
         cache: "no-store",
-        headers: buildHeaders(token, createIdempotencyKey("checkout-order")),
-        body: JSON.stringify({
-          deliveryAddress: form.address,
-          deliveryHouseNumber: form.houseNumber,
-          deliveryStreet: form.address,
-          deliveryLandmark: form.landmark,
-          deliveryAddressLabel: form.addressLabel || "Home",
-          deliveryContactName: form.fullName,
-          deliveryContactPhone: form.phone,
-          deliveryCity: form.city,
-          deliveryLatitude: pending.fulfillmentType === "delivery" ? Number(pending.deliveryLocation?.latitude) : undefined,
-          deliveryLongitude: pending.fulfillmentType === "delivery" ? Number(pending.deliveryLocation?.longitude) : undefined,
-          fulfillmentType: pending.fulfillmentType || "delivery",
-          pickupLocationId: pending.fulfillmentType === "pickup" ? pending.pickupLocationId : undefined,
-          deliveryPartnerId: pending.fulfillmentType === "delivery" ? pending.selectedDispatchOptionId : undefined,
-          note: form.notes,
+        headers: buildHeaders(token, pending.orderIdempotencyKey || createIdempotencyKey("checkout-order")),
+        body: JSON.stringify(buildCheckoutOrderRequest({
+          form,
+          items: pending.cartItems || pending.items || [],
+          fulfillmentType: pending.fulfillmentType,
+          pickupLocationId: pending.pickupLocationId,
+          deliveryPartnerId: pending.selectedDispatchOptionId,
+          deliveryLatitude: pending.deliveryLocation?.latitude,
+          deliveryLongitude: pending.deliveryLocation?.longitude,
           paymentMethod: provider.code,
-          promo_code: pending.promoCode || undefined,
-          items: pending.items || [],
-        }),
+          promoCode: pending.promoCode,
+        })),
       });
       const orderPayload = await orderResponse.json().catch(() => ({}));
-      if (!orderResponse.ok) throw new Error(orderPayload?.error || "Unable to create order.");
+      if (!orderResponse.ok) {
+        logCheckoutApiError("/api/orders", orderResponse, orderPayload);
+        throw new Error(getCheckoutApiErrorMessage(orderPayload, "Unable to create order."));
+      }
 
       const orderId = orderPayload?.order?.id;
       if (!orderId) throw new Error("Unable to create order.");
@@ -356,7 +356,10 @@ export default function ProviderPaymentPage() {
         body: JSON.stringify({ orderId, providerCode: provider.code }),
       });
       const transferPayload = await transferResponse.json().catch(() => ({}));
-      if (!transferResponse.ok) throw new Error(transferPayload?.error || "Unable to prepare payment details.");
+      if (!transferResponse.ok) {
+        logCheckoutApiError("/api/payments/bank-transfer/initialize", transferResponse, transferPayload);
+        throw new Error(getCheckoutApiErrorMessage(transferPayload, "Payment could not be initialized. Please try again."));
+      }
 
       setTransferDetails({
         order: {

@@ -95,3 +95,32 @@ test("bank transfer acknowledgement and OPay webhook fail closed", () => {
   assert.match(migration, /where code = 'opay_transfer'/);
   assert.match(migration, /coalesce\(account_number/);
 });
+
+test("authenticated cart additions merge matching variants and checkout retries reuse one order key", () => {
+  const cartRoute = read("src/app/api/cart/route.js");
+  const cartMigration = read("supabase/migrations/20260801101233_canonical_authenticated_cart.sql");
+  const checkoutForm = read("src/components/checkout-form.js");
+  const providerPage = read("src/app/checkout/payment/[providerCode]/page.js");
+
+  assert.match(cartRoute, /\.eq\("variant_id", variantKey\)/);
+  assert.match(cartRoute, /onConflict:\s*"user_id,variant_id"/);
+  assert.match(cartMigration, /sum\(quantity\)/);
+  assert.match(cartMigration, /unique index cart_items_user_variant_unique_idx/);
+  assert.match(checkoutForm, /orderIdempotencyKey:\s*createCheckoutIdempotencyKey\(\)/);
+  assert.match(providerPage, /pending\.orderIdempotencyKey \|\| createIdempotencyKey/);
+});
+
+test("wallet checkout is atomically idempotent and transfer checkout keeps the cart pending verification", () => {
+  const orderRoute = read("src/app/api/orders/route.js");
+  const walletMigration = read("supabase/migrations/20260719120000_meal05_balance_foundation.sql");
+  const transferRoute = read("src/app/api/payments/bank-transfer/initialize/route.js");
+
+  assert.match(orderRoute, /rpc\("debit_wallet_for_order"/);
+  assert.match(orderRoute, /p_idempotency_key:\s*walletPaymentKey/);
+  assert.match(orderRoute, /requestedPaymentMethod === "wallet"[\s\S]*from\("cart_items"\)\.delete/);
+  assert.match(walletMigration, /create or replace function public\.debit_wallet_for_order/);
+  assert.match(walletMigration, /insufficient.*balance/i);
+  assert.match(transferRoute, /\.eq\("order_id", order\.id\)/);
+  assert.match(transferRoute, /if \(!payment\)/);
+  assert.match(orderRoute, /Gateway payments keep the cart until server-side verification succeeds/);
+});
