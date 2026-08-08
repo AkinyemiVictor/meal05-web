@@ -10,6 +10,7 @@ const EMPTY_LOOKUP = {
   catalogue: {},
   ordered: [],
   index: new Map(),
+  pagination: null,
 };
 
 const normaliseIds = (ids = []) => {
@@ -27,9 +28,11 @@ const normaliseIds = (ids = []) => {
 const buildLookup = (payload, orderedIds = []) => {
   const catalogue = payload?.grouped || {};
   const lookup = normaliseProductCatalogue(catalogue);
-  if (!orderedIds.length) return { catalogue, ordered: lookup.ordered, index: lookup.index };
+  if (!orderedIds.length) {
+    return { catalogue, ordered: lookup.ordered, index: lookup.index, pagination: payload?.pagination || null };
+  }
   const ordered = orderedIds.map((id) => lookup.index.get(String(id))).filter(Boolean);
-  return { catalogue, ordered, index: lookup.index };
+  return { catalogue, ordered, index: lookup.index, pagination: payload?.pagination || null };
 };
 
 const fetchCatalog = async (url, orderedIds = []) => {

@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -28,6 +27,7 @@ import {
 } from "@/components/home-category-navigation";
 import FilterChips from "@/components/filter-chips";
 import HomeProductCollection from "@/components/home-product-collection";
+import HomeSeasonalBanner from "@/components/home-seasonal-banner";
 import MealKitComingSoon from "@/components/mealkit-coming-soon";
 import useCategories from "@/lib/use-categories";
 import { useCatalogProducts } from "@/lib/use-catalog-products";
@@ -80,65 +80,6 @@ const COLLECTION_COPY = {
     seeAllHref: "/section/in-season",
   },
 };
-
-// MobileHeader and TopNav are now in src/components/meal05-header.js (rendered by layout)
-
-function PromoBanner() {
-  return (
-    <section className="welcome-banner" aria-labelledby="welcome-banner-title">
-      <div className="welcome-banner__halftone" aria-hidden="true" />
-
-      <span className="welcome-banner__float welcome-banner__float--leaf" aria-hidden="true">
-        <IconLeaf />
-      </span>
-      <span className="welcome-banner__float welcome-banner__float--leaf-two" aria-hidden="true">
-        <IconLeaf />
-      </span>
-      <span className="welcome-banner__float welcome-banner__float--leaf-three" aria-hidden="true">
-        <IconLeaf />
-      </span>
-      <span className="welcome-banner__float welcome-banner__float--leaf-four" aria-hidden="true">
-        <IconLeaf />
-      </span>
-
-      <div className="welcome-banner__inner">
-        <div className="welcome-banner__copy">
-          <div className="welcome-banner__topline">
-            <span className="welcome-banner__brand-chip">
-              <IconChefHat aria-hidden="true" />
-              <strong>MEAL<span>05</span></strong>
-            </span>
-          </div>
-
-          <h2 id="welcome-banner-title" className="welcome-banner__title">
-            MEAL<span>05</span>
-          </h2>
-          <p className="welcome-banner__accent">Fresh groceries. Fair prices.</p>
-          <p className="welcome-banner__microcopy">Fresh-picked daily in Ibadan.</p>
-        </div>
-
-        <div className="welcome-banner__art" aria-hidden="true">
-          <div className="welcome-banner__stamp">
-            <strong>100%</strong>
-            <span>MARKET FRESH</span>
-          </div>
-          <div className="welcome-banner__frame">
-            <div className="welcome-banner__produce-slot">
-              <Image
-                src="/assets/billboard/welcome-produce.png"
-                alt=""
-                fill
-                priority
-                sizes="(max-width: 767px) 0px, (max-width: 1279px) 230px, 300px"
-                className="welcome-banner__produce"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export default function Home() {
   const contentBoundaryRef = useRef(null);
@@ -404,7 +345,7 @@ export default function Home() {
             </div>
 
             <div className="mt-1 md:mt-0">
-              <PromoBanner />
+              <HomeSeasonalBanner />
             </div>
 
             <div className="hidden md:mt-6 md:block">

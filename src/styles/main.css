@@ -10053,3 +10053,317 @@ main > section:not(.home-hero) {
 @media (prefers-reduced-motion: reduce) {
   .welcome-banner__float { animation: none; }
 }
+
+/* Fixed home-banner canvas with an independently scaled 1200px design layer. */
+.welcome-banner.welcome-banner--seasonal {
+  --welcome-content-scale: 1;
+  width: 100%;
+  max-width: 1200px;
+  height: 480px;
+  min-height: 480px;
+  max-height: 480px;
+  border-radius: 26px;
+  background: #10331f;
+  color: #ffffff;
+}
+
+.welcome-banner.welcome-banner--seasonal::before {
+  display: none;
+}
+
+.welcome-seasonal__glow,
+.welcome-seasonal__dots {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.welcome-seasonal__glow {
+  border-radius: 50%;
+}
+
+.welcome-seasonal__glow--green {
+  top: -120px;
+  left: -80px;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.3), transparent 70%);
+}
+
+.welcome-seasonal__glow--orange {
+  right: 18%;
+  bottom: -140px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(240, 78, 31, 0.2), transparent 70%);
+}
+
+.welcome-seasonal__dots {
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1.5px, transparent 1.8px);
+  background-size: 22px 22px;
+}
+
+.welcome-seasonal__viewport {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+}
+
+.welcome-seasonal__content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1200px;
+  height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+  padding: 52px;
+  transform: translate(-50%, -50%) scale(var(--welcome-content-scale));
+  transform-origin: center;
+}
+
+.welcome-seasonal__copy {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-width: 0;
+  max-width: 520px;
+}
+
+.welcome-seasonal__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 7px 14px 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.welcome-seasonal__pill i {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #10331f;
+}
+
+.welcome-seasonal__pill svg {
+  width: 15px;
+  height: 15px;
+}
+
+.welcome-seasonal__copy h2 {
+  margin: 0 0 14px;
+  color: #ffffff;
+  font-size: 42px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -1.6px;
+  line-height: 1.04;
+}
+
+.welcome-seasonal__copy h2 em {
+  color: #7ee2a8;
+}
+
+.welcome-seasonal__copy > p {
+  margin: 0 0 26px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.welcome-seasonal__actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.welcome-seasonal__actions > a {
+  display: inline-flex;
+  height: 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 0 26px;
+  border-radius: 14px;
+  background: #f04e1f;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 14px 28px -10px rgba(240, 78, 31, 0.6);
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.welcome-seasonal__actions > a:hover,
+.welcome-seasonal__actions > a:focus-visible {
+  background: #ffffff;
+  color: #15161f;
+}
+
+.welcome-seasonal__actions > a i {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.welcome-seasonal__actions svg {
+  width: 18px;
+  height: 18px;
+}
+
+.welcome-seasonal__actions > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.welcome-seasonal__actions > span svg {
+  color: #7ee2a8;
+}
+
+.welcome-seasonal__cards {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 340px;
+  flex: none;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.welcome-seasonal__card {
+  min-width: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #15161f;
+}
+
+.welcome-seasonal__card--1 { transform: rotate(-2deg); }
+.welcome-seasonal__card--2 { margin-top: 14px; transform: rotate(2deg); }
+.welcome-seasonal__card--3 { margin-top: -4px; transform: rotate(2deg); }
+.welcome-seasonal__card--4 { margin-top: 10px; transform: rotate(-2deg); }
+
+.welcome-seasonal__card-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  margin-bottom: 14px;
+  border-radius: 13px;
+}
+
+.welcome-seasonal__card-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.welcome-seasonal__card-icon--pepper { background: #fde8df; color: #f04e1f; }
+.welcome-seasonal__card-icon--citrus { background: #fff4d6; color: #d9a400; }
+.welcome-seasonal__card-icon--cherry { background: #fde2e4; color: #e2342b; }
+.welcome-seasonal__card-icon--carrot { background: #e7f7ed; color: #ef7a1a; }
+
+.welcome-seasonal__card > b {
+  display: block;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+}
+
+.welcome-seasonal__card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.welcome-seasonal__card footer span {
+  color: #22a34d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.welcome-seasonal__card footer strong {
+  font-size: 14px;
+}
+
+.welcome-seasonal__leaf {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.3));
+}
+
+.welcome-seasonal__leaf--top {
+  top: -18px;
+  left: 38%;
+  width: 84px;
+  height: 78px;
+  transform: rotate(-18deg);
+  opacity: 0.9;
+}
+
+.welcome-seasonal__leaf--bottom {
+  bottom: -22px;
+  left: 24px;
+  width: 70px;
+  height: 70px;
+  transform: rotate(128deg);
+  opacity: 0.85;
+}
+
+.welcome-seasonal__leaf--right {
+  top: 40px;
+  right: 30px;
+  width: 40px;
+  height: 40px;
+  transform: rotate(28deg);
+  opacity: 0.8;
+}
+
+.welcome-seasonal__leaf-image {
+  position: absolute;
+  max-width: none;
+  object-fit: none;
+}
+
+.welcome-seasonal__leaf-image--top {
+  top: -18px;
+  left: -220px;
+}
+
+.welcome-seasonal__leaf-image--bottom {
+  top: -230px;
+  left: -28px;
+  transform: scale(0.72);
+  transform-origin: top left;
+}
+
+.welcome-seasonal__leaf-image--right {
+  top: -26px;
+  left: -143px;
+  transform: scale(0.55);
+  transform-origin: top left;
+}

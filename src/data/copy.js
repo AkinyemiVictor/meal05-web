@@ -1,7 +1,7 @@
 const copy = {
   search: {
-    placeholderHeader: "Search fruits, grains, proteins, or meal packs",
-    placeholderPage: 'Try "cavendish bananas" or "smoked fish"',
+    placeholderHeader: "Search meal05",
+    placeholderPage: "Search meal05",
     introDefault: "Search for fruits, grains, pantry staples, or any product you need delivered fresh.",
     emptyTitle: "No matches",
     emptyDescription: (term) =>

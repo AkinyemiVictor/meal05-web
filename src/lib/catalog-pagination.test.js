@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { test } from "node:test";
+
+import {
+  countDistinctCatalogProductsByCategory,
+  getCatalogPageRange,
+  normalizeCatalogPagination,
+} from "./catalog-pagination.js";
+
+const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
+
+test("variants and image join rows do not increase parent-product category counts", () => {
+  const counts = countDistinctCatalogProductsByCategory([
+    { product_id: "eggs", category_slug: "dairy-eggs", variant_id: "small", image_id: 1, in_stock: true },
+    { product_id: "eggs", category_slug: "dairy-eggs", variant_id: "medium", image_id: 2, in_stock: true },
+    { product_id: "eggs", category_slug: "dairy-eggs", variant_id: "large", image_id: 3, in_stock: false },
+    { product_id: "milk", category_slug: "dairy-eggs", image_id: 4, in_stock: false },
+  ]);
+
+  assert.deepEqual(counts, {
+    "dairy-eggs": { product_count: 2, available_product_count: 1 },
+  });
+});
+
+test("authoritative totals produce the correct 20-item page counts", () => {
+  assert.equal(normalizeCatalogPagination({ total: 121, pageSize: 20 }).totalPages, 7);
+  assert.equal(normalizeCatalogPagination({ total: 279, pageSize: 20 }).totalPages, 14);
+});
+
+test("page ranges cover every product once beyond record 120", () => {
+  const ids = Array.from({ length: 279 }, (_, index) => index + 1);
+  const seen = [];
+  for (let page = 1; page <= 14; page += 1) {
+    const { from, to } = getCatalogPageRange({ page, pageSize: 20 });
+    seen.push(...ids.slice(from, to + 1));
+  }
+
+  assert.equal(seen.length, 279);
+  assert.equal(new Set(seen).size, 279);
+  assert.ok(seen.includes(121));
+  assert.deepEqual(seen, ids);
+});
+
+test("Browse and search use exact server pagination instead of the legacy 120-product cap", () => {
+  const shopPage = read("src/app/shop/page.js");
+  const cardsRoute = read("src/app/api/catalog/cards/route.js");
+  const catalogServer = read("src/lib/public-catalog-server.js");
+
+  assert.match(shopPage, /pageSize=\$\{PAGE_SIZE\}/);
+  assert.doesNotMatch(shopPage, /cards\?limit=120/);
+  assert.match(cardsRoute, /loadPublicCatalogPage/);
+  assert.match(catalogServer, /select\(CARD_CATALOG_FIELDS, \{ count: "exact" \}\)/);
+  assert.match(catalogServer, /query\.range\(range\.from, range\.to\)/);
+  const searchFunction = catalogServer.slice(catalogServer.indexOf("export async function loadPublicSearchResults"));
+  assert.match(searchFunction, /loadPublicCatalogPage/);
+  assert.doesNotMatch(searchFunction, /120/);
+});
+
+test("all public search inputs use the shared Search meal05 placeholder", () => {
+  const files = [
+    "src/components/meal05-header.js",
+    "src/app/page.js",
+    "src/app/shop/page.js",
+    "src/data/copy.js",
+  ];
+  const publicSearchSource = files.map(read).join("\n");
+  files.forEach((file) => assert.match(read(file), /Search meal05/));
+  assert.doesNotMatch(publicSearchSource, /Search tomatoes|Search fruits|Try &quot;|Try "/);
+});

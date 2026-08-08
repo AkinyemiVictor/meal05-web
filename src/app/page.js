@@ -47,7 +47,7 @@ export default function LandingPage() {
       <div className={styles.heroCopy}><span className={styles.pill}><i/> Now live in Ibadan!</span>
         <h1>Market-fresh<br/>groceries, <em>delivered.</em></h1>
         <p>Meat, fish, vegetables, fruits and pantry staples — handpicked from the market each morning and at your door within hours.</p>
-        <form action="/search" method="get" className={styles.search}><IconSearch/><input name="q" aria-label="Search products" required placeholder="Search tomatoes, yam, fish…"/><button type="submit">Search</button></form>
+        <form action="/search" method="get" className={styles.search}><IconSearch/><input name="q" aria-label="Search products" required placeholder="Search meal05"/><button type="submit">Search</button></form>
         <div className={styles.heroValues}>{values.map(([Icon,title,sub,tone])=><article key={title}><i className={styles[tone]}><Icon/></i><span><b>{title}</b><small>{sub}</small></span></article>)}</div>
       </div>
       <div className={styles.heroArt}><Image src="/assets/billboard/landing-hero-template.jpg" alt="Fresh market vegetables" fill priority sizes="(max-width:980px) 0px, 46vw"/><div className={styles.heroShade}/>

@@ -10,6 +10,7 @@ import { selectProductCardVariant } from "@/lib/product-card-pricing";
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 import { getDefaultMarket } from "@/lib/market-server";
+import { getCatalogPageRange, normalizeCatalogPagination } from "@/lib/catalog-pagination";
 
 export const PUBLIC_CATALOG_CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
@@ -90,6 +91,22 @@ const CARD_CATALOG_FIELDS = [
   "search_text",
   "active_variant_count",
 ].join(", ");
+
+const CATALOG_PAGE_SORTS = {
+  default: [{ column: "product_id", ascending: true }],
+  "price-asc": [
+    { column: "starting_price", ascending: true },
+    { column: "product_id", ascending: true },
+  ],
+  "price-desc": [
+    { column: "starting_price", ascending: false },
+    { column: "product_id", ascending: true },
+  ],
+  "name-asc": [
+    { column: "name", ascending: true },
+    { column: "product_id", ascending: true },
+  ],
+};
 
 const buildCategoryIndex = (rows) =>
   (Array.isArray(rows) ? rows : []).reduce((acc, row) => {
@@ -369,6 +386,51 @@ const loadPublicCatalogProductsFromCardView = async ({
   };
 };
 
+export async function loadPublicCatalogPage({
+  page = 1,
+  pageSize = 20,
+  category = "",
+  search = "",
+  sort = "default",
+} = {}) {
+  const admin = getSupabaseAdminClient();
+  const market = await getDefaultMarket();
+  const range = getCatalogPageRange({ page, pageSize });
+  const requestedCategorySlug = toCategorySlug(category || "");
+  const searchTerm = String(search || "")
+    .trim()
+    .replace(/[%_,().]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+  const selectedSort = CATALOG_PAGE_SORTS[sort] || CATALOG_PAGE_SORTS.default;
+
+  let query = admin
+    .from("product_card_catalog")
+    .select(CARD_CATALOG_FIELDS, { count: "exact" })
+    .eq("market_id", market.id);
+
+  if (requestedCategorySlug) query = query.eq("category_slug", requestedCategorySlug);
+  if (searchTerm) query = query.ilike("search_text", `%${searchTerm}%`);
+  selectedSort.forEach(({ column, ascending }) => {
+    query = query.order(column, { ascending });
+  });
+
+  const { data, count, error } = await query.range(range.from, range.to);
+  if (error) throw error;
+
+  const flat = (Array.isArray(data) ? data : [])
+    .map(buildPublicCatalogProductFromCard)
+    .filter((product) => product.id && product.price > 0);
+  const pagination = normalizeCatalogPagination({ page: range.page, pageSize: range.pageSize, total: count });
+
+  return {
+    grouped: groupProducts(flat),
+    flat,
+    market: publicMarket(market),
+    pagination,
+  };
+}
+
 export async function loadPublicCatalogProducts({
   ids,
   category,
@@ -577,21 +639,21 @@ export async function loadPublicSearchResults({
     };
   }
 
-  const start = (safePage - 1) * safePageSize;
-  const requestedLimit = Math.min(start + safePageSize + 1, 120);
-  const payload = await loadPublicCatalogProducts({
+  const payload = await loadPublicCatalogPage({
     search: query,
-    view: "default",
-    limit: requestedLimit,
+    page: safePage,
+    pageSize: safePageSize,
   });
-  const rows = (Array.isArray(payload?.flat) ? payload.flat : []).map(toProductCardDTO).filter((product) => product.id);
-  const items = rows.slice(start, start + safePageSize);
+  const items = (Array.isArray(payload?.flat) ? payload.flat : []).map(toProductCardDTO).filter((product) => product.id);
+  const pagination = payload?.pagination || normalizeCatalogPagination({ page: safePage, pageSize: safePageSize });
 
   return {
     items,
-    page: safePage,
-    pageSize: safePageSize,
-    hasMore: rows.length > start + safePageSize,
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+    total: pagination.total,
+    totalPages: pagination.totalPages,
+    hasMore: pagination.page < pagination.totalPages,
     returned: items.length,
     market: payload?.market || null,
   };

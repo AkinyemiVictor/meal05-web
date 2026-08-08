@@ -38,7 +38,7 @@ function SearchForm({ id, compact = false }) {
         name="q"
         type="search"
         className="min-w-0 flex-1 bg-transparent text-sm font-medium text-meal-text outline-none placeholder:text-meal-muted"
-        placeholder="Search tomatoes, yam, fish..."
+        placeholder="Search meal05"
         autoComplete="off"
       />
       <button

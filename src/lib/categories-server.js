@@ -1,6 +1,7 @@
-import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
-import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
-import { selectProductCardVariant } from "@/lib/product-card-pricing";
+import { getDefaultMarket } from "@/lib/market-server";
+import { countDistinctCatalogProductsByCategory } from "@/lib/catalog-pagination";
+
+export { countDistinctCatalogProductsByCategory } from "@/lib/catalog-pagination";
 
 export const toCategorySlug = (value) =>
   String(value || "")
@@ -99,65 +100,27 @@ export const loadCategoryRows = async (supabase) => {
 
 export const loadCategoryCounts = async (supabase) => {
   try {
-    const catalog = await loadMarketCatalog(supabase);
-    const [categoryResult, productResult] = await Promise.all([
-      supabase.from("product_categories").select("*"),
-      supabase.from("products").select("*"),
-    ]);
-    if (categoryResult.error) throw categoryResult.error;
-    if (productResult.error) throw productResult.error;
+    const market = await getDefaultMarket();
+    const rows = [];
+    const batchSize = 1000;
+    let offset = 0;
 
-    const categoriesById = (Array.isArray(categoryResult.data) ? categoryResult.data : []).reduce((acc, row) => {
-      const id = row?.id == null ? "" : String(row.id);
-      if (!id) return acc;
-      const name = pickFirst(row, ["name", "label", "title", "category_name", "categoryName"]);
-      const slug = toCategorySlug(pickFirst(row, ["slug", "category_slug", "categorySlug", "key"]) || name);
-      if (slug) acc[id] = slug;
-      return acc;
-    }, {});
+    while (true) {
+      const { data, error } = await supabase
+        .from("product_card_catalog")
+        .select("product_id, category_slug, in_stock")
+        .eq("market_id", market.id)
+        .order("product_id", { ascending: true })
+        .range(offset, offset + batchSize - 1);
+      if (error) throw error;
 
-    const products = (Array.isArray(productResult.data) ? productResult.data : [])
-      .filter(isActiveRow)
-      .map((row) => applyMarketListing(row, catalog))
-      .filter(Boolean)
-      .filter((row) => normalizeProductMerchandisingRecord(row).isHidden !== true);
-    const productIds = products.map((row) => row?.id ?? row?.product_id).filter(Boolean);
-    let variantRows = [];
-    if (productIds.length) {
-      const { data: variants, error: variantsError } = await supabase
-        .from("product_variants")
-        .select("*")
-        .in("product_id", productIds)
-        .eq("market_id", catalog.market.id);
-      if (!variantsError && Array.isArray(variants)) {
-        variantRows = variants.filter(isActiveRow);
-      }
+      const batch = Array.isArray(data) ? data : [];
+      rows.push(...batch);
+      if (batch.length < batchSize) break;
+      offset += batchSize;
     }
 
-    const variantsByProduct = variantRows.reduce((acc, row) => {
-      const productId = row?.product_id == null ? "" : String(row.product_id);
-      if (!productId) return acc;
-      if (!acc[productId]) acc[productId] = [];
-      acc[productId].push(row);
-      return acc;
-    }, {});
-
-    return products.reduce((acc, row) => {
-      if (row?.is_active === false) return acc;
-      const categoryId = row?.category_id ?? row?.categoryId ?? row?.product_category_id ?? row?.productCategoryId;
-      const slug =
-        categoriesById[String(categoryId ?? "")] ||
-        toCategorySlug(row?.category_slug || row?.categorySlug || row?.category_name || row?.category || "uncategorised") ||
-        "uncategorised";
-      const variants = variantsByProduct[String(row?.id ?? row?.product_id)] || [];
-      const selection = selectProductCardVariant(variants, { marketId: catalog.market.id });
-      if (!selection) return acc;
-
-      if (!acc[slug]) acc[slug] = { product_count: 0, available_product_count: 0 };
-      acc[slug].product_count += 1;
-      if (selection.inStock) acc[slug].available_product_count += 1;
-      return acc;
-    }, {});
+    return countDistinctCatalogProductsByCategory(rows);
   } catch {
     return {};
   }

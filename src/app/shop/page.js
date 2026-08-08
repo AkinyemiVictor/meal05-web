@@ -10,12 +10,7 @@ import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import ProductCard from "@/components/product-card";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
-import SortSelect from "@/components/sort-select";
-import {
-  buildCatalogItems,
-  getCatalogItemName,
-  getCatalogItemPrice,
-} from "@/lib/catalog-items";
+import { buildCatalogItems } from "@/lib/catalog-items";
 import useCategories from "@/lib/use-categories";
 import { useCatalogProducts } from "@/lib/use-catalog-products";
 
@@ -26,44 +21,18 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { 
 
 const PAGE_SIZE = 20;
 
-const SORT_OPTIONS = [
-  { value: "default", label: "Featured" },
-  { value: "price-asc", label: "Price: Low to High" },
-  { value: "price-desc", label: "Price: High to Low" },
-  { value: "name-asc", label: "Name: A–Z" },
-];
-
-const interleaveByCategory = (items = []) => {
-  const groups = new Map();
-  items.forEach((item) => {
-    const key = item.categorySlug || item.category || "other";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
-  });
-  const queues = [...groups.values()];
-  const mixed = [];
-  let remaining = true;
-  while (remaining) {
-    remaining = false;
-    queues.forEach((queue) => {
-      if (queue.length) {
-        mixed.push(queue.shift());
-        remaining = true;
-      }
-    });
-  }
-  return mixed;
-};
-
 export default function ShopPage() {
   const pageRef = useRef(null);
-  const [sort, setSort] = useState("default");
   const [currentPage, setCurrentPage] = useState(1);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
 
-  const { ordered, status } = useCatalogProducts("/api/catalog/cards?limit=120");
+  const catalogUrl = useMemo(
+    () => `/api/catalog/cards?page=${currentPage}&pageSize=${PAGE_SIZE}&sort=default`,
+    [currentPage]
+  );
+  const { ordered, status, pagination } = useCatalogProducts(catalogUrl);
   const { categories, status: categoriesStatus } = useCategories();
   const isLoading = status === "loading";
   const hasError = status === "error";
@@ -80,27 +49,13 @@ export default function ShopPage() {
     [categories]
   );
 
-  const catalogItems = useMemo(() => {
-    return interleaveByCategory(buildCatalogItems(ordered));
-  }, [ordered]);
+  const pagedProducts = useMemo(() => buildCatalogItems(ordered), [ordered]);
+  const totalItems = Number(pagination?.total || 0);
+  const totalPages = Math.max(1, Number(pagination?.totalPages || 1));
 
-  const filteredProducts = useMemo(() => {
-    if (!ordered) return [];
-    let list = catalogItems;
-    if (sort === "price-asc") list = [...list].sort((a, b) => getCatalogItemPrice(a) - getCatalogItemPrice(b));
-    else if (sort === "price-desc") list = [...list].sort((a, b) => getCatalogItemPrice(b) - getCatalogItemPrice(a));
-    else if (sort === "name-asc") list = [...list].sort((a, b) => getCatalogItemName(a).localeCompare(getCatalogItemName(b)));
-    return list;
-  }, [ordered, sort, catalogItems]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
-
-  useEffect(() => { setCurrentPage(1); }, [sort]);
-
-  const pagedProducts = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredProducts.slice(start, start + PAGE_SIZE);
-  }, [filteredProducts, currentPage]);
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages || page === currentPage) return;
@@ -126,8 +81,8 @@ export default function ShopPage() {
     setQuickAddAnchorEl(null);
   };
 
-  const start = filteredProducts.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
-  const end = Math.min(currentPage * PAGE_SIZE, filteredProducts.length);
+  const start = totalItems ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+  const end = Math.min(currentPage * PAGE_SIZE, totalItems);
 
   return (
     <main ref={pageRef} className="category-page shop-page">
@@ -153,7 +108,7 @@ export default function ShopPage() {
           id="shop-mobile-search"
           type="search"
           name="q"
-          placeholder="Search tomatoes, yam, fish..."
+          placeholder="Search meal05"
           autoComplete="off"
           required
         />
@@ -170,7 +125,7 @@ export default function ShopPage() {
           <PageState title="We couldn't load products right now.">
             Please refresh the page or try again in a moment.
           </PageState>
-        ) : filteredProducts.length ? (
+        ) : pagedProducts.length ? (
           <ProductGrid
             products={pagedProducts}
             renderProduct={(item) => (
@@ -189,7 +144,7 @@ export default function ShopPage() {
       {/* Pagination */}
       <div className="category-page__pagination">
         <p className="category-page__result-count" aria-live="polite">
-          {isLoading ? "Loading..." : filteredProducts.length ? `Showing ${start}-${end} of ${filteredProducts.length} items` : ""}
+          {isLoading ? "Loading..." : totalItems ? `Showing ${start}-${end} of ${totalItems} items` : ""}
         </p>
         {totalPages > 1 ? (
           <div className="pagination-nav" role="navigation" aria-label="Pagination">

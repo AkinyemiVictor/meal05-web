@@ -29,6 +29,22 @@ test("home presents MealKit as a dedicated coming-soon collection", () => {
   assert.match(comingSoon, /Coming soon/);
 });
 
+test("home seasonal banner scales only its design layer inside a fixed canvas", () => {
+  const home = read("src/app/home/page.js");
+  const banner = read("src/components/home-seasonal-banner.js");
+  const styles = read("src/styles/main.css");
+
+  assert.match(home, /<HomeSeasonalBanner\s*\/>/);
+  assert.match(banner, /welcome \. fresh groceries/);
+  assert.match(banner, /Market fresh groceries,/);
+  assert.match(banner, /Less market stress\. Less price wahala \. More time for what matters\./);
+  assert.match(banner, /<Link href="\/shop">/);
+  assert.match(banner, /--welcome-content-scale/);
+  assert.doesNotMatch(banner, /canvas\.style\.(height|width)/);
+  assert.match(styles, /\.welcome-banner\.welcome-banner--seasonal[\s\S]*height:\s*480px/);
+  assert.match(styles, /\.welcome-seasonal__content[\s\S]*width:\s*1200px;[\s\S]*height:\s*480px;[\s\S]*scale\(var\(--welcome-content-scale\)\)/);
+});
+
 test("product card catalogue migration selects the cheapest valid in-stock option", () => {
   const migration = read("supabase/migrations/20260801230601_product_card_minimum_variant_price.sql");
 
