@@ -22,8 +22,8 @@ export default function sitemap() {
 
   // Public indexable pages only
   const staticPaths = [
-    "/",
     "/home",
+    "/landing",
     "/shop",
     "/categories",
     "/about-us",

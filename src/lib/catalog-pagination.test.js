@@ -61,7 +61,7 @@ test("Browse and search use exact server pagination instead of the legacy 120-pr
 test("all public search inputs use the shared Search meal05 placeholder", () => {
   const files = [
     "src/components/meal05-header.js",
-    "src/app/page.js",
+    "src/app/landing/page.js",
     "src/app/shop/page.js",
     "src/data/copy.js",
   ];

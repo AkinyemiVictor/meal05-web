@@ -7,6 +7,34 @@ import { getHomeSidebarFrame } from "./home-sidebar.js";
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 
+test("root opens Home while the marketing experience remains available at Landing", () => {
+  const root = read("src/app/page.js");
+  const landing = read("src/app/landing/page.js");
+  const commerceChrome = read("src/lib/commerce-chrome.js");
+  const sitemap = read("src/app/sitemap.js");
+
+  assert.match(root, /redirect\("\/home"\)/);
+  assert.match(landing, /function LandingPage/);
+  assert.match(landing, /\.\.\/landing\.module\.css/);
+  assert.match(landing, /canonical:\s*"\/landing"/);
+  assert.match(commerceChrome, /"\/landing"/);
+  assert.match(sitemap, /"\/landing"/);
+});
+
+test("mobile commerce header keeps the Meal05 logo left and location right", () => {
+  const header = read("src/components/meal05-header.js");
+  const mobileHeader = header.slice(
+    header.indexOf('meal05-header--mobile'),
+    header.indexOf('meal05-header--desktop')
+  );
+
+  assert.match(mobileHeader, /<Link href="\/" aria-label="Meal05 home"/);
+  assert.match(mobileHeader, /src=\{LOGO_SRC\}/);
+  assert.match(mobileHeader, /ml-auto[^"]*max-w-\[54vw\]/);
+  assert.match(mobileHeader, /<DeferredLocationPicker mobileHeader \/>/);
+  assert.doesNotMatch(mobileHeader, /<Meal05HeaderActions mobile \/>/);
+});
+
 test("desktop category sidebar expands as the document header scrolls away", () => {
   assert.deepEqual(
     getHomeSidebarFrame({ viewportHeight: 900, boundaryTop: 86, boundaryBottom: 1900 }),
