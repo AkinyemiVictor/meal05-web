@@ -268,8 +268,11 @@ const ensureUserAddressBook = (user) => {
 const mapApiOrder = (order) => ({
   orderId: String(order?.id ?? ""),
   placedAt: order?.createdAt || new Date().toISOString(),
-  status: order?.status || (order?.paymentStatus === "paid" ? "awaiting delivery" : "processing"),
+  status: order?.status || "pending",
   paymentStatus: order?.paymentStatus || "pending",
+  paymentMethod: order?.paymentMethod || "",
+  paymentReference: order?.paymentReference || "",
+  deliveryStatus: order?.deliveryStatus || "",
   deliveryAddress: order?.deliveryAddress || "",
   summary: { total: Number(order?.total) || 0 },
   items: Array.isArray(order?.items) ? order.items : [],
@@ -1016,15 +1019,7 @@ export function AccountPageContent() {
     scheduleAddressFeedbackClear();
   };
 
-  const visibleOrders = useMemo(
-    () =>
-      orders.filter((order) => {
-        const paymentStatus = String(order.paymentStatus || "").toLowerCase();
-        const status = String(order.status || "").toLowerCase();
-        return !["pending", "awaiting payment", "unpaid"].includes(paymentStatus || status);
-      }),
-    [orders]
-  );
+  const visibleOrders = orders;
   const presentOrders = useMemo(
     () => visibleOrders.filter((order) => !["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
     [visibleOrders]
@@ -1291,6 +1286,7 @@ export function AccountPageContent() {
                         <span>Placed {formatOrderDate(order.placedAt)}</span>
                         <span>Total {formatProductPrice(order.summary?.total || 0)}</span>
                         <span>Status: {formatStatusLabel(order.status)}</span>
+                        <span>Payment: {formatStatusLabel(order.paymentStatus)}</span>
                       </div>
                       <div className={styles.orderActions}>
                         <button
@@ -1371,7 +1367,7 @@ export function AccountPageContent() {
                             >
                               {trackingOrderId === order.orderId ? "Hide tracking" : "Track order"}
                             </button>
-                            {trackingOrderId === order.orderId ? <OrderTracker order={{ ...order, status: "delivered" }} /> : null}
+                          {trackingOrderId === order.orderId ? <OrderTracker order={order} /> : null}
                           </div>
                         ) : null}
                       </div>
@@ -2190,23 +2186,33 @@ function DeliveryContactCard({ contactState }) {
 // Lightweight order tracking timeline component
 function OrderTracker({ order }) {
   const steps = [
-    { key: "processing", label: "Order received" },
-    { key: "packed", label: "Packed" },
-    { key: "awaiting delivery", label: "Out for delivery" },
+    { key: "pending", label: "Order placed" },
+    { key: "payment", label: "Payment confirmed" },
+    { key: "processing", label: "Processing" },
+    { key: "ready_for_dispatch", label: "Ready for dispatch" },
+    { key: "dispatched", label: "Dispatched" },
     { key: "delivered", label: "Delivered" },
   ];
 
-  const statusKey = String(order?.status || "processing").toLowerCase();
+  const statusKey = String(order?.status || "pending").toLowerCase().replace(/\s+/g, "_");
+  const paymentStatus = String(order?.paymentStatus || "").toLowerCase();
   const currentIndex = (() => {
-    if (statusKey === "delivered") return 3;
-    if (statusKey.includes("awaiting") && statusKey.includes("delivery")) return 2;
-    if (statusKey.includes("packed")) return 1;
+    if (["cancelled", "payment_failed", "stock_failed"].includes(statusKey) || paymentStatus === "rejected") return 0;
+    if (statusKey === "delivered" || statusKey === "completed") return 5;
+    if (["dispatched", "shipped", "in_transit"].includes(statusKey) || ["dispatched", "in transit"].includes(String(order?.deliveryStatus || "").toLowerCase())) return 4;
+    if (statusKey === "ready_for_dispatch") return 3;
+    if (statusKey === "processing") return 2;
+    if (["confirmed"].includes(statusKey) || ["confirmed", "paid"].includes(paymentStatus)) return 1;
     return 0;
   })();
+
+  const paymentAwaitingConfirmation = paymentStatus === "awaiting_confirmation";
 
 
   return (
     <div className={styles.orderTracker} role="status" aria-live="polite">
+      {paymentAwaitingConfirmation ? <p className={styles.orderTrackerNotice}>Payment submitted — awaiting confirmation</p> : null}
+      {paymentStatus === "rejected" ? <p className={styles.orderTrackerNotice}>Payment was rejected. Please contact support.</p> : null}
       <ol className={styles.orderTrackerSteps}>
         {steps.map((step, index) => {
           const className = [

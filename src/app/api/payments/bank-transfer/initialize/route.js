@@ -113,7 +113,10 @@ export async function POST(request) {
       .single();
     if (insertError) return send({ error: insertError.message || "Unable to create payment." }, 500, rl);
     payment = inserted;
-    await admin.from("orders").update({ payment_reference: reference, payment_method: providerCode, payment_status: "pending" }).eq("id", order.id);
+    await admin
+      .from("orders")
+      .update({ payment_reference: reference, payment_method: providerCode, payment_status: "awaiting_payment" })
+      .eq("id", order.id);
   }
 
   return send({ payment, provider: sanitizeProvider(provider, "checkout") }, 201, rl);

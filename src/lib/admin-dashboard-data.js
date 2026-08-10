@@ -121,6 +121,8 @@ const MANUAL_PAYMENT_METHODS = new Set([
   "pay_on_delivery",
   "pay on delivery",
   "pos",
+  "moniepoint_transfer",
+  "opay_transfer",
 ]);
 
 const isManualPaymentMethod = (method) => MANUAL_PAYMENT_METHODS.has(String(method || "").trim().toLowerCase());
@@ -359,16 +361,16 @@ export async function loadOverviewMetrics() {
 }
 
 const ORDER_SELECT_CANDIDATES = [
-  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
+  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, delivery_status, delivery_address, created_at, updated_at",
-  "id, user_id, total, subtotal, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
+  "id, user_id, total, subtotal, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, delivery_fee, discount_total, promo_code, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, delivery_fee, discount_total, promo_code, status, payment_status, delivery_status, delivery_address, created_at, updated_at",
-  "id, user_id, total, status, payment_status, payment_method, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
+  "id, user_id, total, status, payment_status, payment_method, payment_reference, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, status, payment_status, delivery_status, delivery_address, created_at, updated_at",
-  "id, user_id, total, status, payment_status, payment_method, authentication_method, auth_method, delivery_address, created_at",
+  "id, user_id, total, status, payment_status, payment_method, payment_reference, authentication_method, auth_method, delivery_address, created_at",
   "id, user_id, total, status, payment_status, authentication_method, auth_method, delivery_address, created_at",
   "id, user_id, total, status, payment_status, delivery_address, created_at",
 ];
@@ -590,6 +592,7 @@ const mapOrderRecord = (row, userLookup, nowMs = Date.now()) => {
     status: String(row.status || "unknown"),
     paymentStatus: String(row.payment_status || "unknown"),
     paymentMethod,
+    paymentReference: String(row?.payment_reference || "").trim(),
     paymentIsManual: isManualPaymentMethod(paymentMethod),
     deliveryStatus: String(row.delivery_status || "").trim(),
     deliveryAddress: String(row.delivery_address || ""),
@@ -1019,7 +1022,7 @@ export async function loadOrderAdminDetail(orderId) {
   const warnings = createWarnings();
   const safeOrderId = String(orderId || "").trim();
   if (!safeOrderId) {
-    return { order: null, items: [], supportCases: [], warnings };
+    return { order: null, items: [], supportCases: [], statusHistory: [], payment: null, warnings };
   }
 
   const { rows, lastError } = await queryOrdersByIds(admin, [safeOrderId]);
@@ -1027,7 +1030,7 @@ export async function loadOrderAdminDetail(orderId) {
   const userLookup = await loadUserLookup(admin, rows.map((row) => row?.user_id));
   const order = rows[0] ? mapOrderRecord(rows[0], userLookup, Date.now()) : null;
   if (!order) {
-    return { order: null, items: [], supportCases: [], warnings };
+    return { order: null, items: [], supportCases: [], statusHistory: [], payment: null, warnings };
   }
 
   let itemRows = [];
@@ -1081,10 +1084,64 @@ export async function loadOrderAdminDetail(orderId) {
     }));
   }
 
+  let statusHistory = [];
+  const historyResult = await admin
+    .from("order_status_history")
+    .select("id, from_status, to_status, note, changed_by, created_at")
+    .eq("order_id", safeOrderId)
+    .order("created_at", { ascending: true })
+    .range(0, 99);
+  if (historyResult.error) {
+    if (!isUnknownColumnError(historyResult.error.message)) {
+      warnings.push(`Order status history query failed: ${historyResult.error.message}`);
+    }
+  } else {
+    statusHistory = (Array.isArray(historyResult.data) ? historyResult.data : []).map((row) => ({
+      id: row?.id,
+      fromStatus: String(row?.from_status || "").trim(),
+      toStatus: String(row?.to_status || "").trim(),
+      note: String(row?.note || "").trim(),
+      changedAt: row?.created_at,
+    }));
+  }
+
+  let payment = null;
+  const paymentResult = await admin
+    .from("payments")
+    .select("id, reference, status, amount, currency, method, provider_code, payer_account_name, payer_bank_name, customer_transaction_reference, proof_storage_path, customer_submitted_at, verified_at, rejected_at, rejection_reason, created_at")
+    .eq("order_id", safeOrderId)
+    .eq("purpose", "order_payment")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (paymentResult.error) {
+    if (!isUnknownColumnError(paymentResult.error.message)) {
+      warnings.push(`Payment detail query failed: ${paymentResult.error.message}`);
+    }
+  } else if (paymentResult.data) {
+    const row = paymentResult.data;
+    payment = {
+      reference: String(row?.reference || "").trim(),
+      status: String(row?.status || "").trim(),
+      amount: toNumber(row?.amount),
+      currency: String(row?.currency || "NGN").trim(),
+      provider: String(row?.provider_code || row?.method || "").trim(),
+      payer: [row?.payer_account_name, row?.payer_bank_name].filter(Boolean).join(" · "),
+      customerReference: String(row?.customer_transaction_reference || "").trim(),
+      proofPath: String(row?.proof_storage_path || "").trim(),
+      submittedAt: row?.customer_submitted_at,
+      verifiedAt: row?.verified_at,
+      rejectedAt: row?.rejected_at,
+      rejectionReason: String(row?.rejection_reason || "").trim(),
+    };
+  }
+
   return {
     order,
     items: itemRows.map(mapOrderItemRecord),
     supportCases,
+    statusHistory,
+    payment,
     warnings,
   };
 }

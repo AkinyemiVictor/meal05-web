@@ -6479,17 +6479,16 @@ main > section:not(.home-hero) {
 }
 
 .quick-add-panel--mobile-modal {
-  width: min(460px, calc(100vw - 1rem));
-  min-width: 0;
-  max-width: min(460px, calc(100vw - 1rem));
-  max-height: calc((100dvh - 1rem) / var(--quick-add-scale, 1));
+  width: min(460px, calc(100vw - 1.5rem));
+  min-width: min(320px, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  max-height: min(680px, calc(100dvh - 1.5rem));
   border: 0;
   border-radius: 24px;
   background: #ffffff;
   padding: clamp(1rem, 4vw, 1.75rem) clamp(1rem, 4vw, 1.9rem) clamp(1rem, 3.5vw, 1.6rem);
   box-shadow: 0 24px 60px rgba(17, 19, 31, 0.2);
-  transform: scale(var(--quick-add-scale, 1));
-  transform-origin: center;
+  overflow-x: hidden;
 }
 
 .quick-add-panel--mobile-modal .quick-add-header {
@@ -6553,7 +6552,7 @@ main > section:not(.home-hero) {
 
 .quick-add-panel--mobile-modal .product-variant-picker__options {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(106px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.6rem;
 }
 
@@ -6565,6 +6564,21 @@ main > section:not(.home-hero) {
   color: #14532d;
   box-shadow: none;
   font-weight: 900;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.quick-add-panel--mobile-modal .product-variant-picker__option-main,
+.quick-add-panel--mobile-modal .product-variant-picker__option-price {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.quick-add-panel--mobile-modal .product-variant-picker__option-price {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
 }
 
 .quick-add-panel--mobile-modal .product-variant-picker__option:hover,
@@ -6664,7 +6678,7 @@ main > section:not(.home-hero) {
   .quick-add-panel--mobile-modal {
     width: min(22.5rem, calc(100vw - 1.5rem));
     max-width: calc(100vw - 1.5rem);
-    max-height: calc((100dvh - 1.5rem) / var(--quick-add-scale, 1));
+    max-height: min(680px, calc(100dvh - 1.5rem));
     padding: 1.15rem;
     border-radius: 20px;
   }
@@ -6692,17 +6706,6 @@ main > section:not(.home-hero) {
   }
 }
 
-@media (max-height: 740px) {
-  .quick-add-overlay--centered {
-    --quick-add-scale: 0.92;
-  }
-}
-
-@media (max-height: 640px) {
-  .quick-add-overlay--centered {
-    --quick-add-scale: 0.84;
-  }
-}
 
 .stock-badge {
   display: inline-flex;

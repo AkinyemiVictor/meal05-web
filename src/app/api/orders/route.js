@@ -937,7 +937,9 @@ export async function POST(request) {
     promo_code: finalSummary.promoCode || null,
     promo_description: finalSummary.promoDescription || null,
     status: "pending",
-    payment_status: "pending",
+    // A transfer has not been made just because an order was created. Keep the
+    // order visible to the customer, but do not let it enter fulfilment yet.
+    payment_status: requestedPaymentMethod === "wallet" ? "pending" : "awaiting_payment",
     payment_method: requestedPaymentMethod,
     market_id: catalog.market.id,
     currency_code: catalog.market.currencyCode,
@@ -1246,8 +1248,8 @@ export async function GET(request) {
 
   const routeClient = getSupabaseRouteClient(await cookies());
   const orderSelects = [
-    "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price, products(name, unit, image_url))",
-    "id, total, status, payment_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, price, products(name, unit, image_url))",
+    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price, products(name, unit, image_url))",
+    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, price, products(name, unit, image_url))",
   ];
   let data = [];
   let error = null;
@@ -1275,6 +1277,9 @@ export async function GET(request) {
       total: Number(row.total) || 0,
       status: row.status || "processing",
       paymentStatus: row.payment_status || "pending",
+      paymentMethod: row.payment_method || "",
+      paymentReference: row.payment_reference || "",
+      deliveryStatus: row.delivery_status || "",
       deliveryAddress: row.delivery_address || "",
       createdAt: row.created_at,
       items: items.map((it) => {
@@ -1298,9 +1303,9 @@ export async function GET(request) {
       }),
     };
   };
-  const orders = rows
-    .map(normalize)
-    .filter((order) => !["pending", "awaiting payment", "unpaid"].includes(String(order.paymentStatus || order.status || "").toLowerCase()));
+  // Pending payments are real orders in a manual-transfer flow. Hiding them
+  // made customers think their order had disappeared while staff reviewed it.
+  const orders = rows.map(normalize);
   return applyRateLimitHeaders(NextResponse.json({ orders }, { status: 200 }), rl);
 }
 

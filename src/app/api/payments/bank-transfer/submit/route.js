@@ -6,6 +6,7 @@ import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { withNoStore } from "@/lib/api/no-store";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
+import { insertOrderStatusHistory } from "@/lib/order-status-history";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,6 +96,25 @@ export async function POST(request) {
   if (updateError) return send({ error: updateError.message || "Unable to submit payment." }, 500, rl);
 
   if (payment.purpose === "order_payment" && payment.order_id) {
+    const { data: order, error: orderUpdateError } = await admin
+      .from("orders")
+      .update({ payment_status: "awaiting_confirmation", updated_at: new Date().toISOString() })
+      .eq("id", payment.order_id)
+      .eq("user_id", auth.user.id)
+      .select("id, status")
+      .maybeSingle();
+    if (orderUpdateError || !order) {
+      return send({ error: orderUpdateError?.message || "Payment was submitted, but its order could not be updated." }, 500, rl);
+    }
+    // Reuse the existing audit table for the customer-submission event. The
+    // order state stays pending until an administrator confirms the transfer.
+    await insertOrderStatusHistory(admin, {
+      orderId: order.id,
+      fromStatus: order.status,
+      toStatus: order.status,
+      changedBy: auth.user.id,
+      note: "Payment submitted; awaiting administrator confirmation",
+    });
     const { error: clearCartError } = await admin
       .from("cart_items")
       .delete()

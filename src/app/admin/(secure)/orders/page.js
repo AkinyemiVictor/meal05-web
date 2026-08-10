@@ -11,8 +11,8 @@ import AdminOrderSupportCaseControl from "@/components/admin-order-support-case-
 export const dynamic = "force-dynamic";
 
 const EXCEPTION_OPTIONS = ["all", "monitor", "at_risk", "overdue", "critical"];
-const ORDER_STATUS_FILTERS = ["all", "pending", "processing", "shipped", "delivered", "completed", "stock_failed", "payment_failed", "cancelled"];
-const PAYMENT_STATUS_FILTERS = ["all", "pending", "processing", "paid", "failed", "refunded", "unpaid"];
+const ORDER_STATUS_FILTERS = ["all", "pending", "confirmed", "processing", "ready_for_dispatch", "dispatched", "shipped", "delivered", "completed", "stock_failed", "payment_failed", "cancelled"];
+const PAYMENT_STATUS_FILTERS = ["all", "awaiting_payment", "awaiting_confirmation", "confirmed", "rejected", "pending", "processing", "paid", "failed", "refunded", "unpaid"];
 const DELIVERY_STATUS_FILTERS = ["all", "awaiting dispatch", "dispatched", "in transit", "delayed", "delivered", "completed", "returned"];
 
 const toPositiveInt = (value, fallback) => {
@@ -116,9 +116,9 @@ const filterTone = (option) => {
 
 const statusPillStyle = (value) => {
   const normalized = String(value || "").toLowerCase();
-  if (["paid", "delivered", "completed"].includes(normalized)) return { bg: "#dcfce7", fg: "#166534" };
-  if (["pending", "processing", "shipped", "in transit", "awaiting dispatch", "dispatched"].includes(normalized)) return { bg: "#fef3c7", fg: "#854d0e" };
-  if (["failed", "cancelled", "stock_failed", "payment_failed", "returned", "delayed"].includes(normalized)) return { bg: "#fee2e2", fg: "#991b1b" };
+  if (["confirmed", "paid", "delivered", "completed"].includes(normalized)) return { bg: "#dcfce7", fg: "#166534" };
+  if (["awaiting_payment", "awaiting_confirmation", "pending", "processing", "ready_for_dispatch", "shipped", "in transit", "awaiting dispatch", "dispatched"].includes(normalized)) return { bg: "#fef3c7", fg: "#854d0e" };
+  if (["rejected", "failed", "cancelled", "stock_failed", "payment_failed", "returned", "delayed"].includes(normalized)) return { bg: "#fee2e2", fg: "#991b1b" };
   return { bg: "#e5e7eb", fg: "#475569" };
 };
 
@@ -350,11 +350,55 @@ export default async function AdminOrdersPage({ searchParams }) {
                 />
               </div>
 
+              <div style={{ display: "grid", gap: 8 }}>
+                <strong>Payment Review</strong>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                  <article style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px" }}>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>Payment Status</p>
+                    <p style={{ margin: "4px 0 0", fontWeight: 700 }}>{textStatus(selectedDetail.order.paymentStatus)}</p>
+                  </article>
+                  <article style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px" }}>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>Method / Reference</p>
+                    <p style={{ margin: "4px 0 0", fontWeight: 700 }}>{textStatus(selectedDetail.payment?.provider || selectedDetail.order.paymentMethod)}</p>
+                    <p style={{ margin: "4px 0 0", color: "#475569", fontSize: 12 }}>{selectedDetail.payment?.reference || selectedDetail.order.paymentReference || "No reference yet"}</p>
+                  </article>
+                  <article style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px" }}>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>Customer Submission</p>
+                    <p style={{ margin: "4px 0 0", fontWeight: 700 }}>{selectedDetail.payment?.submittedAt ? adminFormatters.dateTime(selectedDetail.payment.submittedAt) : "Not submitted"}</p>
+                    {selectedDetail.payment?.payer ? <p style={{ margin: "4px 0 0", color: "#475569", fontSize: 12 }}>{selectedDetail.payment.payer}</p> : null}
+                  </article>
+                  {selectedDetail.payment?.rejectionReason ? (
+                    <article style={{ border: "1px solid #fecaca", borderRadius: 10, padding: "10px 12px", background: "#fff7f7" }}>
+                      <p style={{ margin: 0, color: "#991b1b", fontSize: 12 }}>Rejection Reason</p>
+                      <p style={{ margin: "4px 0 0", fontWeight: 700 }}>{selectedDetail.payment.rejectionReason}</p>
+                    </article>
+                  ) : null}
+                </div>
+              </div>
+
               <div style={{ display: "grid", gap: 6 }}>
                 <strong>Delivery Address</strong>
                 <p style={{ margin: 0, color: "#334155", whiteSpace: "pre-wrap" }}>
                   {selectedDetail.order.deliveryAddress || "No delivery address recorded."}
                 </p>
+              </div>
+
+              <div style={{ display: "grid", gap: 8 }}>
+                <strong>Status Timeline</strong>
+                {selectedDetail.statusHistory?.length ? (
+                  <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 7 }}>
+                    {selectedDetail.statusHistory.map((entry) => (
+                      <li key={String(entry.id)} style={{ color: "#334155", fontSize: 13 }}>
+                        <strong>{textStatus(entry.toStatus)}</strong>
+                        {entry.fromStatus ? ` (from ${textStatus(entry.fromStatus)})` : ""}
+                        {entry.note ? ` — ${entry.note}` : ""}
+                        {entry.changedAt ? <span style={{ color: "#64748b" }}> · {adminFormatters.dateTime(entry.changedAt)}</span> : null}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p style={{ margin: 0, color: "#64748b" }}>No status events recorded yet.</p>
+                )}
               </div>
 
               <div style={{ overflowX: "auto" }}>

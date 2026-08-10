@@ -5,6 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 const migration = read("../../../supabase/migrations/20260728140000_phase1_manual_payment_wallet.sql");
+const lifecycleMigration = read("../../../supabase/migrations/20260810120000_manual_payment_order_lifecycle.sql");
 const walletFoundationMigration = read("../../../supabase/migrations/20260719120000_meal05_balance_foundation.sql");
 const paymentMethodsRoute = read("../../app/api/payment-methods/route.js");
 const bankInitRoute = read("../../app/api/payments/bank-transfer/initialize/route.js");
@@ -57,6 +58,14 @@ test("customer transfer submission cannot alter amount or verify payment", () =>
   assert.match(bankSubmitRoute, /status: "submitted"/);
   assert.doesNotMatch(bankSubmitRoute, /verified_at:\s*|payment_status.*paid|wallet_transactions|status:\s*"verified"/);
   assert.match(bankSubmitRoute, /payment\.purpose === "order_payment"[\s\S]*from\("cart_items"\)[\s\S]*\.delete\(\)/);
+  assert.match(bankSubmitRoute, /payment_status: "awaiting_confirmation"/);
+});
+
+test("manual transfer confirmation and rejection move payment and fulfilment independently", () => {
+  assert.match(lifecycleMigration, /payment_status = 'confirmed'[\s\S]*status = 'confirmed'/);
+  assert.match(lifecycleMigration, /payment_status = 'rejected'[\s\S]*status = 'cancelled'/);
+  assert.match(lifecycleMigration, /Payment confirmed by administrator/);
+  assert.match(lifecycleMigration, /Payment rejected:/);
 });
 
 test("wallet deposits are not spendable until admin verification", () => {

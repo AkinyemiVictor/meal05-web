@@ -24,6 +24,17 @@ test("mobile product options use a responsive button grid", () => {
   assert.match(css.slice(finalPickerRule, finalPickerRule + 240), /repeat\(auto-fit, minmax\(5\.5rem, 1fr\)\)/);
 });
 
+test("quick-add modal keeps two readable option cards and scrolls instead of scaling down", () => {
+  const css = read("src/styles/main.css");
+  const modalRule = css.lastIndexOf(".quick-add-panel--mobile-modal {");
+  const optionsRule = css.lastIndexOf(".quick-add-panel--mobile-modal .product-variant-picker__options");
+
+  assert.match(css.slice(modalRule, modalRule + 500), /max-height:\s*min\(680px, calc\(100dvh - 1\.5rem\)\)/);
+  assert.doesNotMatch(css, /--quick-add-scale:\s*0\./);
+  assert.match(css.slice(optionsRule, optionsRule + 260), /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css.slice(optionsRule, optionsRule + 700), /overflow-wrap:\s*anywhere/);
+});
+
 test("Account overview uses complete Tabler icons and charcoal surfaces", () => {
   const page = read("src/app/account/page.js");
   const css = read("src/app/account/account.module.css");

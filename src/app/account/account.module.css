@@ -402,6 +402,13 @@
   padding: 1rem 0.25rem 0.25rem;
 }
 
+.orderTrackerNotice {
+  margin: 0 0 0.85rem;
+  color: #854d0e;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
 .orderTrackerSteps {
   position: relative;
   display: flex;

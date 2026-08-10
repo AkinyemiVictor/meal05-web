@@ -14,7 +14,10 @@ export const dynamic = "force-dynamic";
 
 const ORDER_STATUS_OPTIONS = new Set([
   "pending",
+  "confirmed",
   "processing",
+  "ready_for_dispatch",
+  "dispatched",
   "shipped",
   "delivered",
   "completed",
@@ -24,6 +27,10 @@ const ORDER_STATUS_OPTIONS = new Set([
 ]);
 
 const PAYMENT_STATUS_OPTIONS = new Set([
+  "awaiting_payment",
+  "awaiting_confirmation",
+  "confirmed",
+  "rejected",
   "pending",
   "processing",
   "paid",
@@ -56,9 +63,12 @@ const DELIVERY_STATUS_OPTIONS = new Set([
 ]);
 
 const ORDER_STATUS_TRANSITIONS = {
-  pending: new Set(["pending", "processing", "completed", "cancelled"]),
-  processing: new Set(["processing", "shipped", "completed", "payment_failed", "cancelled"]),
-  shipped: new Set(["shipped", "delivered", "completed"]),
+  pending: new Set(["pending", "confirmed", "processing", "completed", "cancelled"]),
+  confirmed: new Set(["confirmed", "processing", "cancelled"]),
+  processing: new Set(["processing", "ready_for_dispatch", "shipped", "completed", "payment_failed", "cancelled"]),
+  ready_for_dispatch: new Set(["ready_for_dispatch", "dispatched", "cancelled"]),
+  dispatched: new Set(["dispatched", "delivered", "completed"]),
+  shipped: new Set(["shipped", "dispatched", "delivered", "completed"]),
   delivered: new Set(["delivered", "completed"]),
   completed: new Set(["completed"]),
   cancelled: new Set(["cancelled"]),
@@ -67,6 +77,10 @@ const ORDER_STATUS_TRANSITIONS = {
 };
 
 const PAYMENT_STATUS_TRANSITIONS = {
+  awaiting_payment: new Set(["awaiting_payment", "awaiting_confirmation", "confirmed", "rejected", "failed"]),
+  awaiting_confirmation: new Set(["awaiting_confirmation", "confirmed", "rejected"]),
+  confirmed: new Set(["confirmed", "refunded"]),
+  rejected: new Set(["rejected", "awaiting_payment", "awaiting_confirmation"]),
   pending: new Set(["pending", "processing", "paid", "failed", "unpaid"]),
   processing: new Set(["processing", "paid", "failed"]),
   unpaid: new Set(["unpaid", "pending", "processing", "paid", "failed"]),
@@ -246,6 +260,15 @@ export async function POST(req) {
         },
         { status: 409 }
       ),
+      rl
+    );
+  }
+
+  const paymentIsConfirmed = ["confirmed", "paid"].includes(currentPaymentStatus) || ["confirmed", "paid"].includes(nextPaymentStatus);
+  const fulfilmentRequiresPayment = new Set(["confirmed", "processing", "ready_for_dispatch", "dispatched", "shipped", "delivered", "completed"]);
+  if (nextStatus && fulfilmentRequiresPayment.has(nextStatus) && !paymentIsConfirmed) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: "Confirm payment before moving an order into fulfilment." }, { status: 409 }),
       rl
     );
   }

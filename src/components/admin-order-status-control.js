@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 
 const ORDER_STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
+  { value: "confirmed", label: "Confirmed" },
   { value: "processing", label: "Processing" },
+  { value: "ready_for_dispatch", label: "Ready for Dispatch" },
+  { value: "dispatched", label: "Dispatched" },
   { value: "shipped", label: "Shipped" },
   { value: "delivered", label: "Delivered" },
   { value: "completed", label: "Completed" },
@@ -16,9 +19,12 @@ const ORDER_STATUS_OPTIONS = [
 const ORDER_STATUS_VALUES = new Set(ORDER_STATUS_OPTIONS.map((option) => option.value));
 
 const ORDER_STATUS_TRANSITIONS = {
-  pending: new Set(["pending", "processing", "completed", "cancelled"]),
-  processing: new Set(["processing", "shipped", "completed", "payment_failed", "cancelled"]),
-  shipped: new Set(["shipped", "delivered", "completed"]),
+  pending: new Set(["pending", "confirmed", "processing", "completed", "cancelled"]),
+  confirmed: new Set(["confirmed", "processing", "cancelled"]),
+  processing: new Set(["processing", "ready_for_dispatch", "shipped", "completed", "payment_failed", "cancelled"]),
+  ready_for_dispatch: new Set(["ready_for_dispatch", "dispatched", "cancelled"]),
+  dispatched: new Set(["dispatched", "delivered", "completed"]),
+  shipped: new Set(["shipped", "dispatched", "delivered", "completed"]),
   delivered: new Set(["delivered", "completed"]),
   completed: new Set(["completed"]),
   cancelled: new Set(["cancelled"]),
@@ -27,6 +33,10 @@ const ORDER_STATUS_TRANSITIONS = {
 };
 
 const PAYMENT_STATUS_OPTIONS = [
+  { value: "awaiting_payment", label: "Awaiting Payment" },
+  { value: "awaiting_confirmation", label: "Awaiting Confirmation" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "rejected", label: "Rejected" },
   { value: "pending", label: "Pending" },
   { value: "processing", label: "Processing" },
   { value: "paid", label: "Paid" },
@@ -37,6 +47,10 @@ const PAYMENT_STATUS_OPTIONS = [
 const PAYMENT_STATUS_VALUES = new Set(PAYMENT_STATUS_OPTIONS.map((option) => option.value));
 
 const PAYMENT_STATUS_TRANSITIONS = {
+  awaiting_payment: new Set(["awaiting_payment", "awaiting_confirmation", "confirmed", "rejected", "failed"]),
+  awaiting_confirmation: new Set(["awaiting_confirmation", "confirmed", "rejected"]),
+  confirmed: new Set(["confirmed", "refunded"]),
+  rejected: new Set(["rejected", "awaiting_payment", "awaiting_confirmation"]),
   pending: new Set(["pending", "processing", "paid", "failed", "unpaid"]),
   processing: new Set(["processing", "paid", "failed"]),
   unpaid: new Set(["unpaid", "pending", "processing", "paid", "failed"]),
@@ -91,12 +105,13 @@ export default function AdminOrderStatusControl({
     DELIVERY_STATUS_VALUES.has(normalizedCurrentDeliveryStatus) ? normalizedCurrentDeliveryStatus : ""
   );
   const normalizedPaymentMethod = String(paymentMethod || "").toLowerCase();
+  const transferPayment = ["moniepoint_transfer", "opay_transfer"].includes(normalizedPaymentMethod);
   const manualPaymentAllowed =
-    paymentIsManual === true ||
+    !transferPayment && (paymentIsManual === true ||
     (paymentIsManual === null &&
       ["cash", "cash_on_delivery", "cash_on_pickup", "pos", "cod", "cop", "pay_on_delivery", "pay on delivery"].includes(
         normalizedPaymentMethod
-      ));
+      )));
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -194,9 +209,9 @@ export default function AdminOrderStatusControl({
             color: "#94a3b8",
             background: "#f8fafc",
           }}
-          title="Payment status is controlled by the payment gateway"
+          title={transferPayment ? "Review this transfer in the Payments queue." : "Payment status is controlled by the payment gateway"}
         >
-          {normalizedCurrentPaymentStatus || "unknown"} (gateway)
+          {normalizedCurrentPaymentStatus || "unknown"} ({transferPayment ? "review in Payments" : "gateway"})
         </span>
       )}
 
