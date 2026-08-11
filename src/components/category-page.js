@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import ProductCard from "@/components/product-card";
@@ -33,7 +33,6 @@ export default function CategoryPage({
   pageSize = DEFAULT_PAGE_SIZE,
   status = "ready",
 }) {
-  const pageRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -62,18 +61,6 @@ export default function CategoryPage({
     }
   }, [currentPage, totalPages]);
 
-  useEffect(() => {
-    if (currentPage === 1) return;
-    const target = pageRef.current;
-    if (target?.scrollIntoView) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [currentPage]);
-
   const pagedProducts = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return categoryProducts.slice(start, start + itemsPerPage);
@@ -81,6 +68,7 @@ export default function CategoryPage({
 
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages || page === currentPage) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
     setCurrentPage(page);
   };
 
@@ -137,7 +125,7 @@ export default function CategoryPage({
   const categoryCards = (Array.isArray(categories) ? categories : []).map(mapCategoryCard);
 
   return (
-    <main ref={pageRef} className="category-page" data-category-slug={category.slug}>
+    <main className="category-page" data-category-slug={category.slug}>
       <PageBreadcrumbs
         items={[
           { label: "Home", href: "/home" },

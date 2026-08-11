@@ -25,6 +25,8 @@ export default function CheckoutSummary({
   selectedDispatchOptionId = "",
   dispatchOptions = [],
   fulfillmentType = "delivery",
+  firstOrderDeliveryPromo = false,
+  isProcessing = false,
   submitFormId,
 }) {
   const [items, setItems] = useState(() => normalizeCartItems(readStoredCart()));
@@ -48,9 +50,9 @@ export default function CheckoutSummary({
       }
       if (fulfillmentType === "pickup") return { ...config, deliveryFee: 0 };
       const dispatchOption = dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId));
-      return { ...config, deliveryFee: Number(dispatchOption?.fee || 0) };
+      return { ...config, deliveryFee: firstOrderDeliveryPromo ? 0 : Number(dispatchOption?.fee || 0) };
     },
-    [deliveryArea, deliverySettings, deliveryCity, selectedDispatchOptionId, dispatchOptions, fulfillmentType]
+    [deliveryArea, deliverySettings, deliveryCity, selectedDispatchOptionId, dispatchOptions, fulfillmentType, firstOrderDeliveryPromo]
   );
   const selectedDispatchOption = useMemo(
     () => dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId)) || null,
@@ -197,6 +199,8 @@ export default function CheckoutSummary({
           <span>
             {fulfillmentType === "pickup" ? formatProductPrice(0) : deliveryUnavailable
               ? "Unavailable"
+              : firstOrderDeliveryPromo
+              ? <><strong>{formatProductPrice(0)}</strong><small className="checkout-summary__promo-coverage">Promo coverage</small></>
               : summary.deliveryFee === 0
               ? copy.checkout.freeDeliveryLabel
               : formatProductPrice(summary.deliveryFee)}
@@ -213,6 +217,13 @@ export default function CheckoutSummary({
           <span>{formatProductPrice(summary.total)}</span>
         </div>
       </div>
+
+      {isProcessing ? (
+        <div className="checkout-alert checkout-alert--processing checkout-summary__processing" role="status" aria-live="assertive">
+          <span className="checkout-alert__spinner" aria-hidden="true" />
+          <p>{copy.checkout.status.processingSubtitle}</p>
+        </div>
+      ) : null}
 
       {submitFormId ? (
         <div className="checkout-summary__actions">

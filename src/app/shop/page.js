@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { IconSearch } from "@tabler/icons-react";
 
 import ProductGridSkeleton from "@/components/product-grid-skeleton";
@@ -23,7 +23,6 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { 
 const PAGE_SIZE = 20;
 
 export default function ShopPage() {
-  const pageRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -64,8 +63,8 @@ export default function ShopPage() {
 
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages || page === currentPage) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
     setCurrentPage(page);
-    pageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleQuickAdd = (product, anchorEl) => {
@@ -90,7 +89,7 @@ export default function ShopPage() {
   const end = Math.min(currentPage * PAGE_SIZE, totalItems);
 
   return (
-    <main ref={pageRef} className="category-page shop-page">
+    <main className="category-page shop-page">
       <div className="category-page__header">
         <div className="category-page__title">
           <span className="categoryCard__icon" aria-hidden="true">

@@ -9,6 +9,7 @@ import { readStoredCart } from "@/lib/checkout";
 import { readStoredUser } from "@/lib/auth";
 import { fetchCanonicalCart } from "@/lib/cart-sync";
 import { LOCATION_EVENT, readStoredLocationPreference } from "@/lib/location-preferences";
+import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import useDeliverySettings from "@/lib/use-delivery-settings";
 
 function CheckoutLoadingState() {
@@ -35,6 +36,7 @@ export default function CheckoutExperience() {
   const [dispatchOptionId, setDispatchOptionId] = useState("");
   const [pickupLocations, setPickupLocations] = useState([]);
   const [pickupLocationId, setPickupLocationId] = useState("");
+  const [firstOrderDeliveryPromo, setFirstOrderDeliveryPromo] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -92,6 +94,30 @@ export default function CheckoutExperience() {
     return () => window.removeEventListener(LOCATION_EVENT, loadQuotes);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadDeliveryPromo = async () => {
+      try {
+        const supabase = getBrowserSupabaseClient();
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        if (!token) return;
+        const response = await fetch("/api/orders?deliveryPromo=1", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!cancelled && response.ok) {
+          setFirstOrderDeliveryPromo(payload?.eligible === true);
+        }
+      } catch {
+        if (!cancelled) setFirstOrderDeliveryPromo(false);
+      }
+    };
+    void loadDeliveryPromo();
+    return () => { cancelled = true; };
+  }, []);
+
   if (!isHydrated) {
     return <CheckoutLoadingState />;
   }
@@ -121,6 +147,7 @@ export default function CheckoutExperience() {
       dispatchOptions={dispatchOptions}
       fulfillmentType={fulfillmentType}
       onFulfillmentChange={setFulfillmentType}
+      firstOrderDeliveryPromo={firstOrderDeliveryPromo}
       pickupLocations={pickupLocations}
       pickupLocationId={pickupLocationId}
       onPickupLocationChange={setPickupLocationId}

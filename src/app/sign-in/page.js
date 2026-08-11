@@ -28,6 +28,23 @@ const PASSWORD_REGEX = new RegExp(`^${PASSWORD_PATTERN}$`);
 const PHONE_NUMBER_REGEX = new RegExp(`^${PHONE_NUMBER_PATTERN}$`);
 const PHONE_INPUT_REGEX = new RegExp(`^${PHONE_INPUT_PATTERN}$`);
 
+const getPasswordRequirements = (password) => {
+  const value = String(password || "");
+  return [
+    { key: "length", label: "At least 8 characters", met: value.length >= 8 },
+    { key: "uppercase", label: "One uppercase letter", met: /[A-Z]/.test(value) },
+    { key: "lowercase", label: "One lowercase letter", met: /[a-z]/.test(value) },
+    { key: "number", label: "One number", met: /\d/.test(value) },
+    { key: "symbol", label: "One symbol (for example !, @, #)", met: /[^\w\s]/.test(value) },
+  ];
+};
+
+const getPasswordValidationMessage = (password) => {
+  const missing = getPasswordRequirements(password).filter((item) => !item.met);
+  if (!missing.length) return "";
+  return "Password needs: " + missing.map((item) => item.label.toLowerCase()).join(", ") + ".";
+};
+
 const normalizeLoginPhone = (value, countryCode = DEFAULT_PHONE_COUNTRY_CODE) => {
   const digits = String(value || "").replace(/\D/g, "");
   if (!digits) return "";
@@ -88,6 +105,8 @@ function SignInPageContent() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupPasswordTouched, setSignupPasswordTouched] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => {
     if (typeof window === "undefined") return false;
     const text = `${window.location.search || ""} ${window.location.hash || ""}`;
@@ -548,9 +567,7 @@ function SignInPageContent() {
 
     if (!PASSWORD_REGEX.test(password)) {
       if (passwordInput instanceof HTMLInputElement) {
-        passwordInput.setCustomValidity(
-          "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol"
-        );
+        passwordInput.setCustomValidity(getPasswordValidationMessage(password));
         passwordInput.reportValidity();
       }
       return;
@@ -1090,7 +1107,15 @@ function SignInPageContent() {
                     required
                     autoComplete="new-password"
                     pattern={PASSWORD_PATTERN}
-                    title="Password must be 8+ characters with uppercase, lowercase, number, and symbol"
+                    title="Use at least 8 characters, including uppercase, lowercase, a number, and a symbol."
+                    value={signupPassword}
+                    aria-describedby="signup-password-requirements"
+                    onBlur={() => setSignupPasswordTouched(true)}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      setSignupPassword(value);
+                      event.currentTarget.setCustomValidity(value ? getPasswordValidationMessage(value) : "");
+                    }}
                   />
                   <button
                     type="button"
@@ -1102,6 +1127,27 @@ function SignInPageContent() {
                   >
                     <i className={`fa-regular ${showSignupPassword ? "fa-eye-slash" : "fa-eye"}`} aria-hidden="true" />
                   </button>
+                </div>
+                <div
+                  id="signup-password-requirements"
+                  className="auth-password-requirements"
+                  aria-live="polite"
+                >
+                  <p>Use a password with:</p>
+                  <ul>
+                    {getPasswordRequirements(signupPassword).map((requirement) => (
+                      <li key={requirement.key} className={requirement.met ? "is-met" : undefined}>
+                        <i
+                          className={["fa-solid", requirement.met ? "fa-circle-check" : "fa-circle"].join(" ")}
+                          aria-hidden="true"
+                        />
+                        {requirement.label}
+                      </li>
+                    ))}
+                  </ul>
+                  {signupPasswordTouched && !PASSWORD_REGEX.test(signupPassword) ? (
+                    <span>{getPasswordValidationMessage(signupPassword)}</span>
+                  ) : null}
                 </div>
               </div>
               <div className="auth-field">

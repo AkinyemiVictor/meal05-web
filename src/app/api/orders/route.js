@@ -887,6 +887,8 @@ export async function POST(request) {
             discount: Math.round(finalSummary.discountTotal),
             promoCode: finalSummary.promoCode || "",
             promoDescription: finalSummary.promoDescription || "",
+            firstOrderFreeDelivery,
+            deliveryPromoCoverage: firstOrderFreeDelivery ? Math.round(partnerCost) : 0,
             dispatchPartner: dispatchOption,
           },
           fulfillment: {
@@ -1147,6 +1149,8 @@ export async function POST(request) {
         discount: Math.round(orderIns.discount_total ?? finalSummary.discountTotal),
         promoCode: orderIns.promo_code ?? finalSummary.promoCode ?? "",
         promoDescription: orderIns.promo_description ?? finalSummary.promoDescription ?? "",
+        firstOrderFreeDelivery,
+        deliveryPromoCoverage: firstOrderFreeDelivery ? Math.round(partnerCost) : 0,
         dispatchPartner: dispatchOption,
       },
       items: cart.map((c) => ({
@@ -1245,6 +1249,23 @@ export async function GET(request) {
   }
   if (authErr && !user) return applyRateLimitHeaders(NextResponse.json({ error: authErr.message }, { status: 401 }), rl);
   if (!user) return applyRateLimitHeaders(NextResponse.json({ error: "Not authenticated" }, { status: 401 }), rl);
+
+  if (new URL(request.url).searchParams.get("deliveryPromo") === "1") {
+    const { data: priorOrders, error: priorOrdersError } = await admin
+      .from("orders")
+      .select("id")
+      .eq("user_id", user.id)
+      .neq("status", "cancelled")
+      .limit(1);
+    if (priorOrdersError) {
+      await logAdminError(priorOrdersError, { route: "/api/orders", stage: "delivery_promo_check", user_id: user.id });
+      return applyRateLimitHeaders(NextResponse.json({ error: "Unable to confirm delivery promotion." }, { status: 503 }), rl);
+    }
+    return applyRateLimitHeaders(
+      NextResponse.json({ eligible: !(priorOrders || []).length }, { status: 200 }),
+      rl
+    );
+  }
 
   const routeClient = getSupabaseRouteClient(await cookies());
   const orderSelects = [

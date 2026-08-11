@@ -474,6 +474,7 @@ export default function CheckoutForm({
   onPickupLocationChange,
   onCityChange,
   onDispatchChange,
+  onProcessingChange,
 }) {
   const router = useRouter();
   const formRef = useRef(null);
@@ -673,6 +674,11 @@ export default function CheckoutForm({
   const showCardFields = false;
   const isProcessing = status === "processing";
   const paymentMethods = useMemo(() => copy.checkout.paymentMethods, []);
+
+  useEffect(() => {
+    onProcessingChange?.(isProcessing);
+  }, [isProcessing, onProcessingChange]);
+
   const paymentGroups = useMemo(() => copy.checkout.paymentGroups || [], []);
   const gatewayPaymentMethods = useMemo(
     () => paymentMethods.filter((method) => method.value !== WALLET_PAYMENT_METHOD),
@@ -1829,13 +1835,6 @@ export default function CheckoutForm({
       noValidate
       onSubmit={handleSubmit}
     >
-      {isProcessing ? (
-        <div className="checkout-alert checkout-alert--processing" role="status" aria-live="assertive">
-          <span className="checkout-alert__spinner" aria-hidden="true" />
-          <p>{copy.checkout.status.processingSubtitle}</p>
-        </div>
-      ) : null}
-
       <section className="checkout-section">
         <div className="checkout-section__heading"><span className="checkout-section__icon"><i className="fa-solid fa-box" /></span><h2>Receive order</h2></div>
         <div className="checkout-payment-options">
@@ -2176,7 +2175,7 @@ export default function CheckoutForm({
                           method.value === "opay_transfer"
                             ? "fa-solid fa-qrcode"
                             : method.value === "moniepoint_transfer"
-                              ? "fa-solid fa-building-columns"
+                              ? "fa-solid fa-money-bill-transfer"
                               : "fa-regular fa-credit-card"
                         }
                       />

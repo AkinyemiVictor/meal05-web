@@ -143,13 +143,13 @@ function PaymentHero({ amount }) {
         <IconBuildingBank />
       </span>
       <h1>
-        Pay <span>{formatTransferAmount(amount)}</span>
-        <button type="button" onClick={copyAmount} className="checkout-transfer-screen__copy-amount" aria-label="Copy payment amount">
-          <i className="fa-regular fa-copy" aria-hidden="true" />
+        Pay{" "}
+        <button type="button" onClick={copyAmount} className="checkout-transfer-screen__amount-button" aria-label="Copy payment amount">
+          {formatTransferAmount(amount)}
         </button>
       </h1>
       <p className="checkout-transfer-screen__copy-feedback" aria-live="polite">
-        {copied ? "Copied" : "Copy amount"}
+        {copied ? "Copied" : "Tap amount to copy"}
       </p>
     </section>
   );
@@ -178,7 +178,6 @@ function AccountDetailsStep({ provider, details, pending, busy, message, onSubmi
           aria-label="Copy Moniepoint account number"
         >
           <span>{activeProvider.accountNumber || "Unavailable"}</span>
-          {activeProvider.accountNumber ? <i className="fa-regular fa-copy" aria-hidden="true" /> : null}
         </button>
         <p>{activeProvider.accountName || "Meal05 LTD"}</p>
         <div className="checkout-transfer-screen__account-note">

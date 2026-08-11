@@ -73,9 +73,8 @@ test("home seasonal banner scales proportionally and uses the supplied market ar
   assert.doesNotMatch(banner, /canvas\.style\.(height|width)/);
   assert.match(styles, /\.welcome-banner\.welcome-banner--seasonal[\s\S]*aspect-ratio:\s*5 \/ 2/);
   assert.match(styles, /\.welcome-seasonal__content[\s\S]*width:\s*1200px;[\s\S]*height:\s*480px;[\s\S]*scale\(var\(--welcome-content-scale\)\)/);
-  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.welcome-seasonal__content[\s\S]*?transform:\s*none/);
-  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?\.welcome-seasonal__copy h2[\s\S]*?font-size:/);
-  assert.match(banner, /welcome-seasonal__viewport">[\s\S]*welcome-seasonal__leaf/);
+  assert.doesNotMatch(styles, /@media \(max-width: 900px\)[\s\S]*?\.welcome-seasonal__content[\s\S]*?transform:\s*none/);
+  assert.match(banner, /welcome-seasonal__content">[\s\S]*welcome-seasonal__leaf/);
 });
 
 test("product card catalogue migration selects the cheapest valid in-stock option", () => {

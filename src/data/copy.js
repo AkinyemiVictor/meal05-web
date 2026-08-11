@@ -47,7 +47,7 @@ const copy = {
         value: "gateway",
         title: "Transfer",
         subtitle: "Transfer with Moniepoint.",
-        icon: "fa-solid fa-building-columns",
+        icon: "fa-solid fa-money-bill-transfer",
       },
     ],
     deliverySlots: {

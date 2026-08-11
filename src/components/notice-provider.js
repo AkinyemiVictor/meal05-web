@@ -11,7 +11,7 @@ export const useNotice = () => useContext(NoticeContext);
 
 export default function NoticeProvider({ children }) {
   const [open, setOpen] = useState(false);
-  const [payload, setPayload] = useState({ title: "", message: "", tone: "info", actions: null, autoClose: false, autoCloseMs: 4000 });
+  const [payload, setPayload] = useState({ title: "", message: "", tone: "info", actions: null, autoClose: false, autoCloseMs: 2400 });
   const resolverRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -29,7 +29,7 @@ export default function NoticeProvider({ children }) {
       actions: Array.isArray(opts.actions) && opts.actions.length ? opts.actions : null,
       dismissText: opts.dismissText || "Close",
       autoClose: opts.autoClose ?? (opts.tone !== "error"),
-      autoCloseMs: Number.isFinite(opts.autoCloseMs) ? opts.autoCloseMs : 4000,
+      autoCloseMs: Number.isFinite(opts.autoCloseMs) ? opts.autoCloseMs : 2400,
     };
     setPayload(next);
     setOpen(true);
@@ -59,11 +59,20 @@ export default function NoticeProvider({ children }) {
   const ctx = useMemo(() => ({ showNotice, hideNotice }), [showNotice, hideNotice]);
 
   const toneIcon = payload.tone === "success" ? "fa-circle-check" : payload.tone === "error" ? "fa-triangle-exclamation" : "fa-circle-info";
+  const isCompactNotice = payload.autoClose && !payload.actions;
 
   return (
     <NoticeContext.Provider value={ctx}>
       {children}
-      {open ? (
+      {open && isCompactNotice ? (
+        <aside className={["notice-toast", "notice-toast--" + payload.tone].join(" ")} role="status" aria-live="polite">
+          <i className={["fa-solid", toneIcon].join(" ")} aria-hidden="true" />
+          <div>
+            <strong>{payload.title}</strong>
+            {payload.message ? <span>{payload.message}</span> : null}
+          </div>
+        </aside>
+      ) : open ? (
         <div className="notice-overlay" role="dialog" aria-modal="true" aria-labelledby="notice-title">
           <button type="button" className="notice-overlay-backdrop" aria-hidden="true" onClick={() => hideNotice(false)} />
           <div className={`notice-card notice-${payload.tone}`} role="document">

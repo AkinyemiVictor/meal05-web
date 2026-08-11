@@ -65,7 +65,7 @@ test("wallet and quantity errors use flow-specific messages", () => {
   assert.doesNotMatch(checkoutForm, /Maximum is 10/);
 });
 
-test("checkout routes directly to Moniepoint with copy icons and pending confirmation UI", () => {
+test("checkout routes directly to Moniepoint with tap-to-copy amounts and pending confirmation UI", () => {
   const checkoutForm = read("src/components/checkout-form.js");
   const paymentPage = read("src/app/checkout/payment/page.js");
   const providerPage = read("src/app/checkout/payment/[providerCode]/page.js");
@@ -76,7 +76,9 @@ test("checkout routes directly to Moniepoint with copy icons and pending confirm
   assert.match(providerPage, /available:\s*false/);
   assert.match(providerPage, /aria-label="Copy payment amount"/);
   assert.match(providerPage, /copyToClipboard/);
-  assert.match(providerPage, /fa-regular fa-copy/);
+  assert.match(providerPage, /checkout-transfer-screen__amount-button/);
+  assert.match(providerPage, /Tap amount to copy/);
+  assert.doesNotMatch(providerPage, /fa-regular fa-copy/);
   assert.doesNotMatch(providerPage, /copied \? "fa-solid fa-check"/);
   assert.match(providerPage, /We are confirming your payment\. You will receive a notification upon confirmation\./);
   assert.match(providerPage, /IconMoodSmile/);
@@ -84,6 +86,27 @@ test("checkout routes directly to Moniepoint with copy icons and pending confirm
   assert.match(providerPage, /role="alertdialog"/);
   assert.match(providerPage, />\s*Secured\s*</);
   assert.doesNotMatch(providerPage, /OPay|Sterling|Before you make this transfer/);
+});
+
+test("first delivery promo is server-authorized and visible in checkout summary", () => {
+  const orderRoute = read("src/app/api/orders/route.js");
+  const checkoutSummary = read("src/components/checkout-summary.js");
+  const checkoutForm = read("src/components/checkout-form.js");
+
+  assert.match(orderRoute, /firstOrderFreeDelivery/);
+  assert.match(orderRoute, /deliveryPromoCoverage/);
+  assert.match(orderRoute, /searchParams\.get\("deliveryPromo"\) === "1"/);
+  assert.match(checkoutSummary, /Promo coverage/);
+  assert.match(checkoutSummary, /checkout-summary__processing/);
+  assert.doesNotMatch(checkoutForm, /checkout-alert--processing/);
+});
+
+test("checkout uses the supported money-transfer icon", () => {
+  const checkoutCopy = read("src/data/copy.js");
+  const fontAwesomeSubset = read("src/styles/fontawesome-subset.css");
+
+  assert.match(checkoutCopy, /fa-solid fa-money-bill-transfer/);
+  assert.match(fontAwesomeSubset, /\.fa-money-bill-transfer\s*\{\s*--fa:\s*"\\e528"/);
 });
 
 test("bank transfer acknowledgement and OPay webhook fail closed", () => {
@@ -129,5 +152,5 @@ test("wallet checkout is atomically idempotent and submitted transfers clear the
   assert.match(transferRoute, /\.eq\("order_id", order\.id\)/);
   assert.match(transferRoute, /if \(!payment\)/);
   assert.match(transferSubmitRoute, /payment\.purpose === "order_payment"[\s\S]*from\("cart_items"\)[\s\S]*\.delete\(\)[\s\S]*\.eq\("user_id", auth\.user\.id\)/);
-  assert.match(orderRoute, /status:\s*"pending"[\s\S]*payment_status:\s*"pending"/);
+  assert.match(orderRoute, /status:\s*"pending"[\s\S]*payment_status:\s*requestedPaymentMethod === "wallet" \? "pending"/);
 });

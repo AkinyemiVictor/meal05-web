@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
 import CategoryCarousel from "@/components/category-carousel";
@@ -52,7 +52,6 @@ export default function SectionViewPage() {
   const hasProductsError = !isBundlePlansSlug && productsStatus === "error";
   const catalogItems = useMemo(() => buildCatalogItems(sectionProducts), [sectionProducts]);
 
-  const pageRef = useRef(null);
   const [items, setItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
@@ -130,20 +129,9 @@ export default function SectionViewPage() {
     }
   }, [currentPage, totalPages]);
 
-  useEffect(() => {
-    if (currentPage === 1) return;
-    const target = pageRef.current;
-    if (target?.scrollIntoView) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [currentPage]);
-
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages || page === currentPage) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
     setCurrentPage(page);
   };
 
@@ -207,7 +195,7 @@ export default function SectionViewPage() {
     : "Browse all items in this section.";
 
   return (
-    <main ref={pageRef} className="category-page section-view-page">
+    <main className="category-page section-view-page">
       <PageBreadcrumbs
         items={[
           { label: "Home", href: "/" },
