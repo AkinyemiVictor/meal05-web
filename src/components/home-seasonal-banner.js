@@ -49,17 +49,16 @@ export default function HomeSeasonalBanner() {
       <div className="welcome-seasonal__dots" aria-hidden="true" />
 
       <div className="welcome-seasonal__viewport">
+        <span className="welcome-seasonal__leaf welcome-seasonal__leaf--top" aria-hidden="true">
+          <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--top" />
+        </span>
+        <span className="welcome-seasonal__leaf welcome-seasonal__leaf--bottom" aria-hidden="true">
+          <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--bottom" />
+        </span>
+        <span className="welcome-seasonal__leaf welcome-seasonal__leaf--right" aria-hidden="true">
+          <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--right" />
+        </span>
         <div className="welcome-seasonal__content">
-          <span className="welcome-seasonal__leaf welcome-seasonal__leaf--top" aria-hidden="true">
-            <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--top" />
-          </span>
-          <span className="welcome-seasonal__leaf welcome-seasonal__leaf--bottom" aria-hidden="true">
-            <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--bottom" />
-          </span>
-          <span className="welcome-seasonal__leaf welcome-seasonal__leaf--right" aria-hidden="true">
-            <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--right" />
-          </span>
-
           <div className="welcome-seasonal__copy">
             <span className="welcome-seasonal__pill">
               <i><IconLeaf /></i>

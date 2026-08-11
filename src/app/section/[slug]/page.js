@@ -14,6 +14,7 @@ import ProductGrid from "@/components/product-grid";
 import categories, { getCategoryHref } from "@/data/categories";
 import { useCatalogProducts, useProductsByIds } from "@/lib/use-catalog-products";
 import { buildCatalogItems } from "@/lib/catalog-items";
+import { buildPaginationItems } from "@/lib/pagination";
 import { pickMostPopularProducts } from "@/lib/catalogue";
 import { readCartItems } from "@/lib/cart-storage";
 import { pickMostPurchasedProducts } from "@/lib/engagement";
@@ -110,6 +111,10 @@ export default function SectionViewPage() {
   }, [isBundlePlansSlug, slug, catalogItems, isProductsReady, recentProducts, sectionProducts]);
 
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const paginationItems = useMemo(
+    () => buildPaginationItems(currentPage, totalPages),
+    [currentPage, totalPages]
+  );
   const pagedItems = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
     return items.slice(start, start + PAGE_SIZE);
@@ -274,17 +279,21 @@ export default function SectionViewPage() {
             >
               Prev
             </button>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => handlePageChange(page)}
-                className={page === currentPage ? "active" : undefined}
-                aria-current={page === currentPage ? "page" : undefined}
-              >
-                {page}
-              </button>
-            ))}
+            {paginationItems.map((item) =>
+              typeof item === "string" ? (
+                <span key={item} className="pagination-nav__ellipsis" aria-hidden="true">…</span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => handlePageChange(item)}
+                  className={item === currentPage ? "active" : undefined}
+                  aria-current={item === currentPage ? "page" : undefined}
+                >
+                  {item}
+                </button>
+              )
+            )}
             <button
               type="button"
               onClick={() => handlePageChange(currentPage + 1)}

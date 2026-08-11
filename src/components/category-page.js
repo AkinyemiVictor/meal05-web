@@ -8,6 +8,7 @@ import ProductCard from "@/components/product-card";
 import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
+import { buildPaginationItems } from "@/lib/pagination";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
   loading: () => <CategoryCarouselSkeleton />,
@@ -46,6 +47,10 @@ export default function CategoryPage({
     return Array.isArray(products) ? products.slice() : [];
   }, [products]);
   const totalPages = Math.max(1, Math.ceil(categoryProducts.length / itemsPerPage));
+  const paginationItems = useMemo(
+    () => buildPaginationItems(currentPage, totalPages),
+    [currentPage, totalPages]
+  );
 
   useEffect(() => {
     setCurrentPage(1);
@@ -194,17 +199,21 @@ export default function CategoryPage({
             >
               Prev
             </button>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => handlePageChange(page)}
-                className={page === currentPage ? "active" : undefined}
-                aria-current={page === currentPage ? "page" : undefined}
-              >
-                {page}
-              </button>
-            ))}
+            {paginationItems.map((item) =>
+              typeof item === "string" ? (
+                <span key={item} className="pagination-nav__ellipsis" aria-hidden="true">…</span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => handlePageChange(item)}
+                  className={item === currentPage ? "active" : undefined}
+                  aria-current={item === currentPage ? "page" : undefined}
+                >
+                  {item}
+                </button>
+              )
+            )}
             <button
               type="button"
               onClick={() => handlePageChange(currentPage + 1)}

@@ -60,7 +60,7 @@ export default function Meal05Header() {
   return (
     <>
       <header className="meal05-header meal05-header--mobile z-50 bg-meal-paper px-4 py-3 shadow-sm md:hidden">
-        <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center justify-between gap-2">
           <Link href="/" aria-label="Meal05 home" prefetch={false} className="shrink-0">
             <Image
               src={LOGO_SRC}
@@ -72,9 +72,10 @@ export default function Meal05Header() {
               className="h-10 w-auto object-contain"
             />
           </Link>
-          <div className="ml-auto w-[10.5rem] min-w-0 max-w-[54vw]">
+          <div className="ml-auto w-[9.5rem] min-w-0 max-w-[42vw]">
             <DeferredLocationPicker mobileHeader />
           </div>
+          <Meal05HeaderActions mobile showWallet={false} />
         </div>
       </header>
 

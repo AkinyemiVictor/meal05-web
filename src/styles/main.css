@@ -5622,12 +5622,14 @@ main > section:not(.home-hero) {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  max-width: 100%;
 }
 
 .category-page__pagination {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-start;
+  flex-direction: column;
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 0.85rem;
@@ -5744,6 +5746,16 @@ main > section:not(.home-hero) {
   transition: all 0.2s ease;
 }
 
+.pagination-nav__ellipsis {
+  width: 1.2rem;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  color: #68707a;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
 .pagination-nav button:hover:not([disabled]),
 .pagination-nav a:hover:not([aria-disabled="true"]) {
   border-color: rgba(0, 172, 17, 0.4);
@@ -5816,12 +5828,9 @@ main > section:not(.home-hero) {
 
   .pagination-nav {
     flex-wrap: nowrap;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 0.25rem;
-    transform: scale(0.85);
-    transform-origin: center right;
-    flex: 1 1 auto;
-    margin-left: auto;
+    overflow: visible;
   }
 
   .pagination-nav button,
@@ -5830,6 +5839,12 @@ main > section:not(.home-hero) {
     height: 32px;
     padding: 0 0.45rem;
     font-size: 0.88rem;
+  }
+
+  .pagination-nav__ellipsis {
+    width: 0.95rem;
+    height: 32px;
+    font-size: 1rem;
   }
 }
 
@@ -10069,6 +10084,7 @@ main > section:not(.home-hero) {
   border-radius: 26px;
   background: #10331f;
   color: #ffffff;
+  overflow: hidden;
 }
 
 .welcome-banner.welcome-banner--seasonal::before {
@@ -10172,7 +10188,7 @@ main > section:not(.home-hero) {
 .welcome-seasonal__copy h2 {
   margin: 0 0 14px;
   color: #ffffff;
-  font-size: 42px;
+  font-size: 44px;
   font-weight: 800;
   font-style: italic;
   letter-spacing: -1.6px;
@@ -10186,7 +10202,7 @@ main > section:not(.home-hero) {
 .welcome-seasonal__copy > p {
   margin: 0 0 26px;
   color: rgba(255, 255, 255, 0.78);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.6;
 }
 
@@ -10264,7 +10280,7 @@ main > section:not(.home-hero) {
 
 .welcome-seasonal__leaf {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   display: block;
   overflow: hidden;
   pointer-events: none;
@@ -10321,4 +10337,147 @@ main > section:not(.home-hero) {
   left: -143px;
   transform: scale(0.55);
   transform-origin: top left;
+}
+
+/* The desktop canvas scales as one composition. On tablets and phones, keep
+   copy readable and position the foliage against the actual viewport instead. */
+@media (max-width: 900px) {
+  .welcome-banner.welcome-banner--seasonal {
+    aspect-ratio: 16 / 9;
+    min-height: 360px;
+  }
+
+  .welcome-seasonal__content {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    gap: clamp(1rem, 3vw, 1.75rem);
+    padding: clamp(1.75rem, 4.5vw, 2.5rem);
+    transform: none;
+  }
+
+  .welcome-seasonal__copy {
+    max-width: min(58%, 470px);
+  }
+
+  .welcome-seasonal__copy h2 {
+    font-size: clamp(2.25rem, 5.2vw, 3.25rem);
+    letter-spacing: -0.06em;
+  }
+
+  .welcome-seasonal__copy > p {
+    margin-bottom: 1.25rem;
+    font-size: clamp(1rem, 2.1vw, 1.12rem);
+    line-height: 1.5;
+  }
+
+  .welcome-seasonal__pill {
+    margin-bottom: 0.8rem;
+  }
+
+  .welcome-seasonal__actions {
+    gap: 0.75rem;
+  }
+
+  .welcome-seasonal__actions > a {
+    height: 48px;
+    padding-left: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .welcome-seasonal__actions > span {
+    font-size: 0.78rem;
+  }
+
+  .welcome-seasonal__art {
+    width: clamp(210px, 34vw, 320px);
+    height: clamp(230px, 34vw, 310px);
+    border-radius: 20px;
+  }
+
+  .welcome-seasonal__leaf--top {
+    top: -8px;
+    left: 50%;
+    width: 102px;
+    height: 94px;
+    opacity: 0.96;
+  }
+
+  .welcome-seasonal__leaf--bottom {
+    bottom: -15px;
+    left: 10px;
+    width: 92px;
+    height: 92px;
+    opacity: 0.94;
+  }
+
+  .welcome-seasonal__leaf--right {
+    top: 18px;
+    right: 15px;
+    width: 64px;
+    height: 64px;
+    opacity: 0.92;
+  }
+}
+
+@media (max-width: 620px) {
+  .welcome-banner.welcome-banner--seasonal {
+    aspect-ratio: auto;
+    min-height: 410px;
+    border-radius: 20px;
+  }
+
+  .welcome-seasonal__content {
+    display: block;
+    padding: 2rem 1.4rem 1.5rem;
+  }
+
+  .welcome-seasonal__copy {
+    max-width: 100%;
+  }
+
+  .welcome-seasonal__copy h2 {
+    margin-bottom: 0.65rem;
+    font-size: clamp(2.2rem, 10.5vw, 2.8rem);
+  }
+
+  .welcome-seasonal__copy > p {
+    max-width: 31rem;
+    margin-bottom: 1.1rem;
+    font-size: 1rem;
+  }
+
+  .welcome-seasonal__actions > a {
+    height: 46px;
+  }
+
+  .welcome-seasonal__actions > span {
+    width: 100%;
+  }
+
+  .welcome-seasonal__art {
+    display: none;
+  }
+
+  .welcome-seasonal__leaf--top {
+    top: -9px;
+    left: auto;
+    right: 18px;
+    width: 92px;
+    height: 86px;
+  }
+
+  .welcome-seasonal__leaf--bottom {
+    bottom: -16px;
+    left: -5px;
+    width: 80px;
+    height: 80px;
+  }
+
+  .welcome-seasonal__leaf--right {
+    top: 130px;
+    right: -8px;
+    width: 58px;
+    height: 58px;
+  }
 }

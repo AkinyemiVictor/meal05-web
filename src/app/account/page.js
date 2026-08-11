@@ -1495,20 +1495,32 @@ export function AccountPageContent() {
         const moniepointEnabled = settings.monnifyTopupsEnabled === true;
         return (
           <>
-            <div className={styles.creditBanner}>
-              <div>
+            <div className={[styles.creditBanner, styles.walletBalanceCard].join(" ")}>
+              <div className={styles.walletBalanceCopy}>
                 <span>Available Meal05 Balance</span>
                 <strong>{formatMoney(balance, currencyCode)}</strong>
+                <p>For seamless Meal05 checkout.</p>
               </div>
-              <i className="fa-solid fa-wallet" aria-hidden="true" />
+              <div className={styles.walletBalanceIcon} aria-hidden="true">
+                <i className="fa-solid fa-wallet" />
+              </div>
             </div>
-            <div className={styles.section}>
-              <h3 className={styles.sectionTitle}>Add money</h3>
+            <div className={[styles.section, styles.walletTopupSection].join(" ")}>
+              <div className={styles.walletSectionHeader}>
+                <div>
+                  <span className={styles.walletSectionEyebrow}>Top up your balance</span>
+                  <h3 className={styles.sectionTitle}>Add money</h3>
+                </div>
+                <span className={walletEnabled ? styles.walletStatusReady : styles.walletStatusPending}>
+                  <i className={walletEnabled ? "fa-solid fa-circle-check" : "fa-solid fa-clock"} aria-hidden="true" />
+                  {walletEnabled ? "Available" : "Coming soon"}
+                </span>
+              </div>
               <p className={styles.profileHint}>
                 {walletSnapshot?.disclosure || "Meal05 Balance can only be used for purchases on Meal05. It is not a bank account and does not earn interest."}
               </p>
               {!walletEnabled ? (
-                <span className={styles.profileMessage}>Meal05 Balance is prepared but not enabled for customers yet.</span>
+                <span className={styles.walletAvailabilityNote}>Meal05 Balance is being prepared and will be available to customers soon.</span>
               ) : null}
               <form className={styles.walletTopupForm} onSubmit={handleWalletTopup}>
                 <div className={styles.walletQuickAmounts}>
@@ -1545,11 +1557,12 @@ export function AccountPageContent() {
                     {settings.maximumTopupAmount ? `Max ${formatMoney(settings.maximumTopupAmount)}.` : ""}
                   </p>
                 ) : null}
-                <button type="submit" className={styles.cardAction} disabled={walletStatus === "loading" || !walletEnabled}>
+                <button type="submit" className={styles.walletTopupButton} disabled={walletStatus === "loading" || !walletEnabled}>
+                  <i className="fa-solid fa-plus" aria-hidden="true" />
                   {walletStatus === "loading" ? "Please wait..." : "Add money"}
                 </button>
               </form>
-              {walletMessage ? <span className={styles.profileMessage}>{walletMessage}</span> : null}
+              {walletMessage ? <span className={walletStatus === "error" ? styles.walletMessageError : styles.walletMessageSuccess}>{walletMessage}</span> : null}
             </div>
             {pendingTopups.length ? (
               <div className={styles.section}>
@@ -1568,8 +1581,8 @@ export function AccountPageContent() {
                 </div>
               </div>
             ) : null}
-            <div className={styles.section}>
-              <div className={styles.sectionHeader} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div className={[styles.section, styles.walletTransactionsSection].join(" ")}>
+              <div className={styles.walletHistoryHeader}>
                 <h3 className={styles.sectionTitle}>Transaction history</h3>
                 <button type="button" className={styles.orderActionButton} onClick={() => syncWalletFromServer({ showFeedback: true })}>
                   Refresh

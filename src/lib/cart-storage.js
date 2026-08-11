@@ -6,6 +6,7 @@ import { roundQuantity } from "./purchase-quantities";
 
 const BASE_KEY = "meal05_cart";
 export const CART_UPDATED_EVENT = "cart-updated";
+export const CART_ADDED_EVENT = "meal05:cart-added";
 const GUEST_KEY = `${BASE_KEY}_guest`;
 
 const normaliseEmail = (email) =>
@@ -71,7 +72,6 @@ const mergeCartLines = (baseItems, incomingItems) => {
 
 const trackCartAdditions = (previousItems, nextItems, options = {}) => {
   if (typeof window === "undefined") return;
-  if (options?.skipAnalytics) return;
   if (options?.source === "guest-migration") return;
 
   const previousByKey = new Map();
@@ -93,7 +93,10 @@ const trackCartAdditions = (previousItems, nextItems, options = {}) => {
   });
 
   if (additions.length) {
-    trackAddToCart(additions);
+    if (!options?.skipAnalytics) trackAddToCart(additions);
+    if (!options?.skipAnalytics || options?.showCartFeedback) {
+      dispatchCartAddedEvent({ items: additions, source: options?.source || "" });
+    }
   }
 };
 
@@ -168,5 +171,14 @@ export const dispatchCartUpdatedEvent = (detail) => {
     window.dispatchEvent(new CustomEvent(CART_UPDATED_EVENT, { detail }));
   } catch (error) {
     console.warn("Unable to dispatch cart event", error);
+  }
+};
+
+export const dispatchCartAddedEvent = (detail) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new CustomEvent(CART_ADDED_EVENT, { detail }));
+  } catch (error) {
+    console.warn("Unable to dispatch cart feedback event", error);
   }
 };

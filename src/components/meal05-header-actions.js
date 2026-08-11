@@ -371,7 +371,7 @@ function AccountMenu({ user }) {
   );
 }
 
-export default function Meal05HeaderActions({ mobile = false }) {
+export default function Meal05HeaderActions({ mobile = false, showWallet = true }) {
   const cartCount = useCartCount();
   const user = useHeaderUser();
   const unreadNotifications = useUnreadNotificationCount(user);
@@ -380,7 +380,7 @@ export default function Meal05HeaderActions({ mobile = false }) {
   if (mobile) {
     return (
       <div className="flex shrink-0 items-center gap-2">
-        <WalletBalancePill user={user} wallet={wallet} compact />
+        {showWallet ? <WalletBalancePill user={user} wallet={wallet} compact /> : null}
         <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} count={unreadNotifications}>
           <IconBell size={22} stroke={1.8} />
         </NavIcon>

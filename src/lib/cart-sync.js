@@ -39,7 +39,7 @@ export const addAuthenticatedCartItem = async (item, { source = "server-cart" } 
   });
   const payload = await parseResponse(response);
   const cart = normalizeCartItems(Array.isArray(payload?.cart) ? payload.cart : []);
-  writeCartItems(cart, undefined, { source, skipAnalytics: true });
+  writeCartItems(cart, undefined, { source, skipAnalytics: true, showCartFeedback: true });
   return cart;
 };
 

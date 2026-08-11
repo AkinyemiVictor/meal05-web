@@ -478,12 +478,6 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           writeCartItems(items, undefined, { source: "quick-add" });
         }
 
-        showNotice({
-          tone: "success",
-          title: "Added to cart",
-          message: `${baseProduct.name} added to your cart.`,
-          autoClose: true,
-        });
         setStatus("ready");
         if (closeAfter) onClose?.();
       } catch (err) {

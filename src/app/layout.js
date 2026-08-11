@@ -8,6 +8,7 @@ import Script from "next/script";
 
 import Footer from "@/components/footer";
 import ClientAppEffects from "@/components/client-app-effects";
+import CartFeedbackBar from "@/components/cart-feedback-bar";
 import Meal05Header from "@/components/meal05-header";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
@@ -85,6 +86,7 @@ export default function RootLayout({ children }) {
         <Suspense fallback={null}>
           <MobileBottomNav />
         </Suspense>
+        <CartFeedbackBar />
         <ClientAppEffects />
       </body>
     </html>

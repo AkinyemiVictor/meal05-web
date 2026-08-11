@@ -233,10 +233,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
       return;
     }
 
-    setFeedback({
-      tone: "success",
-      message: "Added to cart.",
-    });
+    setFeedback({ tone: "idle", message: "" });
   }, [availableCount, fallbackImage, isUnavailable, product, quantityInput, showNotice, unitLabel]);
 
   const handleBlur = () => {

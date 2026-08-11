@@ -21,7 +21,7 @@ test("root opens Home while the marketing experience remains available at Landin
   assert.match(sitemap, /"\/landing"/);
 });
 
-test("mobile commerce header keeps the Meal05 logo left and location right", () => {
+test("mobile commerce header keeps the Meal05 logo, location, and notifications accessible", () => {
   const header = read("src/components/meal05-header.js");
   const mobileHeader = header.slice(
     header.indexOf('meal05-header--mobile'),
@@ -30,9 +30,9 @@ test("mobile commerce header keeps the Meal05 logo left and location right", () 
 
   assert.match(mobileHeader, /<Link href="\/" aria-label="Meal05 home"/);
   assert.match(mobileHeader, /src=\{LOGO_SRC\}/);
-  assert.match(mobileHeader, /ml-auto[^"]*max-w-\[54vw\]/);
+  assert.match(mobileHeader, /ml-auto[^"]*max-w-\[42vw\]/);
   assert.match(mobileHeader, /<DeferredLocationPicker mobileHeader \/>/);
-  assert.doesNotMatch(mobileHeader, /<Meal05HeaderActions mobile \/>/);
+  assert.match(mobileHeader, /<Meal05HeaderActions mobile showWallet=\{false\} \/>/);
 });
 
 test("desktop category sidebar expands as the document header scrolls away", () => {
@@ -73,6 +73,9 @@ test("home seasonal banner scales proportionally and uses the supplied market ar
   assert.doesNotMatch(banner, /canvas\.style\.(height|width)/);
   assert.match(styles, /\.welcome-banner\.welcome-banner--seasonal[\s\S]*aspect-ratio:\s*5 \/ 2/);
   assert.match(styles, /\.welcome-seasonal__content[\s\S]*width:\s*1200px;[\s\S]*height:\s*480px;[\s\S]*scale\(var\(--welcome-content-scale\)\)/);
+  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*?\.welcome-seasonal__content[\s\S]*?transform:\s*none/);
+  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?\.welcome-seasonal__copy h2[\s\S]*?font-size:/);
+  assert.match(banner, /welcome-seasonal__viewport">[\s\S]*welcome-seasonal__leaf/);
 });
 
 test("product card catalogue migration selects the cheapest valid in-stock option", () => {
