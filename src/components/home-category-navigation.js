@@ -42,8 +42,8 @@ export function MobileCategories({ categories, activeCategory, counts }) {
               )}
             >
               <CategoryIcon icon={category.icon} active={active} />
-              <p className="mt-2 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-meal-text">{category.label}</p>
-              <p className="truncate whitespace-nowrap text-[11px] font-medium leading-tight text-meal-muted">{count} items</p>
+              <p className="mt-2 truncate whitespace-nowrap text-[13px] font-bold leading-tight text-meal-text">{category.label}</p>
+              <p className="mt-0.5 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-meal-muted">{count} items</p>
             </Link>
           );
         })}

@@ -64,7 +64,7 @@ test("home seasonal banner scales proportionally and uses the supplied market ar
 
   assert.match(home, /<HomeSeasonalBanner\s*\/>/);
   assert.match(banner, /welcome \. fresh groceries/);
-  assert.match(banner, /Market fresh groceries,/);
+  assert.match(banner, /Market fresh<br \/>[\s\S]*groceries, <em>delivered<\/em>/);
   assert.match(banner, /Less market stress\. Less price wahala \. More time for what matters\./);
   assert.match(banner, /<Link[\s\S]*?href="\/shop"/);
   assert.match(banner, /Go to shop/);
@@ -77,6 +77,17 @@ test("home seasonal banner scales proportionally and uses the supplied market ar
   assert.match(styles, /\.welcome-seasonal__content[\s\S]*width:\s*1200px;[\s\S]*height:\s*480px;[\s\S]*scale\(var\(--welcome-content-scale\)\)/);
   assert.doesNotMatch(styles, /@media \(max-width: 900px\)[\s\S]*?\.welcome-seasonal__content[\s\S]*?transform:\s*none/);
   assert.match(banner, /welcome-seasonal__content">[\s\S]*welcome-seasonal__leaf/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*?\.welcome-seasonal__copy h2 \{[\s\S]*?font-size:\s*62px/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*?\.welcome-seasonal__copy > p \{[\s\S]*?font-size:\s*23px/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*?\.welcome-seasonal__actions > a \{[\s\S]*?font-size:\s*20px/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*?\.welcome-seasonal__actions > span \{[\s\S]*?font-size:\s*17px/);
+});
+
+test("mobile category cards use readable names and item counts", () => {
+  const categories = read("src/components/home-category-navigation.js");
+
+  assert.match(categories, /text-\[13px\] font-bold/);
+  assert.match(categories, /text-\[12px\] font-semibold/);
 });
 
 test("product card catalogue migration selects the cheapest valid in-stock option", () => {

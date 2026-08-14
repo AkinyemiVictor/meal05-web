@@ -86,8 +86,8 @@ export default function HomeSeasonalBanner() {
               welcome . fresh groceries
             </span>
             <h2 id="welcome-banner-title">
-              Market fresh groceries,<br />
-              <em>delivered</em>
+              Market fresh<br />
+              groceries, <em>delivered</em>
             </h2>
             <p>
               Less market stress. Less price wahala . More time for what matters. Get your groceries easier with Meal05.

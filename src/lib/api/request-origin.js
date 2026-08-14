@@ -1,4 +1,5 @@
 const normaliseHost = (value) => String(value || "").trim().toLowerCase();
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 const hostFromUrl = (value) => {
   try {
@@ -17,8 +18,11 @@ const resolveRequestHost = (request) => {
 export const isTrustedRequestOrigin = (request) => {
   const originHost = hostFromUrl(request.headers.get("origin"));
   if (!originHost) {
-    // Browsers usually send Origin for fetch/XHR. In local/dev tooling,
-    // allow missing origin to avoid breaking manual smoke tests.
+    // Browsers commonly omit Origin on same-origin reads. Safe methods cannot
+    // mutate cookie-authenticated state, so allow those requests while keeping
+    // the stricter origin check for payment and account mutations.
+    const method = String(request.method || "GET").trim().toUpperCase();
+    if (SAFE_METHODS.has(method)) return true;
     return process.env.NODE_ENV !== "production";
   }
 

@@ -172,6 +172,15 @@ const formatWalletReason = (value) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ") || "Meal05 Balance";
 
+const formatWalletTransactionLabel = (entry) => {
+  const reason = String(entry?.reason || "").trim().toLowerCase();
+  if (entry?.wallet_topup_id || reason === "topup") return "Wallet deposit";
+  if (entry?.order_id || reason === "purchase") return "Checkout paid with Meal05 Balance";
+  if (reason === "refund") return "Refund to Meal05 Balance";
+  if (reason === "overpayment_change") return "Order change credited to Meal05 Balance";
+  return formatWalletReason(reason);
+};
+
 const derivePhoneParts = (phone) => {
   if (!phone || typeof phone !== "string") {
     return { country: DEFAULT_PHONE_COUNTRY_CODE, digits: "" };
@@ -382,6 +391,10 @@ export function AccountPageContent() {
   const [walletMessage, setWalletMessage] = useState("");
   const [walletTopupAmount, setWalletTopupAmount] = useState("");
   const [walletTopupProvider, setWalletTopupProvider] = useState("moniepoint_transfer");
+  const [walletTopupTransfer, setWalletTopupTransfer] = useState(null);
+  const [walletPayerBankName, setWalletPayerBankName] = useState("");
+  const [walletTransferReference, setWalletTransferReference] = useState("");
+  const [walletTransferStatus, setWalletTransferStatus] = useState("idle");
   const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneFeedback, setPhoneFeedback] = useState("");
@@ -492,6 +505,11 @@ export function AccountPageContent() {
         setWalletStatus("error");
         return;
       }
+      if (!transactionsResponse.ok) {
+        setWalletMessage(transactionsPayload?.error || "Unable to load wallet transactions.");
+        setWalletStatus("error");
+        return;
+      }
       setWalletSnapshot(walletPayload);
       setWalletTransactions(Array.isArray(transactionsPayload?.transactions) ? transactionsPayload.transactions : []);
       setWalletStatus("ready");
@@ -522,24 +540,71 @@ export function AccountPageContent() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         setWalletMessage(payload?.error || "Unable to start top-up.");
-        setWalletStatus("ready");
+        setWalletStatus("error");
         return;
       }
       if (payload?.authorizationUrl) {
         window.location.href = payload.authorizationUrl;
         return;
       }
-      setWalletMessage(
-        payload?.payment?.reference
-          ? `Wallet deposit awaiting verification. Use reference ${payload.payment.reference}.`
-          : "Wallet deposit awaiting verification."
-      );
+      setWalletTopupTransfer(payload);
+      setWalletPayerBankName("");
+      setWalletTransferReference("");
+      setWalletMessage("");
       await syncWalletFromServer();
     } catch {
       setWalletMessage("Unable to start top-up.");
-      setWalletStatus("ready");
+      setWalletStatus("error");
     }
   }, [syncWalletFromServer, walletTopupAmount, walletTopupProvider]);
+
+  const copyWalletText = useCallback((value) => {
+    if (typeof navigator === "undefined" || !navigator.clipboard || !value) return;
+    navigator.clipboard.writeText(String(value)).catch(() => {});
+  }, []);
+
+  const handleWalletTransferSubmit = useCallback(async () => {
+    const topupId = String(walletTopupTransfer?.topupId || "").trim();
+    const paymentId = walletTopupTransfer?.payment?.id;
+    if (!topupId || !paymentId) return;
+    if (walletPayerBankName.trim().length < 2) {
+      setWalletMessage("Enter the bank or wallet you transferred from.");
+      setWalletStatus("error");
+      return;
+    }
+
+    setWalletTransferStatus("loading");
+    setWalletMessage("");
+    try {
+      const response = await fetch(`/api/wallet/topups/${encodeURIComponent(topupId)}/submit`, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentId,
+          payerAccountName: formatName(user),
+          payerBankName: walletPayerBankName.trim(),
+          customerTransactionReference: walletTransferReference.trim(),
+          exactAmountConfirmed: true,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || "Unable to submit wallet deposit.");
+
+      setWalletTopupTransfer(null);
+      setWalletTopupAmount("");
+      setWalletPayerBankName("");
+      setWalletTransferReference("");
+      setWalletMessage(payload?.message || "Wallet deposit submitted for verification.");
+      setWalletStatus("ready");
+      await syncWalletFromServer();
+    } catch (error) {
+      setWalletMessage(error?.message || "Unable to submit wallet deposit.");
+      setWalletStatus("error");
+    } finally {
+      setWalletTransferStatus("idle");
+    }
+  }, [syncWalletFromServer, user, walletPayerBankName, walletTopupTransfer, walletTransferReference]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1531,6 +1596,8 @@ export function AccountPageContent() {
         const pendingTopups = Array.isArray(walletSnapshot?.pendingTopups) ? walletSnapshot.pendingTopups : [];
         const walletEnabled = settings.walletEnabled === true;
         const moniepointEnabled = settings.monnifyTopupsEnabled === true;
+        const activeTopupPayment = walletTopupTransfer?.payment || null;
+        const activeTopupProvider = walletTopupTransfer?.provider || null;
         return (
           <>
             <div className={[styles.creditBanner, styles.walletBalanceCard].join(" ")}>
@@ -1570,14 +1637,15 @@ export function AccountPageContent() {
                 </div>
                 <label className={styles.profileField}>
                   <span>Amount</span>
-                  <input
-                    inputMode="decimal"
+                   <input
+                     inputMode="numeric"
                     min={settings.minimumTopupAmount || undefined}
                     max={settings.maximumTopupAmount || undefined}
                     name="walletTopupAmount"
-                    onChange={(event) => setWalletTopupAmount(event.target.value)}
-                    placeholder="10000"
-                    type="number"
+                     onChange={(event) => setWalletTopupAmount(event.target.value.replace(/\D/g, ""))}
+                     placeholder="Enter amount (e.g. 10000)"
+                     type="text"
+                     pattern="[0-9]*"
                     value={walletTopupAmount}
                   />
                 </label>
@@ -1598,9 +1666,70 @@ export function AccountPageContent() {
                 <button type="submit" className={styles.walletTopupButton} disabled={walletStatus === "loading" || !walletEnabled}>
                   <i className="fa-solid fa-plus" aria-hidden="true" />
                   {walletStatus === "loading" ? "Please wait..." : "Add money"}
-                </button>
-              </form>
-              {walletMessage ? <span className={walletStatus === "error" ? styles.walletMessageError : styles.walletMessageSuccess}>{walletMessage}</span> : null}
+                 </button>
+               </form>
+               {activeTopupPayment && activeTopupProvider ? (
+                 <section className={styles.walletTransferPanel} aria-labelledby="wallet-transfer-heading">
+                   <div className={styles.walletTransferHeader}>
+                     <div>
+                       <span>Wallet deposit</span>
+                       <h4 id="wallet-transfer-heading">{walletTopupTransfer?.heading || "Complete your wallet deposit"}</h4>
+                     </div>
+                     <strong>{formatMoney(activeTopupPayment.amount, activeTopupPayment.currency || "NGN")}</strong>
+                   </div>
+                   <p className={styles.walletTransferNotice}>
+                     Transfer the exact amount to the account below. Your balance is credited only after Meal05 verifies the payment.
+                   </p>
+                   <dl className={styles.walletTransferDetails}>
+                     {[
+                       ["Bank", activeTopupProvider.bankName],
+                       ["Account name", activeTopupProvider.accountName],
+                       ["Account number", activeTopupProvider.accountNumber],
+                       ["Payment reference", activeTopupPayment.reference],
+                     ].map(([label, value]) => (
+                       <div key={label}>
+                         <dt>{label}</dt>
+                         <dd>
+                           <span>{value || "Unavailable"}</span>
+                           {value ? (
+                             <button type="button" onClick={() => copyWalletText(value)} aria-label={`Copy ${label.toLowerCase()}`}>
+                               <i className="fa-regular fa-copy" aria-hidden="true" />
+                             </button>
+                           ) : null}
+                         </dd>
+                       </div>
+                     ))}
+                   </dl>
+                   <label className={styles.profileField}>
+                     <span>Bank or wallet you sent from</span>
+                     <input
+                       type="text"
+                       value={walletPayerBankName}
+                       onChange={(event) => setWalletPayerBankName(event.target.value)}
+                       placeholder="e.g. GTBank or OPay"
+                       autoComplete="organization"
+                     />
+                   </label>
+                   <label className={styles.profileField}>
+                     <span>Your transfer reference (optional)</span>
+                     <input
+                       type="text"
+                       value={walletTransferReference}
+                       onChange={(event) => setWalletTransferReference(event.target.value)}
+                       placeholder="Enter the reference from your bank receipt"
+                     />
+                   </label>
+                   <div className={styles.walletTransferActions}>
+                     <button type="button" onClick={() => setWalletTopupTransfer(null)} disabled={walletTransferStatus === "loading"}>
+                       Cancel
+                     </button>
+                     <button type="button" onClick={handleWalletTransferSubmit} disabled={walletTransferStatus === "loading"}>
+                       {walletTransferStatus === "loading" ? "Submitting..." : "I've sent the money"}
+                     </button>
+                   </div>
+                 </section>
+               ) : null}
+               {walletMessage ? <span className={walletStatus === "error" ? styles.walletMessageError : styles.walletMessageSuccess}>{walletMessage}</span> : null}
             </div>
             {pendingTopups.length ? (
               <div className={styles.section}>
@@ -1631,9 +1760,10 @@ export function AccountPageContent() {
                   {walletTransactions.map((entry) => (
                     <div key={entry.id} className={styles.listItem}>
                       <div className={styles.orderInfo}>
-                        <strong>{formatWalletReason(entry.reason)}</strong>
-                        <span>{new Date(entry.created_at).toLocaleString("en-NG")}</span>
-                        {entry.order_id ? <span>Order #{entry.order_id}</span> : null}
+                         <strong>{formatWalletTransactionLabel(entry)}</strong>
+                         <span>{new Date(entry.created_at).toLocaleString("en-NG")}</span>
+                         {entry.order_id ? <span>Meal05 Balance payment for order #{entry.order_id}</span> : null}
+                         {entry.wallet_topup_id ? <span>Deposit ID: {entry.wallet_topup_id}</span> : null}
                         {entry.provider_reference ? <span>{entry.provider_reference}</span> : null}
                       </div>
                       <strong style={{ color: Number(entry.amount) >= 0 ? "#00ac11" : "#f04e1f" }}>

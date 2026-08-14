@@ -5685,40 +5685,6 @@ main > section:not(.home-hero) {
   margin-top: 0.5rem;
 }
 
-.search-results-group {
-  display: grid;
-  gap: 1.25rem;
-  margin-bottom: 2.75rem;
-}
-
-.search-results-group:last-of-type {
-  margin-bottom: 0;
-}
-
-.search-results-group__header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.search-results-group__header h2 {
-  margin: 0;
-  font-size: 1.4rem;
-  color: #0f301c;
-}
-
-.search-results-group__eyebrow {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: #64748b;
-}
-
-.search-results-group .product-card-grid {
-  flex-wrap: wrap;
-  overflow: visible;
-}
-
 .product-card h4 mark {
   background: rgba(0, 172, 17, 0.16);
   border-radius: 4px;
@@ -10378,8 +10344,8 @@ main > section:not(.home-hero) {
   }
 }
 
-/* On phones, reclaim vertical space before increasing the type. The wider copy
-   allowance keeps the existing two-line headline and product artwork intact. */
+/* On phones, reclaim vertical space before increasing the type. The explicit
+   two-line headline and wider copy allowance keep it clear of the artwork. */
 @media (max-width: 767px) {
   .welcome-seasonal__content {
     height: 480px;
@@ -10393,14 +10359,25 @@ main > section:not(.home-hero) {
 
   .welcome-seasonal__copy h2 {
     margin-bottom: 12px;
-    font-size: 54px;
+    font-size: 62px;
     white-space: nowrap;
   }
 
   .welcome-seasonal__copy > p {
     margin-bottom: 20px;
-    font-size: 19px;
-    line-height: 1.5;
+    font-size: 23px;
+    line-height: 1.45;
+  }
+
+  .welcome-seasonal__actions > a {
+    height: 58px;
+    padding-left: 28px;
+    font-size: 20px;
+  }
+
+  .welcome-seasonal__actions > span {
+    font-size: 17px;
+    white-space: nowrap;
   }
 
   .welcome-seasonal__art {

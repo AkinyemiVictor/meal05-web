@@ -17,6 +17,7 @@ import {
 } from "@/lib/purchase-quantities";
 
 const RECENTLY_VIEWED_STORAGE_KEY = "meal05_recently_viewed";
+const FIXED_QUANTITY_BLOCKED_KEYS = new Set([".", ",", "e", "E", "+", "-"]);
 
 const formatUnitLabel = (unit) => {
   if (!unit) return "unit";
@@ -139,8 +140,15 @@ export default function AddToCartForm({ product, fallbackImage }) {
   };
 
   const handleChange = (event) => {
-    setQuantityInput(event.target.value);
+    const nextValue = isLoose ? event.target.value : event.target.value.replace(/\D/g, "");
+    setQuantityInput(nextValue);
     resetFeedback();
+  };
+
+  const handleKeyDown = (event) => {
+    if (!isLoose && FIXED_QUANTITY_BLOCKED_KEYS.has(event.key)) {
+      event.preventDefault();
+    }
   };
 
   const handleDecrement = () => {
@@ -265,13 +273,15 @@ export default function AddToCartForm({ product, fallbackImage }) {
           </button>
           <input
             id="product-quantity"
-            type="number"
+            type={isLoose ? "number" : "text"}
             min={purchaseRules.minQuantity}
             max={purchaseRules.maxQuantity ?? undefined}
             step={purchaseRules.stepQuantity}
             inputMode={isLoose ? "decimal" : "numeric"}
+            pattern={isLoose ? undefined : "[0-9]*"}
             value={quantityInput}
             onChange={handleChange}
+            onKeyDown={handleKeyDown}
             onBlur={handleBlur}
           />
           <button

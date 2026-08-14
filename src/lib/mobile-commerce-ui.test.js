@@ -64,7 +64,20 @@ test("product-detail and cart quantity controls use the same active and disabled
   assert.match(cartCss.slice(cartDisabledRule, cartDisabledRule + 220), /background:\s*#ffffff/);
   assert.doesNotMatch(cartCss, /\.qtyButton:last-child/);
   assert.match(productForm, /effectiveMaxQuantity\s*!=\s*null\s*&&\s*safeQuantity\s*>=\s*effectiveMaxQuantity/);
+  assert.match(productForm, /FIXED_QUANTITY_BLOCKED_KEYS/);
+  assert.match(productForm, /event\.target\.value\.replace\(\/\\D\/g, ""\)/);
+  assert.match(productForm, /type=\{isLoose \? "number" : "text"\}/);
+  assert.match(productForm, /pattern=\{isLoose \? undefined : "\[0-9\]\*"\}/);
   assert.match(cartPage, /Math\.min\(maxQuantity\s*\?\?\s*availableCount,\s*availableCount\)/);
+});
+
+test("search results use one continuous product grid without category partitions", () => {
+  const searchResults = read("src/components/search-results-client.js");
+  const css = read("src/styles/main.css");
+
+  assert.match(searchResults, /products=\{products\}/);
+  assert.doesNotMatch(searchResults, /groupedResults|search-results-group|Category<\/span>/);
+  assert.doesNotMatch(css, /\.search-results-group__header/);
 });
 
 test("product-detail options render immediately for every purchase mode", () => {
