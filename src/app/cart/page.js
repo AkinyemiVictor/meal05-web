@@ -20,12 +20,13 @@ import {
 import { pickTopEngagedProducts, RECENTLY_VIEWED_KEY } from "@/lib/engagement";
 
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
-import { migrateLocalCartToEmptyServer, setAuthenticatedCartItem } from "@/lib/cart-sync";
+import { fetchCanonicalCart, migrateLocalCartToEmptyServer, setAuthenticatedCartItem } from "@/lib/cart-sync";
 import { getCartItemQuantity, normalizeCartItems } from "@/lib/cart-items";
 import { readStoredUser, AUTH_EVENT } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { trackBeginCheckout } from "@/lib/analytics";
 import { resolveProductImage } from "@/lib/product-image";
+import { getAvailableCount } from "@/lib/stock";
 import {
   applyStoredPromoToSummary,
   clearStoredPromo,
@@ -229,6 +230,10 @@ function CartPageContent() {
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
   const cartEventSourceRef = useRef(Symbol("cart-page"));
   const defaultVariantCacheRef = useRef(new Map());
+  const pendingQuantitySyncRef = useRef(new Map());
+  const quantitySyncTimersRef = useRef(new Map());
+  const quantitySyncInFlightRef = useRef(new Set());
+  const queueQuantitySyncRef = useRef(() => {});
   const cartReturnPath = useMemo(() => {
     const base = pathname || "/cart";
     const query = searchParams?.toString();
@@ -318,7 +323,13 @@ function CartPageContent() {
   const persistCart = useCallback((items) => {
     try {
       const normalised = hydrateCartItems(items);
-      writeCartItems(normalised, undefined, { source: cartEventSourceRef.current });
+      // Quantity adjustments are cart maintenance, not a fresh add-to-cart action.
+      // Keeping this silent prevents analytics, the add-to-cart bar, and its layout shift
+      // from firing for every tap on +/-.
+      writeCartItems(normalised, undefined, {
+        source: cartEventSourceRef.current,
+        skipAnalytics: true,
+      });
     } catch (error) {
       console.warn("Unable to persist cart", error);
     }
@@ -440,6 +451,78 @@ function CartPageContent() {
       });
     return () => controller.abort();
   }, []);
+
+  const flushQueuedQuantitySync = useCallback(async (id) => {
+    if (quantitySyncInFlightRef.current.has(id)) return;
+
+    const job = pendingQuantitySyncRef.current.get(id);
+    if (!job) return;
+    pendingQuantitySyncRef.current.delete(id);
+    quantitySyncInFlightRef.current.add(id);
+    setCartUpdateState((previous) => ({ ...previous, [id]: true }));
+
+    try {
+      if (job.cartItemId) {
+        const response = await fetch(`/api/cart/${encodeURIComponent(job.cartItemId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ quantity: job.quantity }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(normaliseCartQuantityMessage(payload?.error));
+      } else {
+        const canonicalRows = await setAuthenticatedCartItem(
+          { ...job.item, quantity: job.quantity, orderCount: job.quantity },
+          { source: cartEventSourceRef.current }
+        );
+        if (!pendingQuantitySyncRef.current.has(id)) {
+          setCartItems(hydrateCartItems(canonicalRows));
+        }
+      }
+    } catch (error) {
+      if (!pendingQuantitySyncRef.current.has(id)) {
+        try {
+          const canonicalRows = await fetchCanonicalCart({ persist: false });
+          setCartItems(canonicalRows);
+          persistCart(canonicalRows);
+        } catch {
+          setCartItems(job.previousItems);
+          persistCart(job.previousItems);
+        }
+        setCartUpdateMessage(normaliseCartQuantityMessage(error?.message));
+      }
+    } finally {
+      quantitySyncInFlightRef.current.delete(id);
+      setCartUpdateState((previous) => {
+        const next = { ...previous };
+        delete next[id];
+        return next;
+      });
+      if (pendingQuantitySyncRef.current.has(id)) {
+        queueQuantitySyncRef.current(id, 0);
+      }
+    }
+  }, [persistCart]);
+
+  const queueQuantitySync = useCallback((id, delay = 320) => {
+    const existingTimer = quantitySyncTimersRef.current.get(id);
+    if (existingTimer) window.clearTimeout(existingTimer);
+    const timer = window.setTimeout(() => {
+      quantitySyncTimersRef.current.delete(id);
+      flushQueuedQuantitySync(id);
+    }, delay);
+    quantitySyncTimersRef.current.set(id, timer);
+  }, [flushQueuedQuantitySync]);
+
+  useEffect(() => {
+    queueQuantitySyncRef.current = queueQuantitySync;
+    const timers = quantitySyncTimersRef.current;
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+    };
+  }, [queueQuantitySync]);
 
   // Track auth state so we can gate checkout when not signed in
   useEffect(() => {
@@ -656,9 +739,9 @@ function CartPageContent() {
     return () => controller.abort();
   }, [activePromo?.code, activePromo?.promo?.code, baseSummary.itemsCount, baseSummary.subtotal, cartItems.length, hydrated, setPromoFeedback]);
 
-  const handleQtyChange = useCallback(async (id, delta) => {
+  const handleQtyChange = useCallback((id, delta) => {
     const target = cartItems.find((item) => item.id === id);
-    if (!target || cartUpdateState[id]) return;
+    if (!target) return;
 
     const rules = getVariantPurchaseRules(target);
     const step = rules.stepQuantity > 0 ? rules.stepQuantity : 1;
@@ -690,48 +773,28 @@ function CartPageContent() {
     );
 
     setCartUpdateMessage("");
-    setCartUpdateState((prev) => ({ ...prev, [id]: true }));
     setCartItems(nextItems);
+    persistCart(nextItems);
 
-    try {
-      persistCart(nextItems);
-      if (currentUser) {
-        if (target.cartItemId) {
-          const cartItemId = target.cartItemId;
-          const response = await fetch(`/api/cart/${encodeURIComponent(cartItemId)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-            body: JSON.stringify({ quantity: validation.quantity }),
-          });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            throw new Error(normaliseCartQuantityMessage(payload?.error));
-          }
-        } else {
-          const canonicalRows = await setAuthenticatedCartItem(
-            { ...target, quantity: validation.quantity, orderCount: validation.quantity },
-            { source: cartEventSourceRef.current }
-          );
-          setCartItems(hydrateCartItems(canonicalRows));
-        }
-      }
-    } catch (error) {
-      setCartItems(previousItems);
-      persistCart(previousItems);
-      setCartUpdateMessage(normaliseCartQuantityMessage(error?.message));
-    } finally {
-      setCartUpdateState((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
+    if (currentUser) {
+      pendingQuantitySyncRef.current.set(id, {
+        cartItemId: target.cartItemId,
+        item: target,
+        previousItems,
+        quantity: validation.quantity,
       });
+      queueQuantitySync(id);
     }
-  }, [cartItems, cartUpdateState, currentUser, persistCart]);
+  }, [cartItems, currentUser, persistCart, queueQuantitySync]);
 
   const handleRemove = useCallback(async (id) => {
     const target = cartItems.find((item) => item.id === id);
     if (!target || cartUpdateState[id]) return;
+
+    const pendingTimer = quantitySyncTimersRef.current.get(id);
+    if (pendingTimer) window.clearTimeout(pendingTimer);
+    quantitySyncTimersRef.current.delete(id);
+    pendingQuantitySyncRef.current.delete(id);
 
     setCartUpdateMessage("");
     setCartUpdateState((prev) => ({ ...prev, [id]: true }));
@@ -858,7 +921,7 @@ function CartPageContent() {
   const itemLabel = totalOrderCount === 1 ? "item" : "items";
   const cartIsEmpty = cartItems.length === 0;
   const cartLayoutClassName = [styles.cartLayout, cartIsEmpty ? styles.cartLayoutEmpty : ""].filter(Boolean).join(" ");
-  const wishlistProducts = cartIsEmpty && currentUser ? crossSellProducts : [];
+  const favoriteSuggestions = cartIsEmpty && currentUser ? crossSellProducts : [];
 
   if (cartIsEmpty) {
     return (
@@ -926,10 +989,14 @@ function CartPageContent() {
                   const minQuantity = Number(item.minQuantity ?? item.min_quantity ?? 1) || 1;
                   const maxQuantityRaw = Number(item.maxQuantity ?? item.max_quantity);
                   const maxQuantity = Number.isFinite(maxQuantityRaw) && maxQuantityRaw > 0 ? maxQuantityRaw : null;
+                  const availableCount = getAvailableCount(item.stock);
+                  const effectiveMaxQuantity = Number.isFinite(availableCount)
+                    ? Math.min(maxQuantity ?? availableCount, availableCount)
+                    : maxQuantity;
                   const rules = getVariantPurchaseRules(item);
                   const stepQuantity = rules.stepQuantity > 0 ? rules.stepQuantity : 1;
                   const canDecrement = quantity > minQuantity;
-                  const canIncrement = maxQuantity == null || quantity < maxQuantity;
+                  const canIncrement = effectiveMaxQuantity == null || quantity < effectiveMaxQuantity;
                   const lineBusy = Boolean(cartUpdateState[item.id]);
                   const lineClassNames = [styles.cartLine];
                   if (status?.level === "error") {
@@ -972,7 +1039,7 @@ function CartPageContent() {
                             type="button"
                             className={styles.qtyButton}
                             onClick={() => handleQtyChange(item.id, -stepQuantity)}
-                            disabled={!canDecrement || lineBusy}
+                            disabled={!canDecrement}
                             aria-busy={lineBusy}
                             aria-label={`Decrease order count for ${item.name}`}
                           >
@@ -985,7 +1052,7 @@ function CartPageContent() {
                             type="button"
                             className={styles.qtyButton}
                             onClick={() => handleQtyChange(item.id, stepQuantity)}
-                            disabled={!canIncrement || lineBusy}
+                            disabled={!canIncrement}
                             aria-busy={lineBusy}
                             aria-label={`Increase order count for ${item.name}`}
                           >
@@ -1134,10 +1201,10 @@ function CartPageContent() {
         </div>
       </div>
 
-      {wishlistProducts.length ? (
-        <CartProductSection title="Wishlist" eyebrow="Saved for later" headingId="wishlist-heading" ctaHref="/account/wishlist">
-          <div className={styles.productRailGrid} id="cartWishlistGrid">
-            {wishlistProducts.map((product) => (
+      {favoriteSuggestions.length ? (
+        <CartProductSection title="Popular picks" eyebrow="More to explore" headingId="cart-popular-picks-heading" ctaHref="/shop">
+          <div className={styles.productRailGrid} id="cartPopularPicksGrid">
+            {favoriteSuggestions.map((product) => (
               <div key={product.variantId || product.id} className={styles.productCardShell}>
                 <ProductCard product={product} onQuickAdd={handleQuickAdd} />
               </div>

@@ -42,8 +42,8 @@ export function MobileCategories({ categories, activeCategory, counts }) {
               )}
             >
               <CategoryIcon icon={category.icon} active={active} />
-              <p className="mt-2 truncate text-[11px] font-medium text-meal-text">{category.label}</p>
-              <p className="text-[10px] font-medium text-meal-muted">{count} items</p>
+              <p className="mt-2 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-meal-text">{category.label}</p>
+              <p className="truncate whitespace-nowrap text-[11px] font-medium leading-tight text-meal-muted">{count} items</p>
             </Link>
           );
         })}
@@ -64,15 +64,15 @@ export function TabletCategoryTabs({ categories, activeCategory, counts }) {
               key={category.slug}
               href={`/categories/${category.slug}`}
               className={classNames(
-                "flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition",
+                "flex max-w-56 shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-[15px] font-semibold transition",
                 active
                   ? "border-meal-pepper bg-meal-pepper text-meal-paper"
                   : "border-meal-line bg-meal-paper text-meal-text"
               )}
             >
               <CategoryIcon icon={category.icon} active={active} compact />
-              {category.label}
-              <span className={classNames("text-xs", active ? "text-meal-paper/80" : "text-meal-muted")}>
+              <span className="min-w-0 truncate whitespace-nowrap">{category.label}</span>
+              <span className={classNames("shrink-0 whitespace-nowrap text-[13px]", active ? "text-meal-paper/80" : "text-meal-muted")}>
                 {count}
               </span>
             </Link>

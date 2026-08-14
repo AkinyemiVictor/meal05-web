@@ -36,6 +36,7 @@ import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 import { formatProductPrice } from "@/lib/catalogue";
 import { useCatalogProducts, useProductsByIds } from "@/lib/use-catalog-products";
 import { RECENTLY_VIEWED_KEY } from "@/lib/engagement";
+import { FAVORITES_UPDATED_EVENT, loadFavoriteIds } from "@/lib/favorites-client";
 import { resolveProductImage } from "@/lib/product-image";
 import {
   DEFAULT_PHONE_COUNTRY_CODE,
@@ -53,7 +54,7 @@ const ACCOUNT_TABS = [
   { slug: "balance", label: "Meal05 Balance", icon: IconWallet },
   { slug: "refunds", label: "Refunds", icon: IconReceiptRefund },
   { slug: "referrals", label: "Refer & Earn", icon: IconUsersPlus },
-  { slug: "wishlist", label: "Wishlist", icon: IconHeart },
+  { slug: "favorites", label: "Favorites", icon: IconHeart },
   { slug: "voucher", label: "Voucher", icon: IconGift },
   { slug: "recent", label: "Recently Viewed", icon: IconClock },
   { slug: "management", label: "Account Management", icon: IconUserCog },
@@ -67,11 +68,11 @@ const ACCOUNT_TABS = [
 
 const ACCOUNT_SUBTITLES = {
   overview: "Manage deliveries, preferences, and saved details from one place.",
-  orders: "Track active deliveries and quickly reorder previous market runs.",
+  orders: "Track active deliveries and buy previous market runs again in a tap.",
   balance: "Add money, review balance, and track closed-loop Meal05 Balance activity.",
   refunds: "Review refund requests and wallet reversals tied to your orders.",
   referrals: "Invite friends and keep track of Meal05 referral rewards.",
-  wishlist: "Saved items and treats - ready to reorder in a tap.",
+  favorites: "Keep frequently bought items close for your next market run.",
   voucher: "Your store credit and available discount codes live here.",
   recent: "Pick up where you left off with items you recently browsed.",
   management: "Update your personal details, contact info, and password.",
@@ -94,6 +95,7 @@ const ACCOUNT_ROUTE_TO_TAB = {
   help: "help",
   notifications: "notifications",
   legal: "legal",
+  favorites: "favorites",
 };
 
 const TAB_TO_ACCOUNT_ROUTE = {
@@ -108,7 +110,7 @@ const TAB_TO_ACCOUNT_ROUTE = {
   help: "help",
   notifications: "notifications",
   legal: "legal",
-  wishlist: "wishlist",
+  favorites: "favorites",
   voucher: "voucher",
   recent: "recent",
   newsletter: "newsletter",
@@ -371,6 +373,8 @@ export function AccountPageContent() {
   const [hydrated, setHydrated] = useState(false);
   const [orders, setOrders] = useState([]);
   const [savedCart, setSavedCart] = useState([]);
+  const [favoriteProductIds, setFavoriteProductIds] = useState([]);
+  const [favoritesStatus, setFavoritesStatus] = useState("idle");
   const [cartMessage, setCartMessage] = useState("");
   const [walletSnapshot, setWalletSnapshot] = useState(null);
   const [walletTransactions, setWalletTransactions] = useState([]);
@@ -415,8 +419,8 @@ export function AccountPageContent() {
     return ids;
   }, [orders]);
   const lookupProductIds = useMemo(
-    () => [...recentProductIds, ...orderProductIds],
-    [recentProductIds, orderProductIds]
+    () => [...favoriteProductIds, ...recentProductIds, ...orderProductIds],
+    [favoriteProductIds, recentProductIds, orderProductIds]
   );
   const { index: productIndex } = useProductsByIds(lookupProductIds);
 
@@ -587,6 +591,37 @@ export function AccountPageContent() {
     if (!hydrated || !user) return;
     syncOrdersFromServer();
   }, [hydrated, syncOrdersFromServer, user]);
+
+  useEffect(() => {
+    if (!hydrated || !user) {
+      setFavoriteProductIds([]);
+      setFavoritesStatus("idle");
+      return undefined;
+    }
+    const controller = new AbortController();
+    setFavoritesStatus("loading");
+    loadFavoriteIds()
+      .then((ids) => {
+        if (controller.signal.aborted) return;
+        setFavoriteProductIds(ids);
+        setFavoritesStatus("ready");
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setFavoritesStatus("error");
+      });
+    return () => controller.abort();
+  }, [hydrated, user]);
+
+  useEffect(() => {
+    const handleFavoritesUpdated = (event) => {
+      const ids = Array.isArray(event?.detail?.productIds) ? event.detail.productIds.map(String) : [];
+      setFavoriteProductIds(ids);
+      setFavoritesStatus("ready");
+    };
+    window.addEventListener(FAVORITES_UPDATED_EVENT, handleFavoritesUpdated);
+    return () => window.removeEventListener(FAVORITES_UPDATED_EVENT, handleFavoritesUpdated);
+  }, []);
 
   useEffect(() => {
     if (!hydrated || !user || !["overview", "balance"].includes(activeTab)) return;
@@ -1028,10 +1063,13 @@ export function AccountPageContent() {
     () => visibleOrders.filter((order) => ["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
     [visibleOrders]
   );
-  const wishlistProducts = useMemo(() => homeProducts.slice(0, 6), [homeProducts]);
   const recentlyViewed = useMemo(
     () => recentProductIds.map((id) => productIndex.get(String(id))).filter(Boolean),
     [productIndex, recentProductIds]
+  );
+  const favoriteProducts = useMemo(
+    () => favoriteProductIds.map((id) => productIndex.get(String(id))).filter(Boolean),
+    [favoriteProductIds, productIndex]
   );
   const userInitials = useMemo(() => {
     const words = formatName(resolvedUser).split(/\s+/).filter(Boolean);
@@ -1039,7 +1077,7 @@ export function AccountPageContent() {
   }, [resolvedUser]);
   const getTabBadge = (slug) => {
     if (slug === "orders") return presentOrders.length || pastOrders.length || "";
-    if (slug === "wishlist") return wishlistProducts.length || "";
+    if (slug === "favorites") return favoriteProductIds.length || "";
     if (slug === "voucher") return 2;
     return "";
   };
@@ -1398,7 +1436,7 @@ export function AccountPageContent() {
                           </span>
                         </button>
                         <button type="button" className={styles.orderActionButton} onClick={() => handleReorder(order)}>
-                          Reorder items
+                          Buy again
                         </button>
                       </div>
                     </div>
@@ -1479,7 +1517,7 @@ export function AccountPageContent() {
             ) : (
               <div className={styles.sectionEmpty}>
                 <i className="fa-solid fa-cart-shopping" aria-hidden="true" style={{ fontSize: "1.6rem" }} />
-                <p>Your saved cart is empty. Reorder a past order or add fresh items from the catalogue.</p>
+                <p>Your saved cart is empty. Buy a past order again or add fresh items from the catalogue.</p>
                 <Link href="/shop">Browse catalogue</Link>
               </div>
             )}
@@ -1614,10 +1652,17 @@ export function AccountPageContent() {
           </>
         );
       }
-      case "wishlist":
-        return wishlistProducts.length ? (
+      case "favorites":
+        return favoritesStatus === "loading" ? (
+          <div className={styles.section}>
+            <div className={styles.sectionEmpty}>
+              <p>Loading your Favorites...</p>
+            </div>
+          </div>
+        ) : favoriteProducts.length ? (
+          <>
           <div className={styles.productGrid}>
-            {wishlistProducts.map((product) => (
+            {favoriteProducts.map((product) => (
               <ProductCard
                 key={product.variantId || product.id}
                 product={product}
@@ -1625,9 +1670,12 @@ export function AccountPageContent() {
               />
             ))}
           </div>
+          </>
         ) : renderEmptyState(
-          "Wishlist",
-          "Save seasonal favorites or special treats to your wishlist for easy reordering.",
+          "Favorites",
+          favoritesStatus === "error"
+            ? "We could not load your Favorites. Please refresh and try again."
+            : "Save frequently bought items, such as rice, eggs, tomatoes, or chicken, for a quicker next order.",
           "/shop",
           "Browse catalogue"
         );
@@ -1667,7 +1715,7 @@ export function AccountPageContent() {
       case "recent":
         return (
           <div className={styles.productGrid}>
-            {(recentlyViewed.length ? recentlyViewed : wishlistProducts.slice(0, 3)).map((product) => {
+            {(recentlyViewed.length ? recentlyViewed : homeProducts.slice(0, 3)).map((product) => {
               const price = Number(product.price ?? product.unit_price ?? product.unitPrice ?? 0);
               const cardProduct = {
                 ...product,
@@ -1747,7 +1795,7 @@ export function AccountPageContent() {
               <div className={styles.listItem}>
                 <i className="fa-solid fa-lock" aria-hidden="true" />
                 <span>Password</span>
-                <Link href={signInRedirectHref}>Change password</Link>
+                <Link href="/account/change-password">Change password</Link>
               </div>
             </div>
             {isEditingPhone ? (
@@ -1853,7 +1901,7 @@ export function AccountPageContent() {
             <div className={styles.dangerZone}>
               <h3 className={styles.sectionTitle}>Delete account</h3>
               <p className={styles.cardBody}>
-                Permanently close this account and remove saved cart, wishlist, addresses, payment methods, notifications, reviews, and profile data.
+                Permanently close this account and remove saved cart, Favorites, addresses, payment methods, notifications, reviews, and profile data.
               </p>
               <button
                 type="button"

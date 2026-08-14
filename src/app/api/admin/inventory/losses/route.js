@@ -8,6 +8,7 @@ import { respondZodError } from "@/lib/api/validate";
 import { getInventoryLossMovementReason, isInventoryLossType, normalizeInventoryLossType } from "@/lib/inventory-loss";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
+import { revalidatePublicCatalog } from "@/lib/catalog-cache-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -159,6 +160,8 @@ export async function POST(req) {
     note: note || undefined,
     ok: true,
   });
+
+  revalidatePublicCatalog();
 
   return applyRateLimitHeaders(
     NextResponse.json({

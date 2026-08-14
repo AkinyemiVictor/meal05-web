@@ -100,7 +100,7 @@ export async function DELETE(request) {
     };
 
     await deleteByUserId(admin, "cart_items", user.id);
-    await deleteByUserId(admin, "wishlists", user.id);
+    await deleteByUserId(admin, "favorites", user.id);
     await deleteByUserId(admin, "product_ratings", user.id);
     await deleteByUserId(admin, "payment_methods", user.id);
     await deleteByUserId(admin, "notifications", user.id);

@@ -25,11 +25,6 @@ export default function DeliveryPolicyPage() {
           <span className={styles.updated}>Effective 10 July 2026</span>
         </header>
 
-        <div className={styles.notice}>
-          This operational draft reflects Meal05&apos;s current launch-zone model and should be reviewed by qualified
-          Nigerian counsel before public launch.
-        </div>
-
         <article className={styles.content}>
           <section>
             <h2>Contents</h2>

@@ -104,6 +104,12 @@ export default function AddToCartForm({ product, fallbackImage }) {
   const { showNotice } = useNotice();
 
   const availableCount = useMemo(() => getAvailableCount(product?.stock), [product?.stock]);
+  const effectiveMaxQuantity = useMemo(() => {
+    if (Number.isFinite(availableCount)) {
+      return Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount);
+    }
+    return purchaseRules.maxQuantity;
+  }, [availableCount, purchaseRules.maxQuantity]);
   const quantityValidation = useMemo(
     () => validateVariantQuantity(product, quantityInput),
     [product, quantityInput]
@@ -272,7 +278,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
             type="button"
             className="product-detail-actions__stepper"
             onClick={handleIncrement}
-            disabled={Number.isFinite(availableCount) && safeQuantity >= availableCount}
+            disabled={effectiveMaxQuantity != null && safeQuantity >= effectiveMaxQuantity}
             aria-label="Increase quantity"
           >
             +

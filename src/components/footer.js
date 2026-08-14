@@ -4,6 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import {
+  IconBrandFacebook,
+  IconBrandInstagram,
+  IconBrandTiktok,
+  IconBrandX,
+} from "@tabler/icons-react";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { shouldShowCommerceFooter } from "@/lib/commerce-chrome";
 import { BRAND_MARK_SRC, BRAND_WORDMARK_DARK_SRC } from "@/lib/theme-logo";
@@ -51,20 +57,17 @@ export default function Footer() {
               Fresh food logistics, market insights, and doorstep convenience for kitchens across Nigeria.
             </p>
             <div className="social-icons">
-              <a href="#" aria-label="Facebook">
-                <Image src="/assets/icons/png/socials/facebook.png" alt="Facebook" width={24} height={24} loading="lazy" />
+              <a href="https://www.facebook.com/share/1EEP6SEA9D/" target="_blank" rel="noreferrer" aria-label="Meal05 on Facebook">
+                <IconBrandFacebook aria-hidden="true" />
               </a>
-              <a href="https://x.com/mealkit_nigeria" target="_blank" rel="noreferrer" aria-label="X">
-                <Image src="/assets/icons/png/socials/x.png" alt="X" width={24} height={24} loading="lazy" />
+              <a href="https://x.com/meal05_nigeria" target="_blank" rel="noreferrer" aria-label="X">
+                <IconBrandX aria-hidden="true" />
               </a>
-              <a href="#" aria-label="Pinterest">
-                <Image src="/assets/icons/png/socials/pinterest.png" alt="Pinterest" width={24} height={24} loading="lazy" />
+              <a href="https://www.tiktok.com/@meal05_nigeria" target="_blank" rel="noreferrer" aria-label="Meal05 on TikTok">
+                <IconBrandTiktok aria-hidden="true" />
               </a>
-              <a href="#" aria-label="Instagram">
-                <Image src="/assets/icons/png/socials/instagram.png" alt="Instagram" width={24} height={24} loading="lazy" />
-              </a>
-              <a href="#" aria-label="Google">
-                <Image src="/assets/icons/png/socials/google.png" alt="Google" width={24} height={24} loading="lazy" />
+              <a href="https://www.instagram.com/meal05.nigeria/" target="_blank" rel="noreferrer" aria-label="Instagram">
+                <IconBrandInstagram aria-hidden="true" />
               </a>
             </div>
           </div>
@@ -76,6 +79,9 @@ export default function Footer() {
           <div className="link-group">
             <h3>Company</h3>
             <ul>
+              <li>
+                <Link href="/landing">Landing Page</Link>
+              </li>
               <li>
                 <Link href="/about-us">About Us</Link>
               </li>
@@ -98,9 +104,6 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/account/orders">Track Your Order</Link>
-              </li>
-              <li>
-                <Link href="/help-center#searchQnAAgent">Return</Link>
               </li>
               <li>
                 <Link href="/help-center">FAQ</Link>
@@ -131,7 +134,7 @@ export default function Footer() {
             <h3>Contact</h3>
             <ul>
               <li>
-                <a href="tel:+23408118287047">+234 (0) 811 828 7047</a>
+                <a href="tel:+2348118287047">+234-81-1828-7047</a>
               </li>
               <li>
                 <a href="mailto:hello@meal05.com">hello@meal05.com</a>
@@ -139,7 +142,7 @@ export default function Footer() {
               <li>
                 <Link href="/rider">Rider Portal</Link>
               </li>
-              <li>No 8, Bel Air Estate<br />Akala Expressway, Ibadan</li>
+              <li>No 9, Bel-Air Estate<br />Akala Expressway, Ibadan<br />Oyo State, Nigeria</li>
             </ul>
           </div>
         </div>

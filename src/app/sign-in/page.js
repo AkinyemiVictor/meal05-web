@@ -14,36 +14,24 @@ import { migrateGuestCartToUser } from "@/lib/cart-storage";
 import { syncGuestAdditionsAfterSignIn } from "@/lib/cart-sync";
 import { BRAND_WORDMARK_SRC } from "@/lib/theme-logo";
 import { DEFAULT_PHONE_COUNTRY_CODE, PHONE_COUNTRY_OPTIONS } from "@/lib/phone-country-options";
+import {
+  PASSWORD_PATTERN,
+  PASSWORD_REGEX,
+  getPasswordRequirements,
+  getPasswordValidationMessage,
+} from "@/lib/password-policy";
+import { PASSWORD_RECOVERY_PATH } from "@/lib/auth/password-recovery";
 
 const NAME_PATTERN = "[A-Za-z]+";
 const EMAIL_PATTERN = "[A-Za-z0-9]+@[A-Za-z0-9]+\\.com";
-const PASSWORD_PATTERN = "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{8,}";
 const PHONE_INPUT_PATTERN = "[0-9\\s().-]{4,24}";
 const PHONE_NUMBER_PATTERN = "[0-9]{4,14}";
 const REMEMBERED_LOGIN_EMAIL_KEY = "meal05_remembered_login_email";
 
 const NAME_REGEX = new RegExp(`^${NAME_PATTERN}$`);
 const EMAIL_REGEX = new RegExp(`^${EMAIL_PATTERN}$`);
-const PASSWORD_REGEX = new RegExp(`^${PASSWORD_PATTERN}$`);
 const PHONE_NUMBER_REGEX = new RegExp(`^${PHONE_NUMBER_PATTERN}$`);
 const PHONE_INPUT_REGEX = new RegExp(`^${PHONE_INPUT_PATTERN}$`);
-
-const getPasswordRequirements = (password) => {
-  const value = String(password || "");
-  return [
-    { key: "length", label: "At least 8 characters", met: value.length >= 8 },
-    { key: "uppercase", label: "One uppercase letter", met: /[A-Z]/.test(value) },
-    { key: "lowercase", label: "One lowercase letter", met: /[a-z]/.test(value) },
-    { key: "number", label: "One number", met: /\d/.test(value) },
-    { key: "symbol", label: "One symbol (for example !, @, #)", met: /[^\w\s]/.test(value) },
-  ];
-};
-
-const getPasswordValidationMessage = (password) => {
-  const missing = getPasswordRequirements(password).filter((item) => !item.met);
-  if (!missing.length) return "";
-  return "Password needs: " + missing.map((item) => item.label.toLowerCase()).join(", ") + ".";
-};
 
 const normalizeLoginPhone = (value, countryCode = DEFAULT_PHONE_COUNTRY_CODE) => {
   const digits = String(value || "").replace(/\D/g, "");
@@ -146,14 +134,11 @@ function SignInPageContent() {
     [requestedNext]
   );
   const getLoginResetRedirect = useCallback(() => {
-    const url = new URL("/sign-in", window.location.origin);
-    url.searchParams.set("tab", "login");
-    if (requestedNext) {
-      url.searchParams.set("next", requestedNext);
-    }
-    url.hash = "loginForm";
+    const url = new URL("/auth/callback", window.location.origin);
+    url.searchParams.set("flow", "recovery");
+    url.searchParams.set("next", PASSWORD_RECOVERY_PATH);
     return url.toString();
-  }, [requestedNext]);
+  }, []);
   const getSignupConfirmRedirect = useCallback(() => {
     const url = new URL("/auth/callback", window.location.origin);
     if (requestedNext) {

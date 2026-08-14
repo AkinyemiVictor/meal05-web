@@ -28,14 +28,32 @@ test("cart summary does not show delivery fees or returns copy", () => {
   assert.doesNotMatch(cartPage, /Free returns/i);
 });
 
-test("cart quantity updates have loading, rollback, and server persistence hooks", () => {
+test("cart quantity updates stay responsive while preserving rollback and server persistence hooks", () => {
   const cartPage = read("src/app/cart/page.js");
 
   assert.match(cartPage, /cartUpdateState/);
   assert.match(cartPage, /aria-busy=\{lineBusy\}/);
-  assert.match(cartPage, /fetch\(`\/api\/cart\/\$\{encodeURIComponent\(cartItemId\)\}`/);
-  assert.match(cartPage, /setCartItems\(previousItems\)/);
+  assert.match(cartPage, /pendingQuantitySyncRef/);
+  assert.match(cartPage, /queueQuantitySync\(id\)/);
+  assert.match(cartPage, /fetch\(`\/api\/cart\/\$\{encodeURIComponent\(job\.cartItemId\)\}`/);
+  assert.match(cartPage, /fetchCanonicalCart\(\{ persist: false \}\)/);
+  assert.match(cartPage, /setCartItems\(job\.previousItems\)/);
+  assert.match(cartPage, /skipAnalytics:\s*true/);
   assert.match(cartPage, /Unable to update cart quantity/);
+});
+
+test("Favorites use the authenticated per-user favorites API", () => {
+  const favoritesRoute = read("src/app/api/favorites/route.js");
+  const accountPage = read("src/app/account/page.js");
+  const productDetail = read("src/components/product-detail-client.js");
+  const headerActions = read("src/components/meal05-header-actions.js");
+
+  assert.match(favoritesRoute, /from\("favorites"\)/);
+  assert.match(favoritesRoute, /\.eq\("user_id", user\.id\)/);
+  assert.match(favoritesRoute, /onConflict: "user_id,product_id"/);
+  assert.match(accountPage, /label: "Favorites"/);
+  assert.match(productDetail, /Save to Favorites/);
+  assert.match(headerActions, /href: protect\("\/account\/favorites"\)/);
 });
 
 test("payment status modal is a fixed body portal with dialog accessibility", () => {

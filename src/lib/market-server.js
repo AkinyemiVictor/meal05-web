@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
@@ -59,7 +60,12 @@ const loadDefaultMarket = async () => {
   return normalizeMarket(rows[0]);
 };
 
-// React cache deduplicates repeated market lookups during one server render.
-// The database remains authoritative across requests.
-export const getDefaultMarket = cache(loadDefaultMarket);
+// The active market changes very rarely compared with price and stock. Keep it
+// in Next's server cache while React cache also deduplicates calls made by one
+// render. Product catalogue rows and all cart/order validation remain live.
+const loadCachedDefaultMarket = unstable_cache(loadDefaultMarket, ["default-market"], {
+  revalidate: 3600,
+  tags: ["default-market"],
+});
 
+export const getDefaultMarket = cache(loadCachedDefaultMarket);

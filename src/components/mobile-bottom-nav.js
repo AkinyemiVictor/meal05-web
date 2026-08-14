@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   IconHelpCircle,
   IconHome,
@@ -13,6 +13,7 @@ import {
 import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
 import { readCartItems } from "@/lib/cart-storage";
 import { shouldShowMobileBottomNav } from "@/lib/commerce-chrome";
+import { prefetchShop } from "@/lib/shop-prefetch";
 
 const items = [
   { label: "Home", icon: IconHome, href: "/home", match: (pathname) => pathname === "/home" },
@@ -56,9 +57,22 @@ function useCartCount() {
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const cartCount = useCartCount();
+  const shouldRender = shouldShowMobileBottomNav(pathname);
 
-  if (!shouldShowMobileBottomNav(pathname)) return null;
+  useEffect(() => {
+    if (!shouldRender || pathname === "/shop") return undefined;
+    const run = () => void prefetchShop(router);
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(run, { timeout: 1200 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timer = window.setTimeout(run, 300);
+    return () => window.clearTimeout(timer);
+  }, [pathname, router, shouldRender]);
+
+  if (!shouldRender) return null;
 
   return (
     <nav className="site-mobile-bottom-nav md:hidden" aria-label="Primary mobile navigation">
@@ -70,7 +84,10 @@ export default function MobileBottomNav() {
             <Link
               key={item.label}
               href={item.href}
-              prefetch={false}
+              prefetch={item.href === "/shop"}
+              onPointerEnter={item.href === "/shop" ? () => void prefetchShop(router) : undefined}
+              onFocus={item.href === "/shop" ? () => void prefetchShop(router) : undefined}
+              onTouchStart={item.href === "/shop" ? () => void prefetchShop(router) : undefined}
               aria-current={isActive ? "page" : undefined}
               className={classNames(
                 "site-mobile-bottom-nav__item",

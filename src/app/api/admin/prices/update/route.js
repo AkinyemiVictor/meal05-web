@@ -10,6 +10,7 @@ import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
+import { revalidatePublicCatalog } from "@/lib/catalog-cache-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -213,6 +214,7 @@ export async function POST(req) {
   }
 
   revalidatePriceSurfaces({ product, category });
+  revalidatePublicCatalog();
 
   await logAdminEvent({
     route: "/api/admin/prices/update",

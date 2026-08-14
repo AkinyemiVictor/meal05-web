@@ -312,6 +312,7 @@ export async function POST(request) {
   const hasMissingVariantIds = cart.some((row) => row?.variant_id == null);
   let productNameIndex = new Map();
   let productMetaIndex = new Map();
+  let eligibleProductIds = new Set();
   let variantRows = [];
   if (payloadVariantIds.length || productIds.length) {
     const query = !hasMissingVariantIds && payloadVariantIds.length
@@ -334,10 +335,31 @@ export async function POST(request) {
     new Set([...productIds, ...variantRows.map((row) => String(row.product_id)).filter(Boolean)])
   );
   if (resolvedProductIds.length) {
-    const { data: productRows } = await admin
-      .from("products")
-      .select("id, name, category_id")
-      .in("id", resolvedProductIds);
+    const [productResult, eligibilityResult] = await Promise.all([
+      admin
+        .from("products")
+        .select("id, name, category_id")
+        .in("id", resolvedProductIds),
+      admin
+        .from("product_card_catalog")
+        .select("product_id")
+        .eq("market_id", catalog.market.id)
+        .in("product_id", resolvedProductIds),
+    ]);
+    if (productResult.error || eligibilityResult.error) {
+      return applyRateLimitHeaders(
+        NextResponse.json(
+          { error: productResult.error?.message || eligibilityResult.error?.message || "Unable to validate products" },
+          { status: 400 }
+        ),
+        rl
+      );
+    }
+    const productRows = productResult.data;
+    eligibleProductIds = new Set(
+      (Array.isArray(eligibilityResult.data) ? eligibilityResult.data : [])
+        .map((row) => String(row.product_id))
+    );
     const categoryIds = Array.from(
       new Set(
         (Array.isArray(productRows) ? productRows : [])
@@ -465,6 +487,10 @@ export async function POST(request) {
       }
       if (!catalog.listings.has(String(variant.product_id))) {
         issues.push({ variantId, productId: variant.product_id, message: "Product is not listed in this market" });
+        return;
+      }
+      if (!eligibleProductIds.has(String(variant.product_id))) {
+        issues.push({ variantId, productId: variant.product_id, message: "Product is currently unavailable" });
         return;
       }
       if (variant.is_active === false || variant.currency_code !== catalog.market.currencyCode) {

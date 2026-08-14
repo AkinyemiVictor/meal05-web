@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { IconShoppingCart, IconSparkles } from "@tabler/icons-react";
+import { IconShoppingCart } from "@tabler/icons-react";
 
+import FavoriteToggleButton from "@/components/favorite-toggle-button";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { resolveProductImage } from "@/lib/product-image";
 import { getProductHref } from "@/lib/products";
@@ -96,7 +97,15 @@ function ProductImage({ product, compact = false, priority = false }) {
   );
 }
 
-export default function ProductCard({ product, onAdd, onQuickAdd, className, actionLabel = "Add to cart", compact = false, priority = false }) {
+export default function ProductCard({
+  product,
+  onAdd,
+  onQuickAdd,
+  className,
+  actionLabel = "Add to cart",
+  compact = false,
+  priority = false,
+}) {
   const stockClass = resolveStockClass(product.stock);
   const unavailable = stockClass === "is-unavailable";
   const productHref = getProductHref(product);
@@ -136,17 +145,15 @@ export default function ProductCard({ product, onAdd, onQuickAdd, className, act
               {product.name}
             </span>
           </Link>
-          <Link
-            href={productHref}
-            prefetch={false}
+          <FavoriteToggleButton
+            productId={product.id || product.productId}
+            productName={product.name}
+            iconSize={compact ? 15 : 18}
             className={classNames(
-              "absolute right-0 top-0 grid place-items-center rounded-full border border-meal-line text-meal-muted",
+              "absolute right-0 top-0 grid place-items-center rounded-full border border-meal-line text-meal-muted transition disabled:cursor-wait",
               compact ? "h-8 w-8" : "h-10 w-10"
             )}
-            aria-label={`View ${product.name}`}
-          >
-            <IconSparkles size={compact ? 15 : 18} stroke={1.8} />
-          </Link>
+          />
         </div>
         <div className="self-end">
           <Link

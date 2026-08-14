@@ -171,6 +171,8 @@ export const normaliseProductCatalogue = (catalogue) => {
         isChefChoice: Boolean(item.isChefChoice || item.is_chef_choice),
         isUnder15m: Boolean(item.isUnder15m || item.is_under_15m || item.isUnder15Minutes),
         isBundleEligible: Boolean(item.isBundleEligible || item.is_bundle_eligible),
+        variations: Array.isArray(item.variations) ? item.variations : [],
+        optionsLoaded: item.optionsLoaded === true,
         promoTagExpiresAt: parsePromoExpiry(
           item.promoTagExpiresAt ?? item.promo_tag_expires_at ?? item.promoExpiresAt
         ),

@@ -19,6 +19,7 @@ import { pickMostPopularProducts } from "@/lib/catalogue";
 import { readCartItems } from "@/lib/cart-storage";
 import { pickMostPurchasedProducts } from "@/lib/engagement";
 import { shouldShowSeasonBadge } from "@/lib/season-badge";
+import usePaginationState from "@/lib/use-pagination-state";
 
 const RECENTLY_VIEWED_STORAGE_KEY = "meal05_recently_viewed";
 const PAGE_SIZE = 20;
@@ -41,6 +42,7 @@ export default function SectionViewPage() {
     if (isBundlePlansSlug) return "";
     if (slug === "new") return "/api/catalog/cards?view=new&limit=48";
     if (slug === "in-season") return "/api/catalog/cards?view=in-season&limit=48";
+    if (slug === "popular") return "/api/catalog/home?limit=72";
     return "/api/catalog/cards?view=home&limit=48";
   }, [isBundlePlansSlug, slug]);
   const { ordered: sectionProducts, status: sectionStatus } = useCatalogProducts(sectionUrl);
@@ -53,7 +55,7 @@ export default function SectionViewPage() {
   const catalogItems = useMemo(() => buildCatalogItems(sectionProducts), [sectionProducts]);
 
   const [items, setItems] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = usePaginationState(slug);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorRect, setQuickAddAnchorRect] = useState(null);
@@ -120,14 +122,10 @@ export default function SectionViewPage() {
   }, [items, currentPage]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [slug]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+    if (items.length && currentPage > totalPages) {
+      setCurrentPage(totalPages, { replace: true });
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, items.length, setCurrentPage, totalPages]);
 
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages || page === currentPage) return;

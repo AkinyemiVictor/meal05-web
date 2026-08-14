@@ -5061,6 +5061,29 @@ main > section:not(.home-hero) {
   border-color: rgba(148, 163, 184, 0.4);
 }
 
+.site-footer--primary .social-icons svg {
+  width: 24px;
+  height: 24px;
+  color: #fff;
+}
+
+.favorite-toggle:hover:not([aria-pressed="true"]) {
+  border-color: rgba(220, 38, 38, 0.28);
+  background: rgba(254, 226, 226, 0.5);
+  color: rgba(220, 38, 38, 0.48);
+}
+
+.favorite-toggle:hover:not([aria-pressed="true"]) svg,
+.favorite-toggle[aria-pressed="true"] svg {
+  fill: currentColor;
+}
+
+.favorite-toggle[aria-pressed="true"] {
+  border-color: rgba(220, 38, 38, 0.42);
+  background: #fff1f2;
+  color: #dc2626;
+}
+
 .site-footer--primary .footer-newsletter {
   flex: 1 1 360px;
   background: rgba(20, 30, 48, 0.75);
@@ -6653,13 +6676,15 @@ main > section:not(.home-hero) {
   height: 38px;
   margin: 4px;
   border-radius: 999px;
-  background: #f1f2f4;
-  color: #5f6675;
-}
-
-.quick-add-panel--mobile-modal .quick-add-qty button:last-child {
   background: #11131f;
   color: #ffffff;
+}
+
+.quick-add-panel--mobile-modal .quick-add-qty button:disabled {
+  background: #f1f2f4;
+  color: #9aa2af;
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 .quick-add-panel--mobile-modal .quick-add-qty input {
@@ -8528,14 +8553,16 @@ main > section:not(.home-hero) {
   width: 42px;
   height: 42px;
   border-radius: 999px;
-  background: #ffffff;
-  color: #11131f;
+  background: #11131f;
+  color: #ffffff;
   font-size: 1.4rem;
 }
 
-.product-detail-page .product-detail-actions__stepper:last-child {
-  background: #11131f;
-  color: #ffffff;
+.product-detail-page .product-detail-actions__stepper:disabled {
+  background: #ffffff;
+  color: #9aa2af;
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 .product-detail-page .product-detail-actions__submit {
@@ -10282,13 +10309,12 @@ main > section:not(.home-hero) {
   position: absolute;
   z-index: 1;
   display: block;
-  overflow: hidden;
   pointer-events: none;
   filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.3));
 }
 
 .welcome-seasonal__leaf--top {
-  top: -18px;
+  top: 22px;
   left: 38%;
   width: 84px;
   height: 78px;
@@ -10297,8 +10323,8 @@ main > section:not(.home-hero) {
 }
 
 .welcome-seasonal__leaf--bottom {
-  bottom: -22px;
-  left: 24px;
+  bottom: 34px;
+  left: 48%;
   width: 70px;
   height: 70px;
   transform: rotate(128deg);
@@ -10315,26 +10341,70 @@ main > section:not(.home-hero) {
 }
 
 .welcome-seasonal__leaf-image {
-  position: absolute;
-  max-width: none;
-  object-fit: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-.welcome-seasonal__leaf-image--top {
-  top: -18px;
-  left: -220px;
+/* Desktop has more horizontal room than the tablet layout. Keep the banner compact
+   by reducing the design canvas itself, rather than clipping the scaled content. */
+@media (min-width: 1024px) {
+  .welcome-banner.welcome-banner--seasonal {
+    aspect-ratio: 11 / 4;
+  }
+
+  .welcome-seasonal__content {
+    height: 420px;
+    gap: 42px;
+    padding: 40px 48px;
+  }
+
+  .welcome-seasonal__art {
+    width: 410px;
+    height: 318px;
+  }
+
+  .welcome-seasonal__leaf--top {
+    top: 18px;
+  }
+
+  .welcome-seasonal__leaf--bottom {
+    bottom: 36px;
+  }
+
+  .welcome-seasonal__leaf--right {
+    top: 28px;
+  }
 }
 
-.welcome-seasonal__leaf-image--bottom {
-  top: -230px;
-  left: -28px;
-  transform: scale(0.72);
-  transform-origin: top left;
-}
+/* On phones, reclaim vertical space before increasing the type. The wider copy
+   allowance keeps the existing two-line headline and product artwork intact. */
+@media (max-width: 767px) {
+  .welcome-seasonal__content {
+    height: 480px;
+    gap: 22px;
+    padding: 8px 52px;
+  }
 
-.welcome-seasonal__leaf-image--right {
-  top: -26px;
-  left: -143px;
-  transform: scale(0.55);
-  transform-origin: top left;
+  .welcome-seasonal__copy {
+    max-width: 590px;
+  }
+
+  .welcome-seasonal__copy h2 {
+    margin-bottom: 12px;
+    font-size: 54px;
+    white-space: nowrap;
+  }
+
+  .welcome-seasonal__copy > p {
+    margin-bottom: 20px;
+    font-size: 19px;
+    line-height: 1.5;
+  }
+
+  .welcome-seasonal__art {
+    width: 430px;
+    height: 350px;
+  }
 }

@@ -51,7 +51,9 @@ test("Browse and search use exact server pagination instead of the legacy 120-pr
   assert.match(shopPage, /pageSize=\$\{PAGE_SIZE\}/);
   assert.doesNotMatch(shopPage, /cards\?limit=120/);
   assert.match(cardsRoute, /loadPublicCatalogPage/);
-  assert.match(catalogServer, /select\(CARD_CATALOG_FIELDS, \{ count: "exact" \}\)/);
+  assert.match(catalogServer, /from\("product_card_catalog_with_options"\)/);
+  assert.match(catalogServer, /select\("product_id", \{ count: "exact", head: true \}\)/);
+  assert.match(catalogServer, /Promise\.all\(\[\s*query\.range\(range\.from, range\.to\),\s*countQuery/);
   assert.match(catalogServer, /query\.range\(range\.from, range\.to\)/);
   const searchFunction = catalogServer.slice(catalogServer.indexOf("export async function loadPublicSearchResults"));
   assert.match(searchFunction, /loadPublicCatalogPage/);

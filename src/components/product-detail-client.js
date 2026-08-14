@@ -12,7 +12,8 @@ import { resolveProductImage } from "@/lib/product-image";
 import { formatMoney } from "@/lib/region";
 import { PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE, normalizePurchaseMode } from "@/lib/purchase-quantities";
 import { shouldShowSeasonBadge } from "@/lib/season-badge";
-import { IconSparkles } from "@tabler/icons-react";
+import { loadFavoriteIds, updateFavoriteIds } from "@/lib/favorites-client";
+import { IconHeart } from "@tabler/icons-react";
 
 const isVariantInactive = (variant) => {
   if (!variant || typeof variant !== "object") return true;
@@ -63,6 +64,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
   );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [favoriteStatus, setFavoriteStatus] = useState("idle");
   const fixedVariations = useMemo(
     () =>
       variations.filter((variant) =>
@@ -80,6 +82,12 @@ export default function ProductDetailClient({ product, variations = [], fallback
   const hasFixedVariations = fixedVariations.length > 0;
   const hasLooseVariations = looseVariations.length > 0;
   const selectableVariations = purchaseMode === PURCHASE_MODE_LOOSE ? looseVariations : fixedVariations;
+
+  const handlePurchaseModeChange = (nextMode) => {
+    const nextVariations = nextMode === PURCHASE_MODE_LOOSE ? looseVariations : fixedVariations;
+    setPurchaseMode(nextMode);
+    setSelectedVariant(pickDefaultVariant(nextVariations) || null);
+  };
 
   useEffect(() => {
     setSelectedVariant(defaultVariant || null);
@@ -100,14 +108,30 @@ export default function ProductDetailClient({ product, variations = [], fallback
     setActiveImageIndex(0);
   }, [product?.id, selectedVariant]);
 
-  const handleSaveToggle = () => {
+  useEffect(() => {
+    if (!readStoredUser() || !product?.id) {
+      setSaved(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    loadFavoriteIds()
+      .then((ids) => {
+        if (controller.signal.aborted) return;
+        setSaved(ids.includes(String(product.id)));
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [product?.id]);
+
+  const handleSaveToggle = async () => {
     if (!readStoredUser()) {
       const next = typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : "/shop";
       const href = buildSignInHref({ tab: "login", next, hash: "loginForm" });
       showNotice({
         tone: "info",
         title: "Sign in required",
-        message: "Create or sign in to your account to use wishlist.",
+        message: "Create or sign in to your account to save Favorites.",
         dismissText: "Later",
         actions: [
           {
@@ -121,7 +145,39 @@ export default function ProductDetailClient({ product, variations = [], fallback
       });
       return;
     }
-    setSaved((current) => !current);
+    if (favoriteStatus === "saving") return;
+
+    const wasSaved = saved;
+    setSaved(!wasSaved);
+    setFavoriteStatus("saving");
+    try {
+      const response = await fetch(
+        wasSaved ? `/api/favorites?productId=${encodeURIComponent(product.id)}` : "/api/favorites",
+        {
+          method: wasSaved ? "DELETE" : "POST",
+          cache: "no-store",
+          headers: wasSaved ? undefined : { "Content-Type": "application/json" },
+          body: wasSaved ? undefined : JSON.stringify({ productId: product.id }),
+        }
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || "Unable to update Favorites.");
+      }
+      updateFavoriteIds((current) =>
+        wasSaved ? current.filter((favoriteId) => favoriteId !== String(product.id)) : [String(product.id), ...current]
+      );
+    } catch (error) {
+      setSaved(wasSaved);
+      showNotice({
+        tone: "error",
+        title: "Favorites not updated",
+        message: error?.message || "Please try again.",
+        autoClose: true,
+      });
+    } finally {
+      setFavoriteStatus("idle");
+    }
   };
 
   const display = useMemo(() => {
@@ -288,7 +344,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
               <button
                 type="button"
                 className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_FIXED ? " is-active" : ""}`.trim()}
-                onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
+                onClick={() => handlePurchaseModeChange(PURCHASE_MODE_FIXED)}
                 aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
               >
                 <span className="product-variant-picker__option-main">Pack</span>
@@ -296,7 +352,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
               <button
                 type="button"
                 className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_LOOSE ? " is-active" : ""}`.trim()}
-                onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
+                onClick={() => handlePurchaseModeChange(PURCHASE_MODE_LOOSE)}
                 aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
               >
                 <span className="product-variant-picker__option-main">Loose</span>
@@ -305,8 +361,9 @@ export default function ProductDetailClient({ product, variations = [], fallback
           </div>
         ) : null}
 
-        {purchaseMode === PURCHASE_MODE_FIXED && selectableVariations.length ? (
+        {selectableVariations.length ? (
           <VariantPicker
+            key={purchaseMode}
             variations={selectableVariations}
             selectedId={selectedVariant?.variationId}
             onChange={(v) => setSelectedVariant(v)}
@@ -327,9 +384,11 @@ export default function ProductDetailClient({ product, variations = [], fallback
           className={`product-detail-save${saved ? " is-saved" : ""}`}
           onClick={handleSaveToggle}
           aria-pressed={saved}
+          aria-busy={favoriteStatus === "saving"}
+          disabled={favoriteStatus === "saving"}
         >
-          <IconSparkles size={19} stroke={saved ? 2.4 : 1.8} aria-hidden="true" />
-          <span>{saved ? "Saved for later" : "Save for later"}</span>
+          <IconHeart size={19} fill={saved ? "currentColor" : "none"} stroke={saved ? 2.4 : 1.8} aria-hidden="true" />
+          <span>{saved ? "Saved to Favorites" : "Save to Favorites"}</span>
         </button>
       </div>
     </>

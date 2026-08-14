@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import CategoryCarouselSkeleton from "@/components/category-carousel-skeleton";
 import ProductCard from "@/components/product-card";
@@ -9,6 +9,7 @@ import PageBreadcrumbs from "@/components/page-breadcrumbs";
 import PageState from "@/components/page-state";
 import ProductGrid from "@/components/product-grid";
 import { buildPaginationItems } from "@/lib/pagination";
+import usePaginationState from "@/lib/use-pagination-state";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
   loading: () => <CategoryCarouselSkeleton />,
@@ -30,41 +31,82 @@ export default function CategoryPage({
   category,
   products = [],
   categories = [],
+  pagination = null,
   pageSize = DEFAULT_PAGE_SIZE,
   status = "ready",
 }) {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = usePaginationState(category?.slug);
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorRect, setQuickAddAnchorRect] = useState(null);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
+  const [pageProducts, setPageProducts] = useState(() => (Array.isArray(products) ? products : []));
+  const [pageStatus, setPageStatus] = useState(status);
+  const pageCacheRef = useRef(new Map([[1, Array.isArray(products) ? products : []]]));
 
-  const itemsPerPage = category?.itemsPerPage || pageSize || DEFAULT_PAGE_SIZE;
-  const isLoadingProducts = status === "loading";
-  const hasProductsError = status === "error";
+  const itemsPerPage = Number(pagination?.pageSize || category?.itemsPerPage || pageSize || DEFAULT_PAGE_SIZE);
+  const isLoadingProducts = pageStatus === "loading";
+  const hasProductsError = pageStatus === "error";
   const categoryProducts = useMemo(() => {
-    return Array.isArray(products) ? products.slice() : [];
-  }, [products]);
-  const totalPages = Math.max(1, Math.ceil(categoryProducts.length / itemsPerPage));
+    return Array.isArray(pageProducts) ? pageProducts.slice() : [];
+  }, [pageProducts]);
+  const totalItems = Number(pagination?.total ?? category?.product_count ?? categoryProducts.length) || 0;
+  const totalPages = Math.max(1, Number(pagination?.totalPages || Math.ceil(totalItems / itemsPerPage)) || 1);
   const paginationItems = useMemo(
     () => buildPaginationItems(currentPage, totalPages),
     [currentPage, totalPages]
   );
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [categoryProducts.length, itemsPerPage]);
+    const initialProducts = Array.isArray(products) ? products : [];
+    setPageProducts(initialProducts);
+    setPageStatus(status);
+    pageCacheRef.current = new Map([[1, initialProducts]]);
+  }, [category?.slug, products, status]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+      setCurrentPage(totalPages, { replace: true });
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, setCurrentPage, totalPages]);
 
-  const pagedProducts = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return categoryProducts.slice(start, start + itemsPerPage);
-  }, [categoryProducts, currentPage, itemsPerPage]);
+  useEffect(() => {
+    const cached = pageCacheRef.current.get(currentPage);
+    if (cached) {
+      setPageProducts(cached);
+      setPageStatus("ready");
+      return undefined;
+    }
+
+    let cancelled = false;
+    setPageStatus("loading");
+    const loadPage = async () => {
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        pageSize: String(itemsPerPage),
+        category: category.slug,
+        sort: "default",
+      });
+      try {
+        const response = await fetch(`/api/catalog/cards?${params.toString()}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        if (cancelled) return;
+        const nextProducts = Array.isArray(payload?.flat) ? payload.flat : [];
+        pageCacheRef.current.set(currentPage, nextProducts);
+        setPageProducts(nextProducts);
+        setPageStatus("ready");
+      } catch {
+        if (cancelled) return;
+        setPageProducts([]);
+        setPageStatus("error");
+      }
+    };
+    loadPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [category.slug, currentPage, itemsPerPage]);
 
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages || page === currentPage) return;
@@ -120,8 +162,8 @@ export default function CategoryPage({
     );
   }
 
-  const start = categoryProducts.length ? (currentPage - 1) * itemsPerPage + 1 : 0;
-  const end = Math.min(currentPage * itemsPerPage, categoryProducts.length);
+  const start = totalItems && categoryProducts.length ? (currentPage - 1) * itemsPerPage + 1 : 0;
+  const end = Math.min((currentPage - 1) * itemsPerPage + categoryProducts.length, totalItems);
   const categoryCards = (Array.isArray(categories) ? categories : []).map(mapCategoryCard);
 
   return (
@@ -152,7 +194,7 @@ export default function CategoryPage({
           <PageState title="Loading products..." />
         ) : categoryProducts.length ? (
           <ProductGrid
-            products={pagedProducts}
+            products={categoryProducts}
             renderProduct={(product) => (
               <ProductCard key={product.id} product={product} onQuickAdd={handleQuickAdd} />
             )}
@@ -173,7 +215,7 @@ export default function CategoryPage({
           {isLoadingProducts
             ? "Loading products..."
             : categoryProducts.length
-              ? `Showing ${start}–${end} of ${categoryProducts.length} products`
+              ? `Showing ${start}-${end} of ${totalItems} products`
               : hasProductsError
                 ? "Unable to load products right now"
                 : "No products available right now"}

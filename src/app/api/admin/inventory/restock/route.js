@@ -7,6 +7,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
 import { logAdminEvent, logAdminError } from "@/lib/api/log";
 import { respondZodError } from "@/lib/api/validate";
+import { revalidatePublicCatalog } from "@/lib/catalog-cache-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,6 +135,8 @@ const restockViaDirectUpdate = async ({ admin, user, variantId, quantity, reason
     ledger_log_failed: Boolean(ledgerRes.error),
     ok: true,
   });
+
+  revalidatePublicCatalog();
 
   return {
     response: NextResponse.json({
@@ -275,6 +278,8 @@ export async function POST(req) {
     fallback: false,
     ok: true,
   });
+
+  revalidatePublicCatalog();
 
   return applyRateLimitHeaders(
     NextResponse.json({

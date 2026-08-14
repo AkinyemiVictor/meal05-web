@@ -2,20 +2,40 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useLayoutEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import {
   IconArrowRight,
   IconClockHour4,
   IconLeaf,
 } from "@tabler/icons-react";
+import { prefetchShop } from "@/lib/shop-prefetch";
 
 const BANNER_CONTENT_WIDTH = 1200;
-const LEAVES_IMAGE =
-  "/assets/img/Floating_Leaves_Transparent_Background__Floating_Leaves__Flying_Leaves__Flying_Leaves_Transparent_PNG_Transparent_Clipart_Image_and_PSD_File_for_Free_Download-removebg-preview.png";
+const LEAF_IMAGES = {
+  top: "/assets/billboard/leaf 12.png",
+  bottom: "/assets/billboard/leaf 4.png",
+  right: "/assets/billboard/leaf 10.png",
+};
 const MARKET_MAN_IMAGE = "/assets/img/meal05 - store man.png";
 
 export default function HomeSeasonalBanner() {
   const canvasRef = useRef(null);
+  const router = useRouter();
+
+  const prepareShop = useCallback(() => {
+    void prefetchShop(router);
+  }, [router]);
+
+  useEffect(() => {
+    const run = () => prepareShop();
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(run, { timeout: 1000 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timer = window.setTimeout(run, 200);
+    return () => window.clearTimeout(timer);
+  }, [prepareShop]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -51,13 +71,13 @@ export default function HomeSeasonalBanner() {
       <div className="welcome-seasonal__viewport">
         <div className="welcome-seasonal__content">
           <span className="welcome-seasonal__leaf welcome-seasonal__leaf--top" aria-hidden="true">
-            <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--top" />
+            <Image src={LEAF_IMAGES.top} alt="" width={108} height={81} className="welcome-seasonal__leaf-image" />
           </span>
           <span className="welcome-seasonal__leaf welcome-seasonal__leaf--bottom" aria-hidden="true">
-            <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--bottom" />
+            <Image src={LEAF_IMAGES.bottom} alt="" width={97} height={57} className="welcome-seasonal__leaf-image" />
           </span>
           <span className="welcome-seasonal__leaf welcome-seasonal__leaf--right" aria-hidden="true">
-            <Image src={LEAVES_IMAGE} alt="" width={360} height={360} className="welcome-seasonal__leaf-image welcome-seasonal__leaf-image--right" />
+            <Image src={LEAF_IMAGES.right} alt="" width={54} height={35} className="welcome-seasonal__leaf-image" />
           </span>
 
           <div className="welcome-seasonal__copy">
@@ -73,8 +93,13 @@ export default function HomeSeasonalBanner() {
               Less market stress. Less price wahala . More time for what matters. Get your groceries easier with Meal05.
             </p>
             <div className="welcome-seasonal__actions">
-              <Link href="/shop">
-                Shop seasonal picks
+              <Link
+                href="/shop"
+                onPointerEnter={prepareShop}
+                onFocus={prepareShop}
+                onTouchStart={prepareShop}
+              >
+                Go to shop
                 <i><IconArrowRight /></i>
               </Link>
               <span><IconClockHour4 /> New harvest every Monday</span>

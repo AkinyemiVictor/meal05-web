@@ -557,3 +557,97 @@
   flex: 0 0 auto;
   justify-self: end;
 }
+
+.site-footer--primary .newsletter-field button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
+.site-footer--primary .newsletter-field__error {
+  color: #fca5a5;
+}
+
+.newsletter-confirmation {
+  position: fixed;
+  z-index: 10020;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(8, 13, 29, 0.58);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.newsletter-confirmation__dialog {
+  width: min(100%, 420px);
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  border-radius: 26px;
+  background: #ffffff;
+  padding: 2rem 1.5rem 1.5rem;
+  color: #111827;
+  text-align: center;
+  box-shadow: 0 28px 70px rgba(8, 13, 29, 0.3);
+  animation: newsletter-confirmation-enter 180ms ease-out;
+}
+
+.newsletter-confirmation__icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #e9fbf4;
+  color: #10b981;
+}
+
+.newsletter-confirmation__icon svg {
+  width: 2.8rem;
+  height: 2.8rem;
+  stroke-width: 2.2;
+}
+
+.newsletter-confirmation__dialog h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+
+.newsletter-confirmation__dialog p {
+  margin: 0;
+  color: #5f6979;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.newsletter-confirmation__dialog button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 0.35rem;
+  border: 1px solid #d9dee7;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.newsletter-confirmation__dialog button:hover,
+.newsletter-confirmation__dialog button:focus-visible {
+  border-color: #111827;
+  background: #f7f8fa;
+}
+
+@keyframes newsletter-confirmation-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .newsletter-confirmation__dialog { animation: none; }
+}

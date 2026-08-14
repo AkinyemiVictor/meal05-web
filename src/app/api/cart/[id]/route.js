@@ -75,6 +75,18 @@ export async function PATCH(req, { params }) {
   if (!variant || variant.is_active === false || !catalog.listings.has(String(variant.product_id))) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Product option is unavailable in this market" }, { status: 409 }), rl);
   }
+  const { data: eligibleProduct, error: eligibilityError } = await admin
+    .from("product_card_catalog")
+    .select("product_id")
+    .eq("market_id", catalog.market.id)
+    .eq("product_id", variant.product_id)
+    .maybeSingle();
+  if (eligibilityError) {
+    return applyRateLimitHeaders(NextResponse.json({ error: eligibilityError.message }, { status: 400 }), rl);
+  }
+  if (!eligibleProduct) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "This product is currently unavailable" }, { status: 409 }), rl);
+  }
   const quantityValidation = validateVariantQuantity(variant, quantityNum);
   if (!quantityValidation.ok) {
     return applyRateLimitHeaders(

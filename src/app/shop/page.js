@@ -14,6 +14,8 @@ import { buildCatalogItems } from "@/lib/catalog-items";
 import { buildPaginationItems } from "@/lib/pagination";
 import useCategories from "@/lib/use-categories";
 import { useCatalogProducts } from "@/lib/use-catalog-products";
+import { SHOP_FIRST_PAGE_CATALOG_URL } from "@/lib/shop-prefetch";
+import usePaginationState from "@/lib/use-pagination-state";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
   loading: () => <CategoryCarouselSkeleton />,
@@ -23,13 +25,15 @@ const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { 
 const PAGE_SIZE = 20;
 
 export default function ShopPage() {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = usePaginationState("shop");
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
 
   const catalogUrl = useMemo(
-    () => `/api/catalog/cards?page=${currentPage}&pageSize=${PAGE_SIZE}&sort=default`,
+    () => currentPage === 1
+      ? SHOP_FIRST_PAGE_CATALOG_URL
+      : `/api/catalog/cards?page=${currentPage}&pageSize=${PAGE_SIZE}&sort=default`,
     [currentPage]
   );
   const { ordered, status, pagination } = useCatalogProducts(catalogUrl);
@@ -58,8 +62,8 @@ export default function ShopPage() {
   );
 
   useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+    if (pagination && currentPage > totalPages) setCurrentPage(totalPages, { replace: true });
+  }, [currentPage, pagination, setCurrentPage, totalPages]);
 
   const handlePageChange = (page) => {
     if (page < 1 || page > totalPages || page === currentPage) return;

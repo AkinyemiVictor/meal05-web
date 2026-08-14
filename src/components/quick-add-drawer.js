@@ -281,6 +281,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     const cached = cacheRef.current.get(cacheKey);
     const fallbackVariant = buildFallbackVariantFromProduct(product);
     const fallbackProduct = fallbackVariant ? product : null;
+    const embeddedVariations = Array.isArray(product?.variations) ? product.variations : [];
 
     setStatus(fallbackVariant?.isSelectable ? "ready" : "loading");
     setError("");
@@ -316,6 +317,13 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
     if (cached) {
       applyData(cached);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (product?.optionsLoaded === true) {
+      applyData({ product, variations: embeddedVariations });
       return () => {
         cancelled = true;
       };
