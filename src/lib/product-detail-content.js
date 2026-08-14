@@ -3,17 +3,22 @@ export const normalizeProductDetailText = (value) => {
   return value.trim();
 };
 
-export const normalizeProductDetailList = (value) => {
+export const normaliseTextList = (value) => {
   if (!Array.isArray(value)) return [];
-
   return value
     .filter((item) => typeof item === "string")
-    .map((item) => item.trim())
+    .map((item) => normalizeProductDetailText(item))
     .filter(Boolean);
 };
 
-export const normalizeProductEditorialContent = (rawProduct) => ({
+export const normaliseDatabaseProductDetailContent = (rawProduct) => ({
   description: normalizeProductDetailText(rawProduct?.description),
-  handlingProtocols: normalizeProductDetailList(rawProduct?.handling_protocols),
-  storageTips: normalizeProductDetailList(rawProduct?.storage_tips),
+  handlingProtocols: normaliseTextList(
+    rawProduct?.handling_protocols ?? rawProduct?.handlingProtocols
+  ),
+  storageTips: normaliseTextList(rawProduct?.storage_tips ?? rawProduct?.storageTips),
 });
+
+export const normalizeProductEditorialContent = normaliseDatabaseProductDetailContent;
+
+export default normaliseDatabaseProductDetailContent;
