@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { normaliseProductCatalogue } from "@/lib/catalogue";
 
 const inFlightRequests = new Map();
+const catalogueValueCache = new Map();
+const CATALOGUE_CACHE_TTL_MS = 60 * 1000;
 
 const EMPTY_LOOKUP = {
   catalogue: {},
@@ -35,7 +37,10 @@ const buildLookup = (payload, orderedIds = []) => {
   return { catalogue, ordered, index: lookup.index, pagination: payload?.pagination || null };
 };
 
-const fetchCatalog = async (url, orderedIds = []) => {
+const fetchCatalog = async (url, orderedIds = [], { refresh = false } = {}) => {
+  const cached = catalogueValueCache.get(url);
+  if (!refresh && cached && cached.expiresAt > Date.now()) return cached.value;
+  if (refresh) catalogueValueCache.delete(url);
   if (inFlightRequests.has(url)) return inFlightRequests.get(url);
   const request = fetch(url, { cache: "no-store" })
     .then((response) => {
@@ -43,11 +48,23 @@ const fetchCatalog = async (url, orderedIds = []) => {
       return response.json();
     })
     .then((payload) => buildLookup(payload, orderedIds))
+    .then((lookup) => {
+      catalogueValueCache.set(url, {
+        value: lookup,
+        expiresAt: Date.now() + CATALOGUE_CACHE_TTL_MS,
+      });
+      return lookup;
+    })
     .finally(() => {
       inFlightRequests.delete(url);
     });
   inFlightRequests.set(url, request);
   return request;
+};
+
+export const prefetchCatalogProducts = (url) => {
+  if (!url) return Promise.resolve(EMPTY_LOOKUP);
+  return fetchCatalog(url).catch(() => EMPTY_LOOKUP);
 };
 
 export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
@@ -65,9 +82,9 @@ export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
         cancelled = true;
       };
     }
-    const load = () => {
+    const load = (refresh = false) => {
       setState((current) => ({ ...current, status: "loading", error: null }));
-      fetchCatalog(url)
+      fetchCatalog(url, [], { refresh })
         .then((lookup) => {
           if (!cancelled) setState({ ...lookup, status: "ready", error: null });
         })
@@ -77,15 +94,17 @@ export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
     };
     load();
     if (typeof window !== "undefined") {
-      window.addEventListener("catalogue-refresh", load);
-      window.addEventListener("checkout-completed", load);
+      const refresh = () => load(true);
+      window.addEventListener("catalogue-refresh", refresh);
+      window.addEventListener("checkout-completed", refresh);
+      return () => {
+        cancelled = true;
+        window.removeEventListener("catalogue-refresh", refresh);
+        window.removeEventListener("checkout-completed", refresh);
+      };
     }
     return () => {
       cancelled = true;
-      if (typeof window !== "undefined") {
-        window.removeEventListener("catalogue-refresh", load);
-        window.removeEventListener("checkout-completed", load);
-      }
     };
   }, [url]);
 

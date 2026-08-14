@@ -9,6 +9,7 @@ import { logAdminEvent, logAdminError } from "@/lib/api/log";
 import { respondZodError } from "@/lib/api/validate";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE, normalizePurchaseMode, roundQuantity } from "@/lib/purchase-quantities";
+import { revalidatePublicCatalog } from "@/lib/catalog-cache-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -429,6 +430,8 @@ export async function POST(req) {
     note: parsed.data.note || undefined,
     ok: true,
   });
+
+  revalidatePublicCatalog();
 
   return applyRateLimitHeaders(
     NextResponse.json({

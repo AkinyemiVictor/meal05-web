@@ -85,7 +85,8 @@ const normaliseSpecifications = (product, rawSpecifications) => {
       : Object.entries(rawSpecifications).map(([label, value]) => ({ label, value }));
     const cleaned = entries
       .filter((entry) => entry && entry.label && entry.value)
-      .map((entry) => ({ label: String(entry.label), value: String(entry.value) }));
+      .map((entry) => ({ label: String(entry.label), value: String(entry.value) }))
+      .filter((entry) => !["storage", "storage protocol", "storage tips"].includes(entry.label.trim().toLowerCase()));
     if (cleaned.length) return cleaned;
   }
   return createDefaultSpecifications(product);
@@ -195,7 +196,6 @@ function LogisticsManifestSection({ specifications }) {
     label: formatSpecificationLabel(spec.label),
     key: toSpecificationKey(spec.label),
   }));
-
   return (
     <section
       className="product-detail-section product-detail-section--manifest"
@@ -455,8 +455,12 @@ export default async function ProductDetailPage({ params }) {
         <ProductAboutSection description={detailContent.description} />
         <LogisticsManifestSection specifications={detailContent.specifications} />
       </div>
-      <HandlingProtocolsSection tips={detailContent.handlingProtocols} />
-      <StorageTipsSection tips={detailContent.storageTips} />
+      {detailContent.handlingProtocols.length ? (
+        <HandlingProtocolsSection tips={detailContent.handlingProtocols} />
+      ) : null}
+      {detailContent.storageTips.length ? (
+        <StorageTipsSection tips={detailContent.storageTips} />
+      ) : null}
       <CustomerReviewsSection ratings={detailContent.ratings} />
     </main>
   );

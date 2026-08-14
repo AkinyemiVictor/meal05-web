@@ -11,6 +11,8 @@ import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 import { getDefaultMarket } from "@/lib/market-server";
 import { getCatalogPageRange, normalizeCatalogPagination } from "@/lib/catalog-pagination";
+import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
+import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 
 export const PUBLIC_CATALOG_CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
@@ -91,6 +93,8 @@ const CARD_CATALOG_FIELDS = [
   "search_text",
   "active_variant_count",
 ].join(", ");
+
+const CARD_CATALOG_WITH_OPTIONS_FIELDS = `${CARD_CATALOG_FIELDS}, variations`;
 
 const CATALOG_PAGE_SORTS = {
   default: [{ column: "product_id", ascending: true }],
@@ -203,6 +207,189 @@ const numberOrNull = (value) => {
 const textOrNull = (value) => {
   const text = String(value ?? "").trim();
   return text || null;
+};
+
+const pickFirstText = (row, fields = []) => {
+  for (const field of fields) {
+    const value = String(row?.[field] ?? "").trim();
+    if (value) return value;
+  }
+  return "";
+};
+
+const formatRangeValue = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "";
+  return String(Math.round(numeric * 100) / 100);
+};
+
+const buildRangeLabel = (row) => {
+  const volumeMin = numberOrNull(row?.volume_min ?? row?.volumeMin);
+  const volumeMax = numberOrNull(row?.volume_max ?? row?.volumeMax);
+  if (volumeMin != null && volumeMax != null) {
+    const unit = pickFirstText(row, ["volume_unit", "volumeUnit"]);
+    const value = volumeMin === volumeMax
+      ? formatRangeValue(volumeMin)
+      : `${formatRangeValue(volumeMin)}-${formatRangeValue(volumeMax)}`;
+    return `${value}${unit}`;
+  }
+
+  const weightMin = numberOrNull(
+    row?.weight_min ?? row?.weightMin ?? row?.min_weight ?? row?.minWeight
+  );
+  const weightMax = numberOrNull(
+    row?.weight_max ?? row?.weightMax ?? row?.max_weight ?? row?.maxWeight
+  );
+  if (weightMin == null || weightMax == null) return "";
+  const unit = pickFirstText(row, ["weight_unit", "weightUnit", "base_unit", "baseUnit"]);
+  return `${formatRangeValue(weightMin)}-${formatRangeValue(weightMax)}${unit}`;
+};
+
+const isPublicVariantSelectable = (row) => {
+  if (!row || row.is_active === false || row.isActive === false) return false;
+  return getAvailableCount(resolveStockValueFromRow(row)) !== 0;
+};
+
+const buildPublicProductVariant = (row, product, market = {}) => {
+  const purchaseRules = getVariantPurchaseRules(row);
+  const rangeLabel = buildRangeLabel(row);
+  const sizeLabel = rangeLabel || pickFirstText(row, ["size_label", "sizeLabel", "size"]);
+  const price = pickFirstNumber(row, [
+    "price",
+    "unit_price",
+    "unitPrice",
+    "sale_price",
+    "salePrice",
+    "selling_price",
+    "sellingPrice",
+  ]);
+  const oldPrice = pickFirstNumber(row, [
+    "old_price",
+    "oldPrice",
+    "compare_at_price",
+    "compareAtPrice",
+    "list_price",
+    "listPrice",
+  ]);
+  const baseUnit = textOrNull(row?.base_unit ?? row?.baseUnit);
+  const baseQuantity = numberOrNull(row?.base_quantity ?? row?.baseQuantity);
+  const weightMin = numberOrNull(row?.weight_min ?? row?.weightMin);
+  const weightMax = numberOrNull(row?.weight_max ?? row?.weightMax);
+  const weightUnit = textOrNull(row?.weight_unit ?? row?.weightUnit);
+  const volumeMin = numberOrNull(row?.volume_min ?? row?.volumeMin);
+  const volumeMax = numberOrNull(row?.volume_max ?? row?.volumeMax);
+  const volumeUnit = textOrNull(row?.volume_unit ?? row?.volumeUnit);
+  const optionRole = textOrNull(row?.option_role ?? row?.optionRole);
+  const stock = resolveStockValueFromRow(row);
+
+  return {
+    variationId: String(row?.id ?? ""),
+    name: rangeLabel || pickFirstText(row, ["size_label", "name", "ripeness", "label"]) || "Option",
+    ripeness: textOrNull(row?.ripeness) || undefined,
+    size: textOrNull(row?.size ?? row?.size_label) || undefined,
+    sizeLabel: sizeLabel || undefined,
+    packaging: textOrNull(row?.packaging) || undefined,
+    price: price != null ? price : undefined,
+    oldPrice: oldPrice != null ? oldPrice : undefined,
+    unit: pickFirstText(row, ["unit", "unit_label", "unitLabel", "unit_name", "unitName"]) || product?.unit || undefined,
+    currencyCode: row?.currency_code || market?.currencyCode || product?.currencyCode || "",
+    purchaseMode: purchaseRules.purchaseMode,
+    purchase_mode: purchaseRules.purchaseMode,
+    minQuantity: purchaseRules.minQuantity,
+    min_quantity: purchaseRules.minQuantity,
+    maxQuantity: purchaseRules.maxQuantity,
+    max_quantity: purchaseRules.maxQuantity,
+    stepQuantity: purchaseRules.stepQuantity,
+    step_quantity: purchaseRules.stepQuantity,
+    baseUnit,
+    base_unit: baseUnit,
+    baseQuantity,
+    base_quantity: baseQuantity,
+    weightMin,
+    weight_min: weightMin,
+    weightMax,
+    weight_max: weightMax,
+    weightUnit,
+    weight_unit: weightUnit,
+    volumeMin,
+    volume_min: volumeMin,
+    volumeMax,
+    volume_max: volumeMax,
+    volumeUnit,
+    volume_unit: volumeUnit,
+    optionRole,
+    option_role: optionRole,
+    stock,
+    stockCount: row?.stock_count ?? undefined,
+    inSeason: row?.in_season ?? undefined,
+    image: resolveProductImage(row?.variant_image_url, row?.image_url, row?.image, product?.image),
+    category: pickFirstText(row, ["category", "category_name", "categoryName"]) || product?.category || undefined,
+    categorySlug: product?.categorySlug || undefined,
+    is_default: row?.is_default === true,
+    isSelectable: isPublicVariantSelectable({ ...row, stock }),
+    ...buildPackagingMetadata({
+      ...row,
+      name: product?.name,
+      category: product?.category || "",
+      categorySlug: product?.categorySlug || "",
+    }),
+  };
+};
+
+const attachPublicProductVariations = async (admin, products, market = {}) => {
+  const list = Array.isArray(products) ? products : [];
+  const productIds = uniqueIds(list.map((product) => product?.id), 120);
+  if (!productIds.length || !market?.id) return list;
+
+  const { data, error } = await admin
+    .from("product_variants")
+    .select("id, product_id, name, unit, price, old_price, stock_count, size, size_label, display_label, ripeness, base_unit, base_quantity, is_default, is_active, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, option_role", { head: false })
+    .in("product_id", productIds)
+    .eq("market_id", market.id)
+    .eq("is_active", true)
+    .gt("price", 0)
+    .order("id", { ascending: true });
+  if (error) throw error;
+
+  const productIndex = new Map(list.map((product) => [String(product.id), product]));
+  const grouped = new Map();
+  (Array.isArray(data) ? data : []).forEach((row) => {
+    const productId = String(row?.product_id || "");
+    const product = productIndex.get(productId);
+    if (!product) return;
+    if (!grouped.has(productId)) grouped.set(productId, []);
+    grouped.get(productId).push(buildPublicProductVariant(row, product, market));
+  });
+
+  return list.map((product) => {
+    const variations = grouped.get(String(product.id)) || [];
+    return {
+      ...product,
+      variations,
+      optionsLoaded: true,
+      variantCount: Math.max(Number(product?.variantCount || 0) || 0, variations.length),
+      hasMultipleOptions: product?.hasMultipleOptions === true || variations.length > 1,
+    };
+  });
+};
+
+const attachEmbeddedProductVariations = (rows, products, market = {}) => {
+  const rowIndex = new Map(
+    (Array.isArray(rows) ? rows : []).map((row) => [String(row?.product_id || ""), row])
+  );
+
+  return (Array.isArray(products) ? products : []).map((product) => {
+    const rawVariations = rowIndex.get(String(product?.id || ""))?.variations;
+    const variations = (Array.isArray(rawVariations) ? rawVariations : [])
+      .map((row) => buildPublicProductVariant(row, product, market));
+    return {
+      ...product,
+      variations,
+      optionsLoaded: true,
+      variantCount: Math.max(Number(product?.variantCount || 0) || 0, variations.length),
+      hasMultipleOptions: product?.hasMultipleOptions === true || variations.length > 1,
+    };
+  });
 };
 
 const buildPublicCatalogProductFromCard = (row) => {
@@ -355,8 +542,8 @@ const loadPublicCatalogProductsFromCardView = async ({
   const searchTerm = String(search || "").trim().replace(/[%_,().]/g, " ").replace(/\s+/g, " ").slice(0, 80);
 
   let query = admin
-    .from("product_card_catalog")
-    .select(CARD_CATALOG_FIELDS, { head: false })
+    .from("product_card_catalog_with_options")
+    .select(CARD_CATALOG_WITH_OPTIONS_FIELDS, { head: false })
     .eq("market_id", market.id);
 
   if (requestedIds.length) query = query.in("product_id", requestedIds);
@@ -378,10 +565,11 @@ const loadPublicCatalogProductsFromCardView = async ({
   const flat = sortedRows
     .map(buildPublicCatalogProductFromCard)
     .filter((product) => product.id && product.price > 0);
+  const hydratedFlat = attachEmbeddedProductVariations(sortedRows, flat, market);
 
   return {
-    grouped: groupProducts(flat),
-    flat,
+    grouped: groupProducts(hydratedFlat),
+    flat: hydratedFlat,
     market: publicMarket(market),
   };
 };
@@ -405,27 +593,44 @@ export async function loadPublicCatalogPage({
   const selectedSort = CATALOG_PAGE_SORTS[sort] || CATALOG_PAGE_SORTS.default;
 
   let query = admin
+    .from("product_card_catalog_with_options")
+    .select(CARD_CATALOG_WITH_OPTIONS_FIELDS, { head: false })
+    .eq("market_id", market.id);
+  let countQuery = admin
     .from("product_card_catalog")
-    .select(CARD_CATALOG_FIELDS, { count: "exact" })
+    .select("product_id", { count: "exact", head: true })
     .eq("market_id", market.id);
 
-  if (requestedCategorySlug) query = query.eq("category_slug", requestedCategorySlug);
-  if (searchTerm) query = query.ilike("search_text", `%${searchTerm}%`);
+  if (requestedCategorySlug) {
+    query = query.eq("category_slug", requestedCategorySlug);
+    countQuery = countQuery.eq("category_slug", requestedCategorySlug);
+  }
+  if (searchTerm) {
+    query = query.ilike("search_text", `%${searchTerm}%`);
+    countQuery = countQuery.ilike("search_text", `%${searchTerm}%`);
+  }
   selectedSort.forEach(({ column, ascending }) => {
     query = query.order(column, { ascending });
   });
 
-  const { data, count, error } = await query.range(range.from, range.to);
+  const [pageResult, countResult] = await Promise.all([
+    query.range(range.from, range.to),
+    countQuery,
+  ]);
+  const { data, error } = pageResult;
+  const { count, error: countError } = countResult;
   if (error) throw error;
+  if (countError) throw countError;
 
   const flat = (Array.isArray(data) ? data : [])
     .map(buildPublicCatalogProductFromCard)
     .filter((product) => product.id && product.price > 0);
+  const hydratedFlat = attachEmbeddedProductVariations(data, flat, market);
   const pagination = normalizeCatalogPagination({ page: range.page, pageSize: range.pageSize, total: count });
 
   return {
-    grouped: groupProducts(flat),
-    flat,
+    grouped: groupProducts(hydratedFlat),
+    flat: hydratedFlat,
     market: publicMarket(market),
     pagination,
   };
@@ -554,10 +759,11 @@ export async function loadPublicCatalogProducts({
   const flat = rows
     .map((row) => overlayVariantMetadata(buildPublicCatalogProduct(row, categoryIndex), variantByProduct.get(String(row?.id || ""))))
     .filter((product) => product?.id && product.price > 0);
+  const hydratedFlat = await attachPublicProductVariations(admin, flat, catalog.market);
 
   return {
-    grouped: groupProducts(flat),
-    flat,
+    grouped: groupProducts(hydratedFlat),
+    flat: hydratedFlat,
     market: publicMarket(catalog.market),
   };
 }
@@ -617,6 +823,8 @@ export function toProductCardDTO(product = {}) {
     volume_unit: textOrNull(product?.volume_unit ?? product?.volumeUnit),
     optionRole: textOrNull(product?.optionRole ?? product?.option_role),
     option_role: textOrNull(product?.option_role ?? product?.optionRole),
+    variations: Array.isArray(product?.variations) ? product.variations : [],
+    optionsLoaded: product?.optionsLoaded === true,
   };
 }
 

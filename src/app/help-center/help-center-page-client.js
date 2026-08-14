@@ -368,7 +368,7 @@ export default function HelpCenterPage() {
                 <p>
                   Chat with support in real time. Usually replies in under 2 minutes.
                 </p>
-                <a className={`${styles.agentCta} ${styles.agentCtaChat}`} href="https://wa.me/2349129296433">
+                <a className={`${styles.agentCta} ${styles.agentCtaChat}`} href="https://wa.me/2348118287047">
                   Start chat
                   <i className="fa-solid fa-arrow-right" aria-hidden="true" />
                 </a>

@@ -6,11 +6,11 @@ import { usePathname } from "next/navigation";
 import {
   IconBell,
   IconChevronDown,
+  IconHeart,
   IconLogin2,
   IconLogout,
   IconPackage,
   IconShoppingBag,
-  IconSparkles,
   IconUser,
   IconUserCircle,
 } from "@tabler/icons-react";
@@ -204,13 +204,13 @@ function WalletBalancePill({ user, wallet, compact = false }) {
       prefetch={false}
       aria-label={label}
       className={`flex h-11 shrink min-w-0 items-center gap-2 rounded-2xl border border-meal-line bg-meal-paper text-sm font-extrabold text-meal-text shadow-sm transition hover:border-meal-pepper hover:text-meal-pepper focus-visible:border-meal-pepper focus-visible:text-meal-pepper focus-visible:outline-none ${
-        compact ? "max-w-[7.25rem] px-2.5" : "px-3"
+        compact ? "max-w-[7.25rem] px-2.5 max-[360px]:w-11 max-[360px]:justify-center max-[360px]:px-0" : "px-3"
       }`}
     >
       <span className="meal05-coin-icon" aria-hidden="true">
         <span className="meal05-coin-icon__face">₦</span>
       </span>
-      <span className="min-w-0 truncate">{amount}</span>
+      <span className={`min-w-0 truncate ${compact ? "max-[360px]:hidden" : ""}`}>{amount}</span>
     </Link>
   );
 }
@@ -238,7 +238,7 @@ function NavIcon({ href, label, children, count }) {
   );
 }
 
-function AccountMenu({ user }) {
+function AccountMenu({ user, wallet }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
   const pathname = usePathname();
@@ -250,7 +250,7 @@ function AccountMenu({ user }) {
   const items = [
     { label: "My Account", href: protect("/account"), icon: IconUserCircle },
     { label: "Orders", href: protect("/account/orders"), icon: IconPackage },
-    { label: "Wishlist", href: protect("/account/wishlist"), icon: IconSparkles },
+    { label: "Favorites", href: protect("/account/favorites"), icon: IconHeart },
   ];
 
   useEffect(() => {
@@ -317,6 +317,23 @@ function AccountMenu({ user }) {
           </p>
         </div>
 
+        {isSignedIn ? (
+          <Link
+            href="/account/wallet"
+            prefetch={false}
+            onClick={() => setIsOpen(false)}
+            className="mt-3 flex min-h-12 items-center justify-between gap-3 rounded-xl border border-meal-line bg-meal-mist px-3 text-sm transition hover:border-meal-green hover:bg-meal-paper focus-visible:border-meal-green focus-visible:bg-meal-paper focus-visible:outline-none"
+          >
+            <span className="flex min-w-0 items-center gap-2 font-bold text-meal-text">
+              <span className="meal05-coin-icon" aria-hidden="true">
+                <span className="meal05-coin-icon__face">₦</span>
+              </span>
+              <span className="truncate">Meal05 Balance</span>
+            </span>
+            <span className="shrink-0 font-extrabold text-meal-green">{formatMoney(wallet.balance, wallet.currencyCode)}</span>
+          </Link>
+        ) : null}
+
         <Link
           href={isSignedIn ? "/account" : signInHref}
           prefetch={false}
@@ -381,6 +398,7 @@ export default function Meal05HeaderActions({ mobile = false, showWallet = true 
     return (
       <div className="flex shrink-0 items-center gap-2">
         {showWallet ? <WalletBalancePill user={user} wallet={wallet} compact /> : null}
+        <DeferredLocationPicker mobileHeader iconOnly />
         <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} count={unreadNotifications}>
           <IconBell size={22} stroke={1.8} />
         </NavIcon>
@@ -392,8 +410,6 @@ export default function Meal05HeaderActions({ mobile = false, showWallet = true 
     <div className="flex flex-1 items-center justify-end gap-3 lg:flex-none">
       <DeferredLocationPicker />
 
-      <WalletBalancePill user={user} wallet={wallet} />
-
       <NavIcon href="/notifications" label={`Notifications - ${unreadNotifications} unread`} count={unreadNotifications}>
         <IconBell size={21} stroke={1.8} />
       </NavIcon>
@@ -402,7 +418,7 @@ export default function Meal05HeaderActions({ mobile = false, showWallet = true 
         <IconShoppingBag size={21} stroke={1.8} />
       </NavIcon>
 
-      <AccountMenu user={user} />
+      <AccountMenu user={user} wallet={wallet} />
     </div>
   );
 }

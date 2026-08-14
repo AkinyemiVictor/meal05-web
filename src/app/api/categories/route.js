@@ -6,12 +6,13 @@ import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { loadCategoryCounts, loadCategoryRows, mapCategoryRows } from "@/lib/categories-server";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const revalidate = 300;
+export const fetchCache = "default-cache";
 
 const PUBLIC_CATEGORY_CACHE_HEADERS = {
-  "Cache-Control": "no-store, max-age=0",
+  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
 };
 
 export async function GET() {

@@ -39,7 +39,7 @@ export default function CareerPage() {
             We are not publicly listing roles right now.
           </p>
           <p style={{ margin: 0, color: "#334155" }}>
-            Send your CV and portfolio to <a href="mailto:mealkitltd@gmail.com">mealkitltd@gmail.com</a> with subject:
+            Send your CV and portfolio to <a href="mailto:hello@meal05.com">hello@meal05.com</a> with subject:
             <strong> Career Application - [Role]</strong>.
           </p>
         </article>

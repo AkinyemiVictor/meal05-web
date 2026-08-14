@@ -55,17 +55,33 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
   if (variantError) throw variantError;
 
   const productIds = [...new Set((variants || []).map((variant) => variant.product_id).filter(Boolean))];
-  const { data: products, error: productError } = productIds.length
-    ? await admin.from("products").select("id, name, main_image_url").in("id", productIds)
-    : { data: [], error: null };
+  const [productResult, eligibilityResult] = productIds.length
+    ? await Promise.all([
+        admin.from("products").select("id, name, main_image_url").in("id", productIds),
+        admin
+          .from("product_card_catalog")
+          .select("product_id")
+          .eq("market_id", catalog.market.id)
+          .in("product_id", productIds),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  const { data: products, error: productError } = productResult;
   if (productError) throw productError;
+  if (eligibilityResult.error) throw eligibilityResult.error;
 
   const variantIndex = new Map((variants || []).map((variant) => [String(variant.id), variant]));
   const productIndex = new Map((products || []).map((product) => [String(product.id), product]));
+  const eligibleProductIds = new Set(
+    (eligibilityResult.data || []).map((row) => String(row.product_id))
+  );
 
   return cartRows.flatMap((row) => {
     const variant = variantIndex.get(String(row.variant_id));
-    if (!variant || !catalog.listings.has(String(variant.product_id))) return [];
+    if (
+      !variant ||
+      !catalog.listings.has(String(variant.product_id)) ||
+      !eligibleProductIds.has(String(variant.product_id))
+    ) return [];
     const listing = catalog.listings.get(String(variant.product_id));
     const product = productIndex.get(String(variant.product_id));
     return [{
@@ -142,10 +158,23 @@ export async function POST(req) {
   const quantity = roundQuantity(parsed.data.quantity);
 
   const variantKey = String(variant_id);
-  const { row: variantStock, error: stockError } = await loadVariantStock(admin, variantKey, catalog.market.id);
+  const stockResult = await loadVariantStock(admin, variantKey, catalog.market.id);
+  const { row: variantStock, error: stockError } = stockResult;
   if (stockError) return new Response(JSON.stringify({ error: stockError.message || "Unable to validate stock" }), { status: 400 });
   const stockSource = variantStock;
   if (!stockSource) return new Response(JSON.stringify({ error: "Product option not found" }), { status: 404 });
+  const eligibilityResult = await admin
+    .from("product_card_catalog")
+    .select("product_id")
+    .eq("market_id", catalog.market.id)
+    .eq("product_id", stockSource.product_id)
+    .maybeSingle();
+  if (eligibilityResult.error) {
+    return new Response(JSON.stringify({ error: eligibilityResult.error.message || "Unable to validate product" }), { status: 400 });
+  }
+  if (!eligibilityResult.data) {
+    return new Response(JSON.stringify({ error: "This product is currently unavailable" }), { status: 409 });
+  }
   if (!catalog.listings.has(String(stockSource.product_id))) {
     return new Response(JSON.stringify({ error: "Product is not listed in this market" }), { status: 409 });
   }

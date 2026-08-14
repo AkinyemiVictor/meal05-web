@@ -101,28 +101,49 @@ export const loadCategoryRows = async (supabase) => {
 export const loadCategoryCounts = async (supabase) => {
   try {
     const market = await getDefaultMarket();
-    const rows = [];
-    const batchSize = 1000;
-    let offset = 0;
+    const { data, error } = await supabase
+      .from("product_category_catalog_counts")
+      .select("category_slug, product_count, available_product_count")
+      .eq("market_id", market.id);
+    if (error) throw error;
 
-    while (true) {
-      const { data, error } = await supabase
-        .from("product_card_catalog")
-        .select("product_id, category_slug, in_stock")
-        .eq("market_id", market.id)
-        .order("product_id", { ascending: true })
-        .range(offset, offset + batchSize - 1);
-      if (error) throw error;
-
-      const batch = Array.isArray(data) ? data : [];
-      rows.push(...batch);
-      if (batch.length < batchSize) break;
-      offset += batchSize;
-    }
-
-    return countDistinctCatalogProductsByCategory(rows);
+    return (Array.isArray(data) ? data : []).reduce((counts, row) => {
+      const slug = toCategorySlug(row?.category_slug);
+      if (!slug) return counts;
+      counts[slug] = {
+        product_count: Number(row?.product_count || 0),
+        available_product_count: Number(row?.available_product_count || 0),
+      };
+      return counts;
+    }, {});
   } catch {
-    return {};
+    // Keep a compatibility fallback while deployments roll through instances
+    // that may not have the aggregate view in their PostgREST schema cache yet.
+    try {
+      const market = await getDefaultMarket();
+      const rows = [];
+      const batchSize = 1000;
+      let offset = 0;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from("product_card_catalog")
+          .select("product_id, category_slug, in_stock")
+          .eq("market_id", market.id)
+          .order("product_id", { ascending: true })
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+
+        const batch = Array.isArray(data) ? data : [];
+        rows.push(...batch);
+        if (batch.length < batchSize) break;
+        offset += batchSize;
+      }
+
+      return countDistinctCatalogProductsByCategory(rows);
+    } catch {
+      return {};
+    }
   }
 };
 

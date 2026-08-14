@@ -25,8 +25,8 @@ export default function ContactUsPage() {
         <article style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px" }}>
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Support Channels</h2>
           <ul style={{ margin: 0, paddingLeft: 18, color: "#334155" }}>
-            <li>Phone: <a href="tel:+2349129296433">+234-91-2929-6433</a></li>
-            <li>Email: <a href="mailto:mealkitltd@gmail.com">mealkitltd@gmail.com</a></li>
+            <li>Phone: <a href="tel:+2348118287047">+234-81-1828-7047</a></li>
+            <li>Email: <a href="mailto:hello@meal05.com">hello@meal05.com</a></li>
             <li>Help Center: <Link href="/help-center">Browse FAQs</Link></li>
           </ul>
         </article>
@@ -34,7 +34,7 @@ export default function ContactUsPage() {
         <article style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px" }}>
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Office Address</h2>
           <p style={{ margin: 0, color: "#334155" }}>
-            No 8, Bell Air Estate
+            No 9, Bel-Air Estate
             <br />
             Akala Expressway, Ibadan
             <br />
@@ -46,7 +46,6 @@ export default function ContactUsPage() {
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Support Hours</h2>
           <ul style={{ margin: 0, paddingLeft: 18, color: "#334155" }}>
             <li>Monday - Saturday: 8:00 AM - 7:00 PM</li>
-            <li>Sunday: 10:00 AM - 4:00 PM</li>
             <li>Public holidays: response times may vary</li>
           </ul>
         </article>

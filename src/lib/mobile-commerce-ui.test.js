@@ -35,6 +35,62 @@ test("quick-add modal keeps two readable option cards and scrolls instead of sca
   assert.match(css.slice(optionsRule, optionsRule + 700), /overflow-wrap:\s*anywhere/);
 });
 
+test("quick-add quantity controls share an active colour and only fade when disabled", () => {
+  const css = read("src/styles/main.css");
+  const controlsRule = css.lastIndexOf(".quick-add-panel--mobile-modal .quick-add-qty button {");
+  const disabledRule = css.lastIndexOf(".quick-add-panel--mobile-modal .quick-add-qty button:disabled {");
+
+  assert.match(css.slice(controlsRule, controlsRule + 260), /background:\s*#11131f/);
+  assert.match(css.slice(controlsRule, controlsRule + 260), /color:\s*#ffffff/);
+  assert.match(css.slice(disabledRule, disabledRule + 260), /background:\s*#f1f2f4/);
+  assert.match(css.slice(disabledRule, disabledRule + 260), /opacity:\s*1/);
+  assert.doesNotMatch(css, /\.quick-add-panel--mobile-modal \.quick-add-qty button:last-child/);
+});
+
+test("product-detail and cart quantity controls use the same active and disabled states", () => {
+  const css = read("src/styles/main.css");
+  const cartCss = read("src/app/cart/cart.module.css");
+  const productForm = read("src/components/add-to-cart-form.js");
+  const cartPage = read("src/app/cart/page.js");
+  const detailButtonRule = css.lastIndexOf(".product-detail-page .product-detail-actions__stepper {");
+  const detailDisabledRule = css.lastIndexOf(".product-detail-page .product-detail-actions__stepper:disabled {");
+  const cartButtonRule = cartCss.indexOf(".qtyButton {");
+  const cartDisabledRule = cartCss.indexOf(".qtyButton:disabled {");
+
+  assert.match(css.slice(detailButtonRule, detailButtonRule + 240), /background:\s*#11131f/);
+  assert.match(css.slice(detailDisabledRule, detailDisabledRule + 240), /background:\s*#ffffff/);
+  assert.doesNotMatch(css, /\.product-detail-page \.product-detail-actions__stepper:last-child/);
+  assert.match(cartCss.slice(cartButtonRule, cartButtonRule + 260), /background:\s*#11131f/);
+  assert.match(cartCss.slice(cartDisabledRule, cartDisabledRule + 220), /background:\s*#ffffff/);
+  assert.doesNotMatch(cartCss, /\.qtyButton:last-child/);
+  assert.match(productForm, /effectiveMaxQuantity\s*!=\s*null\s*&&\s*safeQuantity\s*>=\s*effectiveMaxQuantity/);
+  assert.match(productForm, /FIXED_QUANTITY_BLOCKED_KEYS/);
+  assert.match(productForm, /event\.target\.value\.replace\(\/\\D\/g, ""\)/);
+  assert.match(productForm, /type=\{isLoose \? "number" : "text"\}/);
+  assert.match(productForm, /pattern=\{isLoose \? undefined : "\[0-9\]\*"\}/);
+  assert.match(cartPage, /Math\.min\(maxQuantity\s*\?\?\s*availableCount,\s*availableCount\)/);
+});
+
+test("search results use one continuous product grid without category partitions", () => {
+  const searchResults = read("src/components/search-results-client.js");
+  const css = read("src/styles/main.css");
+
+  assert.match(searchResults, /products=\{products\}/);
+  assert.doesNotMatch(searchResults, /groupedResults|search-results-group|Category<\/span>/);
+  assert.doesNotMatch(css, /\.search-results-group__header/);
+});
+
+test("product-detail options render immediately for every purchase mode", () => {
+  const detail = read("src/components/product-detail-client.js");
+  const picker = read("src/components/variant-picker.js");
+
+  assert.match(detail, /\{selectableVariations\.length\s*\?\s*\(/);
+  assert.match(detail, /key=\{purchaseMode\}/);
+  assert.doesNotMatch(detail, /purchaseMode\s*===\s*PURCHASE_MODE_FIXED\s*&&\s*selectableVariations\.length/);
+  assert.match(picker, /displayedVariant\s*=\s*selectedVariant\s*\|\|\s*safeVariations\[0\]/);
+  assert.doesNotMatch(picker, /useEffect|useState/);
+});
+
 test("Account overview uses complete Tabler icons and charcoal surfaces", () => {
   const page = read("src/app/account/page.js");
   const css = read("src/app/account/account.module.css");

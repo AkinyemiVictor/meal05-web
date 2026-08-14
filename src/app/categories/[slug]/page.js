@@ -19,7 +19,7 @@ async function getCategoryPayload(slug) {
     ["category-products", safeSlug],
     {
       revalidate: 300,
-      tags: [`category-products:${safeSlug}`],
+      tags: ["catalog-products", `category-products:${safeSlug}`],
     }
   )();
 }
@@ -56,6 +56,7 @@ export default async function CategoryRoute({ params }) {
       category={payload.category}
       products={payload.products}
       categories={payload.categories}
+      pagination={payload.pagination}
     />
   );
 }

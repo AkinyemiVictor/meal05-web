@@ -26,10 +26,10 @@ export default function AppComingSoonSection() {
             />
           </div>
           <div className="appTextndButtons">
-            <h2>Download our App</h2>
+            <h2>App coming soon...</h2>
             <p className="appPar">
-              Shop faster, manage your cart, and track Meal05 orders from your phone. The Android app is
-              ready on Google Play, while the iOS app is still being prepared for the App Store.
+              We&apos;re preparing the Meal05 app for iOS and Android. Shop with us on the web for now, and
+              we&apos;ll let you know when each app is ready.
             </p>
             <div className="buttonHolder" aria-label="Mobile app launch status">
               <div className="comingSoonStoreCard">
@@ -51,7 +51,8 @@ export default function AppComingSoonSection() {
                   </span>
                 </div>
               </div>
-              <div className="storeCard">
+              <div className="comingSoonStoreCard">
+                <span className="comingSoonTag">INCOMING</span>
                 <div className="storeBadge">
                   <span className="storeBadge__icon storeBadge__icon--play" aria-hidden="true">
                     <Image

@@ -604,6 +604,7 @@ const fetchProductByIdCached = unstable_cache(
   ["product-by-id"],
   {
     revalidate: 300,
+    tags: ["products"],
   }
 );
 

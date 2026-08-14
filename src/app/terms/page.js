@@ -23,10 +23,6 @@ export default function TermsPage() {
           </p>
           <span className={styles.updated}>Effective 1 July 2026</span>
         </header>
-        <div className={styles.notice}>
-          This operational draft is designed for Meal05&apos;s current service and should be reviewed by
-          qualified Nigerian counsel before public launch.
-        </div>
         <article className={styles.content}>
           <section>
             <h2>Contents</h2>

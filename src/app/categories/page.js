@@ -8,14 +8,15 @@ export const metadata = {
   description: "Browse fresh produce, proteins, grains, and more. Farm-sourced and delivered to your door in Ibadan.",
 };
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 300;
 
 async function getCategories() {
   try {
     const supabase = getSupabaseAdminClient();
-    const rows = await loadCategoryRows(supabase);
-    const counts = await loadCategoryCounts(supabase);
+    const [rows, counts] = await Promise.all([
+      loadCategoryRows(supabase),
+      loadCategoryCounts(supabase),
+    ]);
     return { categories: mapCategoryRows(rows, counts), error: null };
   } catch {
     return { categories: [], error: "Unable to load categories right now." };

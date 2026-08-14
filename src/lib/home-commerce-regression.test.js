@@ -21,8 +21,9 @@ test("root opens Home while the marketing experience remains available at Landin
   assert.match(sitemap, /"\/landing"/);
 });
 
-test("mobile commerce header keeps the Meal05 logo, location, and notifications accessible", () => {
+test("mobile commerce header keeps the Meal05 logo, wallet, icon-only location, and notifications accessible", () => {
   const header = read("src/components/meal05-header.js");
+  const headerActions = read("src/components/meal05-header-actions.js");
   const mobileHeader = header.slice(
     header.indexOf('meal05-header--mobile'),
     header.indexOf('meal05-header--desktop')
@@ -30,9 +31,8 @@ test("mobile commerce header keeps the Meal05 logo, location, and notifications 
 
   assert.match(mobileHeader, /<Link href="\/" aria-label="Meal05 home"/);
   assert.match(mobileHeader, /src=\{LOGO_SRC\}/);
-  assert.match(mobileHeader, /ml-auto[^"]*max-w-\[42vw\]/);
-  assert.match(mobileHeader, /<DeferredLocationPicker mobileHeader \/>/);
-  assert.match(mobileHeader, /<Meal05HeaderActions mobile showWallet=\{false\} \/>/);
+  assert.match(mobileHeader, /<Meal05HeaderActions mobile \/>/);
+  assert.match(headerActions, /if \(mobile\)[\s\S]*<DeferredLocationPicker mobileHeader iconOnly \/>[\s\S]*href="\/notifications"/);
 });
 
 test("desktop category sidebar expands as the document header scrolls away", () => {
@@ -64,9 +64,11 @@ test("home seasonal banner scales proportionally and uses the supplied market ar
 
   assert.match(home, /<HomeSeasonalBanner\s*\/>/);
   assert.match(banner, /welcome \. fresh groceries/);
-  assert.match(banner, /Market fresh groceries,/);
+  assert.match(banner, /Market fresh<br \/>[\s\S]*groceries, <em>delivered<\/em>/);
   assert.match(banner, /Less market stress\. Less price wahala \. More time for what matters\./);
-  assert.match(banner, /<Link href="\/shop">/);
+  assert.match(banner, /<Link[\s\S]*?href="\/shop"/);
+  assert.match(banner, /Go to shop/);
+  assert.match(banner, /prefetchShop\(router\)/);
   assert.match(banner, /--welcome-content-scale/);
   assert.match(banner, /meal05 - store man\.png/);
   assert.doesNotMatch(banner, /welcome-seasonal__cards/);
@@ -75,6 +77,17 @@ test("home seasonal banner scales proportionally and uses the supplied market ar
   assert.match(styles, /\.welcome-seasonal__content[\s\S]*width:\s*1200px;[\s\S]*height:\s*480px;[\s\S]*scale\(var\(--welcome-content-scale\)\)/);
   assert.doesNotMatch(styles, /@media \(max-width: 900px\)[\s\S]*?\.welcome-seasonal__content[\s\S]*?transform:\s*none/);
   assert.match(banner, /welcome-seasonal__content">[\s\S]*welcome-seasonal__leaf/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*?\.welcome-seasonal__copy h2 \{[\s\S]*?font-size:\s*62px/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*?\.welcome-seasonal__copy > p \{[\s\S]*?font-size:\s*23px/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*?\.welcome-seasonal__actions > a \{[\s\S]*?font-size:\s*20px/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*?\.welcome-seasonal__actions > span \{[\s\S]*?font-size:\s*17px/);
+});
+
+test("mobile category cards use readable names and item counts", () => {
+  const categories = read("src/components/home-category-navigation.js");
+
+  assert.match(categories, /text-\[13px\] font-bold/);
+  assert.match(categories, /text-\[12px\] font-semibold/);
 });
 
 test("product card catalogue migration selects the cheapest valid in-stock option", () => {
@@ -100,6 +113,19 @@ test("quick-add option buttons retain each variant's individual price", () => {
 
   assert.match(picker, /product-variant-picker__option-price/);
   assert.match(picker, /formatProductPrice\(variant\?\.price,\s*variant\?\.unit\)/);
+});
+
+test("shop navigation preloads the route, first product page, and categories", () => {
+  const prefetch = read("src/lib/shop-prefetch.js");
+  const shop = read("src/app/shop/page.js");
+  const mobileNav = read("src/components/mobile-bottom-nav.js");
+
+  assert.match(prefetch, /SHOP_FIRST_PAGE_CATALOG_URL\s*=\s*"\/api\/catalog\/cards\?page=1&pageSize=20&sort=default"/);
+  assert.match(prefetch, /router\?\.prefetch\?\.\(SHOP_ROUTE\)/);
+  assert.match(prefetch, /prefetchCatalogProducts\(SHOP_FIRST_PAGE_CATALOG_URL\)/);
+  assert.match(prefetch, /prefetchCategories\(\)/);
+  assert.match(shop, /currentPage === 1[\s\S]*SHOP_FIRST_PAGE_CATALOG_URL/);
+  assert.match(mobileNav, /requestIdleCallback[\s\S]*prefetchShop\(router\)/);
 });
 
 test("quantity-cap migration changes only options capped at ten", () => {

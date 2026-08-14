@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ProductCard from "@/components/product-card";
+import { prefetchCatalogProducts } from "@/lib/use-catalog-products";
 
 export default function HomeProductCollection({
   eyebrow = "Top picks",
@@ -10,17 +13,39 @@ export default function HomeProductCollection({
   status = "ready",
   emptyMessage = "No items are available in this collection yet.",
   seeAllHref,
+  seeAllDataHref,
   onAdd,
   showSeasonBadge = true,
   actionLabel,
   preserveSingleRow = false,
   variant = "home",
 }) {
+  const router = useRouter();
   const isLoading = status === "loading";
   const hasError = status === "error";
   const isLandingVariant = variant === "landing" || preserveSingleRow;
   const mobileProducts = products.slice(0, isLandingVariant ? 4 : 8);
   const desktopProducts = products.slice(0, isLandingVariant ? 4 : 12);
+
+  const prefetchSeeAll = () => {
+    if (seeAllHref) router.prefetch(seeAllHref);
+    if (seeAllDataHref) prefetchCatalogProducts(seeAllDataHref);
+  };
+
+  useEffect(() => {
+    if (!seeAllHref) return undefined;
+
+    router.prefetch(seeAllHref);
+    const run = () => {
+      if (seeAllDataHref) prefetchCatalogProducts(seeAllDataHref);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(run, { timeout: 1200 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timer = window.setTimeout(run, 250);
+    return () => window.clearTimeout(timer);
+  }, [router, seeAllDataHref, seeAllHref]);
 
   return (
     <>
@@ -30,7 +55,13 @@ export default function HomeProductCollection({
           <h2 className="mt-2 text-3xl font-semibold italic tracking-tight text-meal-text">{title}</h2>
         </div>
         {seeAllHref ? (
-          <Link href={seeAllHref} className="text-sm font-medium uppercase tracking-[0.28em] text-meal-pepper">
+          <Link
+            href={seeAllHref}
+            className="text-sm font-medium uppercase tracking-[0.28em] text-meal-pepper"
+            onPointerEnter={prefetchSeeAll}
+            onFocus={prefetchSeeAll}
+            onTouchStart={prefetchSeeAll}
+          >
             See all
           </Link>
         ) : null}

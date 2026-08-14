@@ -9,7 +9,7 @@ export default function AboutUsPage() {
   return (
     <main style={{ maxWidth: 1200, margin: "2rem auto 4rem", padding: "0 1rem" }}>
       <nav className="page-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/home">Home</Link>
+        <Link href="/landing">Landing Page</Link>
         <span aria-hidden="true" className="page-breadcrumb-divider">/</span>
         <span className="page-breadcrumb-current">About Us</span>
       </nav>
@@ -55,6 +55,9 @@ export default function AboutUsPage() {
           For order issues, delivery questions, or account support, our team is available through Help Center and direct contact channels.
         </p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Link href="/landing" style={{ textDecoration: "none", border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px", fontWeight: 600 }}>
+            Visit Landing Page
+          </Link>
           <Link href="/help-center" style={{ textDecoration: "none", border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px", fontWeight: 600 }}>
             Visit Help Center
           </Link>

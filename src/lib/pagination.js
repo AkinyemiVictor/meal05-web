@@ -1,6 +1,23 @@
-const normalisePage = (value, fallback = 1) => {
+export const normalisePage = (value, fallback = 1) => {
   const page = Number(value);
   return Number.isFinite(page) && page > 0 ? Math.floor(page) : fallback;
+};
+
+export const readPageFromSearch = (search = "") => {
+  const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  return normalisePage(params.get("page"));
+};
+
+export const buildPaginatedHref = ({ pathname, search = "", hash = "", page }) => {
+  const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  const nextPage = normalisePage(page);
+
+  if (nextPage === 1) params.delete("page");
+  else params.set("page", String(nextPage));
+
+  const query = params.toString();
+  const safeHash = hash ? (String(hash).startsWith("#") ? String(hash) : `#${hash}`) : "";
+  return `${pathname || "/"}${query ? `?${query}` : ""}${safeHash}`;
 };
 
 /**

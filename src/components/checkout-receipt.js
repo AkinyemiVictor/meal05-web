@@ -226,7 +226,7 @@ export default function CheckoutReceipt({ status = "success", reason }) {
               {copy.checkout.receiptPage.backToCheckout}
             </Link>
           )}
-          <Link href="tel:+2349129296433" className="checkout-confirmation__action checkout-confirmation__action--secondary">
+          <Link href="tel:+2348118287047" className="checkout-confirmation__action checkout-confirmation__action--secondary">
             {copy.checkout.receiptPage.contactSupport}
           </Link>
         </div>

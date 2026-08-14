@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 
 const normaliseText = (value) => (value == null ? "" : String(value).trim());
@@ -94,20 +94,9 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
       ),
     [safeVariations, selectedId]
   );
-
-  const [selectedRipeness, setSelectedRipeness] = useState("");
-  const [selectedSizeLabel, setSelectedSizeLabel] = useState("");
-
-  useEffect(() => {
-    const base = selectedVariant || safeVariations[0] || null;
-    if (!base) {
-      setSelectedRipeness("");
-      setSelectedSizeLabel("");
-      return;
-    }
-    setSelectedRipeness(getRipenessLabel(base));
-    setSelectedSizeLabel(getSizeLabel(base));
-  }, [selectedVariant, safeVariations]);
+  const displayedVariant = selectedVariant || safeVariations[0] || null;
+  const selectedRipeness = getRipenessLabel(displayedVariant);
+  const selectedSizeLabel = getSizeLabel(displayedVariant);
 
   const ripenessOptions = useMemo(() => buildOptions(safeVariations, getRipenessLabel), [safeVariations]);
   const hasRipenessStep = ripenessOptions.length > 1;
@@ -126,15 +115,12 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
 
   const handleRipenessSelect = (label) => {
     const nextRipeness = normaliseText(label);
-    setSelectedRipeness(nextRipeness);
 
     const nextList = safeVariations.filter(
       (variant) => normaliseKey(getRipenessLabel(variant)) === normaliseKey(nextRipeness)
     );
     const preferred =
       pickBySizeLabel(nextList, selectedSizeLabel) || pickFirstAvailable(nextList);
-    const nextSize = preferred ? getSizeLabel(preferred) : "";
-    setSelectedSizeLabel(nextSize);
     if (preferred && onChange) onChange(preferred);
   };
 
@@ -144,8 +130,6 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
         (variant) => normaliseKey(getSizeLabel(variant)) === key && !isVariantInactive(variant)
       ) ||
       filteredByRipeness.find((variant) => normaliseKey(getSizeLabel(variant)) === key);
-    const nextLabel = match ? getSizeLabel(match) : "";
-    setSelectedSizeLabel(nextLabel);
     if (match && onChange) onChange(match);
   };
 

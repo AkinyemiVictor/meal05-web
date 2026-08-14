@@ -8,6 +8,12 @@ const money = (value) =>
 
 const text = (value) => String(value || "unknown").replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
 
+const purposeLabel = (value) => {
+  if (value === "wallet_topup") return "Wallet deposit";
+  if (value === "order_payment") return "Checkout payment";
+  return text(value);
+};
+
 export default async function AdminPaymentsPage({ searchParams }) {
   const params = await searchParams;
   const status = params?.status && params.status !== "all" ? String(params.status) : "";
@@ -47,16 +53,19 @@ export default async function AdminPaymentsPage({ searchParams }) {
             ) : rows.map((row) => (
               <tr key={row.id} style={{ borderTop: "1px solid #e2e8f0" }}>
                 <td style={{ padding: 12, fontWeight: 800 }}>{row.reference}</td>
-                <td style={{ padding: 12 }}>{text(row.purpose)}</td>
+                <td style={{ padding: 12 }}>
+                  <strong>{purposeLabel(row.purpose)}</strong>
+                  {row.wallet_topup_id ? <small style={{ display: "block", marginTop: 3, color: "#64748b" }}>Deposit {row.wallet_topup_id}</small> : null}
+                </td>
                 <td style={{ padding: 12 }}>{text(row.status)}</td>
                 <td style={{ padding: 12 }}>{money(row.amount)}</td>
                 <td style={{ padding: 12 }}>{text(row.provider_code)}</td>
-                <td style={{ padding: 12 }}>{row.order_id || "-"}</td>
+                <td style={{ padding: 12 }}>{row.order_id ? `Order #${row.order_id}` : row.wallet_topup_id ? "Wallet funding" : "-"}</td>
                 <td style={{ padding: 12 }}>{row.payer_account_name || "-"}{row.payer_bank_name ? ` (${row.payer_bank_name})` : ""}</td>
                 <td style={{ padding: 12 }}>{row.customer_submitted_at ? new Date(row.customer_submitted_at).toLocaleString() : "-"}</td>
                 <td style={{ padding: 12 }}>
                   <PaymentActions paymentId={row.id} status={row.status} />
-                  <a href={`/admin/orders?orderId=${row.order_id || ""}`} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", color: "#0f172a", textDecoration: "none", fontWeight: 700 }}>Order</a>
+                  {row.order_id ? <a href={`/admin/orders?orderId=${row.order_id}`} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", color: "#0f172a", textDecoration: "none", fontWeight: 700 }}>Order</a> : null}
                 </td>
               </tr>
             ))}

@@ -36,6 +36,7 @@ import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 import { formatProductPrice } from "@/lib/catalogue";
 import { useCatalogProducts, useProductsByIds } from "@/lib/use-catalog-products";
 import { RECENTLY_VIEWED_KEY } from "@/lib/engagement";
+import { FAVORITES_UPDATED_EVENT, loadFavoriteIds } from "@/lib/favorites-client";
 import { resolveProductImage } from "@/lib/product-image";
 import {
   DEFAULT_PHONE_COUNTRY_CODE,
@@ -53,7 +54,7 @@ const ACCOUNT_TABS = [
   { slug: "balance", label: "Meal05 Balance", icon: IconWallet },
   { slug: "refunds", label: "Refunds", icon: IconReceiptRefund },
   { slug: "referrals", label: "Refer & Earn", icon: IconUsersPlus },
-  { slug: "wishlist", label: "Wishlist", icon: IconHeart },
+  { slug: "favorites", label: "Favorites", icon: IconHeart },
   { slug: "voucher", label: "Voucher", icon: IconGift },
   { slug: "recent", label: "Recently Viewed", icon: IconClock },
   { slug: "management", label: "Account Management", icon: IconUserCog },
@@ -67,11 +68,11 @@ const ACCOUNT_TABS = [
 
 const ACCOUNT_SUBTITLES = {
   overview: "Manage deliveries, preferences, and saved details from one place.",
-  orders: "Track active deliveries and quickly reorder previous market runs.",
+  orders: "Track active deliveries and buy previous market runs again in a tap.",
   balance: "Add money, review balance, and track closed-loop Meal05 Balance activity.",
   refunds: "Review refund requests and wallet reversals tied to your orders.",
   referrals: "Invite friends and keep track of Meal05 referral rewards.",
-  wishlist: "Saved items and treats - ready to reorder in a tap.",
+  favorites: "Keep frequently bought items close for your next market run.",
   voucher: "Your store credit and available discount codes live here.",
   recent: "Pick up where you left off with items you recently browsed.",
   management: "Update your personal details, contact info, and password.",
@@ -94,6 +95,7 @@ const ACCOUNT_ROUTE_TO_TAB = {
   help: "help",
   notifications: "notifications",
   legal: "legal",
+  favorites: "favorites",
 };
 
 const TAB_TO_ACCOUNT_ROUTE = {
@@ -108,7 +110,7 @@ const TAB_TO_ACCOUNT_ROUTE = {
   help: "help",
   notifications: "notifications",
   legal: "legal",
-  wishlist: "wishlist",
+  favorites: "favorites",
   voucher: "voucher",
   recent: "recent",
   newsletter: "newsletter",
@@ -169,6 +171,15 @@ const formatWalletReason = (value) =>
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ") || "Meal05 Balance";
+
+const formatWalletTransactionLabel = (entry) => {
+  const reason = String(entry?.reason || "").trim().toLowerCase();
+  if (entry?.wallet_topup_id || reason === "topup") return "Wallet deposit";
+  if (entry?.order_id || reason === "purchase") return "Checkout paid with Meal05 Balance";
+  if (reason === "refund") return "Refund to Meal05 Balance";
+  if (reason === "overpayment_change") return "Order change credited to Meal05 Balance";
+  return formatWalletReason(reason);
+};
 
 const derivePhoneParts = (phone) => {
   if (!phone || typeof phone !== "string") {
@@ -371,6 +382,8 @@ export function AccountPageContent() {
   const [hydrated, setHydrated] = useState(false);
   const [orders, setOrders] = useState([]);
   const [savedCart, setSavedCart] = useState([]);
+  const [favoriteProductIds, setFavoriteProductIds] = useState([]);
+  const [favoritesStatus, setFavoritesStatus] = useState("idle");
   const [cartMessage, setCartMessage] = useState("");
   const [walletSnapshot, setWalletSnapshot] = useState(null);
   const [walletTransactions, setWalletTransactions] = useState([]);
@@ -378,6 +391,10 @@ export function AccountPageContent() {
   const [walletMessage, setWalletMessage] = useState("");
   const [walletTopupAmount, setWalletTopupAmount] = useState("");
   const [walletTopupProvider, setWalletTopupProvider] = useState("moniepoint_transfer");
+  const [walletTopupTransfer, setWalletTopupTransfer] = useState(null);
+  const [walletPayerBankName, setWalletPayerBankName] = useState("");
+  const [walletTransferReference, setWalletTransferReference] = useState("");
+  const [walletTransferStatus, setWalletTransferStatus] = useState("idle");
   const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneFeedback, setPhoneFeedback] = useState("");
@@ -415,8 +432,8 @@ export function AccountPageContent() {
     return ids;
   }, [orders]);
   const lookupProductIds = useMemo(
-    () => [...recentProductIds, ...orderProductIds],
-    [recentProductIds, orderProductIds]
+    () => [...favoriteProductIds, ...recentProductIds, ...orderProductIds],
+    [favoriteProductIds, recentProductIds, orderProductIds]
   );
   const { index: productIndex } = useProductsByIds(lookupProductIds);
 
@@ -488,6 +505,11 @@ export function AccountPageContent() {
         setWalletStatus("error");
         return;
       }
+      if (!transactionsResponse.ok) {
+        setWalletMessage(transactionsPayload?.error || "Unable to load wallet transactions.");
+        setWalletStatus("error");
+        return;
+      }
       setWalletSnapshot(walletPayload);
       setWalletTransactions(Array.isArray(transactionsPayload?.transactions) ? transactionsPayload.transactions : []);
       setWalletStatus("ready");
@@ -518,24 +540,71 @@ export function AccountPageContent() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         setWalletMessage(payload?.error || "Unable to start top-up.");
-        setWalletStatus("ready");
+        setWalletStatus("error");
         return;
       }
       if (payload?.authorizationUrl) {
         window.location.href = payload.authorizationUrl;
         return;
       }
-      setWalletMessage(
-        payload?.payment?.reference
-          ? `Wallet deposit awaiting verification. Use reference ${payload.payment.reference}.`
-          : "Wallet deposit awaiting verification."
-      );
+      setWalletTopupTransfer(payload);
+      setWalletPayerBankName("");
+      setWalletTransferReference("");
+      setWalletMessage("");
       await syncWalletFromServer();
     } catch {
       setWalletMessage("Unable to start top-up.");
-      setWalletStatus("ready");
+      setWalletStatus("error");
     }
   }, [syncWalletFromServer, walletTopupAmount, walletTopupProvider]);
+
+  const copyWalletText = useCallback((value) => {
+    if (typeof navigator === "undefined" || !navigator.clipboard || !value) return;
+    navigator.clipboard.writeText(String(value)).catch(() => {});
+  }, []);
+
+  const handleWalletTransferSubmit = useCallback(async () => {
+    const topupId = String(walletTopupTransfer?.topupId || "").trim();
+    const paymentId = walletTopupTransfer?.payment?.id;
+    if (!topupId || !paymentId) return;
+    if (walletPayerBankName.trim().length < 2) {
+      setWalletMessage("Enter the bank or wallet you transferred from.");
+      setWalletStatus("error");
+      return;
+    }
+
+    setWalletTransferStatus("loading");
+    setWalletMessage("");
+    try {
+      const response = await fetch(`/api/wallet/topups/${encodeURIComponent(topupId)}/submit`, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentId,
+          payerAccountName: formatName(user),
+          payerBankName: walletPayerBankName.trim(),
+          customerTransactionReference: walletTransferReference.trim(),
+          exactAmountConfirmed: true,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || "Unable to submit wallet deposit.");
+
+      setWalletTopupTransfer(null);
+      setWalletTopupAmount("");
+      setWalletPayerBankName("");
+      setWalletTransferReference("");
+      setWalletMessage(payload?.message || "Wallet deposit submitted for verification.");
+      setWalletStatus("ready");
+      await syncWalletFromServer();
+    } catch (error) {
+      setWalletMessage(error?.message || "Unable to submit wallet deposit.");
+      setWalletStatus("error");
+    } finally {
+      setWalletTransferStatus("idle");
+    }
+  }, [syncWalletFromServer, user, walletPayerBankName, walletTopupTransfer, walletTransferReference]);
 
   useEffect(() => {
     let cancelled = false;
@@ -587,6 +656,37 @@ export function AccountPageContent() {
     if (!hydrated || !user) return;
     syncOrdersFromServer();
   }, [hydrated, syncOrdersFromServer, user]);
+
+  useEffect(() => {
+    if (!hydrated || !user) {
+      setFavoriteProductIds([]);
+      setFavoritesStatus("idle");
+      return undefined;
+    }
+    const controller = new AbortController();
+    setFavoritesStatus("loading");
+    loadFavoriteIds()
+      .then((ids) => {
+        if (controller.signal.aborted) return;
+        setFavoriteProductIds(ids);
+        setFavoritesStatus("ready");
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setFavoritesStatus("error");
+      });
+    return () => controller.abort();
+  }, [hydrated, user]);
+
+  useEffect(() => {
+    const handleFavoritesUpdated = (event) => {
+      const ids = Array.isArray(event?.detail?.productIds) ? event.detail.productIds.map(String) : [];
+      setFavoriteProductIds(ids);
+      setFavoritesStatus("ready");
+    };
+    window.addEventListener(FAVORITES_UPDATED_EVENT, handleFavoritesUpdated);
+    return () => window.removeEventListener(FAVORITES_UPDATED_EVENT, handleFavoritesUpdated);
+  }, []);
 
   useEffect(() => {
     if (!hydrated || !user || !["overview", "balance"].includes(activeTab)) return;
@@ -1028,10 +1128,13 @@ export function AccountPageContent() {
     () => visibleOrders.filter((order) => ["delivered", "completed"].includes(String(order.status || "").toLowerCase())),
     [visibleOrders]
   );
-  const wishlistProducts = useMemo(() => homeProducts.slice(0, 6), [homeProducts]);
   const recentlyViewed = useMemo(
     () => recentProductIds.map((id) => productIndex.get(String(id))).filter(Boolean),
     [productIndex, recentProductIds]
+  );
+  const favoriteProducts = useMemo(
+    () => favoriteProductIds.map((id) => productIndex.get(String(id))).filter(Boolean),
+    [favoriteProductIds, productIndex]
   );
   const userInitials = useMemo(() => {
     const words = formatName(resolvedUser).split(/\s+/).filter(Boolean);
@@ -1039,7 +1142,7 @@ export function AccountPageContent() {
   }, [resolvedUser]);
   const getTabBadge = (slug) => {
     if (slug === "orders") return presentOrders.length || pastOrders.length || "";
-    if (slug === "wishlist") return wishlistProducts.length || "";
+    if (slug === "favorites") return favoriteProductIds.length || "";
     if (slug === "voucher") return 2;
     return "";
   };
@@ -1398,7 +1501,7 @@ export function AccountPageContent() {
                           </span>
                         </button>
                         <button type="button" className={styles.orderActionButton} onClick={() => handleReorder(order)}>
-                          Reorder items
+                          Buy again
                         </button>
                       </div>
                     </div>
@@ -1479,7 +1582,7 @@ export function AccountPageContent() {
             ) : (
               <div className={styles.sectionEmpty}>
                 <i className="fa-solid fa-cart-shopping" aria-hidden="true" style={{ fontSize: "1.6rem" }} />
-                <p>Your saved cart is empty. Reorder a past order or add fresh items from the catalogue.</p>
+                <p>Your saved cart is empty. Buy a past order again or add fresh items from the catalogue.</p>
                 <Link href="/shop">Browse catalogue</Link>
               </div>
             )}
@@ -1493,6 +1596,8 @@ export function AccountPageContent() {
         const pendingTopups = Array.isArray(walletSnapshot?.pendingTopups) ? walletSnapshot.pendingTopups : [];
         const walletEnabled = settings.walletEnabled === true;
         const moniepointEnabled = settings.monnifyTopupsEnabled === true;
+        const activeTopupPayment = walletTopupTransfer?.payment || null;
+        const activeTopupProvider = walletTopupTransfer?.provider || null;
         return (
           <>
             <div className={[styles.creditBanner, styles.walletBalanceCard].join(" ")}>
@@ -1532,14 +1637,15 @@ export function AccountPageContent() {
                 </div>
                 <label className={styles.profileField}>
                   <span>Amount</span>
-                  <input
-                    inputMode="decimal"
+                   <input
+                     inputMode="numeric"
                     min={settings.minimumTopupAmount || undefined}
                     max={settings.maximumTopupAmount || undefined}
                     name="walletTopupAmount"
-                    onChange={(event) => setWalletTopupAmount(event.target.value)}
-                    placeholder="10000"
-                    type="number"
+                     onChange={(event) => setWalletTopupAmount(event.target.value.replace(/\D/g, ""))}
+                     placeholder="Enter amount (e.g. 10000)"
+                     type="text"
+                     pattern="[0-9]*"
                     value={walletTopupAmount}
                   />
                 </label>
@@ -1560,9 +1666,70 @@ export function AccountPageContent() {
                 <button type="submit" className={styles.walletTopupButton} disabled={walletStatus === "loading" || !walletEnabled}>
                   <i className="fa-solid fa-plus" aria-hidden="true" />
                   {walletStatus === "loading" ? "Please wait..." : "Add money"}
-                </button>
-              </form>
-              {walletMessage ? <span className={walletStatus === "error" ? styles.walletMessageError : styles.walletMessageSuccess}>{walletMessage}</span> : null}
+                 </button>
+               </form>
+               {activeTopupPayment && activeTopupProvider ? (
+                 <section className={styles.walletTransferPanel} aria-labelledby="wallet-transfer-heading">
+                   <div className={styles.walletTransferHeader}>
+                     <div>
+                       <span>Wallet deposit</span>
+                       <h4 id="wallet-transfer-heading">{walletTopupTransfer?.heading || "Complete your wallet deposit"}</h4>
+                     </div>
+                     <strong>{formatMoney(activeTopupPayment.amount, activeTopupPayment.currency || "NGN")}</strong>
+                   </div>
+                   <p className={styles.walletTransferNotice}>
+                     Transfer the exact amount to the account below. Your balance is credited only after Meal05 verifies the payment.
+                   </p>
+                   <dl className={styles.walletTransferDetails}>
+                     {[
+                       ["Bank", activeTopupProvider.bankName],
+                       ["Account name", activeTopupProvider.accountName],
+                       ["Account number", activeTopupProvider.accountNumber],
+                       ["Payment reference", activeTopupPayment.reference],
+                     ].map(([label, value]) => (
+                       <div key={label}>
+                         <dt>{label}</dt>
+                         <dd>
+                           <span>{value || "Unavailable"}</span>
+                           {value ? (
+                             <button type="button" onClick={() => copyWalletText(value)} aria-label={`Copy ${label.toLowerCase()}`}>
+                               <i className="fa-regular fa-copy" aria-hidden="true" />
+                             </button>
+                           ) : null}
+                         </dd>
+                       </div>
+                     ))}
+                   </dl>
+                   <label className={styles.profileField}>
+                     <span>Bank or wallet you sent from</span>
+                     <input
+                       type="text"
+                       value={walletPayerBankName}
+                       onChange={(event) => setWalletPayerBankName(event.target.value)}
+                       placeholder="e.g. GTBank or OPay"
+                       autoComplete="organization"
+                     />
+                   </label>
+                   <label className={styles.profileField}>
+                     <span>Your transfer reference (optional)</span>
+                     <input
+                       type="text"
+                       value={walletTransferReference}
+                       onChange={(event) => setWalletTransferReference(event.target.value)}
+                       placeholder="Enter the reference from your bank receipt"
+                     />
+                   </label>
+                   <div className={styles.walletTransferActions}>
+                     <button type="button" onClick={() => setWalletTopupTransfer(null)} disabled={walletTransferStatus === "loading"}>
+                       Cancel
+                     </button>
+                     <button type="button" onClick={handleWalletTransferSubmit} disabled={walletTransferStatus === "loading"}>
+                       {walletTransferStatus === "loading" ? "Submitting..." : "I've sent the money"}
+                     </button>
+                   </div>
+                 </section>
+               ) : null}
+               {walletMessage ? <span className={walletStatus === "error" ? styles.walletMessageError : styles.walletMessageSuccess}>{walletMessage}</span> : null}
             </div>
             {pendingTopups.length ? (
               <div className={styles.section}>
@@ -1593,9 +1760,10 @@ export function AccountPageContent() {
                   {walletTransactions.map((entry) => (
                     <div key={entry.id} className={styles.listItem}>
                       <div className={styles.orderInfo}>
-                        <strong>{formatWalletReason(entry.reason)}</strong>
-                        <span>{new Date(entry.created_at).toLocaleString("en-NG")}</span>
-                        {entry.order_id ? <span>Order #{entry.order_id}</span> : null}
+                         <strong>{formatWalletTransactionLabel(entry)}</strong>
+                         <span>{new Date(entry.created_at).toLocaleString("en-NG")}</span>
+                         {entry.order_id ? <span>Meal05 Balance payment for order #{entry.order_id}</span> : null}
+                         {entry.wallet_topup_id ? <span>Deposit ID: {entry.wallet_topup_id}</span> : null}
                         {entry.provider_reference ? <span>{entry.provider_reference}</span> : null}
                       </div>
                       <strong style={{ color: Number(entry.amount) >= 0 ? "#00ac11" : "#f04e1f" }}>
@@ -1614,10 +1782,17 @@ export function AccountPageContent() {
           </>
         );
       }
-      case "wishlist":
-        return wishlistProducts.length ? (
+      case "favorites":
+        return favoritesStatus === "loading" ? (
+          <div className={styles.section}>
+            <div className={styles.sectionEmpty}>
+              <p>Loading your Favorites...</p>
+            </div>
+          </div>
+        ) : favoriteProducts.length ? (
+          <>
           <div className={styles.productGrid}>
-            {wishlistProducts.map((product) => (
+            {favoriteProducts.map((product) => (
               <ProductCard
                 key={product.variantId || product.id}
                 product={product}
@@ -1625,9 +1800,12 @@ export function AccountPageContent() {
               />
             ))}
           </div>
+          </>
         ) : renderEmptyState(
-          "Wishlist",
-          "Save seasonal favorites or special treats to your wishlist for easy reordering.",
+          "Favorites",
+          favoritesStatus === "error"
+            ? "We could not load your Favorites. Please refresh and try again."
+            : "Save frequently bought items, such as rice, eggs, tomatoes, or chicken, for a quicker next order.",
           "/shop",
           "Browse catalogue"
         );
@@ -1667,7 +1845,7 @@ export function AccountPageContent() {
       case "recent":
         return (
           <div className={styles.productGrid}>
-            {(recentlyViewed.length ? recentlyViewed : wishlistProducts.slice(0, 3)).map((product) => {
+            {(recentlyViewed.length ? recentlyViewed : homeProducts.slice(0, 3)).map((product) => {
               const price = Number(product.price ?? product.unit_price ?? product.unitPrice ?? 0);
               const cardProduct = {
                 ...product,
@@ -1747,7 +1925,7 @@ export function AccountPageContent() {
               <div className={styles.listItem}>
                 <i className="fa-solid fa-lock" aria-hidden="true" />
                 <span>Password</span>
-                <Link href={signInRedirectHref}>Change password</Link>
+                <Link href="/account/change-password">Change password</Link>
               </div>
             </div>
             {isEditingPhone ? (
@@ -1853,7 +2031,7 @@ export function AccountPageContent() {
             <div className={styles.dangerZone}>
               <h3 className={styles.sectionTitle}>Delete account</h3>
               <p className={styles.cardBody}>
-                Permanently close this account and remove saved cart, wishlist, addresses, payment methods, notifications, reviews, and profile data.
+                Permanently close this account and remove saved cart, Favorites, addresses, payment methods, notifications, reviews, and profile data.
               </p>
               <button
                 type="button"

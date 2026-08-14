@@ -51,6 +51,7 @@ const COLLECTION_COPY = {
     title: "Popular Items",
     emptyMessage: "No popular products are available yet.",
     seeAllHref: "/section/popular",
+    seeAllDataHref: "/api/catalog/home?limit=72",
   },
   "under-15m": {
     eyebrow: "Quick picks",
@@ -72,12 +73,14 @@ const COLLECTION_COPY = {
     title: "Fresh In Stock",
     emptyMessage: "No fresh in-stock products are available yet.",
     seeAllHref: "/section/new",
+    seeAllDataHref: "/api/catalog/cards?view=new&limit=48",
   },
   "in-season": {
     eyebrow: "Seasonal picks",
     title: "In Season",
     emptyMessage: "No in-season products are available yet.",
     seeAllHref: "/section/in-season",
+    seeAllDataHref: "/api/catalog/cards?view=in-season&limit=48",
   },
 };
 
@@ -362,6 +365,7 @@ export default function Home() {
                 status={activeCollectionStatus}
                 emptyMessage={activeCollectionCopy.emptyMessage}
                 seeAllHref={activeCollectionCopy.seeAllHref}
+                seeAllDataHref={activeCollectionCopy.seeAllDataHref}
                 onAdd={handleQuickAdd}
                 showSeasonBadge={activeCollection !== "in-season"}
               />

@@ -4,17 +4,22 @@ import { useEffect, useState } from "react";
 
 let categoriesRequestCache = null;
 let categoriesValueCache = null;
+let categoriesCachedAt = 0;
+
+const CATEGORY_FRESH_MS = 5 * 60 * 1000;
 
 const fetchCategories = async ({ refresh = false } = {}) => {
-  if (!refresh && categoriesValueCache) return categoriesValueCache;
+  const isFresh = categoriesValueCache && Date.now() - categoriesCachedAt < CATEGORY_FRESH_MS;
+  if (!refresh && isFresh) return categoriesValueCache;
   if (!refresh && categoriesRequestCache) return categoriesRequestCache;
-  categoriesRequestCache = fetch("/api/categories", { cache: "no-store" })
+  categoriesRequestCache = fetch("/api/categories")
     .then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     })
     .then((payload) => {
       categoriesValueCache = Array.isArray(payload?.categories) ? payload.categories : [];
+      categoriesCachedAt = Date.now();
       categoriesRequestCache = null;
       return categoriesValueCache;
     })
@@ -24,6 +29,8 @@ const fetchCategories = async ({ refresh = false } = {}) => {
     });
   return categoriesRequestCache;
 };
+
+export const prefetchCategories = () => fetchCategories().catch(() => []);
 
 export default function useCategories() {
   const [categories, setCategories] = useState(() => categoriesValueCache || []);
@@ -45,7 +52,13 @@ export default function useCategories() {
         setError(err);
         setStatus("error");
       });
-    load();
+    if (categoriesValueCache) {
+      // Stale-while-revalidate: render the last category navigation instantly,
+      // then refresh counts without replacing it with a loading state.
+      load(Date.now() - categoriesCachedAt >= CATEGORY_FRESH_MS);
+    } else {
+      load();
+    }
     return () => {
       cancelled = true;
     };

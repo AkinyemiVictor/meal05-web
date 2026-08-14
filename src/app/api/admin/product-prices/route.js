@@ -7,6 +7,7 @@ import { applyRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
+import { revalidatePublicCatalog } from "@/lib/catalog-cache-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -152,6 +153,7 @@ const revalidateProductPriceSurfaces = () => {
   revalidatePath("/shop");
   revalidatePath("/search");
   revalidatePath("/api/products");
+  revalidatePublicCatalog();
 };
 
 export async function GET(request) {

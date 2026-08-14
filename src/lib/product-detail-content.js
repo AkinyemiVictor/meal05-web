@@ -1,4 +1,4 @@
-const normaliseText = (value) => {
+export const normalizeProductDetailText = (value) => {
   if (typeof value !== "string") return "";
   return value.trim();
 };
@@ -6,16 +6,19 @@ const normaliseText = (value) => {
 export const normaliseTextList = (value) => {
   if (!Array.isArray(value)) return [];
   return value
-    .map((item) => normaliseText(String(item ?? "")))
+    .filter((item) => typeof item === "string")
+    .map((item) => normalizeProductDetailText(item))
     .filter(Boolean);
 };
 
 export const normaliseDatabaseProductDetailContent = (rawProduct) => ({
-  description: normaliseText(rawProduct?.description),
+  description: normalizeProductDetailText(rawProduct?.description),
   handlingProtocols: normaliseTextList(
     rawProduct?.handling_protocols ?? rawProduct?.handlingProtocols
   ),
   storageTips: normaliseTextList(rawProduct?.storage_tips ?? rawProduct?.storageTips),
 });
+
+export const normalizeProductEditorialContent = normaliseDatabaseProductDetailContent;
 
 export default normaliseDatabaseProductDetailContent;
