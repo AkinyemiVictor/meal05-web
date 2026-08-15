@@ -9,7 +9,7 @@ import { useSearchParams } from "next/navigation";
 
 import "@/styles/sign-in.css";
 import { clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser, readStoredUser } from "@/lib/auth";
-import { buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
+import { buildAuthCallbackUrl, buildSignInHref, sanitizeReturnPath } from "@/lib/auth-redirect";
 import { migrateGuestCartToUser } from "@/lib/cart-storage";
 import { syncGuestAdditionsAfterSignIn } from "@/lib/cart-sync";
 import { BRAND_WORDMARK_SRC } from "@/lib/theme-logo";
@@ -89,11 +89,13 @@ function SignInPageContent() {
   const searchParams = useSearchParams();
   // Initialize to a stable server-safe default; update from URL after mount
   const [activeTab, setActiveTab] = useState("login");
+  const [isLocationSynced, setIsLocationSynced] = useState(false);
   // Password visibility toggles
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
   const [signupPasswordTouched, setSignupPasswordTouched] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -134,28 +136,22 @@ function SignInPageContent() {
     [requestedNext]
   );
   const getLoginResetRedirect = useCallback(() => {
-    const url = new URL("/auth/callback", window.location.origin);
-    url.searchParams.set("flow", "recovery");
-    url.searchParams.set("next", PASSWORD_RECOVERY_PATH);
-    return url.toString();
+    return buildAuthCallbackUrl({
+      currentOrigin: window.location.origin,
+      flow: "recovery",
+      next: PASSWORD_RECOVERY_PATH,
+    });
   }, []);
   const getSignupConfirmRedirect = useCallback(() => {
-    const url = new URL("/auth/callback", window.location.origin);
-    if (requestedNext) {
-      url.searchParams.set("next", requestedNext);
-    }
-    return url.toString();
+    return buildAuthCallbackUrl({ currentOrigin: window.location.origin, next: requestedNext });
   }, [requestedNext]);
   const handleGoogleSignIn = useCallback(async () => {
     try {
-      const callbackUrl = new URL("/auth/callback", window.location.origin);
-      if (requestedNext) {
-        callbackUrl.searchParams.set("next", requestedNext);
-      }
+      const callbackUrl = buildAuthCallbackUrl({ currentOrigin: window.location.origin, next: requestedNext });
       const supabase = getBrowserSupabaseClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: callbackUrl.toString() },
+        options: { redirectTo: callbackUrl },
       });
       if (error) {
         throw error;
@@ -197,6 +193,7 @@ function SignInPageContent() {
 
   useEffect(() => {
     syncFromLocation();
+    setIsLocationSynced(true);
     window.addEventListener("hashchange", syncFromLocation);
     window.addEventListener("popstate", syncFromLocation);
     return () => {
@@ -250,7 +247,7 @@ function SignInPageContent() {
   }, [searchParams, showNotice]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !isLocationSynced) {
       return;
     }
 
@@ -275,7 +272,7 @@ function SignInPageContent() {
     if (shouldUpdate) {
       window.history.replaceState(null, "", url);
     }
-  }, [activeTab, hashLookup]);
+  }, [activeTab, hashLookup, isLocationSynced]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1100,6 +1097,12 @@ function SignInPageContent() {
                       const value = event.currentTarget.value;
                       setSignupPassword(value);
                       event.currentTarget.setCustomValidity(value ? getPasswordValidationMessage(value) : "");
+                      const confirmInput = document.getElementById("signup-confirm-password");
+                      if (confirmInput instanceof HTMLInputElement && confirmInput.value) {
+                        confirmInput.setCustomValidity(
+                          value === confirmInput.value ? "" : "Passwords must match."
+                        );
+                      }
                     }}
                   />
                   <button
@@ -1118,12 +1121,30 @@ function SignInPageContent() {
                   className="auth-password-requirements"
                   aria-live="polite"
                 >
-                  <p>Use a password with:</p>
+                  <div className="auth-password-meter" aria-hidden="true">
+                    {[1, 2, 3, 4].map((segment) => {
+                      const metCount = getPasswordRequirements(signupPassword).filter((item) => item.met).length;
+                      const activeSegments = signupPassword
+                        ? Math.max(1, Math.ceil((metCount / 5) * 4))
+                        : 0;
+                      return <span key={segment} className={segment <= activeSegments ? "is-active" : undefined} />;
+                    })}
+                  </div>
+                  <p>
+                    <strong>
+                      {!signupPassword
+                        ? "Password"
+                        : PASSWORD_REGEX.test(signupPassword)
+                          ? "Strong password"
+                          : "Password needs more work"}
+                    </strong>
+                    {PASSWORD_REGEX.test(signupPassword) ? ". All requirements met." : ". Must contain:"}
+                  </p>
                   <ul>
                     {getPasswordRequirements(signupPassword).map((requirement) => (
                       <li key={requirement.key} className={requirement.met ? "is-met" : undefined}>
                         <i
-                          className={["fa-solid", requirement.met ? "fa-circle-check" : "fa-circle"].join(" ")}
+                          className={["fa-solid", requirement.met ? "fa-circle-check" : "fa-circle-xmark"].join(" ")}
                           aria-hidden="true"
                         />
                         {requirement.label}
@@ -1131,7 +1152,7 @@ function SignInPageContent() {
                     ))}
                   </ul>
                   {signupPasswordTouched && !PASSWORD_REGEX.test(signupPassword) ? (
-                    <span>{getPasswordValidationMessage(signupPassword)}</span>
+                    <span className="sr-only">{getPasswordValidationMessage(signupPassword)}</span>
                   ) : null}
                 </div>
               </div>
@@ -1147,8 +1168,24 @@ function SignInPageContent() {
                     placeholder="Confirm Password"
                     required
                     autoComplete="new-password"
-                    pattern={PASSWORD_PATTERN}
-                    title="Password must be 8+ characters with uppercase, lowercase, number, and symbol"
+                    title="Enter the same password again"
+                    value={signupConfirmPassword}
+                    aria-describedby={signupConfirmPassword ? "signup-password-match" : undefined}
+                    onBlur={() => {
+                      const input = document.getElementById("signup-confirm-password");
+                      if (input instanceof HTMLInputElement) {
+                        input.setCustomValidity(
+                          signupConfirmPassword === signupPassword ? "" : "Passwords must match."
+                        );
+                      }
+                    }}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      setSignupConfirmPassword(value);
+                      event.currentTarget.setCustomValidity(
+                        !value || value === signupPassword ? "" : "Passwords must match."
+                      );
+                    }}
                   />
                   <button
                     type="button"
@@ -1161,6 +1198,19 @@ function SignInPageContent() {
                     <i className={`fa-regular ${showSignupConfirm ? "fa-eye-slash" : "fa-eye"}`} aria-hidden="true" />
                   </button>
                 </div>
+                {signupConfirmPassword ? (
+                  <p
+                    id="signup-password-match"
+                    className={`auth-password-match ${signupConfirmPassword === signupPassword ? "is-match" : "is-mismatch"}`}
+                    aria-live="polite"
+                  >
+                    <i
+                      className={`fa-solid ${signupConfirmPassword === signupPassword ? "fa-circle-check" : "fa-circle-xmark"}`}
+                      aria-hidden="true"
+                    />
+                    {signupConfirmPassword === signupPassword ? "Passwords match" : "Passwords do not match yet"}
+                  </p>
+                ) : null}
               </div>
               <button type="submit" className="auth-primary-btn">
                 <span>Create account</span>

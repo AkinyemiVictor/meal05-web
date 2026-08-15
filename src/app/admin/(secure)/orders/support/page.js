@@ -4,8 +4,9 @@ import {
   loadOrderSupportCaseMetrics,
   loadOrderSupportOrderCatalogue,
 } from "@/lib/admin-dashboard-data";
-import { ORDER_SUPPORT_CASE_STATUSES, ORDER_SUPPORT_CASE_TYPES } from "@/lib/order-support";
+import { ORDER_REFUND_STATUSES, ORDER_SUPPORT_CASE_STATUSES, ORDER_SUPPORT_CASE_TYPES } from "@/lib/order-support";
 import AdminOrderSupportCaseControl from "@/components/admin-order-support-case-control";
+import AdminManualRefundControl from "@/components/admin-manual-refund-control";
 
 export const dynamic = "force-dynamic";
 
@@ -97,12 +98,14 @@ export default async function AdminOrderSupportPage({ searchParams }) {
   const statusValues = ["all", ...ORDER_SUPPORT_CASE_STATUSES.map((option) => option.value)];
   const caseType = typeValues.includes(String(params?.caseType || "all")) ? String(params.caseType || "all") : "all";
   const caseStatus = statusValues.includes(String(params?.caseStatus || "all")) ? String(params.caseStatus || "all") : "all";
+  const refundValues = ["all", ...ORDER_REFUND_STATUSES.map((option) => option.value)];
+  const refundStatus = refundValues.includes(String(params?.refundStatus || "all")) ? String(params.refundStatus || "all") : "all";
   const casePageSize = Math.max(5, Math.min(50, toPositiveInt(params?.casePageSize, 10)));
   const casePage = toPositiveInt(params?.casePage, 1);
 
   const [orderCatalogue, caseMetrics] = await Promise.all([
     loadOrderSupportOrderCatalogue({ page, pageSize, query }),
-    loadOrderSupportCaseMetrics({ page: casePage, pageSize: casePageSize, caseType, caseStatus }),
+    loadOrderSupportCaseMetrics({ page: casePage, pageSize: casePageSize, caseType, caseStatus, refundStatus }),
   ]);
 
   const warnings = Array.from(new Set([...(orderCatalogue.warnings || []), ...(caseMetrics.warnings || [])]));
@@ -134,6 +137,11 @@ export default async function AdminOrderSupportPage({ searchParams }) {
         <Link href="/admin/orders" style={{ color: "#1d4ed8", fontWeight: 700, textDecoration: "underline" }}>
           Return to Orders
         </Link>
+      </section>
+
+      <section style={{ marginBottom: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", borderRadius: 8, padding: "10px 12px" }}>
+        <strong>Refunds are manual bank transfers.</strong>{" "}
+        Meal05 never sends money from this screen. Transfer from your bank app first, then use <em>Mark as refunded</em> to create the audit record, or choose <em>No refund required</em>.
       </section>
 
       {warnings.length ? (
@@ -181,8 +189,12 @@ export default async function AdminOrderSupportPage({ searchParams }) {
           <p style={{ margin: "4px 0 0", fontWeight: 700, color: "#166534" }}>{adminFormatters.number(caseMetrics.resolvedCount)}</p>
         </article>
         <article style={{ border: "1px solid #ede9fe", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
-          <p style={{ margin: 0, color: "#6d28d9", fontSize: 12 }}>Refund Amount Tracked</p>
+          <p style={{ margin: 0, color: "#6d28d9", fontSize: 12 }}>Manually Refunded</p>
           <p style={{ margin: "4px 0 0", fontWeight: 700, color: "#6d28d9" }}>{adminFormatters.currency(caseMetrics.totalRefundAmount)}</p>
+        </article>
+        <article style={{ border: "1px solid #fef3c7", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
+          <p style={{ margin: 0, color: "#854d0e", fontSize: 12 }}>Awaiting Transfer</p>
+          <p style={{ margin: "4px 0 0", fontWeight: 700, color: "#854d0e" }}>{adminFormatters.number(caseMetrics.pendingRefundCount)}</p>
         </article>
       </section>
 
@@ -285,7 +297,7 @@ export default async function AdminOrderSupportPage({ searchParams }) {
           method="GET"
           style={{ padding: 12, borderBottom: "1px solid #e2e8f0", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
         >
-          <PreservedParams params={params} exclude={["casePage", "casePageSize", "caseType", "caseStatus"]} />
+          <PreservedParams params={params} exclude={["casePage", "casePageSize", "caseType", "caseStatus", "refundStatus"]} />
           <input type="hidden" name="casePage" value="1" />
           <select name="caseType" defaultValue={caseType} style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 10px", fontSize: 14 }}>
             <option value="all">All case types</option>
@@ -301,6 +313,12 @@ export default async function AdminOrderSupportPage({ searchParams }) {
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
+            ))}
+          </select>
+          <select name="refundStatus" defaultValue={refundStatus} style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 10px", fontSize: 14 }}>
+            <option value="all">All refund decisions</option>
+            {ORDER_REFUND_STATUSES.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
           <select name="casePageSize" defaultValue={String(casePageSize)} style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 10px", fontSize: 14 }}>
@@ -327,7 +345,7 @@ export default async function AdminOrderSupportPage({ searchParams }) {
             </div>
 
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1220 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1480 }}>
                 <thead>
                   <tr style={{ background: "#f8fafc" }}>
                     <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Order</th>
@@ -336,6 +354,7 @@ export default async function AdminOrderSupportPage({ searchParams }) {
                     <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Reason</th>
                     <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Tracked Refund</th>
                     <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Status</th>
+                    <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Refund Decision</th>
                     <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Requested</th>
                     <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Update</th>
                   </tr>
@@ -364,6 +383,18 @@ export default async function AdminOrderSupportPage({ searchParams }) {
                             {row.caseStatusLabel}
                           </span>
                         </td>
+                        <td style={{ padding: 10, verticalAlign: "top" }}>
+                          {row.caseType === "refund" ? (
+                            <AdminManualRefundControl
+                              caseId={row.id}
+                              refundStatus={row.refundStatus}
+                              refundAmount={row.refundAmount}
+                              refundReference={row.refundReference}
+                              refundedAt={row.refundedAt}
+                              refundedByEmail={row.refundedByEmail}
+                            />
+                          ) : <span style={{ color: "#64748b", fontSize: 12 }}>Not applicable</span>}
+                        </td>
                         <td style={{ padding: 10, verticalAlign: "top", fontSize: 12 }}>
                           <p style={{ margin: 0 }}>{adminFormatters.dateTime(row.requestedAt)}</p>
                           {row.createdByEmail ? <p style={{ margin: "4px 0 0", color: "#64748b" }}>{row.createdByEmail}</p> : null}
@@ -378,6 +409,7 @@ export default async function AdminOrderSupportPage({ searchParams }) {
                             reason={row.reason}
                             adminNote={row.adminNote}
                             replacementOrderId={row.replacementOrderId}
+                            refundStatus={row.refundStatus}
                           />
                         </td>
                       </tr>

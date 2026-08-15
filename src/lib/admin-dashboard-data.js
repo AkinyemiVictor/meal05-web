@@ -22,8 +22,10 @@ import {
 import { loadDeliverySettingsAdminData as loadDeliverySettingsAdminDataBase } from "@/lib/delivery-settings-server";
 import { getInventoryLossTypeLabel, normalizeInventoryLossType } from "@/lib/inventory-loss";
 import {
+  getOrderRefundStatusLabel,
   getOrderSupportCaseStatusLabel,
   getOrderSupportCaseTypeLabel,
+  normalizeOrderRefundStatus,
   normalizeOrderSupportCaseStatus,
   normalizeOrderSupportCaseType,
 } from "@/lib/order-support";
@@ -783,16 +785,17 @@ export async function loadOrderExceptionQueue({ category = "all", page = 1, page
   };
 }
 
-export async function loadOrderSupportCaseMetrics({ page = 1, pageSize = 12, caseType = "all", caseStatus = "all" } = {}) {
+export async function loadOrderSupportCaseMetrics({ page = 1, pageSize = 12, caseType = "all", caseStatus = "all", refundStatus = "all" } = {}) {
   const admin = getSupabaseAdminClient();
   const warnings = createWarnings();
   const currentPage = Math.max(1, Number(page || 1));
   const size = Math.min(100, Math.max(5, Number(pageSize || 12)));
   const typeFilter = String(caseType || "all").trim().toLowerCase();
   const statusFilter = String(caseStatus || "all").trim().toLowerCase();
+  const refundFilter = String(refundStatus || "all").trim().toLowerCase();
 
   const selectCandidates = [
-    "id, order_id, user_id, case_type, case_status, refund_amount, reason, customer_note, admin_note, replacement_order_id, requested_at, resolved_at, created_by_email, updated_at",
+    "id, order_id, user_id, case_type, case_status, refund_amount, refund_status, refund_method, refund_reference, refunded_at, refunded_by_email, reason, customer_note, admin_note, replacement_order_id, requested_at, resolved_at, created_by_email, updated_at",
     "id, order_id, user_id, case_type, case_status, refund_amount, reason, admin_note, replacement_order_id, requested_at, resolved_at, created_by_email, updated_at",
     "id, order_id, user_id, case_type, case_status, refund_amount, reason, requested_at, resolved_at, created_by_email, updated_at",
   ];
@@ -831,6 +834,9 @@ export async function loadOrderSupportCaseMetrics({ page = 1, pageSize = 12, cas
       openCount: 0,
       reviewingCount: 0,
       resolvedCount: 0,
+      pendingRefundCount: 0,
+      refundedCount: 0,
+      noRefundCount: 0,
       totalRefundAmount: 0,
       warnings,
     };
@@ -867,6 +873,12 @@ export async function loadOrderSupportCaseMetrics({ page = 1, pageSize = 12, cas
         caseStatus: normalizedCaseStatus,
         caseStatusLabel: getOrderSupportCaseStatusLabel(normalizedCaseStatus),
         refundAmount: toNumber(row?.refund_amount),
+        refundStatus: normalizeOrderRefundStatus(row?.refund_status, normalizedCaseType),
+        refundStatusLabel: getOrderRefundStatusLabel(row?.refund_status, normalizedCaseType),
+        refundMethod: String(row?.refund_method || "").trim(),
+        refundReference: String(row?.refund_reference || "").trim(),
+        refundedAt: row?.refunded_at || null,
+        refundedByEmail: String(row?.refunded_by_email || "").trim(),
         reason: String(row?.reason || "").trim(),
         customerNote: String(row?.customer_note || "").trim(),
         adminNote: String(row?.admin_note || "").trim(),
@@ -881,7 +893,8 @@ export async function loadOrderSupportCaseMetrics({ page = 1, pageSize = 12, cas
       };
     })
     .filter((row) => (typeFilter === "all" ? true : row.caseType === typeFilter))
-    .filter((row) => (statusFilter === "all" ? true : row.caseStatus === statusFilter));
+    .filter((row) => (statusFilter === "all" ? true : row.caseStatus === statusFilter))
+    .filter((row) => (refundFilter === "all" ? true : row.refundStatus === refundFilter));
 
   const totalCount = records.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / size));
@@ -899,7 +912,13 @@ export async function loadOrderSupportCaseMetrics({ page = 1, pageSize = 12, cas
     openCount: caseRows.filter((row) => normalizeOrderSupportCaseStatus(row?.case_status) === "open").length,
     reviewingCount: caseRows.filter((row) => normalizeOrderSupportCaseStatus(row?.case_status) === "reviewing").length,
     resolvedCount: caseRows.filter((row) => normalizeOrderSupportCaseStatus(row?.case_status) === "resolved").length,
-    totalRefundAmount: caseRows.reduce((sum, row) => sum + toNumber(row?.refund_amount), 0),
+    pendingRefundCount: caseRows.filter((row) => row?.case_type === "refund" && normalizeOrderRefundStatus(row?.refund_status) === "pending").length,
+    refundedCount: caseRows.filter((row) => row?.case_type === "refund" && normalizeOrderRefundStatus(row?.refund_status) === "refunded").length,
+    noRefundCount: caseRows.filter((row) => row?.case_type === "refund" && normalizeOrderRefundStatus(row?.refund_status) === "not_required").length,
+    totalRefundAmount: caseRows.reduce(
+      (sum, row) => sum + (row?.case_type === "refund" && normalizeOrderRefundStatus(row?.refund_status) === "refunded" ? toNumber(row?.refund_amount) : 0),
+      0
+    ),
     warnings,
   };
 }
@@ -1056,7 +1075,7 @@ export async function loadOrderAdminDetail(orderId) {
   let supportCases = [];
   const supportResult = await admin
     .from("order_support_cases")
-    .select("id, order_id, user_id, case_type, case_status, refund_amount, reason, customer_note, admin_note, replacement_order_id, requested_at, resolved_at, created_by_email, updated_at")
+    .select("id, order_id, user_id, case_type, case_status, refund_amount, refund_status, refund_method, refund_reference, refunded_at, refunded_by_email, reason, customer_note, admin_note, replacement_order_id, requested_at, resolved_at, created_by_email, updated_at")
     .eq("order_id", safeOrderId)
     .order("updated_at", { ascending: false })
     .range(0, 99);
@@ -1073,6 +1092,11 @@ export async function loadOrderAdminDetail(orderId) {
       caseStatus: normalizeOrderSupportCaseStatus(row?.case_status),
       caseStatusLabel: getOrderSupportCaseStatusLabel(row?.case_status),
       refundAmount: toNumber(row?.refund_amount),
+      refundStatus: normalizeOrderRefundStatus(row?.refund_status, row?.case_type),
+      refundStatusLabel: getOrderRefundStatusLabel(row?.refund_status, row?.case_type),
+      refundReference: String(row?.refund_reference || "").trim(),
+      refundedAt: row?.refunded_at || null,
+      refundedByEmail: String(row?.refunded_by_email || "").trim(),
       reason: String(row?.reason || "").trim(),
       customerNote: String(row?.customer_note || "").trim(),
       adminNote: String(row?.admin_note || "").trim(),

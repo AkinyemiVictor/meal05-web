@@ -512,11 +512,6 @@
   gap: 0.7rem;
 }
 
-.deliveryContactCard > div:first-child {
-  display: grid;
-  gap: 0.2rem;
-}
-
 .deliveryContactCard strong {
   color: var(--mk-text);
 }
@@ -527,6 +522,37 @@
   color: var(--mk-text-subtle);
   font-size: 0.88rem;
   line-height: 1.45;
+}
+
+.deliveryContactIdentity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.deliveryContactIdentity > div:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.deliveryContactIdentity small {
+  color: var(--mk-text-subtle);
+  font-size: 0.79rem;
+  overflow-wrap: anywhere;
+}
+
+.deliveryContactAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(240, 78, 31, 0.12) center/cover no-repeat;
+  color: #c2410c;
+  font-size: 1.1rem;
+  font-weight: 850;
 }
 
 .deliveryContactActions {

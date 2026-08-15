@@ -13,8 +13,15 @@ export const ORDER_SUPPORT_CASE_STATUSES = Object.freeze([
   { value: "cancelled", label: "Cancelled" },
 ]);
 
+export const ORDER_REFUND_STATUSES = Object.freeze([
+  { value: "pending", label: "Awaiting Bank Transfer" },
+  { value: "refunded", label: "Refunded Manually" },
+  { value: "not_required", label: "No Refund Required" },
+]);
+
 const TYPE_LOOKUP = new Map(ORDER_SUPPORT_CASE_TYPES.map((option) => [option.value, option]));
 const STATUS_LOOKUP = new Map(ORDER_SUPPORT_CASE_STATUSES.map((option) => [option.value, option]));
+const REFUND_STATUS_LOOKUP = new Map(ORDER_REFUND_STATUSES.map((option) => [option.value, option]));
 const CLOSED_STATUSES = new Set(["rejected", "resolved", "cancelled"]);
 
 export const normalizeOrderSupportCaseType = (value) => {
@@ -41,3 +48,12 @@ export const getOrderSupportCaseStatusLabel = (value) =>
 
 export const isClosedOrderSupportCaseStatus = (value) =>
   CLOSED_STATUSES.has(normalizeOrderSupportCaseStatus(value));
+
+export const normalizeOrderRefundStatus = (value, caseType = "refund") => {
+  if (normalizeOrderSupportCaseType(caseType) !== "refund") return "not_required";
+  const normalized = String(value || "").trim().toLowerCase();
+  return REFUND_STATUS_LOOKUP.has(normalized) ? normalized : "pending";
+};
+
+export const getOrderRefundStatusLabel = (value, caseType = "refund") =>
+  REFUND_STATUS_LOOKUP.get(normalizeOrderRefundStatus(value, caseType))?.label || "Awaiting Bank Transfer";

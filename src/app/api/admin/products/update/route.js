@@ -19,12 +19,6 @@ const toId = (value) => {
   return Number.isSafeInteger(num) && num > 0 ? num : null;
 };
 
-const toNullableNumber = (value) => {
-  if (value == null || value === "") return null;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-};
-
 const normalizeNullableText = (value, { max = 500 } = {}) => {
   if (value == null) return null;
   const text = String(value).trim();
@@ -79,9 +73,6 @@ export async function POST(req) {
     category_id: z.union([z.string(), z.number(), z.null()]).optional(),
     image_url: z.union([z.string().trim().max(500), z.null()]).optional(),
     is_bundle_eligible: z.boolean().optional(),
-    price: z.number().nonnegative().max(1_000_000_000).optional(),
-    old_price: z.union([z.number().nonnegative().max(1_000_000_000), z.null()]).optional(),
-    stock_count: z.number().int().nonnegative().max(1_000_000).optional(),
     variant_is_active: z.boolean().optional(),
     purchase_mode: z.enum([PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE]).optional(),
     min_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
@@ -93,7 +84,7 @@ export async function POST(req) {
     promo_tag_expires_at: z.union([z.string().trim().max(80), z.null()]).optional(),
     promo_tag_enabled: z.boolean().optional(),
     note: z.string().trim().max(500).optional(),
-  });
+  }).strict();
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
     await logAdminError("Validation failed", { route: "/api/admin/products/update", issues: parsed.error.issues });
@@ -111,9 +102,6 @@ export async function POST(req) {
   const hasCategory = Object.prototype.hasOwnProperty.call(parsed.data, "category_id");
   const hasImageUrl = Object.prototype.hasOwnProperty.call(parsed.data, "image_url");
   const hasBundleEligible = typeof parsed.data.is_bundle_eligible === "boolean";
-  const hasPrice = typeof parsed.data.price === "number";
-  const hasOldPrice = Object.prototype.hasOwnProperty.call(parsed.data, "old_price");
-  const hasStockCount = typeof parsed.data.stock_count === "number";
   const hasVariantActive = typeof parsed.data.variant_is_active === "boolean";
   const hasPurchaseMode = Object.prototype.hasOwnProperty.call(parsed.data, "purchase_mode");
   const hasMinQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "min_quantity");
@@ -130,9 +118,6 @@ export async function POST(req) {
     !hasCategory &&
     !hasImageUrl &&
     !hasBundleEligible &&
-    !hasPrice &&
-    !hasOldPrice &&
-    !hasStockCount &&
     !hasVariantActive &&
     !hasPurchaseMode &&
     !hasMinQuantity &&
@@ -147,10 +132,7 @@ export async function POST(req) {
     return applyRateLimitHeaders(NextResponse.json({ error: "No update fields provided" }, { status: 400 }), rl);
   }
   if (
-    (hasPrice ||
-      hasOldPrice ||
-      hasStockCount ||
-      hasVariantActive ||
+    (hasVariantActive ||
       hasPurchaseMode ||
       hasMinQuantity ||
       hasMaxQuantity ||
@@ -254,12 +236,6 @@ export async function POST(req) {
     }
   }
 
-  const nextPrice = hasPrice ? parsed.data.price : Number(existingVariant?.price);
-  const requestedOldPrice = hasOldPrice ? parsed.data.old_price : existingVariant?.old_price;
-  const normalizedOldPriceCleared =
-    hasOldPrice && requestedOldPrice != null && Number(requestedOldPrice) < Number(nextPrice);
-  const nextOldPrice = normalizedOldPriceCleared ? null : requestedOldPrice;
-
   const productPatch = {};
   if (hasSeason && existingProduct.in_season !== parsed.data.in_season) {
     productPatch.in_season = parsed.data.in_season;
@@ -301,17 +277,6 @@ export async function POST(req) {
   }
 
   const variantPatch = {};
-  if (hasPrice && Number(existingVariant.price) !== Number(parsed.data.price)) {
-    variantPatch.price = parsed.data.price;
-  }
-  const currentOldPrice = toNullableNumber(existingVariant?.old_price);
-  const desiredOldPrice = toNullableNumber(nextOldPrice);
-  if (hasOldPrice && currentOldPrice !== desiredOldPrice) {
-    variantPatch.old_price = desiredOldPrice;
-  }
-  if (hasStockCount && Number(existingVariant.stock_count) !== Number(parsed.data.stock_count)) {
-    variantPatch.stock_count = parsed.data.stock_count;
-  }
   if (hasVariantActive && existingVariant.is_active !== parsed.data.variant_is_active) {
     variantPatch.is_active = parsed.data.variant_is_active;
   }
@@ -406,12 +371,6 @@ export async function POST(req) {
     after_promo_tag_expires_at: updatedProduct.promo_tag_expires_at,
     before_promo_tag_enabled: existingProduct.promo_tag_enabled,
     after_promo_tag_enabled: updatedProduct.promo_tag_enabled,
-    before_price: existingVariant?.price,
-    after_price: updatedVariant?.price,
-    before_old_price: existingVariant?.old_price,
-    after_old_price: updatedVariant?.old_price,
-    before_stock_count: existingVariant?.stock_count,
-    after_stock_count: updatedVariant?.stock_count,
     before_variant_is_active: existingVariant?.is_active,
     after_variant_is_active: updatedVariant?.is_active,
     before_purchase_mode: existingVariant?.purchase_mode,
@@ -426,7 +385,6 @@ export async function POST(req) {
     after_base_unit: updatedVariant?.base_unit,
     before_base_quantity: existingVariant?.base_quantity,
     after_base_quantity: updatedVariant?.base_quantity,
-    old_price_cleared: normalizedOldPriceCleared,
     note: parsed.data.note || undefined,
     ok: true,
   });
@@ -465,9 +423,6 @@ export async function POST(req) {
             base_quantity: updatedVariant.base_quantity,
           }
         : null,
-      normalized: {
-        oldPriceCleared: normalizedOldPriceCleared,
-      },
     }),
     rl
   );

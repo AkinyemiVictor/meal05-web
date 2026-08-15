@@ -17,6 +17,10 @@ const routeSchema = z.object({
   pickupLocation: z.string().trim().max(300).optional().nullable(),
   agreedPartnerPayment: z.union([z.string(), z.number()]).optional().nullable(),
   otherDeliveryCost: z.union([z.string(), z.number()]).optional().nullable(),
+  packages: z.array(z.object({
+    orderId: z.union([z.string(), z.number()]),
+    packageCount: z.number().int().min(1).max(50),
+  }).strict()).max(30).optional().default([]),
   notes: z.string().trim().max(1000).optional().nullable(),
 });
 

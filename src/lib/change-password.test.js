@@ -39,8 +39,8 @@ test("recovery links use the callback and receive a short-lived HttpOnly authori
   const recovery = read("src/lib/auth/password-recovery.js");
   const token = read("src/lib/auth/password-recovery-token.js");
 
-  assert.match(signIn, /new URL\("\/auth\/callback"/);
-  assert.match(signIn, /searchParams\.set\("flow", "recovery"\)/);
+  assert.match(signIn, /buildAuthCallbackUrl/);
+  assert.match(signIn, /flow: "recovery"/);
   assert.match(callback, /isRecentPasswordRecovery\(data\?\.user\)/);
   assert.match(callback, /httpOnly: true/);
   assert.match(callback, /PASSWORD_RECOVERY_MAX_AGE_SECONDS/);

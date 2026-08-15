@@ -15,6 +15,9 @@ const activeRoute = {
   delivery_partners: {
     full_name: "Ayo Rider",
     phone: "08030000000",
+    rider_code: "M05-004",
+    vehicle_type: "motorcycle",
+    vehicle_plate_number: "ABC-123XY",
   },
 };
 
@@ -56,8 +59,10 @@ test("customer rider contact is available only for live delivery windows", () =>
   const order = { id: 25, order_reference: "M05-25", status: "processing", delivery_status: "out_for_delivery" };
   const contact = buildCustomerRiderContact({ order, stop: activeStop });
   assert.equal(contact.available, true);
-  assert.equal(contact.rider.name, "Ayo Rider");
+  assert.equal(contact.rider.name, "Ayo R.");
   assert.equal(contact.rider.phone, "0803 000 0000");
+  assert.equal(contact.rider.riderCode, "M05-004");
+  assert.equal(contact.rider.vehicleType, "motorcycle");
   assert.match(contact.rider.whatsappUrl, /Meal05%20order%20%23M05-25/);
   assert.match(contact.note, /payment, refund, product or complaint/i);
 

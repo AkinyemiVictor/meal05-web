@@ -93,6 +93,38 @@ export default function AdminSiteNotificationControl({ records = [] }) {
     });
   };
 
+  const deactivateRecord = async (record) => {
+    setSaving(true);
+    setError("");
+    setOk("");
+    try {
+      const response = await fetch("/api/admin/site-notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: record.id,
+          title: record.title,
+          body: record.body,
+          severity: record.severity,
+          is_active: false,
+          starts_at: record.startsAt,
+          expires_at: record.expiresAt,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload?.error || `Request failed (${response.status})`);
+        return;
+      }
+      setOk("Notification deactivated. It will no longer appear on the storefront.");
+      startTransition(() => router.refresh());
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     setError("");
@@ -191,7 +223,7 @@ export default function AdminSiteNotificationControl({ records = [] }) {
                 onChange={(event) => updateField("isActive", event.target.checked)}
                 disabled={disabled}
               />
-              Active / send now
+              Enabled on storefront
             </label>
           </div>
 
@@ -206,6 +238,12 @@ export default function AdminSiteNotificationControl({ records = [] }) {
               style={textAreaStyle}
             />
           </label>
+
+          <div style={{ border: `1px solid ${tone.color}`, borderRadius: 12, background: tone.bg, color: tone.color, padding: 12 }}>
+            <span style={{ display: "block", marginBottom: 5, fontSize: 11, fontWeight: 800, letterSpacing: ".05em", textTransform: "uppercase" }}>Storefront preview</span>
+            <strong>{form.title.trim() || "Notification heading"}</strong>
+            <p style={{ margin: "5px 0 0", fontSize: 13 }}>{form.body.trim() || "Your notification text will appear here."}</p>
+          </div>
 
           <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))" }}>
             <label style={{ display: "grid", gap: 4 }}>
@@ -289,6 +327,16 @@ export default function AdminSiteNotificationControl({ records = [] }) {
                     >
                       Edit
                     </button>
+                    {record.isActive ? (
+                      <button
+                        type="button"
+                        onClick={() => deactivateRecord(record)}
+                        disabled={disabled}
+                        style={{ border: "1px solid #fecaca", borderRadius: 8, background: "#fff", color: "#b91c1c", padding: "6px 10px", fontWeight: 700 }}
+                      >
+                        Deactivate
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </article>
