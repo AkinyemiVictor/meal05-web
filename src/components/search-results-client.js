@@ -40,6 +40,7 @@ export default function SearchResultsClient({ products = [] }) {
       <div className="category-products">
         <ProductGrid
           products={products}
+          className="search-results-grid"
           renderProduct={(product) => (
             <ProductCard
               key={product.id}
@@ -57,6 +58,41 @@ export default function SearchResultsClient({ products = [] }) {
         variant="dropdown"
         anchorEl={quickAddAnchorEl}
       />
+
+      <style jsx global>{`
+        .category-products .product-card-grid.search-results-grid {
+          --search-grid-cols: 5;
+          --search-grid-gap: 1.5rem;
+          gap: var(--search-grid-gap);
+          justify-content: flex-start;
+        }
+
+        .category-products .product-card-grid.search-results-grid > .product-card,
+        .category-products .product-card-grid.search-results-grid > .meal05-product-card {
+          flex: 0 0 calc((100% - (var(--search-grid-cols) - 1) * var(--search-grid-gap)) / var(--search-grid-cols));
+          max-width: calc((100% - (var(--search-grid-cols) - 1) * var(--search-grid-gap)) / var(--search-grid-cols));
+          min-width: 0;
+        }
+
+        @media (max-width: 1200px) {
+          .category-products .product-card-grid.search-results-grid {
+            --search-grid-cols: 4;
+          }
+        }
+
+        @media (max-width: 960px) {
+          .category-products .product-card-grid.search-results-grid {
+            --search-grid-cols: 3;
+          }
+        }
+
+        @media (max-width: 720px) {
+          .category-products .product-card-grid.search-results-grid {
+            --search-grid-cols: 2;
+            --search-grid-gap: 0.85rem;
+          }
+        }
+      `}</style>
     </>
   );
 }
