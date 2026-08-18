@@ -73,7 +73,7 @@ function ProductImage({ product, compact = false, priority = false }) {
       <div
         className={classNames(
           "absolute",
-          compact ? "inset-x-3 bottom-3 top-12" : "inset-x-4 bottom-4 top-14 sm:inset-x-5 sm:bottom-5 sm:top-16"
+          compact ? "inset-x-3 bottom-3 top-9" : "inset-x-4 bottom-4 top-10 sm:inset-x-5 sm:bottom-5 sm:top-11"
         )}
       >
         <Image
