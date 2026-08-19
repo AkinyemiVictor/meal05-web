@@ -123,7 +123,7 @@ export default function ProductCard({
       )}
     >
       <ProductImage product={product} compact={compact} priority={priority} />
-      <div className={classNames("flex flex-col", compact ? "min-h-[146px] pt-3" : "min-h-[188px] pt-4")}>
+      <div className={classNames("flex flex-col", compact ? "pt-3" : "pt-4")}>
         <div className={classNames("relative min-w-0", compact ? "pr-10" : "pr-12")}>
           <Link
             href={productHref}
@@ -177,7 +177,7 @@ export default function ProductCard({
           </div>
         </Link>
 
-        <div className={classNames("mt-auto", compact ? "pt-3" : "pt-4")}>
+        <div className={compact ? "pt-3" : "pt-4"}>
           <button
             type="button"
             disabled={unavailable}
