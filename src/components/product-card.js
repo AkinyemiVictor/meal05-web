@@ -123,7 +123,7 @@ export default function ProductCard({
       )}
     >
       <ProductImage product={product} compact={compact} priority={priority} />
-      <div className={classNames("flex flex-col", compact ? "min-h-[166px] pt-3" : "min-h-[212px] pt-4")}>
+      <div className={classNames("flex flex-col", compact ? "min-h-[146px] pt-3" : "min-h-[188px] pt-4")}>
         <div className={classNames("relative min-w-0", compact ? "pr-10" : "pr-12")}>
           <Link
             href={productHref}
@@ -165,26 +165,12 @@ export default function ProductCard({
           )}
           aria-label={`View ${product.name} details`}
         >
-          <div className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
-            <p
-              className={classNames(
-                "shrink-0 font-medium leading-none tracking-tight text-meal-text",
-                compact
-                  ? "text-[14px] sm:text-base lg:text-lg"
-                  : "text-[15px] sm:text-lg lg:text-xl"
-              )}
-            >
+          <div className="flex items-baseline gap-2 whitespace-nowrap">
+            <p className={classNames("font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
               {product.hasMultipleOptions ? "From " : ""}{formatProductPrice(product.price, "")}
             </p>
             {hasOldPrice ? (
-              <p
-                className={classNames(
-                  "shrink-0 font-medium leading-none text-meal-muted line-through",
-                  compact
-                    ? "text-[10px] sm:text-xs lg:text-[13px]"
-                    : "text-[11px] sm:text-xs lg:text-sm"
-                )}
-              >
+              <p className={classNames("font-medium text-meal-muted line-through", compact ? "text-xs" : "text-sm")}>
                 {formatNaira(oldPrice)}
               </p>
             ) : null}
