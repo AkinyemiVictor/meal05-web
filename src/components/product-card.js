@@ -123,7 +123,7 @@ export default function ProductCard({
       )}
     >
       <ProductImage product={product} compact={compact} priority={priority} />
-      <div className={classNames("grid grid-rows-[auto_1fr_auto]", compact ? "min-h-[166px] pt-3" : "min-h-[212px] pt-4")}>
+      <div className={classNames("flex flex-col", compact ? "min-h-[166px] pt-3" : "min-h-[212px] pt-4")}>
         <div className={classNames("relative min-w-0", compact ? "pr-10" : "pr-12")}>
           <Link
             href={productHref}
@@ -137,7 +137,7 @@ export default function ProductCard({
             <span
               className={classNames(
                 "w-full overflow-hidden font-medium text-meal-text",
-                compact ? "mt-1.5 h-10 text-[14px] leading-5" : "mt-2 h-12 text-base leading-6"
+                compact ? "mt-1.5 max-h-10 text-[14px] leading-5" : "mt-2 max-h-12 text-base leading-6"
               )}
               style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 }}
               title={product.name}
@@ -155,46 +155,51 @@ export default function ProductCard({
             )}
           />
         </div>
-        <div className="self-end">
-          <Link
-            href={productHref}
-            prefetch={false}
-            className="block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-meal-pepper/60"
-            aria-label={`View ${product.name} details`}
-          >
-            <div className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+
+        <Link
+          href={productHref}
+          prefetch={false}
+          className={classNames(
+            "block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-meal-pepper/60",
+            compact ? "mt-2" : "mt-2.5"
+          )}
+          aria-label={`View ${product.name} details`}
+        >
+          <div className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+            <p
+              className={classNames(
+                "shrink-0 font-medium leading-none tracking-tight text-meal-text",
+                compact
+                  ? "text-[14px] sm:text-base lg:text-lg"
+                  : "text-[15px] sm:text-lg lg:text-xl"
+              )}
+            >
+              {product.hasMultipleOptions ? "From " : ""}{formatProductPrice(product.price, "")}
+            </p>
+            {hasOldPrice ? (
               <p
                 className={classNames(
-                  "shrink-0 font-medium leading-none tracking-tight text-meal-text",
+                  "shrink-0 font-medium leading-none text-meal-muted line-through",
                   compact
-                    ? "text-[clamp(0.7rem,3.1vw,1.125rem)]"
-                    : "text-[clamp(0.7rem,3.2vw,1.25rem)]"
+                    ? "text-[10px] sm:text-xs lg:text-[13px]"
+                    : "text-[11px] sm:text-xs lg:text-sm"
                 )}
               >
-                {product.hasMultipleOptions ? "From " : ""}{formatProductPrice(product.price, "")}
+                {formatNaira(oldPrice)}
               </p>
-              {hasOldPrice ? (
-                <p
-                  className={classNames(
-                    "shrink-0 font-medium leading-none text-meal-muted line-through",
-                    compact
-                      ? "text-[clamp(0.55rem,2.3vw,0.75rem)]"
-                      : "text-[clamp(0.55rem,2.5vw,0.875rem)]"
-                  )}
-                >
-                  {formatNaira(oldPrice)}
-                </p>
-              ) : null}
-            </div>
-          </Link>
+            ) : null}
+          </div>
+        </Link>
+
+        <div className={classNames("mt-auto", compact ? "pt-3" : "pt-4")}>
           <button
             type="button"
             disabled={unavailable}
             onClick={handleAdd}
             className={classNames(
               compact
-                ? "mt-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl px-3 text-[10px] font-medium uppercase tracking-[0.14em] transition"
-                : "mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-xs font-medium uppercase tracking-[0.18em] transition",
+                ? "flex h-10 w-full items-center justify-center gap-1.5 rounded-xl px-3 text-[10px] font-medium uppercase tracking-[0.14em] transition"
+                : "flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-xs font-medium uppercase tracking-[0.18em] transition",
               unavailable
                 ? "border border-dashed border-meal-line bg-meal-mist text-meal-muted"
                 : "bg-meal-ink text-meal-paper hover:bg-meal-pepper"
