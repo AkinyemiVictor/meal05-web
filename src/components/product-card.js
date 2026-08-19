@@ -43,26 +43,14 @@ function ProductImage({ product, compact = false, priority = false }) {
     >
       <div
         className={classNames(
-          "absolute z-10 flex min-w-0 items-start justify-between gap-2",
+          "absolute z-10 flex min-w-0 items-start justify-end gap-2",
           compact ? "left-2.5 right-2.5 top-2.5" : "left-3 right-3 top-3 sm:left-4 sm:right-4 sm:top-4"
         )}
       >
-        {product.discount ? (
-          <span
-            className={classNames(
-              "max-w-[calc(50%-0.25rem)] shrink truncate rounded-lg bg-meal-pepper font-medium uppercase leading-none tracking-wider text-meal-paper",
-              compact ? "px-1.5 py-1 text-[9px]" : "px-2 py-1 text-[10px] sm:px-2.5 sm:text-[11px]"
-            )}
-          >
-            {product.discount}% off
-          </span>
-        ) : (
-          <span className="min-w-0" aria-hidden="true" />
-        )}
         {canShowSeasonBadge && product.inSeason ? (
           <span
             className={classNames(
-              "ml-auto max-w-[calc(50%-0.25rem)] shrink truncate rounded-lg bg-meal-green/20 font-medium uppercase leading-none tracking-wider text-meal-text",
+              "max-w-[calc(50%-0.25rem)] shrink truncate rounded-lg bg-meal-green/20 font-medium uppercase leading-none tracking-wider text-meal-text",
               compact ? "px-1.5 py-1 text-[9px]" : "px-2 py-1 text-[10px] sm:px-2.5 sm:text-[11px]"
             )}
           >
@@ -162,14 +150,16 @@ export default function ProductCard({
             className="block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-meal-pepper/60"
             aria-label={`View ${product.name} details`}
           >
-            <p className={classNames("font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
-              {product.hasMultipleOptions ? "From " : ""}{formatProductPrice(product.price, "")}
-            </p>
-            {Number(product.oldPrice) > Number(product.price) ? (
-              <p className={classNames("mt-1 font-medium text-meal-muted line-through", compact ? "text-xs" : "text-sm")}>
-                {formatNaira(product.oldPrice)}
+            <div className="flex items-baseline gap-2 whitespace-nowrap">
+              <p className={classNames("font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
+                {product.hasMultipleOptions ? "From " : ""}{formatProductPrice(product.price, "")}
               </p>
-            ) : null}
+              {Number(product.oldPrice) > Number(product.price) ? (
+                <p className={classNames("font-medium text-meal-muted line-through", compact ? "text-xs" : "text-sm")}>
+                  {formatNaira(product.oldPrice)}
+                </p>
+              ) : null}
+            </div>
           </Link>
           <button
             type="button"
