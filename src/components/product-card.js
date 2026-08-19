@@ -43,14 +43,14 @@ function ProductImage({ product, compact = false, priority = false }) {
     >
       <div
         className={classNames(
-          "absolute z-10 flex min-w-0 items-start justify-end gap-2",
+          "absolute z-10 flex min-w-0 items-start justify-start gap-2",
           compact ? "left-2.5 right-2.5 top-2.5" : "left-3 right-3 top-3 sm:left-4 sm:right-4 sm:top-4"
         )}
       >
         {canShowSeasonBadge && product.inSeason ? (
           <span
             className={classNames(
-              "max-w-[calc(50%-0.25rem)] shrink truncate rounded-lg bg-meal-green/20 font-medium uppercase leading-none tracking-wider text-meal-text",
+              "max-w-[calc(70%-0.25rem)] shrink truncate rounded-lg bg-meal-green/20 font-medium uppercase leading-none tracking-wider text-meal-text",
               compact ? "px-1.5 py-1 text-[9px]" : "px-2 py-1 text-[10px] sm:px-2.5 sm:text-[11px]"
             )}
           >
@@ -97,6 +97,17 @@ export default function ProductCard({
   const stockClass = resolveStockClass(product.stock);
   const unavailable = stockClass === "is-unavailable";
   const productHref = getProductHref(product);
+  const currentPrice = Number(product.price ?? product.starting_price ?? 0);
+  const oldPrice = Number(
+    product.oldPrice ??
+      product.old_price ??
+      product.compareAtPrice ??
+      product.compare_at_price ??
+      product.listPrice ??
+      product.list_price ??
+      0
+  );
+  const hasOldPrice = Number.isFinite(oldPrice) && Number.isFinite(currentPrice) && oldPrice > currentPrice && currentPrice > 0;
 
   const handleAdd = (event) => {
     const handler = onQuickAdd || onAdd;
@@ -112,7 +123,7 @@ export default function ProductCard({
       )}
     >
       <ProductImage product={product} compact={compact} priority={priority} />
-      <div className={classNames("grid grid-rows-[auto_1fr_auto]", compact ? "min-h-[146px] pt-3" : "min-h-[188px] pt-4")}>
+      <div className={classNames("grid grid-rows-[auto_1fr_auto]", compact ? "min-h-[166px] pt-3" : "min-h-[212px] pt-4")}>
         <div className={classNames("relative min-w-0", compact ? "pr-10" : "pr-12")}>
           <Link
             href={productHref}
@@ -125,9 +136,10 @@ export default function ProductCard({
             </p>
             <span
               className={classNames(
-                "block w-full truncate font-medium text-meal-text",
-                compact ? "mt-1.5 h-5 text-[14px] leading-5" : "mt-2 h-6 text-base leading-6"
+                "w-full overflow-hidden font-medium text-meal-text",
+                compact ? "mt-1.5 h-10 text-[14px] leading-5" : "mt-2 h-12 text-base leading-6"
               )}
+              style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 }}
               title={product.name}
             >
               {product.name}
@@ -150,13 +162,27 @@ export default function ProductCard({
             className="block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-meal-pepper/60"
             aria-label={`View ${product.name} details`}
           >
-            <div className="flex items-baseline gap-2 whitespace-nowrap">
-              <p className={classNames("font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
+            <div className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+              <p
+                className={classNames(
+                  "shrink-0 font-medium leading-none tracking-tight text-meal-text",
+                  compact
+                    ? "text-[clamp(0.7rem,3.1vw,1.125rem)]"
+                    : "text-[clamp(0.7rem,3.2vw,1.25rem)]"
+                )}
+              >
                 {product.hasMultipleOptions ? "From " : ""}{formatProductPrice(product.price, "")}
               </p>
-              {Number(product.oldPrice) > Number(product.price) ? (
-                <p className={classNames("font-medium text-meal-muted line-through", compact ? "text-xs" : "text-sm")}>
-                  {formatNaira(product.oldPrice)}
+              {hasOldPrice ? (
+                <p
+                  className={classNames(
+                    "shrink-0 font-medium leading-none text-meal-muted line-through",
+                    compact
+                      ? "text-[clamp(0.55rem,2.3vw,0.75rem)]"
+                      : "text-[clamp(0.55rem,2.5vw,0.875rem)]"
+                  )}
+                >
+                  {formatNaira(oldPrice)}
                 </p>
               ) : null}
             </div>
