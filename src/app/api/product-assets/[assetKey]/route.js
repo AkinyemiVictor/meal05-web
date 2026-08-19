@@ -35,7 +35,12 @@ export async function GET(_request, { params }) {
       headers: {
         "Content-Type": data.mime_type || "application/octet-stream",
         "Content-Length": String(bytes.length),
-        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+        // Product asset keys are intentionally stable while their blob may be replaced.
+        // Browsers must revalidate, while the edge may keep a very short copy to avoid
+        // hitting Supabase for every card/thumb request.
+        "Cache-Control": "public, max-age=0, must-revalidate",
+        "CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=60",
+        "Vercel-CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=60",
         "X-Content-Type-Options": "nosniff",
       },
     });
