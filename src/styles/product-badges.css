@@ -1,0 +1,15 @@
+/* Keep seasonal status anchored consistently at the top-left of product media. */
+.product-detail-page .product-detail-badges--media {
+  justify-content: flex-start !important;
+}
+
+.product-detail-page .product-detail-badges .product-detail-season {
+  order: -1;
+  margin-left: 0 !important;
+  margin-right: auto;
+}
+
+/* Percentage-off badges were retired from the storefront UI. */
+.product-detail-page .product-detail-discount {
+  display: none !important;
+}
