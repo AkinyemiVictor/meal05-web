@@ -30,6 +30,13 @@ const firstText = (...values) => {
   return value ? value.trim() : "";
 };
 
+export const getLiveCartProductImageUrl = (productId, size = "thumb") => {
+  const id = String(productId ?? "").trim();
+  if (!id) return "";
+  const normalizedSize = ["thumb", "card", "detail"].includes(String(size)) ? String(size) : "thumb";
+  return `/api/products/${encodeURIComponent(id)}/image?size=${normalizedSize}`;
+};
+
 export const normalizeCartItem = (item) => {
   if (!item || typeof item !== "object") return null;
 
@@ -59,6 +66,7 @@ export const normalizeCartItem = (item) => {
   const variantName = firstText(draft.variantName, draft.variant_name);
   const price = Number(draft.price ?? draft.unitPrice ?? draft.unit_price_at_add ?? 0);
   const normalizedPrice = Number.isFinite(price) && price >= 0 ? price : 0;
+  const liveImage = getLiveCartProductImageUrl(productId, "thumb");
 
   return {
     ...draft,
@@ -72,7 +80,11 @@ export const normalizeCartItem = (item) => {
     price: normalizedPrice,
     unitPrice: normalizedPrice,
     lineTotal: normalizedPrice * quantity,
+    // Cart/checkout must not keep a historical image snapshot. Whenever we know the
+    // product id, point at the live image resolver so image replacements propagate to
+    // existing guest carts, signed-in carts and checkout summaries automatically.
     image: firstText(
+      liveImage,
       draft.variantImageUrl,
       draft.variant_image_url,
       draft.products?.image_url,
