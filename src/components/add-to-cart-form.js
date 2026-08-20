@@ -74,6 +74,15 @@ const buildCartItem = (product, quantity, fallbackImage) => {
     volume_unit: product.volume_unit ?? product.volumeUnit ?? null,
     optionRole: product.optionRole ?? product.option_role ?? null,
     option_role: product.option_role ?? product.optionRole ?? null,
+    availabilityMode: product.availabilityMode ?? product.availability_mode ?? "standard",
+    availability_mode: product.availability_mode ?? product.availabilityMode ?? "standard",
+    inventoryTrackingMode: product.inventoryTrackingMode ?? product.inventory_tracking_mode ?? "tracked",
+    inventory_tracking_mode: product.inventory_tracking_mode ?? product.inventoryTrackingMode ?? "tracked",
+    selectionModel: product.selectionModel ?? product.selection_model ?? "exact_variant",
+    selection_model: product.selection_model ?? product.selectionModel ?? "exact_variant",
+    variationNote: product.variationNote ?? product.variation_note ?? "",
+    sizePreference: product.sizePreference ?? product.size_preference ?? null,
+    size_preference: product.size_preference ?? product.sizePreference ?? null,
     orderSize: 1,
     orderCount: count,
     quantity: count,
@@ -105,12 +114,14 @@ export default function AddToCartForm({ product, fallbackImage }) {
   const { showNotice } = useNotice();
 
   const availableCount = useMemo(() => getAvailableCount(product?.stock), [product?.stock]);
+  const availabilityMode = String(product?.availabilityMode ?? product?.availability_mode ?? "standard");
+  const bypassLocalStock = availabilityMode === "request" || String(product?.inventoryTrackingMode ?? product?.inventory_tracking_mode) === "supplier";
   const effectiveMaxQuantity = useMemo(() => {
-    if (Number.isFinite(availableCount)) {
+    if (!bypassLocalStock && Number.isFinite(availableCount)) {
       return Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount);
     }
     return purchaseRules.maxQuantity;
-  }, [availableCount, purchaseRules.maxQuantity]);
+  }, [availableCount, bypassLocalStock, purchaseRules.maxQuantity]);
   const quantityValidation = useMemo(
     () => validateVariantQuantity(product, quantityInput),
     [product, quantityInput]
@@ -118,9 +129,11 @@ export default function AddToCartForm({ product, fallbackImage }) {
   const safeQuantity = quantityValidation.ok ? quantityValidation.quantity : purchaseRules.minQuantity;
 
   const isUnavailable = useMemo(() => {
+    if (availabilityMode === "unavailable") return true;
+    if (bypassLocalStock) return false;
     const stockClass = resolveStockClass(product?.stock);
     return stockClass === "is-unavailable" || availableCount === 0;
-  }, [product?.stock, availableCount]);
+  }, [product?.stock, availableCount, availabilityMode, bypassLocalStock]);
 
   useEffect(() => {
     updateRecentlyViewed(product.id);
@@ -185,7 +198,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
       return;
     }
 
-    if (Number.isFinite(availableCount) && parsedQuantity > availableCount) {
+    if (!bypassLocalStock && Number.isFinite(availableCount) && parsedQuantity > availableCount) {
       showNotice({
         tone: "info",
         title: "Limited stock",
@@ -216,7 +229,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
         setFeedback({ tone: "error", message: nextValidation.error });
         return;
       }
-      if (Number.isFinite(availableCount) && nextCount > availableCount) {
+      if (!bypassLocalStock && Number.isFinite(availableCount) && nextCount > availableCount) {
         showNotice({
           tone: "info",
           title: "Limited stock",
@@ -248,7 +261,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
     }
 
     setFeedback({ tone: "idle", message: "" });
-  }, [availableCount, fallbackImage, isUnavailable, product, quantityInput, showNotice, unitLabel]);
+  }, [availableCount, bypassLocalStock, fallbackImage, isUnavailable, product, quantityInput, showNotice, unitLabel]);
 
   const handleBlur = () => {
     const validation = validateVariantQuantity(product, quantityInput);
@@ -302,7 +315,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
           aria-disabled={isUnavailable}
         >
           <i className="fa-solid fa-cart-shopping" aria-hidden="true" />
-          <span>{isUnavailable ? "Out of stock" : "Add to cart"}</span>
+          <span>{isUnavailable ? "Unavailable" : availabilityMode === "request" ? "Add to availability basket" : "Add to cart"}</span>
         </button>
       </div>
       {feedback.message ? (

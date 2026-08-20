@@ -74,6 +74,11 @@ export async function POST(req) {
     image_url: z.union([z.string().trim().max(500), z.null()]).optional(),
     is_bundle_eligible: z.boolean().optional(),
     variant_is_active: z.boolean().optional(),
+    selection_model: z.enum(["exact_variant", "flexible_market"]).optional(),
+    variation_note: z.union([z.string().trim().max(500), z.null()]).optional(),
+    availability_mode: z.enum(["standard", "request", "unavailable"]).optional(),
+    inventory_tracking_mode: z.enum(["tracked", "supplier"]).optional(),
+    option_role: z.enum(["standard", "volume_saver", "manufacturer_pack", "size", "ripeness", "grade", "form", "value_tier"]).nullable().optional(),
     purchase_mode: z.enum([PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE]).optional(),
     min_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
     max_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
@@ -103,6 +108,11 @@ export async function POST(req) {
   const hasImageUrl = Object.prototype.hasOwnProperty.call(parsed.data, "image_url");
   const hasBundleEligible = typeof parsed.data.is_bundle_eligible === "boolean";
   const hasVariantActive = typeof parsed.data.variant_is_active === "boolean";
+  const hasSelectionModel = Object.hasOwn(parsed.data, "selection_model");
+  const hasVariationNote = Object.hasOwn(parsed.data, "variation_note");
+  const hasAvailabilityMode = Object.hasOwn(parsed.data, "availability_mode");
+  const hasInventoryTrackingMode = Object.hasOwn(parsed.data, "inventory_tracking_mode");
+  const hasOptionRole = Object.hasOwn(parsed.data, "option_role");
   const hasPurchaseMode = Object.prototype.hasOwnProperty.call(parsed.data, "purchase_mode");
   const hasMinQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "min_quantity");
   const hasMaxQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "max_quantity");
@@ -119,6 +129,11 @@ export async function POST(req) {
     !hasImageUrl &&
     !hasBundleEligible &&
     !hasVariantActive &&
+    !hasSelectionModel &&
+    !hasVariationNote &&
+    !hasAvailabilityMode &&
+    !hasInventoryTrackingMode &&
+    !hasOptionRole &&
     !hasPurchaseMode &&
     !hasMinQuantity &&
     !hasMaxQuantity &&
@@ -133,7 +148,7 @@ export async function POST(req) {
   }
   if (
     (hasVariantActive ||
-      hasPurchaseMode ||
+      hasPurchaseMode || hasAvailabilityMode || hasInventoryTrackingMode || hasOptionRole ||
       hasMinQuantity ||
       hasMaxQuantity ||
       hasStepQuantity ||
@@ -176,13 +191,13 @@ export async function POST(req) {
   const [productRes, variantRes] = await Promise.all([
     admin
       .from("products")
-      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled")
+      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled, selection_model, variation_note")
       .eq("id", productId)
       .maybeSingle(),
     variantId
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+          .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, availability_mode, inventory_tracking_mode, option_role")
           .eq("id", variantId)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -252,6 +267,10 @@ export async function POST(req) {
   if (hasBundleEligible && existingProduct.is_bundle_eligible !== parsed.data.is_bundle_eligible) {
     productPatch.is_bundle_eligible = parsed.data.is_bundle_eligible;
   }
+  if (hasSelectionModel && existingProduct.selection_model !== parsed.data.selection_model) productPatch.selection_model = parsed.data.selection_model;
+  if (hasVariationNote && normalizeNullableText(existingProduct.variation_note) !== normalizeNullableText(parsed.data.variation_note)) {
+    productPatch.variation_note = normalizeNullableText(parsed.data.variation_note);
+  }
   const currentPromoText = normalizePromoText(existingProduct.promo_tag_text);
   const currentPromoExpiry = parsePromoExpiry(existingProduct.promo_tag_expires_at);
   const currentPromoEnabled = normalizePromoEnabled(existingProduct.promo_tag_enabled);
@@ -298,6 +317,9 @@ export async function POST(req) {
   if (hasBaseQuantity && toPositiveNullableNumber(existingVariant.base_quantity) !== nextBaseQuantity) {
     variantPatch.base_quantity = nextBaseQuantity;
   }
+  if (hasAvailabilityMode && existingVariant.availability_mode !== parsed.data.availability_mode) variantPatch.availability_mode = parsed.data.availability_mode;
+  if (hasInventoryTrackingMode && existingVariant.inventory_tracking_mode !== parsed.data.inventory_tracking_mode) variantPatch.inventory_tracking_mode = parsed.data.inventory_tracking_mode;
+  if (hasOptionRole && (existingVariant.option_role || null) !== parsed.data.option_role) variantPatch.option_role = parsed.data.option_role;
 
   if (!Object.keys(productPatch).length && !Object.keys(variantPatch).length) {
     return applyRateLimitHeaders(NextResponse.json({ error: "No changes detected" }, { status: 400 }), rl);
@@ -311,7 +333,7 @@ export async function POST(req) {
       .from("product_variants")
       .update(variantPatch)
       .eq("id", variantId)
-      .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+      .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, availability_mode, inventory_tracking_mode, option_role")
       .maybeSingle();
     if (result.error) {
       await logAdminError(result.error, {
@@ -332,7 +354,7 @@ export async function POST(req) {
       .from("products")
       .update(productPatch)
       .eq("id", productId)
-      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled")
+      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled, selection_model, variation_note")
       .maybeSingle();
     if (result.error) {
       await logAdminError(result.error, {
@@ -405,6 +427,8 @@ export async function POST(req) {
         promo_tag_text: updatedProduct.promo_tag_text,
         promo_tag_expires_at: updatedProduct.promo_tag_expires_at,
         promo_tag_enabled: updatedProduct.promo_tag_enabled,
+        selection_model: updatedProduct.selection_model,
+        variation_note: updatedProduct.variation_note,
       },
       variant: updatedVariant
         ? {
@@ -421,6 +445,9 @@ export async function POST(req) {
             step_quantity: updatedVariant.step_quantity,
             base_unit: updatedVariant.base_unit,
             base_quantity: updatedVariant.base_quantity,
+            availability_mode: updatedVariant.availability_mode,
+            inventory_tracking_mode: updatedVariant.inventory_tracking_mode,
+            option_role: updatedVariant.option_role,
           }
         : null,
     }),

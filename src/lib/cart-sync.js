@@ -12,6 +12,7 @@ const toApiItem = (item, operation = "increment") => ({
   unit_price_at_add: Number(item?.price ?? item?.unit_price_at_add ?? 0),
   quantity: Number(item?.quantity ?? item?.orderCount ?? 1),
   operation,
+  size_preference: item?.sizePreference ?? item?.size_preference ?? null,
 });
 
 const parseResponse = async (response) => {

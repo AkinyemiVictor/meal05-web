@@ -8,6 +8,7 @@ import { respondZodError } from "@/lib/api/validate";
 import { getAvailableCount } from "@/lib/stock";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
+import { normalizeAvailabilityMode, normalizeSelectionMode, normalizeSizePreference, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,13 +46,15 @@ export async function PATCH(req, { params }) {
       .finite()
       .positive()
       .max(9999)
-      .refine((value) => decimalPlaces(value) <= 3, "Quantity may use no more than three decimal places"),
-  });
+      .refine((value) => decimalPlaces(value) <= 3, "Quantity may use no more than three decimal places")
+      .optional(),
+    size_preference: z.enum(["best_available", "smaller", "medium", "larger"]).nullable().optional(),
+  }).refine((value) => value.quantity != null || Object.hasOwn(value, "size_preference"), "Provide a cart change");
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
     return respondZodError(parsed.error);
   }
-  const quantityNum = roundQuantity(parsed.data.quantity);
+  const quantityNum = parsed.data.quantity == null ? null : roundQuantity(parsed.data.quantity);
 
   const routeClient = getSupabaseRouteClient(await cookies());
   const { data: cartItem, error: cartError } = await routeClient
@@ -67,7 +70,7 @@ export async function PATCH(req, { params }) {
   const catalog = await loadMarketCatalog(admin);
   const { data: variant, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
+    .select("id, product_id, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role, availability_mode, inventory_tracking_mode")
     .eq("id", cartItem.variant_id)
     .eq("market_id", catalog.market.id)
     .maybeSingle();
@@ -87,23 +90,46 @@ export async function PATCH(req, { params }) {
   if (!eligibleProduct) {
     return applyRateLimitHeaders(NextResponse.json({ error: "This product is currently unavailable" }, { status: 409 }), rl);
   }
-  const quantityValidation = validateVariantQuantity(variant, quantityNum);
+  if (normalizeAvailabilityMode(variant.availability_mode) === "unavailable") {
+    return applyRateLimitHeaders(NextResponse.json({ error: "This product option is unavailable" }, { status: 409 }), rl);
+  }
+  const { data: productSettings, error: productError } = await admin
+    .from("products")
+    .select("selection_model")
+    .eq("id", variant.product_id)
+    .maybeSingle();
+  if (productError || !productSettings) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Unable to validate product preferences" }, { status: 400 }), rl);
+  }
+  const selectionModel = normalizeSelectionMode(productSettings.selection_model);
+  const sizePreference = normalizeSizePreference(parsed.data.size_preference, selectionModel);
+  if (Object.hasOwn(parsed.data, "size_preference") && selectionModel !== SELECTION_MODE_FLEXIBLE && parsed.data.size_preference != null) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "This product does not accept a size preference" }, { status: 400 }), rl);
+  }
+  if (Object.hasOwn(parsed.data, "size_preference") && selectionModel === SELECTION_MODE_FLEXIBLE && !sizePreference) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Choose a valid size preference" }, { status: 400 }), rl);
+  }
+  const quantityValidation = quantityNum == null ? { ok: true } : validateVariantQuantity(variant, quantityNum);
   if (!quantityValidation.ok) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: normaliseQuantityError(quantityValidation.error), requested: formatQuantity(quantityNum) }, { status: 400 }),
       rl
     );
   }
-  const available = getAvailableCount(variant.stock_count);
-  if (Number.isFinite(available) && quantityNum > available) {
+  const bypassLocalStock = normalizeAvailabilityMode(variant.availability_mode) === "request" || variant.inventory_tracking_mode === "supplier";
+  const available = bypassLocalStock ? Number.POSITIVE_INFINITY : getAvailableCount(variant.stock_count);
+  if (quantityNum != null && Number.isFinite(available) && quantityNum > available) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: `Only ${available} item${available === 1 ? "" : "s"} available`, available, requested: quantityNum }, { status: 409 }),
       rl
     );
   }
+  const updates = { updated_at: new Date().toISOString() };
+  if (quantityNum != null) updates.quantity = quantityNum;
+  if (Object.hasOwn(parsed.data, "size_preference")) updates.size_preference = sizePreference;
   const { data, error } = await routeClient
     .from("cart_items")
-    .update({ quantity: quantityNum })
+    .update(updates)
     .eq("id", id)
     .eq("user_id", user.id)
     .select("id");

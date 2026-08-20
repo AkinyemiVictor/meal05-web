@@ -1720,10 +1720,10 @@ export async function loadProductAdminCatalogue({ page = 1, pageSize = 25, query
   const search = String(query || "").trim().toLowerCase();
 
   const [productsRes, variantsRes] = await Promise.all([
-    admin.from("products").select("id, name, in_season, is_active").range(0, 4999),
+    admin.from("products").select("id, name, in_season, is_active, selection_model, variation_note").range(0, 4999),
     admin
       .from("product_variants")
-      .select("id, product_id, name, unit, price, old_price, stock_count, is_default, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+      .select("id, product_id, name, unit, price, old_price, stock_count, is_default, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, availability_mode, inventory_tracking_mode, option_role")
       .range(0, 4999),
   ]);
 
@@ -1741,6 +1741,8 @@ export async function loadProductAdminCatalogue({ page = 1, pageSize = 25, query
         inSeason: row?.in_season !== false,
         rawInSeason: row?.in_season,
         isActive: row?.is_active !== false,
+        selectionModel: row?.selection_model || "exact_variant",
+        variationNote: row?.variation_note || "",
       },
     ])
   );
@@ -1773,6 +1775,11 @@ export async function loadProductAdminCatalogue({ page = 1, pageSize = 25, query
         baseQuantity: row?.base_quantity == null ? null : toNumber(row?.base_quantity),
         isDefault: row?.is_default === true,
         variantActive: row?.is_active !== false,
+        selectionModel: product?.selectionModel || "exact_variant",
+        variationNote: product?.variationNote || "",
+        availabilityMode: row?.availability_mode || "standard",
+        inventoryTrackingMode: row?.inventory_tracking_mode || "tracked",
+        optionRole: row?.option_role || "standard",
         searchText,
       };
     })

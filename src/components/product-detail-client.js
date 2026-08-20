@@ -14,10 +14,14 @@ import { PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE, normalizePurchaseMode } from 
 import { shouldShowSeasonBadge } from "@/lib/season-badge";
 import { loadFavoriteIds, updateFavoriteIds } from "@/lib/favorites-client";
 import { IconHeart } from "@tabler/icons-react";
+import { SIZE_PREFERENCE_LABELS, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
 
 const isVariantInactive = (variant) => {
   if (!variant || typeof variant !== "object") return true;
   if (variant.isSelectable === false || variant.is_active === false || variant.isActive === false) return true;
+  const availabilityMode = String(variant.availabilityMode ?? variant.availability_mode ?? "standard");
+  if (availabilityMode === "request" || String(variant.inventoryTrackingMode ?? variant.inventory_tracking_mode) === "supplier") return false;
+  if (availabilityMode === "unavailable") return true;
   const stockSource = Number.isFinite(Number(variant.stockCount)) ? Number(variant.stockCount) : variant.stock;
   const stockClass = resolveStockClass(stockSource);
   return stockClass === "is-unavailable";
@@ -65,6 +69,8 @@ export default function ProductDetailClient({ product, variations = [], fallback
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [saved, setSaved] = useState(false);
   const [favoriteStatus, setFavoriteStatus] = useState("idle");
+  const [sizePreference, setSizePreference] = useState("best_available");
+  const isFlexibleMarket = String(product?.selectionModel ?? product?.selection_model) === SELECTION_MODE_FLEXIBLE;
   const fixedVariations = useMemo(
     () =>
       variations.filter((variant) =>
@@ -226,6 +232,10 @@ export default function ProductDetailClient({ product, variations = [], fallback
       volume_unit: selectedVariant.volume_unit ?? selectedVariant.volumeUnit,
       optionRole: selectedVariant.optionRole ?? selectedVariant.option_role,
       option_role: selectedVariant.option_role ?? selectedVariant.optionRole,
+      availabilityMode: selectedVariant.availabilityMode ?? selectedVariant.availability_mode ?? product.availabilityMode,
+      availability_mode: selectedVariant.availability_mode ?? selectedVariant.availabilityMode ?? product.availability_mode,
+      inventoryTrackingMode: selectedVariant.inventoryTrackingMode ?? selectedVariant.inventory_tracking_mode ?? product.inventoryTrackingMode,
+      inventory_tracking_mode: selectedVariant.inventory_tracking_mode ?? selectedVariant.inventoryTrackingMode ?? product.inventory_tracking_mode,
     };
   }, [product, selectedVariant, fallbackImage]);
 
@@ -254,7 +264,8 @@ export default function ProductDetailClient({ product, variations = [], fallback
     resolveProductImage(galleryImages[Math.min(activeImageIndex, galleryImages.length - 1)], fallbackImage);
 
   const stockClass = resolveStockClass(display.stock);
-  const isUnavailable = stockClass === "is-unavailable";
+  const availabilityMode = String(display.availabilityMode ?? display.availability_mode ?? "standard");
+  const isUnavailable = availabilityMode === "unavailable" || (availabilityMode !== "request" && stockClass === "is-unavailable");
   const showSeasonBadge = shouldShowSeasonBadge(display);
   const isInSeason = display.inSeason !== false;
   const seasonLabel = isInSeason ? "In season" : "Off season";
@@ -370,11 +381,38 @@ export default function ProductDetailClient({ product, variations = [], fallback
           />
         ) : null}
 
+        {isFlexibleMarket ? (
+          <div className="product-variant-picker__section">
+            <label className="product-variant-picker__label" htmlFor="physical-size-preference">
+              Physical size preference
+            </label>
+            <select
+              id="physical-size-preference"
+              value={sizePreference}
+              onChange={(event) => setSizePreference(event.target.value)}
+              style={{ width: "100%", minHeight: 44, borderRadius: 10, border: "1px solid #d6d3d1", padding: "0 12px", background: "white" }}
+            >
+              {Object.entries(SIZE_PREFERENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+            <p style={{ margin: "8px 0 0", color: "#57534e", fontSize: 13 }}>
+              {product.variationNote || product.variation_note || "Fresh produce naturally varies. We’ll use the closest reasonable size available so fulfilment stays fast."}
+            </p>
+          </div>
+        ) : null}
+
+        {availabilityMode === "request" ? (
+          <div role="note" style={{ border: "1px solid #f59e0b", background: "#fffbeb", borderRadius: 12, padding: 12, color: "#78350f" }}>
+            <strong>Check availability</strong>
+            <p style={{ margin: "4px 0 0" }}>We’ll quickly confirm this item before you pay. Usually confirmed quickly; allow up to 2 business hours.</p>
+          </div>
+        ) : null}
+
         <AddToCartForm
           product={{
             ...display,
             image: activeImage,
             variantName: selectedVariantLabel || display.variantName,
+            sizePreference: isFlexibleMarket ? sizePreference : null,
           }}
           fallbackImage={fallbackImage}
         />

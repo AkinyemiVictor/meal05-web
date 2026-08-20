@@ -38,9 +38,15 @@ export default function AdminProductCatalogControl({
   stepQuantity = null,
   baseUnit = "",
   baseQuantity = null,
+  selectionModel = "exact_variant",
+  variationNote = "",
+  availabilityMode = "standard",
+  inventoryTrackingMode = "tracked",
+  optionRole = "standard",
   showSeason = true,
   showAvailability = false,
   showPurchaseRules = false,
+  showFulfillmentRules = false,
 }) {
   const router = useRouter();
   const initialSeason = inSeason ? "in" : "out";
@@ -60,6 +66,11 @@ export default function AdminProductCatalogControl({
   const [stepQuantityValue, setStepQuantityValue] = useState(initialStepQuantity);
   const [baseUnitValue, setBaseUnitValue] = useState(initialBaseUnit);
   const [baseQuantityValue, setBaseQuantityValue] = useState(initialBaseQuantity);
+  const [selectionModelValue, setSelectionModelValue] = useState(selectionModel || "exact_variant");
+  const [variationNoteValue, setVariationNoteValue] = useState(variationNote || "");
+  const [availabilityModeValue, setAvailabilityModeValue] = useState(availabilityMode || "standard");
+  const [inventoryTrackingModeValue, setInventoryTrackingModeValue] = useState(inventoryTrackingMode || "tracked");
+  const [optionRoleValue, setOptionRoleValue] = useState(optionRole || "standard");
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -76,6 +87,11 @@ export default function AdminProductCatalogControl({
     setStepQuantityValue(initialStepQuantity);
     setBaseUnitValue(initialBaseUnit);
     setBaseQuantityValue(initialBaseQuantity);
+    setSelectionModelValue(selectionModel || "exact_variant");
+    setVariationNoteValue(variationNote || "");
+    setAvailabilityModeValue(availabilityMode || "standard");
+    setInventoryTrackingModeValue(inventoryTrackingMode || "tracked");
+    setOptionRoleValue(optionRole || "standard");
     setError("");
   }, [
     initialAvailability,
@@ -86,6 +102,11 @@ export default function AdminProductCatalogControl({
     initialPurchaseMode,
     initialSeason,
     initialStepQuantity,
+    selectionModel,
+    variationNote,
+    availabilityMode,
+    inventoryTrackingMode,
+    optionRole,
   ]);
 
   const submit = async (event) => {
@@ -95,6 +116,22 @@ export default function AdminProductCatalogControl({
 
     const requestBody = { product_id: productId };
     let purchaseRulesChanged = false;
+    let fulfillmentRulesChanged = false;
+    if (showFulfillmentRules) {
+      if (!variantId) { setError("Missing variant id."); return; }
+      fulfillmentRulesChanged =
+        selectionModelValue !== selectionModel || variationNoteValue.trim() !== String(variationNote || "").trim() ||
+        availabilityModeValue !== availabilityMode || inventoryTrackingModeValue !== inventoryTrackingMode ||
+        optionRoleValue !== (optionRole || "standard");
+      if (fulfillmentRulesChanged) {
+        requestBody.variant_id = variantId;
+        requestBody.selection_model = selectionModelValue;
+        requestBody.variation_note = variationNoteValue.trim() || null;
+        requestBody.availability_mode = availabilityModeValue;
+        requestBody.inventory_tracking_mode = inventoryTrackingModeValue;
+        requestBody.option_role = optionRoleValue || null;
+      }
+    }
     if (showPurchaseRules) {
       if (!variantId) {
         setError("Missing variant id.");
@@ -158,7 +195,7 @@ export default function AdminProductCatalogControl({
     const seasonChanged = showSeason && nextInSeason !== (inSeason === true);
     const availabilityChanged = showAvailability && nextVariantActive !== (variantActive === true);
 
-    if (!seasonChanged && !availabilityChanged && !purchaseRulesChanged) {
+    if (!seasonChanged && !availabilityChanged && !purchaseRulesChanged && !fulfillmentRulesChanged) {
       setError("No change selected.");
       return;
     }
@@ -250,6 +287,14 @@ export default function AdminProductCatalogControl({
           </select>
         </label>
       ) : null}
+
+      {showFulfillmentRules ? <>
+        <label style={{ display: "grid", gap: 4 }}><span style={fieldLabelStyle}>Selection</span><select value={selectionModelValue} onChange={(event) => setSelectionModelValue(event.target.value)} disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}><option value="exact_variant">Exact variant</option><option value="flexible_market">Flexible market</option></select></label>
+        <label style={{ display: "grid", gap: 4 }}><span style={fieldLabelStyle}>Availability flow</span><select value={availabilityModeValue} onChange={(event) => setAvailabilityModeValue(event.target.value)} disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}><option value="standard">Available to order</option><option value="request">Check availability</option><option value="unavailable">Unavailable</option></select></label>
+        <label style={{ display: "grid", gap: 4 }}><span style={fieldLabelStyle}>Inventory</span><select value={inventoryTrackingModeValue} onChange={(event) => setInventoryTrackingModeValue(event.target.value)} disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}><option value="tracked">Tracked stock</option><option value="supplier">Supplier fulfilled</option></select></label>
+        <label style={{ display: "grid", gap: 4 }}><span style={fieldLabelStyle}>Option role</span><select value={optionRoleValue} onChange={(event) => setOptionRoleValue(event.target.value)} disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}><option value="standard">Standard</option><option value="value_tier">Value tier</option><option value="ripeness">Ripeness</option><option value="grade">Grade</option><option value="form">Form</option><option value="size">Size</option><option value="volume_saver">Volume saver</option><option value="manufacturer_pack">Manufacturer pack</option></select></label>
+        <label style={{ display: "grid", gap: 4, flex: "1 1 220px" }}><span style={fieldLabelStyle}>Variation note</span><input value={variationNoteValue} onChange={(event) => setVariationNoteValue(event.target.value)} maxLength={500} placeholder="Fresh produce naturally varies…" disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }} /></label>
+      </> : null}
 
       {showPurchaseRules ? (
         <label style={{ display: "grid", gap: 4 }}>

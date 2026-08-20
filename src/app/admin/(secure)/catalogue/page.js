@@ -674,9 +674,15 @@ export default async function AdminCataloguePage({ searchParams }) {
                       stepQuantity={row.stepQuantity}
                       baseUnit={row.baseUnit}
                       baseQuantity={row.baseQuantity}
+                      selectionModel={row.selectionModel}
+                      variationNote={row.variationNote}
+                      availabilityMode={row.availabilityMode}
+                      inventoryTrackingMode={row.inventoryTrackingMode}
+                      optionRole={row.optionRole}
                       showSeason={false}
                       showAvailability
                       showPurchaseRules
+                      showFulfillmentRules
                     />
                   </td>
                 </tr>

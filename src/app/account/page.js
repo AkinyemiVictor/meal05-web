@@ -1256,6 +1256,13 @@ export function AccountPageContent() {
         icon: IconPackage,
       },
       {
+        slug: "availability-requests",
+        href: "/account/availability-requests",
+        label: "Availability requests",
+        body: "Track baskets awaiting confirmation before payment",
+        icon: IconClock,
+      },
+      {
         slug: "balance",
         label: "Wallet",
         body: `Balance: ${formatMoney(walletSnapshot?.balance || 0, walletSnapshot?.currencyCode || "NGN")}`,
@@ -1310,7 +1317,7 @@ export function AccountPageContent() {
             const badge = getTabBadge(row.slug);
             const RowIcon = row.icon || IconShoppingBag;
             return (
-              <Link key={row.slug} href={getAccountRoute(row.slug)} className={styles.accountMenuRow}>
+              <Link key={row.slug} href={row.href || getAccountRoute(row.slug)} className={styles.accountMenuRow}>
                 <span className={styles.accountMenuIcon}>
                   <RowIcon size={19} stroke={1.9} aria-hidden="true" />
                 </span>
