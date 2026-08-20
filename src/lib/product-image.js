@@ -9,6 +9,13 @@ const LEGACY_BROKEN_IMAGE_PATHS = new Set([
   "public/assets/img/product%20images/tomato-fruit-isolated-transparent-background.png",
 ]);
 
+const PRODUCT_ASSET_PATH = "/api/product-assets/";
+// Added once to every Meal05 asset URL so pages carrying an older ?v= snapshot
+// move onto the refreshed cache policy immediately. The original version query is
+// preserved, so newly-normalised assets still keep their own version identity.
+const PRODUCT_ASSET_REFRESH_KEY = "m5asset";
+const PRODUCT_ASSET_REFRESH_VALUE = "20260819";
+
 const normalisePath = (value) => {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
@@ -17,6 +24,27 @@ const normalisePath = (value) => {
     return decodeURIComponent(trimmed).replace(/\\/g, "/").toLowerCase();
   } catch {
     return trimmed.replace(/\\/g, "/").toLowerCase();
+  }
+};
+
+const refreshProductAssetUrl = (value) => {
+  const trimmed = String(value || "").trim();
+  if (!trimmed || !trimmed.toLowerCase().includes(PRODUCT_ASSET_PATH)) return trimmed;
+
+  const isAbsolute = /^https?:\/\//i.test(trimmed);
+  try {
+    const parsed = new URL(trimmed, "https://meal05.invalid");
+    if (!parsed.pathname.toLowerCase().startsWith(PRODUCT_ASSET_PATH)) return trimmed;
+    parsed.searchParams.set(PRODUCT_ASSET_REFRESH_KEY, PRODUCT_ASSET_REFRESH_VALUE);
+
+    if (!isAbsolute) {
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+    return parsed.toString();
+  } catch {
+    const separator = trimmed.includes("?") ? "&" : "?";
+    if (trimmed.includes(`${PRODUCT_ASSET_REFRESH_KEY}=`)) return trimmed;
+    return `${trimmed}${separator}${PRODUCT_ASSET_REFRESH_KEY}=${PRODUCT_ASSET_REFRESH_VALUE}`;
   }
 };
 
@@ -30,7 +58,7 @@ export const cleanProductImage = (value) => {
       return "";
     }
   }
-  return trimmed;
+  return refreshProductAssetUrl(trimmed);
 };
 
 export const resolveProductImage = (...candidates) => {

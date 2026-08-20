@@ -17,7 +17,7 @@ import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-se
 import { resolveProductImage } from "@/lib/product-image";
 import { useProductsByIds } from "@/lib/use-catalog-products";
 import { formatQuantity } from "@/lib/purchase-quantities";
-import { normalizeCartItems } from "@/lib/cart-items";
+import { getLiveCartProductImageUrl, normalizeCartItems } from "@/lib/cart-items";
 
 export default function CheckoutSummary({
   deliverySettings,
@@ -136,7 +136,13 @@ export default function CheckoutSummary({
             const price = Number(item?.price) || Number(product?.price) || 0;
             const quantity = Number(item?.quantity) || Number(item?.orderCount) || Number(item?.orderSize) || 1;
             const lineTotal = Number(item?.lineTotal) || price * quantity;
-            const image = resolveProductImage(item?.image, product?.image);
+            const image = resolveProductImage(
+              getLiveCartProductImageUrl(item?.productId ?? item?.product_id ?? product?.id, "thumb"),
+              product?.thumbImageUrl,
+              product?.cardImageUrl,
+              product?.image,
+              item?.image
+            );
             const unit = item?.unit || product?.unit || "item";
             const variantLabel = item?.variantName && !String(item?.name || "").toLowerCase().includes(String(item.variantName).toLowerCase())
               ? item.variantName

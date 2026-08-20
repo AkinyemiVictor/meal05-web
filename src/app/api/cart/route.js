@@ -60,7 +60,7 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
         admin.from("products").select("id, name, main_image_url").in("id", productIds),
         admin
           .from("product_card_catalog")
-          .select("product_id")
+          .select("product_id, main_image_url, thumb_image_url, card_image_url, detail_image_url")
           .eq("market_id", catalog.market.id)
           .in("product_id", productIds),
       ])
@@ -71,6 +71,9 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
 
   const variantIndex = new Map((variants || []).map((variant) => [String(variant.id), variant]));
   const productIndex = new Map((products || []).map((product) => [String(product.id), product]));
+  const catalogImageIndex = new Map(
+    (eligibilityResult.data || []).map((row) => [String(row.product_id), row])
+  );
   const eligibleProductIds = new Set(
     (eligibilityResult.data || []).map((row) => String(row.product_id))
   );
@@ -84,12 +87,19 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
     ) return [];
     const listing = catalog.listings.get(String(variant.product_id));
     const product = productIndex.get(String(variant.product_id));
+    const catalogImage = catalogImageIndex.get(String(variant.product_id));
     return [{
       ...row,
       product_id: variant.product_id,
       variant_name: variant.name,
       product_name: listing?.local_name || product?.name || row.product_name || "",
-      image_url: product?.main_image_url || "",
+      image_url:
+        catalogImage?.thumb_image_url ||
+        catalogImage?.card_image_url ||
+        catalogImage?.detail_image_url ||
+        catalogImage?.main_image_url ||
+        product?.main_image_url ||
+        "",
       unit_price_at_add: Number(variant.price),
       currency_code: catalog.market.currencyCode,
       unit: variant.unit,

@@ -8,6 +8,7 @@ import { normaliseDatabaseProductDetailContent } from "@/lib/product-detail-cont
 import { PRODUCT_PLACEHOLDER_IMAGE, resolveProductImage } from "@/lib/product-image";
 import { buildProductSlug } from "@/lib/products";
 import { fetchAllProducts, fetchProductBySlug } from "@/lib/products-server";
+import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import {
   buildBreadcrumbSchema,
   buildProductSchema,
@@ -16,7 +17,60 @@ import {
 } from "@/lib/seo/schema";
 
 const FALLBACK_IMAGE = PRODUCT_PLACEHOLDER_IMAGE;
-export const revalidate = 300;
+export const revalidate = 0;
+
+const PRODUCT_IMAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_PRODUCT_IMAGE_BUCKET ||
+  process.env.SUPABASE_PRODUCT_IMAGE_BUCKET ||
+  "product-images";
+
+const toLiveProductImageUrl = (admin, row) => {
+  const raw =
+    row?.detail_url ||
+    row?.card_url ||
+    row?.image_url ||
+    row?.thumb_url ||
+    "";
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("/")) {
+    return resolveProductImage(value);
+  }
+  try {
+    const { data } = admin.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(value);
+    return resolveProductImage(data?.publicUrl || value);
+  } catch {
+    return resolveProductImage(value);
+  }
+};
+
+const loadLiveProductImages = async (productId) => {
+  const id = String(productId || "").trim();
+  if (!id) return [];
+  try {
+    const admin = getSupabaseAdminClient();
+    const { data, error } = await admin
+      .from("product_images")
+      .select("id, image_url, thumb_url, card_url, detail_url, is_primary, position")
+      .eq("product_id", id);
+    if (error || !Array.isArray(data)) return [];
+
+    const rows = [...data].sort((a, b) => {
+      const primaryDelta = Number(Boolean(b?.is_primary)) - Number(Boolean(a?.is_primary));
+      if (primaryDelta) return primaryDelta;
+      const positionA = Number.isFinite(Number(a?.position)) ? Number(a.position) : Number.MAX_SAFE_INTEGER;
+      const positionB = Number.isFinite(Number(b?.position)) ? Number(b.position) : Number.MAX_SAFE_INTEGER;
+      if (positionA !== positionB) return positionA - positionB;
+      return Number(a?.id || 0) - Number(b?.id || 0);
+    });
+
+    return rows
+      .map((row) => toLiveProductImageUrl(admin, row))
+      .filter((url, index, list) => url && list.indexOf(url) === index);
+  } catch {
+    return [];
+  }
+};
 
 const REVIEW_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
@@ -389,9 +443,19 @@ export async function generateMetadata({ params }) {
 
 export default async function ProductDetailPage({ params }) {
   const { productSlug } = await params;
-  const { product, raw: rawProduct } = await fetchProductBySlug(productSlug);
+  const { product: cachedProduct, raw: rawProduct } = await fetchProductBySlug(productSlug);
 
-  if (!product) notFound();
+  if (!cachedProduct) notFound();
+
+  const liveImages = await loadLiveProductImages(cachedProduct.id);
+  const product = liveImages.length
+    ? {
+        ...cachedProduct,
+        image: liveImages[0],
+        mainImageUrl: liveImages[0],
+        galleryImageUrls: liveImages,
+      }
+    : cachedProduct;
 
   const variations = Array.isArray(rawProduct?.variations) ? rawProduct.variations : [];
   const detailContent = normaliseProductDetailContent(product, rawProduct);
