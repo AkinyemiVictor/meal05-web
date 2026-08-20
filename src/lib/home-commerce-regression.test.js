@@ -108,11 +108,21 @@ test("Fresh In Stock metadata does not replace shared catalogue pricing", () => 
   assert.match(source, /\.\.\.product,[\s\S]*isFreshInStock:\s*true/);
 });
 
-test("quick-add option buttons retain each variant's individual price", () => {
+test("product option buttons retain each variant's price without repeating the unit", () => {
   const picker = read("src/components/variant-picker.js");
 
   assert.match(picker, /product-variant-picker__option-price/);
-  assert.match(picker, /formatProductPrice\(variant\?\.price,\s*variant\?\.unit\)/);
+  assert.match(picker, /formatProductPrice\(variant\?\.price\)/);
+  assert.doesNotMatch(picker, /formatProductPrice\(variant\?\.price,\s*variant\?\.unit\)/);
+});
+
+test("product detail loaders order options from smallest base quantity to largest", () => {
+  const server = read("src/lib/products-server.js");
+  const api = read("src/app/api/products/[id]/route.js");
+  const expectedOrder = /\.order\("base_quantity",\s*\{\s*ascending:\s*true,\s*nullsFirst:\s*false\s*\}\)[\s\S]*?\.order\("id",\s*\{\s*ascending:\s*true\s*\}\)/;
+
+  assert.match(server, expectedOrder);
+  assert.match(api, expectedOrder);
 });
 
 test("shop navigation preloads the route, first product page, and categories", () => {

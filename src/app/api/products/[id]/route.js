@@ -344,6 +344,7 @@ export async function GET(_request, { params }) {
       .select("*", { head: false })
       .eq("product_id", id)
       .eq("market_id", catalog.market.id)
+      .order("base_quantity", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
     if (!vError && Array.isArray(variants)) {
       variations = variants.map((row) => {

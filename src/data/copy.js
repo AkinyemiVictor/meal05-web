@@ -111,7 +111,7 @@ const copy = {
     },
     status: {
       processingTitle: "Processing payment",
-      processingSubtitle: "Hang tight while we confirm your payment details.",
+      processingSubtitle: "Hang on while we confirm payment details.",
       successTitle: (name) => `Thank you, ${name || "friend"}!`,
       successSubtitle: (email) =>
         email ? `We've emailed a receipt to ${email}. You'll also get updates on delivery day.` : null,

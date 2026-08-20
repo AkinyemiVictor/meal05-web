@@ -1116,45 +1116,6 @@ function SignInPageContent() {
                     <i className={`fa-regular ${showSignupPassword ? "fa-eye-slash" : "fa-eye"}`} aria-hidden="true" />
                   </button>
                 </div>
-                <div
-                  id="signup-password-requirements"
-                  className="auth-password-requirements"
-                  aria-live="polite"
-                >
-                  <div className="auth-password-meter" aria-hidden="true">
-                    {[1, 2, 3, 4].map((segment) => {
-                      const metCount = getPasswordRequirements(signupPassword).filter((item) => item.met).length;
-                      const activeSegments = signupPassword
-                        ? Math.max(1, Math.ceil((metCount / 5) * 4))
-                        : 0;
-                      return <span key={segment} className={segment <= activeSegments ? "is-active" : undefined} />;
-                    })}
-                  </div>
-                  <p>
-                    <strong>
-                      {!signupPassword
-                        ? "Password"
-                        : PASSWORD_REGEX.test(signupPassword)
-                          ? "Strong password"
-                          : "Password needs more work"}
-                    </strong>
-                    {PASSWORD_REGEX.test(signupPassword) ? ". All requirements met." : ". Must contain:"}
-                  </p>
-                  <ul>
-                    {getPasswordRequirements(signupPassword).map((requirement) => (
-                      <li key={requirement.key} className={requirement.met ? "is-met" : undefined}>
-                        <i
-                          className={["fa-solid", requirement.met ? "fa-circle-check" : "fa-circle-xmark"].join(" ")}
-                          aria-hidden="true"
-                        />
-                        {requirement.label}
-                      </li>
-                    ))}
-                  </ul>
-                  {signupPasswordTouched && !PASSWORD_REGEX.test(signupPassword) ? (
-                    <span className="sr-only">{getPasswordValidationMessage(signupPassword)}</span>
-                  ) : null}
-                </div>
               </div>
               <div className="auth-field">
                 <label className="auth-label" htmlFor="signup-confirm-password">
@@ -1210,6 +1171,45 @@ function SignInPageContent() {
                     />
                     {signupConfirmPassword === signupPassword ? "Passwords match" : "Passwords do not match yet"}
                   </p>
+                ) : null}
+              </div>
+              <div
+                id="signup-password-requirements"
+                className="auth-password-requirements"
+                aria-live="polite"
+              >
+                <div className="auth-password-meter" aria-hidden="true">
+                  {[1, 2, 3, 4].map((segment) => {
+                    const metCount = getPasswordRequirements(signupPassword).filter((item) => item.met).length;
+                    const activeSegments = signupPassword
+                      ? Math.max(1, Math.ceil((metCount / 5) * 4))
+                      : 0;
+                    return <span key={segment} className={segment <= activeSegments ? "is-active" : undefined} />;
+                  })}
+                </div>
+                <p>
+                  <strong>
+                    {!signupPassword
+                      ? "Password"
+                      : PASSWORD_REGEX.test(signupPassword)
+                        ? "Strong password"
+                        : "Password needs more work"}
+                  </strong>
+                  {PASSWORD_REGEX.test(signupPassword) ? ". All requirements met." : ". Must contain:"}
+                </p>
+                <ul>
+                  {getPasswordRequirements(signupPassword).map((requirement) => (
+                    <li key={requirement.key} className={requirement.met ? "is-met" : undefined}>
+                      <i
+                        className={["fa-solid", requirement.met ? "fa-circle-check" : "fa-circle-xmark"].join(" ")}
+                        aria-hidden="true"
+                      />
+                      {requirement.label}
+                    </li>
+                  ))}
+                </ul>
+                {signupPasswordTouched && !PASSWORD_REGEX.test(signupPassword) ? (
+                  <span className="sr-only">{getPasswordValidationMessage(signupPassword)}</span>
                 ) : null}
               </div>
               <button type="submit" className="auth-primary-btn">

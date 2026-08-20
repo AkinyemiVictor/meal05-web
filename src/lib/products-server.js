@@ -429,7 +429,13 @@ const fetchProductByIdUncached = async (id) => {
 
   const [imageResult, variantsResult] = await Promise.allSettled([
     admin.from("product_images").select("*").eq("product_id", id),
-    admin.from("product_variants").select("*", { head: false }).eq("product_id", id).eq("market_id", catalog.market.id).order("id", { ascending: true }),
+    admin
+      .from("product_variants")
+      .select("*", { head: false })
+      .eq("product_id", id)
+      .eq("market_id", catalog.market.id)
+      .order("base_quantity", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true }),
   ]);
 
   let imageIndex = {};

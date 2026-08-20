@@ -194,7 +194,7 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
                 >
                   <span className="product-variant-picker__option-main">{option.label}</span>
                   <span className="product-variant-picker__option-price">
-                    {formatProductPrice(variant?.price, variant?.unit)}
+                    {formatProductPrice(variant?.price)}
                   </span>
                 </button>
               );
