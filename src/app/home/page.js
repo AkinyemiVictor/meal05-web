@@ -94,9 +94,8 @@ export default function Home() {
   const [quickAddAnchorEl, setQuickAddAnchorEl] = useState(null);
   const { categories } = useCategories();
   const { ordered: products, status: productsStatus } = useCatalogProducts("/api/catalog/home?limit=72");
-  const { ordered: under15Products, status: under15Status } = useCatalogProducts(
-    "/api/catalog/under-15m?limit=120"
-  );
+  const under15CatalogUrl = activeCollection === "under-15m" ? "/api/catalog/under-15m?limit=120" : "";
+  const { ordered: under15Products, status: under15Status } = useCatalogProducts(under15CatalogUrl);
 
   const counts = useMemo(() => {
     return categories.reduce((next, category) => {
