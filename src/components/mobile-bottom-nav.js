@@ -61,17 +61,6 @@ export default function MobileBottomNav() {
   const cartCount = useCartCount();
   const shouldRender = shouldShowMobileBottomNav(pathname);
 
-  useEffect(() => {
-    if (!shouldRender || pathname === "/shop") return undefined;
-    const run = () => void prefetchShop(router);
-    if (typeof window.requestIdleCallback === "function") {
-      const idleId = window.requestIdleCallback(run, { timeout: 1200 });
-      return () => window.cancelIdleCallback(idleId);
-    }
-    const timer = window.setTimeout(run, 300);
-    return () => window.clearTimeout(timer);
-  }, [pathname, router, shouldRender]);
-
   if (!shouldRender) return null;
 
   return (
@@ -84,7 +73,7 @@ export default function MobileBottomNav() {
             <Link
               key={item.label}
               href={item.href}
-              prefetch={item.href === "/shop"}
+              prefetch={false}
               onPointerEnter={item.href === "/shop" ? () => void prefetchShop(router) : undefined}
               onFocus={item.href === "/shop" ? () => void prefetchShop(router) : undefined}
               onTouchStart={item.href === "/shop" ? () => void prefetchShop(router) : undefined}
