@@ -16,17 +16,11 @@ import {
 } from "@tabler/icons-react";
 
 import DeferredLocationPicker from "@/components/deferred-location-picker";
-import { AUTH_EVENT, clearStoredUser, readStoredUser } from "@/lib/auth";
+import { clearStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
-import { readCartItems } from "@/lib/cart-storage";
-import { ORDERS_EVENT, readUserOrders } from "@/lib/orders";
-import {
-  NOTIFICATIONS_EVENT,
-  getUnreadNotificationCount,
-  syncDerivedNotifications,
-} from "@/lib/notifications";
 import useSharedCartCount from "@/lib/use-shared-cart-count";
 import useSharedHeaderUser from "@/lib/use-shared-header-user";
+import useSharedUnreadNotificationCount from "@/lib/use-shared-unread-notification-count";
 import useSharedWalletBalance from "@/lib/use-shared-wallet-balance";
 
 const ACCOUNT_MENU_ID = "meal05-account-menu";
@@ -38,38 +32,6 @@ const formatMoney = (amount, currency = "NGN") =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(amount) || 0);
-
-function useUnreadNotificationCount(user) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const update = () => {
-      const activeUser = readStoredUser();
-      syncDerivedNotifications({
-        orders: readUserOrders(activeUser),
-        cartItems: readCartItems(activeUser),
-        user: activeUser,
-      });
-      setCount(getUnreadNotificationCount(activeUser));
-    };
-
-    update();
-    window.addEventListener("storage", update);
-    window.addEventListener("cart-updated", update);
-    window.addEventListener(AUTH_EVENT, update);
-    window.addEventListener(ORDERS_EVENT, update);
-    window.addEventListener(NOTIFICATIONS_EVENT, update);
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener("cart-updated", update);
-      window.removeEventListener(AUTH_EVENT, update);
-      window.removeEventListener(ORDERS_EVENT, update);
-      window.removeEventListener(NOTIFICATIONS_EVENT, update);
-    };
-  }, [user]);
-
-  return count;
-}
 
 function WalletBalancePill({ user, wallet, compact = false }) {
   if (!user) return null;
@@ -269,7 +231,7 @@ function AccountMenu({ user, wallet }) {
 export default function Meal05HeaderActions({ mobile = false, showWallet = true }) {
   const cartCount = useSharedCartCount();
   const user = useSharedHeaderUser();
-  const unreadNotifications = useUnreadNotificationCount(user);
+  const unreadNotifications = useSharedUnreadNotificationCount();
   const wallet = useSharedWalletBalance(user);
 
   if (mobile) {
