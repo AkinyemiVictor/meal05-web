@@ -147,7 +147,7 @@ const buildHomeCardProduct = (row = {}) => {
   };
 };
 
-export async function loadHomeCatalogCards({ ids, limit = 36 } = {}) {
+export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = false } = {}) {
   const admin = getSupabaseAdminClient();
   const market = await getDefaultMarket();
   const requestedIds = uniqueIds(ids);
@@ -159,6 +159,7 @@ export async function loadHomeCatalogCards({ ids, limit = 36 } = {}) {
     .eq("market_id", market.id);
 
   if (requestedIds.length) query = query.in("product_id", requestedIds);
+  if (inSeasonOnly) query = query.eq("in_season", true);
   query = query.order("product_id", { ascending: true });
 
   const { data, error } = await query.limit(requestedIds.length ? requestedIds.length : maxRows);
