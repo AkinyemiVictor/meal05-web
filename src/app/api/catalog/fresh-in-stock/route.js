@@ -1,4 +1,5 @@
-import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
+import { loadHomeCatalogCards } from "@/lib/home-catalog-cards-server";
+import { publicCatalogJson } from "@/lib/public-catalog-server";
 import {
   attachFreshStockMetadata,
   groupCatalogProducts,
@@ -24,7 +25,7 @@ export async function GET(request) {
       );
     }
 
-    const payload = await loadPublicCatalogProducts({ ids, limit: ids.length });
+    const payload = await loadHomeCatalogCards({ ids, limit: ids.length });
     const flat = attachFreshStockMetadata(payload?.flat, metadata);
 
     return publicCatalogJson(
