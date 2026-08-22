@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import {
   IconArrowRight,
   IconClockHour4,
@@ -26,16 +26,6 @@ export default function HomeSeasonalBanner() {
   const prepareShop = useCallback(() => {
     void prefetchShop(router);
   }, [router]);
-
-  useEffect(() => {
-    const run = () => prepareShop();
-    if (typeof window.requestIdleCallback === "function") {
-      const idleId = window.requestIdleCallback(run, { timeout: 1000 });
-      return () => window.cancelIdleCallback(idleId);
-    }
-    const timer = window.setTimeout(run, 200);
-    return () => window.clearTimeout(timer);
-  }, [prepareShop]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -95,6 +85,7 @@ export default function HomeSeasonalBanner() {
             <div className="welcome-seasonal__actions">
               <Link
                 href="/shop"
+                prefetch={false}
                 onPointerEnter={prepareShop}
                 onFocus={prepareShop}
                 onTouchStart={prepareShop}
