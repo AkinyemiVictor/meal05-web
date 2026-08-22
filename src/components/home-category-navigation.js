@@ -36,6 +36,7 @@ export function MobileCategories({ categories, activeCategory, counts }) {
             <Link
               key={category.slug}
               href={`/categories/${category.slug}`}
+              prefetch={false}
               className={classNames(
                 "min-w-0 overflow-hidden rounded-2xl border p-2 text-center shadow-sm transition",
                 active ? "border-meal-pepper bg-meal-blush" : "border-meal-line bg-meal-paper"
@@ -63,6 +64,7 @@ export function TabletCategoryTabs({ categories, activeCategory, counts }) {
             <Link
               key={category.slug}
               href={`/categories/${category.slug}`}
+              prefetch={false}
               className={classNames(
                 "flex max-w-56 shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-[15px] font-semibold transition",
                 active
@@ -99,6 +101,7 @@ export function DesktopCategorySidebar({ categories, activeCategory, counts, sid
             <Link
               key={category.slug}
               href={`/categories/${category.slug}`}
+              prefetch={false}
               className={classNames(
                 "flex w-full min-w-0 items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition",
                 active ? "bg-meal-blush text-meal-pepper" : "text-meal-text hover:bg-meal-mist"
