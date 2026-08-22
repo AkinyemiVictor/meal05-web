@@ -16,9 +16,8 @@ import {
 } from "@tabler/icons-react";
 
 import DeferredLocationPicker from "@/components/deferred-location-picker";
-import { AUTH_EVENT, clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser, readStoredUser } from "@/lib/auth";
+import { AUTH_EVENT, clearStoredUser, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
-import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import { readCartItems } from "@/lib/cart-storage";
 import { ORDERS_EVENT, readUserOrders } from "@/lib/orders";
 import {
@@ -27,6 +26,7 @@ import {
   syncDerivedNotifications,
 } from "@/lib/notifications";
 import useSharedCartCount from "@/lib/use-shared-cart-count";
+import useSharedHeaderUser from "@/lib/use-shared-header-user";
 import useSharedWalletBalance from "@/lib/use-shared-wallet-balance";
 
 const ACCOUNT_MENU_ID = "meal05-account-menu";
@@ -38,42 +38,6 @@ const formatMoney = (amount, currency = "NGN") =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(amount) || 0);
-
-function useHeaderUser() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const update = (event) => {
-      setUser(event?.detail?.user ?? readStoredUser());
-    };
-
-    update();
-    let cancelled = false;
-    getBrowserSupabaseClient()
-      .auth.getUser()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data?.user) {
-          clearStoredUser();
-          setUser(null);
-          return;
-        }
-        const verifiedUser = deriveStoredUserFromAuthUser(data.user, readStoredUser() || {});
-        persistStoredUser(verifiedUser);
-        setUser(verifiedUser);
-      })
-      .catch(() => {});
-    window.addEventListener(AUTH_EVENT, update);
-    window.addEventListener("storage", update);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(AUTH_EVENT, update);
-      window.removeEventListener("storage", update);
-    };
-  }, []);
-
-  return user;
-}
 
 function useUnreadNotificationCount(user) {
   const [count, setCount] = useState(0);
@@ -304,7 +268,7 @@ function AccountMenu({ user, wallet }) {
 
 export default function Meal05HeaderActions({ mobile = false, showWallet = true }) {
   const cartCount = useSharedCartCount();
-  const user = useHeaderUser();
+  const user = useSharedHeaderUser();
   const unreadNotifications = useUnreadNotificationCount(user);
   const wallet = useSharedWalletBalance(user);
 
