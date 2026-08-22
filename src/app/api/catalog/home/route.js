@@ -1,4 +1,5 @@
-import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
+import { publicCatalogJson } from "@/lib/public-catalog-server";
+import { loadHomeCatalogCards } from "@/lib/home-catalog-cards-server";
 import {
   attachFreshStockMetadata,
   groupCatalogProducts,
@@ -40,7 +41,7 @@ export async function GET(request) {
     const admin = getSupabaseAdminClient();
 
     const [payload, freshStock, chefResult] = await Promise.all([
-      loadPublicCatalogProducts({ view: "home", limit }),
+      loadHomeCatalogCards({ limit }),
       loadRecentRestockedProductIds({ limit }),
       admin
         .from("products")
@@ -60,10 +61,10 @@ export async function GET(request) {
 
     const [freshPayload, chefPayload] = await Promise.all([
       freshStock.ids.length
-        ? loadPublicCatalogProducts({ ids: freshStock.ids, limit: freshStock.ids.length })
+        ? loadHomeCatalogCards({ ids: freshStock.ids, limit: freshStock.ids.length })
         : Promise.resolve({ flat: [] }),
       chefIds.length
-        ? loadPublicCatalogProducts({ ids: chefIds, limit: chefIds.length })
+        ? loadHomeCatalogCards({ ids: chefIds, limit: chefIds.length })
         : Promise.resolve({ flat: [] }),
     ]);
 
