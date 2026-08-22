@@ -26,6 +26,7 @@ import {
   getUnreadNotificationCount,
   syncDerivedNotifications,
 } from "@/lib/notifications";
+import useSharedCartCount from "@/lib/use-shared-cart-count";
 
 const ACCOUNT_MENU_ID = "meal05-account-menu";
 const WALLET_REFRESH_EVENT = "meal05:wallet-refresh";
@@ -37,37 +38,6 @@ const formatMoney = (amount, currency = "NGN") =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(amount) || 0);
-
-function useCartCount() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const update = () => {
-      const localItems = readCartItems();
-      setCount(localItems.reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
-      if (!readStoredUser()) return;
-      fetch("/api/cart", { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((items) => {
-          if (!Array.isArray(items)) return;
-          setCount(items.reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
-        })
-        .catch(() => {});
-    };
-
-    update();
-    window.addEventListener("storage", update);
-    window.addEventListener("cart-updated", update);
-    window.addEventListener(AUTH_EVENT, update);
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener("cart-updated", update);
-      window.removeEventListener(AUTH_EVENT, update);
-    };
-  }, []);
-
-  return count;
-}
 
 function useHeaderUser() {
   const [user, setUser] = useState(null);
@@ -389,7 +359,7 @@ function AccountMenu({ user, wallet }) {
 }
 
 export default function Meal05HeaderActions({ mobile = false, showWallet = true }) {
-  const cartCount = useCartCount();
+  const cartCount = useSharedCartCount();
   const user = useHeaderUser();
   const unreadNotifications = useUnreadNotificationCount(user);
   const wallet = useWalletBalance(user);
