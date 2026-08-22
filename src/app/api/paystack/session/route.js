@@ -14,6 +14,7 @@ import {
   toPaystackSubunit,
 } from "@/lib/payments/paystack";
 import { PAYMENT_METHOD_DISABLED, requireUsableProvider } from "@/lib/payments/provider-settings";
+import { validateAvailabilityPaymentWindow } from "@/lib/availability-payment-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,12 +79,14 @@ export async function POST(request) {
 
   const { data: order, error: orderErr } = await admin
     .from("orders")
-    .select("id, total, currency_code, user_id, payment_status, status")
+    .select("id, total, currency_code, user_id, payment_status, status, availability_request_id")
     .eq("id", orderId)
     .maybeSingle();
   if (orderErr) return errorJson(orderErr.message || "Unable to load order", 500, rl);
   if (!order) return errorJson("Order not found", 404, rl);
   if (String(order.user_id || "") !== String(user.id || "")) return errorJson("Forbidden", 403, rl);
+  const availabilityPayment = await validateAvailabilityPaymentWindow(admin, order);
+  if (!availabilityPayment.ok) return errorJson(availabilityPayment.error, availabilityPayment.status, rl);
 
   const paymentStatus = String(order.payment_status || "").toLowerCase();
   if (paymentStatus === "paid") return errorJson("Order is already paid", 409, rl);

@@ -7,6 +7,12 @@ import { respondZodError } from "@/lib/api/validate";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
+import {
+  normalizeAvailabilityMode,
+  normalizeSelectionMode,
+  normalizeSizePreference,
+  SELECTION_MODE_FLEXIBLE,
+} from "@/lib/commerce-options";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +33,7 @@ const loadVariantStock = async (client, variantId, marketId) => {
 
   const result = await client
     .from("product_variants")
-    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
+    .select("id, product_id, name, price, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role, availability_mode, inventory_tracking_mode")
     .eq("id", id)
     .eq("market_id", marketId)
     .maybeSingle();
@@ -37,7 +43,7 @@ const loadVariantStock = async (client, variantId, marketId) => {
 const loadCanonicalCart = async (admin, userId, catalog) => {
   const { data: rows, error: cartError } = await admin
     .from("cart_items")
-    .select("id, quantity, product_id, variant_id, unit_price_at_add, variant_name, product_name")
+    .select("id, quantity, product_id, variant_id, unit_price_at_add, variant_name, product_name, size_preference")
     .eq("user_id", userId)
     .order("id", { ascending: true });
   if (cartError) throw cartError;
@@ -48,7 +54,7 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
   const variantIds = [...new Set(cartRows.map((row) => row.variant_id).filter(Boolean))];
   const { data: variants, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
+    .select("id, product_id, name, price, unit, stock_count, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role, availability_mode, inventory_tracking_mode")
     .in("id", variantIds)
     .eq("market_id", catalog.market.id)
     .eq("is_active", true);
@@ -57,7 +63,7 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
   const productIds = [...new Set((variants || []).map((variant) => variant.product_id).filter(Boolean))];
   const [productResult, eligibilityResult] = productIds.length
     ? await Promise.all([
-        admin.from("products").select("id, name, main_image_url").in("id", productIds),
+        admin.from("products").select("id, name, main_image_url, selection_model, variation_note").in("id", productIds),
         admin
           .from("product_card_catalog")
           .select("product_id, main_image_url, thumb_image_url, card_image_url, detail_image_url")
@@ -117,6 +123,11 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
       volume_max: variant.volume_max,
       volume_unit: variant.volume_unit,
       option_role: variant.option_role,
+      availability_mode: variant.availability_mode,
+      inventory_tracking_mode: variant.inventory_tracking_mode,
+      selection_model: product?.selection_model || "exact_variant",
+      variation_note: product?.variation_note || null,
+      size_preference: normalizeSizePreference(row.size_preference, product?.selection_model),
     }];
   });
 };
@@ -159,6 +170,7 @@ export async function POST(req) {
     unit_price_at_add: z.number().nonnegative().optional(),
     quantity: z.number().finite().positive().max(9999).refine((value) => decimalPlaces(value) <= 3, "Quantity may use no more than three decimal places").optional().default(1),
     operation: z.enum(["increment", "set"]).optional().default("increment"),
+    size_preference: z.enum(["best_available", "smaller", "medium", "larger"]).nullable().optional(),
   });
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
@@ -198,6 +210,27 @@ export async function POST(req) {
     return new Response(JSON.stringify({ error: "This option is out of stock", available: 0 }), { status: 409 });
   }
 
+  const { data: productSettings, error: productSettingsError } = await admin
+    .from("products")
+    .select("selection_model")
+    .eq("id", stockSource.product_id)
+    .maybeSingle();
+  if (productSettingsError) {
+    return Response.json({ error: "Unable to validate product preferences" }, { status: 400 });
+  }
+  const selectionModel = normalizeSelectionMode(productSettings?.selection_model);
+  const sizePreference = normalizeSizePreference(parsed.data.size_preference, selectionModel);
+  if (selectionModel === SELECTION_MODE_FLEXIBLE && parsed.data.size_preference != null && !sizePreference) {
+    return Response.json({ error: "Choose a valid size preference" }, { status: 400 });
+  }
+  if (selectionModel !== SELECTION_MODE_FLEXIBLE && parsed.data.size_preference != null) {
+    return Response.json({ error: "This product does not accept a size preference" }, { status: 400 });
+  }
+  const availabilityMode = normalizeAvailabilityMode(stockSource.availability_mode);
+  if (availabilityMode === "unavailable") {
+    return Response.json({ error: "This option is unavailable" }, { status: 409 });
+  }
+
   const { data: existingRows, error: findError } = await authClient
     .from("cart_items")
     .select("id, quantity")
@@ -222,8 +255,9 @@ export async function POST(req) {
       { status: 400 }
     );
   }
-  const availableCount = getAvailableCount(resolveStockValueFromRow(stockSource));
-  if (availableCount === 0) {
+  const bypassLocalStock = availabilityMode === "request" || stockSource.inventory_tracking_mode === "supplier";
+  const availableCount = bypassLocalStock ? Number.POSITIVE_INFINITY : getAvailableCount(resolveStockValueFromRow(stockSource));
+  if (!bypassLocalStock && availableCount === 0) {
     return new Response(JSON.stringify({ error: "This option is out of stock", available: 0 }), { status: 409 });
   }
   if (Number.isFinite(availableCount) && nextQuantity > availableCount) {
@@ -243,6 +277,7 @@ export async function POST(req) {
     variant_name: stockSource.name,
     product_name: catalog.listings.get(String(stockSource.product_id))?.local_name || product_name || stockSource.name,
     unit_price_at_add: Number(stockSource.price),
+    size_preference: selectionModel === SELECTION_MODE_FLEXIBLE ? (sizePreference || "best_available") : null,
   };
 
   const { error } = await authClient

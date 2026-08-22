@@ -114,6 +114,9 @@ const resolveVariantStock = (row) => resolveStockValueFromRow(row);
 const isVariantSelectable = (variant) => {
   if (!variant || typeof variant !== "object") return false;
   if (variant.is_active === false) return false;
+  const availabilityMode = String(variant.availability_mode ?? variant.availabilityMode ?? "standard");
+  if (availabilityMode === "unavailable") return false;
+  if (availabilityMode === "request" || String(variant.inventory_tracking_mode ?? variant.inventoryTrackingMode) === "supplier") return true;
   const stockValue = resolveVariantStock(variant);
   const count = getAvailableCount(stockValue);
   if (count === 0) return false;
@@ -339,6 +342,14 @@ const mapRow = (row) => {
     volume_unit: textOrNull(row?.volume_unit ?? row?.volumeUnit),
     optionRole: textOrNull(row?.option_role ?? row?.optionRole),
     option_role: textOrNull(row?.option_role ?? row?.optionRole),
+    availabilityMode: textOrNull(row?.availability_mode ?? row?.availabilityMode) || "standard",
+    availability_mode: textOrNull(row?.availability_mode ?? row?.availabilityMode) || "standard",
+    inventoryTrackingMode: textOrNull(row?.inventory_tracking_mode ?? row?.inventoryTrackingMode) || "tracked",
+    inventory_tracking_mode: textOrNull(row?.inventory_tracking_mode ?? row?.inventoryTrackingMode) || "tracked",
+    selectionModel: textOrNull(row?.selection_model ?? row?.selectionModel) || "exact_variant",
+    selection_model: textOrNull(row?.selection_model ?? row?.selectionModel) || "exact_variant",
+    variationNote: textOrNull(row?.variation_note ?? row?.variationNote),
+    variation_note: textOrNull(row?.variation_note ?? row?.variationNote),
     category: pickFirst(row, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),
     categorySlug: pickFirst(row, ["category_slug", "categorySlug"]),
     promoTagEnabled: normalizePromoEnabled(
@@ -429,7 +440,13 @@ const fetchProductByIdUncached = async (id) => {
 
   const [imageResult, variantsResult] = await Promise.allSettled([
     admin.from("product_images").select("*").eq("product_id", id),
-    admin.from("product_variants").select("*", { head: false }).eq("product_id", id).eq("market_id", catalog.market.id).order("id", { ascending: true }),
+    admin
+      .from("product_variants")
+      .select("*", { head: false })
+      .eq("product_id", id)
+      .eq("market_id", catalog.market.id)
+      .order("base_quantity", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true }),
   ]);
 
   let imageIndex = {};
@@ -515,6 +532,10 @@ const fetchProductByIdUncached = async (id) => {
           volume_max: numberOrNull(row.volume_max ?? row.volumeMax),
           volume_unit: textOrNull(row.volume_unit ?? row.volumeUnit),
           option_role: textOrNull(row.option_role ?? row.optionRole),
+          availabilityMode: textOrNull(row.availability_mode ?? row.availabilityMode) || "standard",
+          availability_mode: textOrNull(row.availability_mode ?? row.availabilityMode) || "standard",
+          inventoryTrackingMode: textOrNull(row.inventory_tracking_mode ?? row.inventoryTrackingMode) || "tracked",
+          inventory_tracking_mode: textOrNull(row.inventory_tracking_mode ?? row.inventoryTrackingMode) || "tracked",
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,

@@ -470,15 +470,29 @@
 
 .auth-password-requirements {
   display: grid;
-  gap: 0.38rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid #e5eaf0;
-  border-radius: 10px;
-  background: #f8fafc;
+  gap: 0.46rem;
+  padding: 0.1rem 0.05rem 0;
   color: #667589;
   font-size: 0.74rem;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.auth-password-meter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.auth-password-meter span {
+  height: 3px;
+  border-radius: 999px;
+  background: #dce3eb;
+  transition: background-color 0.2s ease;
+}
+
+.auth-password-meter span.is-active {
+  background: var(--auth-orange);
 }
 
 .auth-password-requirements p,
@@ -487,14 +501,19 @@
 }
 
 .auth-password-requirements p {
+  color: #667589;
+  font-weight: 650;
+}
+
+.auth-password-requirements p strong {
   color: var(--auth-navy);
   font-weight: 850;
 }
 
 .auth-password-requirements ul {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.3rem 0.55rem;
+  grid-template-columns: 1fr;
+  gap: 0.28rem;
   padding: 0;
   list-style: none;
 }
@@ -507,7 +526,7 @@
 }
 
 .auth-password-requirements li i {
-  color: #a3afbd;
+  color: #9ba7b5;
   font-size: 0.65rem;
 }
 
@@ -519,9 +538,22 @@
   color: #13a85f;
 }
 
-.auth-password-requirements > span {
+.auth-password-match {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  margin: 0;
   color: #b54735;
-  font-weight: 800;
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.auth-password-match.is-match {
+  color: #168d52;
+}
+
+.auth-password-match i {
+  font-size: 0.68rem;
 }
 
 .auth-login-options {

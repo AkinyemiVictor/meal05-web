@@ -18,6 +18,7 @@ const text = (value) =>
 export default function DispatchDashboardClient({ orders = [], partners = [], routes = [], warnings = [] }) {
   const router = useRouter();
   const [selectedOrders, setSelectedOrders] = useState([]);
+  const [packageCounts, setPackageCounts] = useState({});
   const [deliveryPartnerId, setDeliveryPartnerId] = useState("");
   const [vehicleType, setVehicleType] = useState("motorcycle");
   const [plannedStartTime, setPlannedStartTime] = useState("");
@@ -39,7 +40,11 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
 
   const toggleOrder = (id) => {
     const key = String(id);
-    setSelectedOrders((current) => (current.includes(key) ? current.filter((value) => value !== key) : [...current, key]));
+    setSelectedOrders((current) => {
+      const selected = current.includes(key);
+      if (!selected) setPackageCounts((counts) => ({ ...counts, [key]: counts[key] || 1 }));
+      return selected ? current.filter((value) => value !== key) : [...current, key];
+    });
   };
 
   const createRoute = async (event) => {
@@ -59,6 +64,7 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
           pickupLocation,
           agreedPartnerPayment: agreedPartnerPayment || null,
           otherDeliveryCost: otherDeliveryCost || null,
+          packages: selectedOrders.map((orderId) => ({ orderId, packageCount: Number(packageCounts[orderId] || 1) })),
           notes,
         }),
       });
@@ -70,7 +76,7 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
       setMessage(`Route ${payload.route?.route_code || ""} created.`);
       setOtpMessages(payload.customerOtpMessages || []);
       setSelectedOrders([]);
-      setAssignment(payload.assignment || null);
+      setAssignment(payload.assignment ? { ...payload.assignment, routeId: payload.route?.id || "" } : null);
       startTransition(() => router.refresh());
     } catch {
       setMessage("Network error. Try again.");
@@ -90,7 +96,7 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
         setMessage(payload?.error || "Unable to generate rider link.");
         return;
       }
-      setAssignment(payload);
+      setAssignment({ ...payload, routeId });
     } catch {
       setMessage("Network error. Try again.");
     }
@@ -123,15 +129,30 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
         </div>
         <div className="dispatch-order-list">
           {orders.length ? orders.map((order) => (
-            <label key={order.id} className="dispatch-order">
-              <input type="checkbox" checked={selectedOrders.includes(String(order.id))} onChange={() => toggleOrder(order.id)} />
+            <article key={order.id} className="dispatch-order">
+              <input aria-label={`Select order ${order.order_reference || order.id}`} type="checkbox" checked={selectedOrders.includes(String(order.id))} onChange={() => toggleOrder(order.id)} />
               <span>
                 <strong>#{order.order_reference || order.id}</strong>
                 <em>{order.delivery_contact_name || "Meal05 customer"} - {order.delivery_contact_phone || "No phone"}</em>
                 <small>{order.delivery_address || order.delivery_landmark || "No address"}</small>
               </span>
-              <b>{money(order.delivery_fee)}</b>
-            </label>
+              <span className="dispatch-order__meta">
+                <b>{money(order.delivery_fee)}</b>
+                {selectedOrders.includes(String(order.id)) ? (
+                  <label>
+                    Packages
+                    <input
+                      aria-label={`Package count for order ${order.order_reference || order.id}`}
+                      min="1"
+                      max="50"
+                      type="number"
+                      value={packageCounts[String(order.id)] || 1}
+                      onChange={(event) => setPackageCounts((counts) => ({ ...counts, [String(order.id)]: event.target.value }))}
+                    />
+                  </label>
+                ) : null}
+              </span>
+            </article>
           )) : (
             <p className="dispatch-empty">No orders are ready for dispatch.</p>
           )}
@@ -212,6 +233,7 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
           <a className="dispatch-whatsapp" href={`https://wa.me/?text=${encodeURIComponent(assignmentMessage)}`} target="_blank" rel="noreferrer">
             Open WhatsApp message
           </a>
+          {assignment.routeId ? <a className="dispatch-print" href={`/admin/delivery/routes/${assignment.routeId}/manifest`} target="_blank" rel="noreferrer">Print delivery sheet</a> : null}
         </section>
       ) : null}
 
@@ -250,7 +272,10 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
               <em>{route.delivery_partners?.full_name || route.delivery_partners?.name || "No rider assigned"}</em>
               <small>Fees {money(route.delivery_fees_collected)} - Payment {money(route.agreed_partner_payment)} - Margin {money(route.delivery_margin)}</small>
               {route.delivery_partner_id || route.delivery_partners ? (
-                <button type="button" onClick={() => generateToken(route.id)}>Generate new rider link</button>
+                <div className="dispatch-route__actions">
+                  <button type="button" onClick={() => generateToken(route.id)}>Generate new rider link</button>
+                  <a className="dispatch-print" href={`/admin/delivery/routes/${route.id}/manifest`} target="_blank" rel="noreferrer">Print delivery sheet</a>
+                </div>
               ) : null}
             </article>
           ))}
@@ -342,7 +367,8 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
           font: inherit;
         }
         button,
-        .dispatch-whatsapp {
+        .dispatch-whatsapp,
+        .dispatch-print {
           min-height: 42px;
           display: inline-flex;
           align-items: center;
@@ -397,6 +423,12 @@ export default function DispatchDashboardClient({ orders = [], partners = [], ro
           min-height: 34px;
           font-size: 12px;
         }
+        .dispatch-order__meta { justify-items: end; }
+        .dispatch-order__meta label { width: 84px; text-align: right; }
+        .dispatch-order__meta input { min-height: 36px; padding: 6px 8px; text-align: right; }
+        .dispatch-print { border-color: #cbd5e1; background: #ffffff; color: #0f172a; }
+        .dispatch-route__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        .dispatch-route__actions .dispatch-print { min-height: 34px; font-size: 12px; }
         @media (min-width: 980px) {
           .dispatch-grid {
             grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.7fr);

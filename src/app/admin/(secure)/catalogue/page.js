@@ -6,7 +6,6 @@ import {
   loadProductPromoAdminCatalogue,
   loadProductSeasonAdminCatalogue,
 } from "@/lib/admin-dashboard-data";
-import AdminRestockControl from "@/components/admin-restock-control";
 import AdminProductCatalogControl from "@/components/admin-product-catalog-control";
 import AdminProductManagementControl from "@/components/admin-product-management-control";
 import AdminProductPromoControl from "@/components/admin-product-promo-control";
@@ -263,7 +262,7 @@ export default async function AdminCataloguePage({ searchParams }) {
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ margin: "0 0 6px" }}>Catalogue Admin</h1>
         <p style={{ margin: 0, color: "#64748b" }}>
-          Use one page for restock alerts, variant price and stock edits, and product category, image, season, bundle, and availability changes.
+          Manage product details, variant selling rules, availability, season, bundles, and promotional ribbons. Pricing and restocking use their dedicated workflows.
         </p>
       </header>
 
@@ -283,7 +282,7 @@ export default async function AdminCataloguePage({ searchParams }) {
           Stock Alerts
         </a>
         <a
-          href="#price-control"
+          href="#variant-settings"
           style={{
             textDecoration: "none",
             border: "1px solid #cbd5e1",
@@ -294,7 +293,7 @@ export default async function AdminCataloguePage({ searchParams }) {
             fontWeight: 600,
           }}
         >
-          Variant Control
+          Variant Settings
         </a>
         <a
           href="#season-control"
@@ -408,7 +407,7 @@ export default async function AdminCataloguePage({ searchParams }) {
         <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e2e8f0" }}>
           <strong>Stock Alerts</strong>
           <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>
-            Restock items that are out of stock or running low. Variant stock and product availability live in the sections below.
+            Review items that are out of stock or running low. All stock changes are completed in Inventory so the stock ledger has one authoritative workflow.
           </p>
         </div>
 
@@ -473,7 +472,7 @@ export default async function AdminCataloguePage({ searchParams }) {
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Stock</th>
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Severity</th>
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Current Price</th>
-                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Restock</th>
+                <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #e2e8f0" }}>Inventory Action</th>
               </tr>
             </thead>
             <tbody>
@@ -516,7 +515,12 @@ export default async function AdminCataloguePage({ searchParams }) {
                       </p>
                     </td>
                     <td style={{ padding: 10, verticalAlign: "top" }}>
-                      <AdminRestockControl variantId={row.id} stockKnown={row.stock != null} />
+                      <Link
+                        href={`/admin/inventory?threshold=${threshold}`}
+                        style={{ display: "inline-block", border: "1px solid #cbd5e1", borderRadius: 8, background: "#ffffff", color: "#0f172a", padding: "7px 10px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                      >
+                        Restock in Inventory
+                      </Link>
                     </td>
                   </tr>
                 );
@@ -541,14 +545,22 @@ export default async function AdminCataloguePage({ searchParams }) {
       </section>
 
       <section
-        id="price-control"
+        id="variant-settings"
         style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#ffffff", marginBottom: 16 }}
       >
         <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e2e8f0" }}>
-          <strong>Variant Control</strong>
+          <strong>Variant Settings</strong>
           <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>
-            Update current price, old price, stock count, storefront availability, and purchase quantity rules for any variant.
+            Update storefront availability and purchase quantity rules. Use the dedicated Price Manager for prices and Inventory for stock changes.
           </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <Link href="/admin/prices" style={{ border: "1px solid #bfdbfe", borderRadius: 8, background: "#eff6ff", color: "#1d4ed8", padding: "7px 10px", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
+              Open Price Manager
+            </Link>
+            <Link href="/admin/inventory" style={{ border: "1px solid #bbf7d0", borderRadius: 8, background: "#f0fdf4", color: "#166534", padding: "7px 10px", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
+              Open Inventory
+            </Link>
+          </div>
         </div>
 
         <form
@@ -655,9 +667,6 @@ export default async function AdminCataloguePage({ searchParams }) {
                       productName={row.productName}
                       variantId={row.variantId}
                       variantName={row.variantName}
-                      price={row.price}
-                      oldPrice={row.oldPrice}
-                      stockCount={row.stockCount}
                       variantActive={row.variantActive}
                       purchaseMode={row.purchaseMode}
                       minQuantity={row.minQuantity}
@@ -665,10 +674,15 @@ export default async function AdminCataloguePage({ searchParams }) {
                       stepQuantity={row.stepQuantity}
                       baseUnit={row.baseUnit}
                       baseQuantity={row.baseQuantity}
+                      selectionModel={row.selectionModel}
+                      variationNote={row.variationNote}
+                      availabilityMode={row.availabilityMode}
+                      inventoryTrackingMode={row.inventoryTrackingMode}
+                      optionRole={row.optionRole}
                       showSeason={false}
-                      showStock
                       showAvailability
                       showPurchaseRules
+                      showFulfillmentRules
                     />
                   </td>
                 </tr>

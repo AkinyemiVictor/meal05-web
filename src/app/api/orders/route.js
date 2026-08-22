@@ -28,6 +28,7 @@ import { loadWalletSettings } from "@/lib/wallet/server";
 import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 import { calculateOrderCapacity } from "@/lib/order-capacity";
 import { loadPublicOrderSettings } from "@/lib/order-settings";
+import { normalizeAvailabilityMode, normalizeSelectionMode, normalizeSizePreference, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -219,7 +220,7 @@ export async function POST(request) {
   // 1) Fetch cart items with schema fallbacks
   const cartSelectCandidates = [
     {
-      select: "id, product_id, variant_id, quantity, unit_price_at_add, variant_name, product_name",
+      select: "id, product_id, variant_id, quantity, unit_price_at_add, variant_name, product_name, size_preference",
       hasVariant: true,
     },
     {
@@ -318,11 +319,11 @@ export async function POST(request) {
     const query = !hasMissingVariantIds && payloadVariantIds.length
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role, availability_mode, inventory_tracking_mode")
           .in("id", payloadVariantIds)
       : admin
           .from("product_variants")
-          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role")
+          .select("id, product_id, name, price, unit, stock_count, is_default, is_active, market_id, currency_code, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, weight_min, weight_max, weight_unit, volume_min, volume_max, volume_unit, option_role, availability_mode, inventory_tracking_mode")
           .in("product_id", productIds);
     const result = await query.eq("market_id", catalog.market.id);
     if (result.error) {
@@ -338,7 +339,7 @@ export async function POST(request) {
     const [productResult, eligibilityResult] = await Promise.all([
       admin
         .from("products")
-        .select("id, name, category_id")
+        .select("id, name, category_id, selection_model")
         .in("id", resolvedProductIds),
       admin
         .from("product_card_catalog")
@@ -397,6 +398,7 @@ export async function POST(request) {
         String(row.id),
         {
           categoryId: row?.category_id ?? null,
+          selectionModel: normalizeSelectionMode(row?.selection_model),
           ...(categoryMetaIndex.get(String(row?.category_id ?? "")) || {}),
         },
       ])
@@ -497,6 +499,31 @@ export async function POST(request) {
         issues.push({ variantId, productId: variant.product_id, message: "Product option is unavailable in this market" });
         return;
       }
+      const availabilityMode = normalizeAvailabilityMode(variant.availability_mode);
+      if (availabilityMode === "request") {
+        issues.push({
+          variantId,
+          productId: variant.product_id,
+          product: resolveCartProductDisplayName(row),
+          message: "Availability confirmation is required before payment",
+          code: "AVAILABILITY_CONFIRMATION_REQUIRED",
+        });
+        return;
+      }
+      if (availabilityMode === "unavailable") {
+        issues.push({ variantId, productId: variant.product_id, message: "Product option is unavailable" });
+        return;
+      }
+      const productMeta = productMetaIndex.get(String(variant.product_id));
+      const preference = normalizeSizePreference(row?.size_preference, productMeta?.selectionModel);
+      if (productMeta?.selectionModel === SELECTION_MODE_FLEXIBLE && !preference) {
+        issues.push({ variantId, productId: variant.product_id, message: "Choose a valid size preference" });
+        return;
+      }
+      if (productMeta?.selectionModel !== SELECTION_MODE_FLEXIBLE && row?.size_preference != null) {
+        issues.push({ variantId, productId: variant.product_id, message: "This product does not accept a size preference" });
+        return;
+      }
       variantQuantities.set(variantId, roundQuantity((variantQuantities.get(variantId) || 0) + qty));
   });
   if (variantQuantities.size) {
@@ -525,6 +552,7 @@ export async function POST(request) {
         });
         return;
       }
+      if (String(row.inventory_tracking_mode || "tracked") === "supplier") return;
       const availableRaw = parseAvailableStock(row);
       if (availableRaw === undefined) {
         issues.push({
@@ -573,6 +601,7 @@ export async function POST(request) {
     const primaryMessage = isQuantityRule
       ? `Adjust cart quantity${primary.product ? ` for ${primary.product}` : ""}.`
       : rawMessage || "Insufficient stock for one or more items";
+    const availabilityRequired = issues.some((issue) => issue.code === "AVAILABILITY_CONFIRMATION_REQUIRED");
     return applyRateLimitHeaders(
       NextResponse.json(
         {
@@ -583,6 +612,7 @@ export async function POST(request) {
           productId: primary.productId,
           variantId: primary.variantId,
           issues,
+          ...(availabilityRequired ? { code: "AVAILABILITY_CONFIRMATION_REQUIRED" } : {}),
         },
         { status: 409 }
       ),
@@ -1024,6 +1054,7 @@ export async function POST(request) {
     quantity: c.quantity,
     price: resolveUnitPrice(c),
     currency_code: catalog.market.currencyCode,
+    size_preference: c.size_preference || null,
   }));
   let orderItems = orderItemsWithVariant;
   const { error: oiErr } = await admin.from("order_items").insert(orderItemsWithVariant);
@@ -1295,7 +1326,7 @@ export async function GET(request) {
 
   const routeClient = getSupabaseRouteClient(await cookies());
   const orderSelects = [
-    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price, products(name, unit, image_url))",
+    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url))",
     "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, price, products(name, unit, image_url))",
   ];
   let data = [];
@@ -1329,6 +1360,7 @@ export async function GET(request) {
       deliveryStatus: row.delivery_status || "",
       deliveryAddress: row.delivery_address || "",
       createdAt: row.created_at,
+      availabilityRequestId: row.availability_request_id || null,
       items: items.map((it) => {
         const unit = Number(it?.price ?? it?.unit_price) || 0;
         const qty = Number(it?.quantity) || 0;
@@ -1340,6 +1372,8 @@ export async function GET(request) {
           quantity: qty,
           unitPrice: unit,
           lineTotal: unit * qty,
+          sizePreference: it.size_preference || null,
+          fulfillmentNote: it.fulfillment_note || null,
           product: {
             name: prod?.name || "",
             title: prod?.name || "",

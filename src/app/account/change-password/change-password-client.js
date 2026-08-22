@@ -15,17 +15,18 @@ import {
 } from "@tabler/icons-react";
 
 import styles from "./change-password.module.css";
-import { buildSignInHref } from "@/lib/auth-redirect";
+import { buildAuthCallbackUrl, buildSignInHref } from "@/lib/auth-redirect";
 import { PASSWORD_RECOVERY_PATH } from "@/lib/auth/password-recovery";
 import { getPasswordRequirements, isStrongPassword } from "@/lib/password-policy";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 
 const recoveryRedirectUrl = () => {
   if (typeof window === "undefined") return "";
-  const callback = new URL("/auth/callback", window.location.origin);
-  callback.searchParams.set("flow", "recovery");
-  callback.searchParams.set("next", PASSWORD_RECOVERY_PATH);
-  return callback.toString();
+  return buildAuthCallbackUrl({
+    currentOrigin: window.location.origin,
+    flow: "recovery",
+    next: PASSWORD_RECOVERY_PATH,
+  });
 };
 
 function PasswordField({ autoComplete, label, name, onChange, value }) {

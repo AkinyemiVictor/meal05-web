@@ -46,7 +46,7 @@ export async function GET(req, { params }) {
         id, route_id, order_id, status,
         delivery_routes(
           id, status, actual_start_time, completed_at,
-          delivery_partners(id, full_name, name, phone, contact_phone, is_active)
+          delivery_partners(id, rider_code, full_name, name, phone, contact_phone, photo_path, vehicle_type, vehicle_plate_number, is_active)
         )
       `)
       .eq("order_id", id)
@@ -60,6 +60,13 @@ export async function GET(req, { params }) {
       .find((entry) => entry.available);
 
     if (!contact?.available) return unavailable(rl);
+    const activeStop = rows.find((stop) => buildCustomerRiderContact({ order, stop }).available);
+    const route = Array.isArray(activeStop?.delivery_routes) ? activeStop.delivery_routes[0] : activeStop?.delivery_routes;
+    const partner = Array.isArray(route?.delivery_partners) ? route.delivery_partners[0] : route?.delivery_partners;
+    if (partner?.photo_path) {
+      const signed = await admin.storage.from("rider-photos").createSignedUrl(partner.photo_path, 60 * 60);
+      if (!signed.error) contact.rider.photoUrl = signed.data?.signedUrl || "";
+    }
     return send(NextResponse.json(contact, { status: 200 }), rl);
   } catch {
     return unavailable(rl);

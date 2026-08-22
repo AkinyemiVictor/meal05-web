@@ -116,7 +116,7 @@ export async function loadDispatchDashboard() {
 
   return {
     orders: ordersRes.data || [],
-    partners: partnersRes.data || [],
+    partners: (partnersRes.data || []).filter((partner) => Boolean(normalizePhoneContact(partner.phone || partner.contact_phone))),
     routes: routesRes.data || [],
     warnings: [ordersRes.error?.message, partnersRes.error?.message, routesRes.error?.message].filter(Boolean),
   };
@@ -131,6 +131,7 @@ export async function createDeliveryRoute({
   pickupLocation,
   agreedPartnerPayment,
   otherDeliveryCost,
+  packages,
   notes,
   ipAddress,
   userAgent,
@@ -143,7 +144,16 @@ export async function createDeliveryRoute({
   if (!deliveryPartnerId) throw new Error("Select an active delivery partner.");
   if (vehicleType && !DELIVERY_VEHICLE_TYPES.has(vehicleType)) throw new Error("Unsupported vehicle type.");
 
-  const { data, error } = await admin.rpc("create_delivery_route_transaction", {
+  const packageRows = (Array.isArray(packages) ? packages : []).map((entry) => ({
+    orderId: toInt(entry?.orderId),
+    packageCount: Number(entry?.packageCount),
+  }));
+  if (packageRows.some((entry) => !entry.orderId || !ids.includes(entry.orderId))) throw new Error("Package details must match the selected orders.");
+  if (packageRows.some((entry) => !Number.isInteger(entry.packageCount) || entry.packageCount < 1 || entry.packageCount > 50)) {
+    throw new Error("Each package count must be between 1 and 50.");
+  }
+
+  const { data, error } = await admin.rpc("create_delivery_route_with_packages_transaction", {
     p_actor_user_id: actorUserId,
     p_order_ids: ids,
     p_delivery_partner_id: deliveryPartnerId || null,
@@ -158,6 +168,7 @@ export async function createDeliveryRoute({
     p_require_pin: true,
     p_ip_address: ipAddress || null,
     p_user_agent: userAgent || null,
+    p_packages: packageRows,
   });
   if (error) throw new Error(error.message);
 
@@ -233,12 +244,12 @@ export async function revokeDeliveryAccessTokens({ routeId, actorUserId, reason,
 const routeSelect = `
   id, route_code, status, vehicle_type, planned_start_time, actual_start_time, completed_at, pickup_location,
   agreed_partner_payment, delivery_fees_collected, delivery_margin, notes,
-  delivery_partners(id, full_name, name, phone, contact_phone, vehicle_type, vehicle_plate_number, is_active),
+  delivery_partners(id, rider_code, full_name, name, phone, contact_phone, photo_path, vehicle_type, vehicle_plate_number, is_active),
   delivery_route_stops(
     id, route_id, order_id, stop_number, customer_name, customer_phone, delivery_address, delivery_landmark,
     delivery_latitude, delivery_longitude, delivery_window_start, delivery_window_end, status, arrived_at,
     delivered_at, failed_at, failure_reason, recipient_type, recipient_name, otp_verified_at, proof_photo_path,
-    delivery_notes, orders(order_reference)
+    delivery_notes, package_count, orders(order_reference)
   )
 `;
 
@@ -541,7 +552,7 @@ export async function loadCustomerDelivery(orderId, userId) {
   if (!order) throw new Error("Order not found.");
   const { data: stop, error: stopError } = await admin
     .from("delivery_route_stops")
-    .select("id, route_id, stop_number, status, delivery_window_start, delivery_window_end, arrived_at, delivered_at, recipient_name, otp_verified_at, delivery_routes(route_code,status,vehicle_type,delivery_partners(full_name,name,vehicle_type,vehicle_plate_number))")
+    .select("id, route_id, stop_number, status, delivery_window_start, delivery_window_end, arrived_at, delivered_at, recipient_name, otp_verified_at, delivery_routes(route_code,status,vehicle_type,delivery_partners(rider_code,full_name,name,vehicle_type,vehicle_plate_number))")
     .eq("order_id", id)
     .maybeSingle();
   if (stopError) throw new Error(stopError.message);

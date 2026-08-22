@@ -1256,6 +1256,13 @@ export function AccountPageContent() {
         icon: IconPackage,
       },
       {
+        slug: "availability-requests",
+        href: "/account/availability-requests",
+        label: "Availability requests",
+        body: "Track baskets awaiting confirmation before payment",
+        icon: IconClock,
+      },
+      {
         slug: "balance",
         label: "Wallet",
         body: `Balance: ${formatMoney(walletSnapshot?.balance || 0, walletSnapshot?.currencyCode || "NGN")}`,
@@ -1310,7 +1317,7 @@ export function AccountPageContent() {
             const badge = getTabBadge(row.slug);
             const RowIcon = row.icon || IconShoppingBag;
             return (
-              <Link key={row.slug} href={getAccountRoute(row.slug)} className={styles.accountMenuRow}>
+              <Link key={row.slug} href={row.href || getAccountRoute(row.slug)} className={styles.accountMenuRow}>
                 <span className={styles.accountMenuIcon}>
                   <RowIcon size={19} stroke={1.9} aria-hidden="true" />
                 </span>
@@ -2359,14 +2366,27 @@ export default function AccountPage() {
 
 function DeliveryContactCard({ contactState }) {
   if (contactState?.status !== "ready" || !contactState?.available || !contactState?.rider) return null;
+  const vehicle = [contactState.rider.vehicleType, contactState.rider.vehicleNumber].filter(Boolean).join(" · ");
   return (
     <div className={styles.deliveryContactCard}>
-      <div>
-        <strong>Contact your rider</strong>
-        <span>{contactState.rider.name}</span>
+      <div className={styles.deliveryContactIdentity}>
+        <div
+          className={styles.deliveryContactAvatar}
+          role="img"
+          aria-label={`${contactState.rider.name} profile photo`}
+          style={contactState.rider.photoUrl ? { backgroundImage: `url(${contactState.rider.photoUrl})` } : undefined}
+        >
+          {!contactState.rider.photoUrl ? contactState.rider.name.slice(0, 1).toUpperCase() : null}
+        </div>
+        <div>
+          <span>Your rider</span>
+          <strong>{contactState.rider.name}</strong>
+          <small>{["Meal05 Rider", contactState.rider.riderCode].filter(Boolean).join(" · ")}</small>
+          {vehicle ? <small>{vehicle}</small> : null}
+        </div>
       </div>
       <div className={styles.deliveryContactActions}>
-        <a href={contactState.rider.callUrl}>Call</a>
+        <a href={contactState.rider.callUrl}>Call rider</a>
         <a href={contactState.rider.whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a>
       </div>
       {contactState.note ? <p>{contactState.note}</p> : null}

@@ -14,6 +14,7 @@ import {
   requireUsableProvider,
   sanitizeProvider,
 } from "@/lib/payments/provider-settings";
+import { validateAvailabilityPaymentWindow } from "@/lib/availability-payment-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,12 +72,14 @@ export async function POST(request) {
 
   const { data: order, error: orderError } = await admin
     .from("orders")
-    .select("id, user_id, total, currency_code, payment_status, payment_reference")
+    .select("id, user_id, total, currency_code, payment_status, payment_reference, availability_request_id")
     .eq("id", orderId)
     .eq("user_id", auth.user.id)
     .maybeSingle();
   if (orderError) return send({ error: orderError.message || "Unable to load order." }, 500, rl);
   if (!order) return send({ error: "Order not found." }, 404, rl);
+  const availabilityPayment = await validateAvailabilityPaymentWindow(admin, order);
+  if (!availabilityPayment.ok) return send({ error: availabilityPayment.error }, availabilityPayment.status, rl);
   if (String(order.payment_status || "").toLowerCase() === "paid") return send({ error: "Order is already paid." }, 409, rl);
 
   const { data: existing, error: existingError } = await admin

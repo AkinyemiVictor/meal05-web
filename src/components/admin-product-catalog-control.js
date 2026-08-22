@@ -31,9 +31,6 @@ export default function AdminProductCatalogControl({
   variantId,
   variantName,
   inSeason = true,
-  price = 0,
-  oldPrice = null,
-  stockCount = null,
   variantActive = true,
   purchaseMode = "fixed",
   minQuantity = null,
@@ -41,17 +38,18 @@ export default function AdminProductCatalogControl({
   stepQuantity = null,
   baseUnit = "",
   baseQuantity = null,
+  selectionModel = "exact_variant",
+  variationNote = "",
+  availabilityMode = "standard",
+  inventoryTrackingMode = "tracked",
+  optionRole = "standard",
   showSeason = true,
-  showPrice = true,
-  showStock = false,
   showAvailability = false,
   showPurchaseRules = false,
+  showFulfillmentRules = false,
 }) {
   const router = useRouter();
   const initialSeason = inSeason ? "in" : "out";
-  const initialPrice = toInputValue(price);
-  const initialOldPrice = oldPrice == null ? "" : toInputValue(oldPrice);
-  const initialStock = stockCount == null ? "" : toInputValue(stockCount);
   const initialAvailability = variantActive ? "active" : "inactive";
   const initialPurchaseMode = purchaseMode === "loose" ? "loose" : "fixed";
   const initialMinQuantity = minQuantity == null ? "" : toInputValue(minQuantity);
@@ -61,9 +59,6 @@ export default function AdminProductCatalogControl({
   const initialBaseQuantity = baseQuantity == null ? "" : toInputValue(baseQuantity);
 
   const [seasonValue, setSeasonValue] = useState(initialSeason);
-  const [priceValue, setPriceValue] = useState(initialPrice);
-  const [oldPriceValue, setOldPriceValue] = useState(initialOldPrice);
-  const [stockValue, setStockValue] = useState(initialStock);
   const [availabilityValue, setAvailabilityValue] = useState(initialAvailability);
   const [purchaseModeValue, setPurchaseModeValue] = useState(initialPurchaseMode);
   const [minQuantityValue, setMinQuantityValue] = useState(initialMinQuantity);
@@ -71,6 +66,11 @@ export default function AdminProductCatalogControl({
   const [stepQuantityValue, setStepQuantityValue] = useState(initialStepQuantity);
   const [baseUnitValue, setBaseUnitValue] = useState(initialBaseUnit);
   const [baseQuantityValue, setBaseQuantityValue] = useState(initialBaseQuantity);
+  const [selectionModelValue, setSelectionModelValue] = useState(selectionModel || "exact_variant");
+  const [variationNoteValue, setVariationNoteValue] = useState(variationNote || "");
+  const [availabilityModeValue, setAvailabilityModeValue] = useState(availabilityMode || "standard");
+  const [inventoryTrackingModeValue, setInventoryTrackingModeValue] = useState(inventoryTrackingMode || "tracked");
+  const [optionRoleValue, setOptionRoleValue] = useState(optionRole || "standard");
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -80,9 +80,6 @@ export default function AdminProductCatalogControl({
 
   useEffect(() => {
     setSeasonValue(initialSeason);
-    setPriceValue(initialPrice);
-    setOldPriceValue(initialOldPrice);
-    setStockValue(initialStock);
     setAvailabilityValue(initialAvailability);
     setPurchaseModeValue(initialPurchaseMode);
     setMinQuantityValue(initialMinQuantity);
@@ -90,6 +87,11 @@ export default function AdminProductCatalogControl({
     setStepQuantityValue(initialStepQuantity);
     setBaseUnitValue(initialBaseUnit);
     setBaseQuantityValue(initialBaseQuantity);
+    setSelectionModelValue(selectionModel || "exact_variant");
+    setVariationNoteValue(variationNote || "");
+    setAvailabilityModeValue(availabilityMode || "standard");
+    setInventoryTrackingModeValue(inventoryTrackingMode || "tracked");
+    setOptionRoleValue(optionRole || "standard");
     setError("");
   }, [
     initialAvailability,
@@ -97,12 +99,14 @@ export default function AdminProductCatalogControl({
     initialBaseUnit,
     initialMaxQuantity,
     initialMinQuantity,
-    initialOldPrice,
-    initialPrice,
     initialPurchaseMode,
     initialSeason,
     initialStepQuantity,
-    initialStock,
+    selectionModel,
+    variationNote,
+    availabilityMode,
+    inventoryTrackingMode,
+    optionRole,
   ]);
 
   const submit = async (event) => {
@@ -111,76 +115,23 @@ export default function AdminProductCatalogControl({
     setOk("");
 
     const requestBody = { product_id: productId };
-    let clearedOldPrice = false;
-    let nextPrice = null;
-    let nextOldPrice = null;
-
-    if (showPrice) {
-      if (!variantId) {
-        setError("Missing variant id.");
-        return;
-      }
-
-      const trimmedPrice = String(priceValue || "").trim();
-      const trimmedOldPrice = String(oldPriceValue || "").trim();
-      if (!trimmedPrice) {
-        setError("Enter a price.");
-        return;
-      }
-
-      nextPrice = Number(trimmedPrice);
-      if (!Number.isFinite(nextPrice) || nextPrice < 0) {
-        setError("Price must be 0 or more.");
-        return;
-      }
-
-      const rawOldPrice = trimmedOldPrice ? Number(trimmedOldPrice) : null;
-      if (trimmedOldPrice && (!Number.isFinite(rawOldPrice) || rawOldPrice < 0)) {
-        setError("Old price must be empty or 0 or more.");
-        return;
-      }
-
-      clearedOldPrice = rawOldPrice != null && rawOldPrice < nextPrice;
-      nextOldPrice = clearedOldPrice ? null : rawOldPrice;
-      if (clearedOldPrice) {
-        setOldPriceValue("");
-      }
-
-      requestBody.variant_id = variantId;
-      requestBody.price = nextPrice;
-      requestBody.old_price = nextOldPrice;
-    }
-
-    let nextStock = null;
-    let stockChanged = false;
-    if (showStock) {
-      if (!variantId) {
-        setError("Missing variant id.");
-        return;
-      }
-
-      const trimmedStock = String(stockValue || "").trim();
-      if (!trimmedStock && initialStock) {
-        setError("Enter a stock count.");
-        return;
-      }
-
-      if (trimmedStock) {
-        nextStock = Number(trimmedStock);
-        if (!Number.isInteger(nextStock) || nextStock < 0) {
-          setError("Stock must be a whole number, 0 or more.");
-          return;
-        }
-
-        stockChanged = String(nextStock) !== initialStock;
-        if (stockChanged) {
-          requestBody.variant_id = variantId;
-          requestBody.stock_count = nextStock;
-        }
-      }
-    }
-
     let purchaseRulesChanged = false;
+    let fulfillmentRulesChanged = false;
+    if (showFulfillmentRules) {
+      if (!variantId) { setError("Missing variant id."); return; }
+      fulfillmentRulesChanged =
+        selectionModelValue !== selectionModel || variationNoteValue.trim() !== String(variationNote || "").trim() ||
+        availabilityModeValue !== availabilityMode || inventoryTrackingModeValue !== inventoryTrackingMode ||
+        optionRoleValue !== (optionRole || "standard");
+      if (fulfillmentRulesChanged) {
+        requestBody.variant_id = variantId;
+        requestBody.selection_model = selectionModelValue;
+        requestBody.variation_note = variationNoteValue.trim() || null;
+        requestBody.availability_mode = availabilityModeValue;
+        requestBody.inventory_tracking_mode = inventoryTrackingModeValue;
+        requestBody.option_role = optionRoleValue || null;
+      }
+    }
     if (showPurchaseRules) {
       if (!variantId) {
         setError("Missing variant id.");
@@ -242,11 +193,9 @@ export default function AdminProductCatalogControl({
     const nextInSeason = showSeason ? seasonValue === "in" : null;
     const nextVariantActive = showAvailability ? availabilityValue === "active" : null;
     const seasonChanged = showSeason && nextInSeason !== (inSeason === true);
-    const priceChanged = showPrice && String(nextPrice) !== initialPrice;
-    const oldPriceChanged = showPrice && String(nextOldPrice ?? "") !== initialOldPrice;
     const availabilityChanged = showAvailability && nextVariantActive !== (variantActive === true);
 
-    if (!seasonChanged && !priceChanged && !oldPriceChanged && !stockChanged && !availabilityChanged && !purchaseRulesChanged) {
+    if (!seasonChanged && !availabilityChanged && !purchaseRulesChanged && !fulfillmentRulesChanged) {
       setError("No change selected.");
       return;
     }
@@ -272,12 +221,9 @@ export default function AdminProductCatalogControl({
         return;
       }
 
-      const oldPriceCleared = Boolean(payload?.normalized?.oldPriceCleared || clearedOldPrice);
-      if (oldPriceCleared) {
-        setOk("Saved. Old price cleared because it was below current price.");
-      } else if (showSeason && !showPrice && !showStock && !showAvailability) {
+      if (showSeason && !showAvailability && !showPurchaseRules) {
         setOk("Season updated.");
-      } else if ((showPrice || showStock || showAvailability || showPurchaseRules) && !showSeason) {
+      } else if ((showAvailability || showPurchaseRules) && !showSeason) {
         setOk("Variant updated.");
       } else {
         setOk("Saved.");
@@ -307,42 +253,6 @@ export default function AdminProductCatalogControl({
             <option value="in">In Season</option>
             <option value="out">Out Of Season</option>
           </select>
-        </label>
-      ) : null}
-
-      {showPrice ? (
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={fieldLabelStyle}>Price</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            step={1}
-            value={priceValue}
-            onChange={(event) => setPriceValue(event.target.value)}
-            disabled={disabled}
-            aria-label={`Price for ${productName} ${variantName}`}
-            placeholder="0"
-            style={{ width: 92, border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
-          />
-        </label>
-      ) : null}
-
-      {showStock ? (
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={fieldLabelStyle}>Stock</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            step={1}
-            value={stockValue}
-            onChange={(event) => setStockValue(event.target.value)}
-            disabled={disabled}
-            aria-label={`Stock for ${productName} ${variantName}`}
-            placeholder="0"
-            style={{ width: 92, border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
-          />
         </label>
       ) : null}
 
@@ -377,6 +287,14 @@ export default function AdminProductCatalogControl({
           </select>
         </label>
       ) : null}
+
+      {showFulfillmentRules ? <>
+        <label style={{ display: "grid", gap: 4 }}><span style={fieldLabelStyle}>Selection</span><select value={selectionModelValue} onChange={(event) => setSelectionModelValue(event.target.value)} disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}><option value="exact_variant">Exact variant</option><option value="flexible_market">Flexible market</option></select></label>
+        <label style={{ display: "grid", gap: 4 }}><span style={fieldLabelStyle}>Availability flow</span><select value={availabilityModeValue} onChange={(event) => setAvailabilityModeValue(event.target.value)} disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}><option value="standard">Available to order</option><option value="request">Check availability</option><option value="unavailable">Unavailable</option></select></label>
+        <label style={{ display: "grid", gap: 4 }}><span style={fieldLabelStyle}>Inventory</span><select value={inventoryTrackingModeValue} onChange={(event) => setInventoryTrackingModeValue(event.target.value)} disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}><option value="tracked">Tracked stock</option><option value="supplier">Supplier fulfilled</option></select></label>
+        <label style={{ display: "grid", gap: 4 }}><span style={fieldLabelStyle}>Option role</span><select value={optionRoleValue} onChange={(event) => setOptionRoleValue(event.target.value)} disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}><option value="standard">Standard</option><option value="value_tier">Value tier</option><option value="ripeness">Ripeness</option><option value="grade">Grade</option><option value="form">Form</option><option value="size">Size</option><option value="volume_saver">Volume saver</option><option value="manufacturer_pack">Manufacturer pack</option></select></label>
+        <label style={{ display: "grid", gap: 4, flex: "1 1 220px" }}><span style={fieldLabelStyle}>Variation note</span><input value={variationNoteValue} onChange={(event) => setVariationNoteValue(event.target.value)} maxLength={500} placeholder="Fresh produce naturally varies…" disabled={disabled} style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }} /></label>
+      </> : null}
 
       {showPurchaseRules ? (
         <label style={{ display: "grid", gap: 4 }}>
@@ -461,24 +379,6 @@ export default function AdminProductCatalogControl({
             aria-label={`Base quantity for ${productName} ${variantName}`}
             placeholder="1"
             style={{ width: 76, border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
-          />
-        </label>
-      ) : null}
-
-      {showPrice ? (
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={fieldLabelStyle}>Old Price</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            step={1}
-            value={oldPriceValue}
-            onChange={(event) => setOldPriceValue(event.target.value)}
-            disabled={disabled}
-            aria-label={`Old price for ${productName} ${variantName}`}
-            placeholder="Optional"
-            style={{ width: 92, border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
           />
         </label>
       ) : null}

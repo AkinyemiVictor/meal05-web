@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { notFound, useParams, useRouter } from "next/navigation";
+import { notFound, useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconBuildingBank, IconMoodSmile } from "@tabler/icons-react";
 
@@ -236,6 +236,7 @@ function PendingConfirmationDialog({ onCancel }) {
 export default function ProviderPaymentPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const providerCode = String(params?.providerCode || "");
   if (providerCode !== MONIEPOINT_CODE) notFound();
 
@@ -250,9 +251,16 @@ export default function ProviderPaymentPage() {
 
   useEffect(() => {
     const stored = readPendingCheckoutPayment();
-    setPending(stored);
-    setStatus(stored ? "preparing" : "missing");
-  }, []);
+    const existingOrderId = searchParams.get("orderId");
+    const resolved = stored || (existingOrderId ? {
+      existingOrderId,
+      orderIdempotencyKey: `availability-order-${existingOrderId}`,
+      form: { fullName: "Meal05 customer" },
+      summary: null,
+    } : null);
+    setPending(resolved);
+    setStatus(resolved ? "preparing" : "missing");
+  }, [searchParams]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -282,7 +290,10 @@ export default function ProviderPaymentPage() {
       if (!token) throw new Error("Your login session has expired. Please sign in again to continue checkout.");
 
       const form = pending.form || {};
-      const orderResponse = await fetch("/api/orders", {
+      let orderId = pending.existingOrderId;
+      let orderPayload = { summary: pending.summary };
+      if (!orderId) {
+        const orderResponse = await fetch("/api/orders", {
         method: "POST",
         cache: "no-store",
         headers: buildHeaders(token, pending.orderIdempotencyKey || createIdempotencyKey("checkout-order")),
@@ -298,13 +309,14 @@ export default function ProviderPaymentPage() {
           promoCode: pending.promoCode,
         })),
       });
-      const orderPayload = await orderResponse.json().catch(() => ({}));
-      if (!orderResponse.ok) {
-        logCheckoutApiError("/api/orders", orderResponse, orderPayload);
-        throw new Error(getCheckoutApiErrorMessage(orderPayload, "Unable to create order."));
-      }
+        orderPayload = await orderResponse.json().catch(() => ({}));
+        if (!orderResponse.ok) {
+          logCheckoutApiError("/api/orders", orderResponse, orderPayload);
+          throw new Error(getCheckoutApiErrorMessage(orderPayload, "Unable to create order."));
+        }
 
-      const orderId = orderPayload?.order?.id;
+        orderId = orderPayload?.order?.id;
+      }
       if (!orderId) throw new Error("Unable to create order.");
 
       const transferResponse = await fetch("/api/payments/bank-transfer/initialize", {

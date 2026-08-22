@@ -5,6 +5,7 @@ import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { withNoStore } from "@/lib/api/no-store";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
+import { validateAvailabilityPaymentWindow } from "@/lib/availability-payment-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,11 @@ export async function POST(request, { params }) {
   const orderId = Number((await params)?.orderId);
   if (!Number.isSafeInteger(orderId) || orderId <= 0) return send({ error: "Order not found." }, 404, rl);
   const idempotencyKey = request.headers.get("Idempotency-Key") || request.headers.get("x-idempotency-key") || `wallet:order:${orderId}:${user.id}`;
+  const { data: order, error: orderError } = await admin.from("orders")
+    .select("id,user_id,availability_request_id").eq("id", orderId).eq("user_id", user.id).maybeSingle();
+  if (orderError || !order) return send({ error: "Order not found." }, 404, rl);
+  const availabilityPayment = await validateAvailabilityPaymentWindow(admin, order);
+  if (!availabilityPayment.ok) return send({ error: availabilityPayment.error }, availabilityPayment.status, rl);
   const { data, error } = await admin.rpc("debit_wallet_for_order", {
     p_order_id: orderId,
     p_user_id: user.id,

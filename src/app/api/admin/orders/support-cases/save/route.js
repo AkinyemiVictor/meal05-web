@@ -66,7 +66,7 @@ export async function POST(req) {
     customer_note: z.string().trim().max(1000).optional(),
     admin_note: z.string().trim().max(1000).optional(),
     replacement_order_id: z.union([z.string(), z.number()]).optional(),
-  });
+  }).strict();
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
     await logAdminError("Validation failed", { route: "/api/admin/orders/support-cases/save", issues: parsed.error.issues });
@@ -102,8 +102,12 @@ export async function POST(req) {
     );
   }
 
-  const replacementOrderId = parsed.data.replacement_order_id == null ? "" : String(parsed.data.replacement_order_id).trim();
-  if (replacementOrderId && replacementOrderId === orderId) {
+  const replacementOrderIdText = parsed.data.replacement_order_id == null ? "" : String(parsed.data.replacement_order_id).trim();
+  const replacementOrderId = replacementOrderIdText ? Number(replacementOrderIdText) : null;
+  if (replacementOrderIdText && (!Number.isSafeInteger(replacementOrderId) || replacementOrderId <= 0)) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Replacement order id must be a positive whole number." }, { status: 400 }), rl);
+  }
+  if (replacementOrderId && replacementOrderId === Number(orderId)) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: "Replacement order id must be different from the original order." }, { status: 400 }),
       rl
@@ -134,6 +138,9 @@ export async function POST(req) {
     customer_note: parsed.data.customer_note || null,
     admin_note: parsed.data.admin_note || null,
     replacement_order_id: replacementOrderId || null,
+    updated_by_user_id: user.id,
+    updated_by_email: user.email || null,
+    updated_at: new Date().toISOString(),
     resolved_at: isClosedOrderSupportCaseStatus(caseStatus) ? new Date().toISOString() : null,
   };
 
@@ -141,7 +148,7 @@ export async function POST(req) {
   if (caseIdText) {
     const { data, error } = await admin
       .from("order_support_cases")
-      .select("id, order_id, case_type, case_status, refund_amount, reason, customer_note, admin_note, replacement_order_id, resolved_at")
+      .select("id, order_id, case_type, case_status, refund_amount, refund_status, reason, customer_note, admin_note, replacement_order_id, resolved_at")
       .eq("id", caseIdText)
       .maybeSingle();
     if (error) {
@@ -160,6 +167,28 @@ export async function POST(req) {
     existingCase = data;
   }
 
+  if (existingCase?.refund_status && existingCase.refund_status !== "pending" && caseType === "refund") {
+    if (Number(existingCase.refund_amount) !== refundAmount) {
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: "Reopen the refund decision before changing the confirmed refund amount." }, { status: 409 }),
+        rl
+      );
+    }
+    if (caseStatus !== "resolved") {
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: "Reopen the refund decision before changing this resolved case status." }, { status: 409 }),
+        rl
+      );
+    }
+  }
+
+  if (caseType === "refund" && (!existingCase || existingCase.refund_status === "pending") && ["resolved", "rejected", "cancelled"].includes(caseStatus)) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: "Use Mark as refunded or No refund required to close a refund case." }, { status: 409 }),
+      rl
+    );
+  }
+
   const writer = existingCase
     ? admin
         .from("order_support_cases")
@@ -171,6 +200,7 @@ export async function POST(req) {
         .from("order_support_cases")
         .insert({
           ...payload,
+          refund_status: caseType === "refund" ? "pending" : "not_required",
           created_by_user_id: user.id,
           created_by_email: user.email || null,
         })

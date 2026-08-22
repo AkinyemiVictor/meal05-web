@@ -19,6 +19,7 @@ export default function AdminOrderSupportCaseControl({
   reason = "",
   adminNote = "",
   replacementOrderId = "",
+  refundStatus = "pending",
 }) {
   const router = useRouter();
   const [type, setType] = useState(caseType);
@@ -54,7 +55,7 @@ export default function AdminOrderSupportCaseControl({
           order_id: orderId,
           case_type: type,
           case_status: status,
-          refund_amount: amount,
+          refund_amount: type === "refund" ? amount : 0,
           reason: reasonText.trim(),
           admin_note: note.trim() || undefined,
           replacement_order_id: replacementId.trim() || undefined,
@@ -80,7 +81,11 @@ export default function AdminOrderSupportCaseControl({
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <select
           value={type}
-          onChange={(event) => setType(event.target.value)}
+          onChange={(event) => {
+            const nextType = event.target.value;
+            setType(nextType);
+            if (nextType === "refund" && ["resolved", "rejected", "cancelled"].includes(status)) setStatus("open");
+          }}
           disabled={isPending}
           aria-label="Support case type"
           style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12, minWidth: 120 }}
@@ -100,25 +105,33 @@ export default function AdminOrderSupportCaseControl({
           style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12, minWidth: 120 }}
         >
           {ORDER_SUPPORT_CASE_STATUSES.map((option) => (
-            <option key={option.value} value={option.value}>
+            <option key={option.value} value={option.value} disabled={type === "refund" && ["resolved", "rejected", "cancelled"].includes(option.value)}>
               {option.label}
             </option>
           ))}
         </select>
 
-        <input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step="0.01"
-          value={amount}
-          onChange={(event) => setAmount(toMoney(event.target.value, 0))}
-          disabled={isPending}
-          aria-label="Refund amount"
-          placeholder="Refund"
-          style={{ width: 92, border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
-        />
+        {type === "refund" ? (
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            value={amount}
+            onChange={(event) => setAmount(toMoney(event.target.value, 0))}
+            disabled={isPending || (Boolean(caseId) && refundStatus !== "pending")}
+            aria-label="Refund amount"
+            placeholder="Refund amount"
+            style={{ width: 118, border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
+          />
+        ) : null}
       </div>
+
+      {type === "refund" ? (
+        <p style={{ margin: 0, borderRadius: 8, background: "#eff6ff", color: "#1d4ed8", padding: "7px 9px", fontSize: 12 }}>
+          This records the amount only. Complete the transfer in your bank app, then confirm it from the refund queue.
+        </p>
+      ) : null}
 
       <input
         type="text"

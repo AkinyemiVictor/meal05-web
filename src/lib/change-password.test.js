@@ -39,8 +39,8 @@ test("recovery links use the callback and receive a short-lived HttpOnly authori
   const recovery = read("src/lib/auth/password-recovery.js");
   const token = read("src/lib/auth/password-recovery-token.js");
 
-  assert.match(signIn, /new URL\("\/auth\/callback"/);
-  assert.match(signIn, /searchParams\.set\("flow", "recovery"\)/);
+  assert.match(signIn, /buildAuthCallbackUrl/);
+  assert.match(signIn, /flow: "recovery"/);
   assert.match(callback, /isRecentPasswordRecovery\(data\?\.user\)/);
   assert.match(callback, /httpOnly: true/);
   assert.match(callback, /PASSWORD_RECOVERY_MAX_AGE_SECONDS/);
@@ -58,4 +58,19 @@ test("change-password UI supports current-password and recovery modes", () => {
   assert.match(page, /recovery: recoveryAuthorized/);
   assert.match(page, /signOutOthers/);
   assert.match(page, /resetPasswordForEmail/);
+});
+
+test("signup presents password requirements after password confirmation", () => {
+  const page = read("src/app/sign-in/page.js");
+  const confirmField = page.lastIndexOf('id="signup-confirm-password"');
+  const requirements = page.lastIndexOf('id="signup-password-requirements"');
+
+  assert.ok(confirmField >= 0);
+  assert.ok(requirements > confirmField);
+});
+
+test("checkout payment notice uses the approved neutral wording", () => {
+  const copy = read("src/data/copy.js");
+  assert.match(copy, /processingSubtitle: "Hang on while we confirm payment details\."/);
+  assert.doesNotMatch(copy, /confirm your payment details/);
 });

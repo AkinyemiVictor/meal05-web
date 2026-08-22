@@ -45,6 +45,7 @@ import { calculateOrderCapacity, formatCapacitySummary } from "@/lib/order-capac
 import { requestPromoCodeValidation } from "@/lib/promo-code-client";
 import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
 import useDeliverySettings from "@/lib/use-delivery-settings";
+import { isRequestOnlyItem, SELECTION_MODE_FLEXIBLE, SIZE_PREFERENCE_LABELS } from "@/lib/commerce-options";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
   loading: () => <CategoryCarouselSkeleton />,
@@ -589,13 +590,14 @@ function CartPageContent() {
       let level = "ok";
       let message = "";
       const variantMissing = !item.variantId;
+      const requestOnly = isRequestOnlyItem(item);
 
       if (!product && productLookupStatus === "loading") {
         level = "pending";
       } else if (!product) {
         level = "error";
         message = copy.cart.unavailableMessage;
-      } else if (normalised.includes("out") || normalised.includes("sold")) {
+      } else if (!requestOnly && (normalised.includes("out") || normalised.includes("sold"))) {
         level = "error";
         message = copy.cart.unavailableMessage;
       } else if (variantMissing) {
@@ -623,6 +625,7 @@ function CartPageContent() {
   }, [cartItems, productIndex, productLookupStatus]);
 
   const hasCheckoutBlocker = stockStatus.hasError || stockStatus.hasPending;
+  const hasRequestItems = useMemo(() => cartItems.some(isRequestOnlyItem), [cartItems]);
   const deliverySummaryConfig = useMemo(() => getDeliverySummaryConfig(deliverySettings), [deliverySettings]);
   const pricingItems = useMemo(
     () =>
@@ -822,6 +825,29 @@ function CartPageContent() {
     }
   }, [cartItems, cartUpdateState, currentUser, persistCart]);
 
+  const handleSizePreferenceChange = useCallback(async (item, sizePreference) => {
+    const previousItems = cartItems;
+    const nextItems = cartItems.map((entry) => entry.id === item.id
+      ? { ...entry, sizePreference, size_preference: sizePreference }
+      : entry);
+    setCartItems(nextItems);
+    persistCart(nextItems);
+    if (!currentUser) return;
+    try {
+      if (!item.cartItemId) throw new Error("Your cart is still syncing. Please try again.");
+      const response = await fetch(`/api/cart/${encodeURIComponent(item.cartItemId)}`, {
+        method: "PATCH", cache: "no-store", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ size_preference: sizePreference }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || "Unable to save your preference.");
+    } catch (error) {
+      setCartItems(previousItems);
+      persistCart(previousItems);
+      setCartUpdateMessage(error?.message || "Unable to save your preference.");
+    }
+  }, [cartItems, currentUser, persistCart]);
+
   const handleApplyPromo = useCallback(async () => {
     const code = promoInput.trim().toUpperCase();
 
@@ -892,8 +918,8 @@ function CartPageContent() {
     }
 
     persistCart(cartItems);
-    router.push("/checkout");
-  }, [activePromo?.code, bulkRequired, cartItems, hasCheckoutBlocker, persistCart, router, signInRedirectHref, summary.total]);
+    router.push(hasRequestItems ? "/availability-requests/new" : "/checkout");
+  }, [activePromo?.code, bulkRequired, cartItems, hasCheckoutBlocker, hasRequestItems, persistCart, router, signInRedirectHref, summary.total]);
 
   const handleBulkContact = useCallback(
     (channel) => {
@@ -1031,6 +1057,21 @@ function CartPageContent() {
                           >
                             {status.message}
                           </p>
+                        ) : null}
+                        {isRequestOnlyItem(item) ? (
+                          <p className={styles.cartWarning} role="status">Availability will be confirmed before payment.</p>
+                        ) : null}
+                        {String(item.selectionModel ?? item.selection_model) === SELECTION_MODE_FLEXIBLE ? (
+                          <label style={{ display: "grid", gap: 5, marginTop: 10, fontSize: 13 }}>
+                            <span>Physical size preference</span>
+                            <select
+                              value={item.sizePreference || item.size_preference || "best_available"}
+                              onChange={(event) => handleSizePreferenceChange(item, event.target.value)}
+                              style={{ minHeight: 38, border: "1px solid #d6d3d1", borderRadius: 8, background: "white", padding: "0 8px" }}
+                            >
+                              {Object.entries(SIZE_PREFERENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                            </select>
+                          </label>
                         ) : null}
                       </div>
                       <div className={styles.cartControls}>
@@ -1179,6 +1220,12 @@ function CartPageContent() {
                 </div>
               </div>
             ) : null}
+            {hasRequestItems && !bulkRequired ? (
+              <div className={styles.bulkPanel} role="note">
+                <h3>Confirm availability before payment</h3>
+                <p>One or more items need a quick market check. Submit the full basket once; we’ll confirm it within 2 business hours, then open a 2-hour payment window.</p>
+              </div>
+            ) : null}
 
             <button
               type="button"
@@ -1186,7 +1233,7 @@ function CartPageContent() {
               onClick={bulkRequired ? () => handleBulkContact(primaryBulkChannel) : handleCheckout}
               disabled={cartIsEmpty || hasCheckoutBlocker || (bulkRequired && !primaryBulkChannel)}
             >
-              {bulkRequired ? "Continue with fulfilment team" : "Checkout"} <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              {bulkRequired ? "Continue with fulfilment team" : hasRequestItems ? "Check availability" : "Checkout"} <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
             </button>
             {bulkRequired ? (
               <button type="button" className={styles.adjustButton} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
@@ -1194,7 +1241,7 @@ function CartPageContent() {
               </button>
             ) : null}
             <p className={styles.summaryHint}>
-              <i className="fa-solid fa-lock" aria-hidden="true"></i> Secure checkout
+              <i className={`fa-solid ${hasRequestItems ? "fa-clock" : "fa-lock"}`} aria-hidden="true"></i> {hasRequestItems ? "No payment until confirmed" : "Secure checkout"}
             </p>
           </aside>
           ) : null}

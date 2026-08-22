@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApiUser } from "@/lib/admin-api-auth";
+import { applyRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
+import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import { withNoStore } from "@/lib/api/no-store";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { SITE_NOTIFICATION_SEVERITIES, normalizeSiteNotificationRecord } from "@/lib/site-notifications";
@@ -8,6 +10,8 @@ import { loadSiteNotificationsAdminData } from "@/lib/site-notifications-server"
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const send = (body, status, rl) => applyRateLimitHeaders(withNoStore(NextResponse.json(body, { status })), rl);
 
 const toId = (value) => {
   if (value == null || value === "") return null;
@@ -30,44 +34,46 @@ const schema = z.object({
   is_active: z.boolean(),
   starts_at: z.union([z.string().trim().max(80), z.null()]).optional(),
   expires_at: z.union([z.string().trim().max(80), z.null()]).optional(),
-});
+}).strict();
 
-export async function GET() {
+export async function GET(request) {
+  const rl = await checkRateLimit({ request, id: "admin:site-notifications:get", limit: 90, windowMs: 60_000 });
+  if (!rl.allowed) return send({ error: "Too many requests" }, 429, rl);
   const auth = await requireAdminApiUser();
-  if (auth.response) return auth.response;
+  if (auth.response) return applyRateLimitHeaders(auth.response, rl);
 
   const data = await loadSiteNotificationsAdminData({ limit: 50 });
-  return withNoStore(NextResponse.json(data));
+  return send(data, 200, rl);
 }
 
 export async function POST(request) {
+  const rl = await checkRateLimit({ request, id: "admin:site-notifications:save", limit: 30, windowMs: 60_000 });
+  if (!rl.allowed) return send({ error: "Too many requests" }, 429, rl);
   const auth = await requireAdminApiUser();
-  if (auth.response) return auth.response;
+  if (auth.response) return applyRateLimitHeaders(auth.response, rl);
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return withNoStore(NextResponse.json({ error: "Invalid JSON" }, { status: 400 }));
+    return send({ error: "Invalid JSON" }, 400, rl);
   }
 
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
-    return withNoStore(
-      NextResponse.json({ error: parsed.error.issues[0]?.message || "Check the notification fields." }, { status: 400 })
-    );
+    return send({ error: parsed.error.issues[0]?.message || "Check the notification fields." }, 400, rl);
   }
 
   const startsAt = toIsoOrNull(parsed.data.starts_at);
   const expiresAt = toIsoOrNull(parsed.data.expires_at);
   if (parsed.data.starts_at && !startsAt) {
-    return withNoStore(NextResponse.json({ error: "Enter a valid start time." }, { status: 400 }));
+    return send({ error: "Enter a valid start time." }, 400, rl);
   }
   if (parsed.data.expires_at && !expiresAt) {
-    return withNoStore(NextResponse.json({ error: "Enter a valid expiry time." }, { status: 400 }));
+    return send({ error: "Enter a valid expiry time." }, 400, rl);
   }
   if (startsAt && expiresAt && Date.parse(expiresAt) <= Date.parse(startsAt)) {
-    return withNoStore(NextResponse.json({ error: "Expiry must be after start time." }, { status: 400 }));
+    return send({ error: "Expiry must be after start time." }, 400, rl);
   }
 
   const id = toId(parsed.data.id);
@@ -89,8 +95,19 @@ export async function POST(request) {
     : await admin.from("site_notifications").insert(payload).select("*").maybeSingle();
 
   if (write.error) {
-    return withNoStore(NextResponse.json({ error: write.error.message }, { status: 400 }));
+    await logAdminError(write.error, { route: "/api/admin/site-notifications", actor: auth.user.email, notification_id: id });
+    return send({ error: write.error.message }, 400, rl);
   }
 
-  return withNoStore(NextResponse.json({ ok: true, notification: normalizeSiteNotificationRecord(write.data) }));
+  await logAdminEvent({
+    route: "/api/admin/site-notifications",
+    actor: auth.user.email,
+    notification_id: write.data?.id,
+    action: id ? "updated" : "created",
+    is_active: parsed.data.is_active,
+    severity: parsed.data.severity,
+    ok: true,
+  });
+
+  return send({ ok: true, notification: normalizeSiteNotificationRecord(write.data) }, 200, rl);
 }

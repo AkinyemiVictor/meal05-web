@@ -212,6 +212,9 @@ const resolveVariantStock = (row) => resolveStockValueFromRow(row);
 const isVariantSelectable = (variant) => {
   if (!variant || typeof variant !== "object") return false;
   if (variant.is_active === false) return false;
+  const availabilityMode = String(variant.availability_mode ?? variant.availabilityMode ?? "standard");
+  if (availabilityMode === "unavailable") return false;
+  if (availabilityMode === "request" || String(variant.inventory_tracking_mode ?? variant.inventoryTrackingMode) === "supplier") return true;
   const stockValue = resolveVariantStock(variant);
   const count = getAvailableCount(stockValue);
   if (count === 0) return false;
@@ -344,6 +347,7 @@ export async function GET(_request, { params }) {
       .select("*", { head: false })
       .eq("product_id", id)
       .eq("market_id", catalog.market.id)
+      .order("base_quantity", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
     if (!vError && Array.isArray(variants)) {
       variations = variants.map((row) => {
@@ -420,6 +424,10 @@ export async function GET(_request, { params }) {
           volume_max: volumeMax,
           volume_unit: volumeUnit,
           option_role: optionRole,
+          availabilityMode: row.availability_mode || "standard",
+          availability_mode: row.availability_mode || "standard",
+          inventoryTrackingMode: row.inventory_tracking_mode || "tracked",
+          inventory_tracking_mode: row.inventory_tracking_mode || "tracked",
           stock,
           stockCount: row.stock_count ?? undefined,
           inSeason: row.in_season ?? undefined,
@@ -510,6 +518,14 @@ export async function GET(_request, { params }) {
         volume_unit: textOrNull(defaultMeasurementSource?.volume_unit ?? defaultMeasurementSource?.volumeUnit),
         optionRole: textOrNull(defaultMeasurementSource?.option_role ?? defaultMeasurementSource?.optionRole),
         option_role: textOrNull(defaultMeasurementSource?.option_role ?? defaultMeasurementSource?.optionRole),
+        availabilityMode: defaultMeasurementSource?.availability_mode || "standard",
+        availability_mode: defaultMeasurementSource?.availability_mode || "standard",
+        inventoryTrackingMode: defaultMeasurementSource?.inventory_tracking_mode || "tracked",
+        inventory_tracking_mode: defaultMeasurementSource?.inventory_tracking_mode || "tracked",
+        selectionModel: marketData.selection_model || "exact_variant",
+        selection_model: marketData.selection_model || "exact_variant",
+        variationNote: marketData.variation_note || null,
+        variation_note: marketData.variation_note || null,
         category:
           categoryMeta?.category ||
           pickFirst(marketData, ["category", "category_name", "categoryName", "product_category", "productCategory", "category_slug", "categorySlug"]),

@@ -19,6 +19,13 @@ export const RIDER_TO_CUSTOMER_NOTE =
 
 const routeStarted = (route) => Boolean(route?.actual_start_time || ACTIVE_ROUTE_STATUSES.has(normalizeStatus(route?.status)));
 
+export const formatPublicRiderName = (value) => {
+  const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "Meal05 rider";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1].slice(0, 1).toUpperCase()}.`;
+};
+
 export function canShowRiderCustomerContact({ route, stop } = {}) {
   if (!routeStarted(route)) return false;
   if (TERMINAL_ROUTE_STATUSES.has(normalizeStatus(route?.status))) return false;
@@ -62,10 +69,13 @@ export function buildCustomerRiderContact({ order, stop } = {}) {
   return {
     available: true,
     rider: {
-      name: partner.full_name || partner.name || "Meal05 rider",
+      name: formatPublicRiderName(partner.full_name || partner.name),
       phone: phone.displayPhone,
       callUrl: phone.callUrl,
       whatsappUrl: buildWhatsappUrl(phone.whatsappNumber, message),
+      riderCode: partner.rider_code || "",
+      vehicleType: partner.vehicle_type || route?.vehicle_type || "",
+      vehicleNumber: partner.vehicle_plate_number || "",
     },
     note: RIDER_TO_CUSTOMER_NOTE,
   };

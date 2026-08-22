@@ -7,6 +7,8 @@ import {
 } from "@/lib/admin-dashboard-data";
 import AdminOrderStatusControl from "@/components/admin-order-status-control";
 import AdminOrderSupportCaseControl from "@/components/admin-order-support-case-control";
+import AdminOrderRiderAssignment from "@/components/admin-order-rider-assignment";
+import { loadOrderDeliveryAssignment, loadRiderDirectory } from "@/lib/delivery/riders";
 
 export const dynamic = "force-dynamic";
 
@@ -158,7 +160,7 @@ export default async function AdminOrdersPage({ searchParams }) {
   const exception = EXCEPTION_OPTIONS.includes(String(params?.exception || "all")) ? String(params.exception || "all") : "all";
   const exceptionPage = Math.max(1, Number(params?.exceptionPage || 1));
 
-  const [ordersData, selectedDetail, exceptionData] = await Promise.all([
+  const [ordersData, selectedDetail, exceptionData, riderData, deliveryAssignment] = await Promise.all([
     loadOrderSupportOrderCatalogue({
       page: listPage,
       pageSize: listPageSize,
@@ -169,6 +171,8 @@ export default async function AdminOrdersPage({ searchParams }) {
     }),
     selectedOrderId ? loadOrderAdminDetail(selectedOrderId) : Promise.resolve({ order: null, items: [], supportCases: [], warnings: [] }),
     loadOrderExceptionQueue({ category: exception, page: exceptionPage, pageSize: 12 }),
+    selectedOrderId ? loadRiderDirectory({ activeOnly: true }) : Promise.resolve({ riders: [], warning: "" }),
+    selectedOrderId ? loadOrderDeliveryAssignment(selectedOrderId) : Promise.resolve(null),
   ]);
 
   const totalOrderPages = Math.max(1, Number(ordersData.totalPages || 1));
@@ -349,6 +353,12 @@ export default async function AdminOrdersPage({ searchParams }) {
                   paymentIsManual={selectedDetail.order.paymentIsManual}
                 />
               </div>
+
+              <AdminOrderRiderAssignment
+                order={selectedDetail.order}
+                riders={riderData.riders}
+                assignment={deliveryAssignment}
+              />
 
               <div style={{ display: "grid", gap: 8 }}>
                 <strong>Payment Review</strong>

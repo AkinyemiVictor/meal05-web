@@ -19,12 +19,6 @@ const toId = (value) => {
   return Number.isSafeInteger(num) && num > 0 ? num : null;
 };
 
-const toNullableNumber = (value) => {
-  if (value == null || value === "") return null;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-};
-
 const normalizeNullableText = (value, { max = 500 } = {}) => {
   if (value == null) return null;
   const text = String(value).trim();
@@ -79,10 +73,12 @@ export async function POST(req) {
     category_id: z.union([z.string(), z.number(), z.null()]).optional(),
     image_url: z.union([z.string().trim().max(500), z.null()]).optional(),
     is_bundle_eligible: z.boolean().optional(),
-    price: z.number().nonnegative().max(1_000_000_000).optional(),
-    old_price: z.union([z.number().nonnegative().max(1_000_000_000), z.null()]).optional(),
-    stock_count: z.number().int().nonnegative().max(1_000_000).optional(),
     variant_is_active: z.boolean().optional(),
+    selection_model: z.enum(["exact_variant", "flexible_market"]).optional(),
+    variation_note: z.union([z.string().trim().max(500), z.null()]).optional(),
+    availability_mode: z.enum(["standard", "request", "unavailable"]).optional(),
+    inventory_tracking_mode: z.enum(["tracked", "supplier"]).optional(),
+    option_role: z.enum(["standard", "volume_saver", "manufacturer_pack", "size", "ripeness", "grade", "form", "value_tier"]).nullable().optional(),
     purchase_mode: z.enum([PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE]).optional(),
     min_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
     max_quantity: z.union([z.number().positive().max(9999), z.null()]).optional(),
@@ -93,7 +89,7 @@ export async function POST(req) {
     promo_tag_expires_at: z.union([z.string().trim().max(80), z.null()]).optional(),
     promo_tag_enabled: z.boolean().optional(),
     note: z.string().trim().max(500).optional(),
-  });
+  }).strict();
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
     await logAdminError("Validation failed", { route: "/api/admin/products/update", issues: parsed.error.issues });
@@ -111,10 +107,12 @@ export async function POST(req) {
   const hasCategory = Object.prototype.hasOwnProperty.call(parsed.data, "category_id");
   const hasImageUrl = Object.prototype.hasOwnProperty.call(parsed.data, "image_url");
   const hasBundleEligible = typeof parsed.data.is_bundle_eligible === "boolean";
-  const hasPrice = typeof parsed.data.price === "number";
-  const hasOldPrice = Object.prototype.hasOwnProperty.call(parsed.data, "old_price");
-  const hasStockCount = typeof parsed.data.stock_count === "number";
   const hasVariantActive = typeof parsed.data.variant_is_active === "boolean";
+  const hasSelectionModel = Object.hasOwn(parsed.data, "selection_model");
+  const hasVariationNote = Object.hasOwn(parsed.data, "variation_note");
+  const hasAvailabilityMode = Object.hasOwn(parsed.data, "availability_mode");
+  const hasInventoryTrackingMode = Object.hasOwn(parsed.data, "inventory_tracking_mode");
+  const hasOptionRole = Object.hasOwn(parsed.data, "option_role");
   const hasPurchaseMode = Object.prototype.hasOwnProperty.call(parsed.data, "purchase_mode");
   const hasMinQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "min_quantity");
   const hasMaxQuantity = Object.prototype.hasOwnProperty.call(parsed.data, "max_quantity");
@@ -130,10 +128,12 @@ export async function POST(req) {
     !hasCategory &&
     !hasImageUrl &&
     !hasBundleEligible &&
-    !hasPrice &&
-    !hasOldPrice &&
-    !hasStockCount &&
     !hasVariantActive &&
+    !hasSelectionModel &&
+    !hasVariationNote &&
+    !hasAvailabilityMode &&
+    !hasInventoryTrackingMode &&
+    !hasOptionRole &&
     !hasPurchaseMode &&
     !hasMinQuantity &&
     !hasMaxQuantity &&
@@ -147,11 +147,8 @@ export async function POST(req) {
     return applyRateLimitHeaders(NextResponse.json({ error: "No update fields provided" }, { status: 400 }), rl);
   }
   if (
-    (hasPrice ||
-      hasOldPrice ||
-      hasStockCount ||
-      hasVariantActive ||
-      hasPurchaseMode ||
+    (hasVariantActive ||
+      hasPurchaseMode || hasAvailabilityMode || hasInventoryTrackingMode || hasOptionRole ||
       hasMinQuantity ||
       hasMaxQuantity ||
       hasStepQuantity ||
@@ -194,13 +191,13 @@ export async function POST(req) {
   const [productRes, variantRes] = await Promise.all([
     admin
       .from("products")
-      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled")
+      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled, selection_model, variation_note")
       .eq("id", productId)
       .maybeSingle(),
     variantId
       ? admin
           .from("product_variants")
-          .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+          .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, availability_mode, inventory_tracking_mode, option_role")
           .eq("id", variantId)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -254,12 +251,6 @@ export async function POST(req) {
     }
   }
 
-  const nextPrice = hasPrice ? parsed.data.price : Number(existingVariant?.price);
-  const requestedOldPrice = hasOldPrice ? parsed.data.old_price : existingVariant?.old_price;
-  const normalizedOldPriceCleared =
-    hasOldPrice && requestedOldPrice != null && Number(requestedOldPrice) < Number(nextPrice);
-  const nextOldPrice = normalizedOldPriceCleared ? null : requestedOldPrice;
-
   const productPatch = {};
   if (hasSeason && existingProduct.in_season !== parsed.data.in_season) {
     productPatch.in_season = parsed.data.in_season;
@@ -275,6 +266,10 @@ export async function POST(req) {
   }
   if (hasBundleEligible && existingProduct.is_bundle_eligible !== parsed.data.is_bundle_eligible) {
     productPatch.is_bundle_eligible = parsed.data.is_bundle_eligible;
+  }
+  if (hasSelectionModel && existingProduct.selection_model !== parsed.data.selection_model) productPatch.selection_model = parsed.data.selection_model;
+  if (hasVariationNote && normalizeNullableText(existingProduct.variation_note) !== normalizeNullableText(parsed.data.variation_note)) {
+    productPatch.variation_note = normalizeNullableText(parsed.data.variation_note);
   }
   const currentPromoText = normalizePromoText(existingProduct.promo_tag_text);
   const currentPromoExpiry = parsePromoExpiry(existingProduct.promo_tag_expires_at);
@@ -301,17 +296,6 @@ export async function POST(req) {
   }
 
   const variantPatch = {};
-  if (hasPrice && Number(existingVariant.price) !== Number(parsed.data.price)) {
-    variantPatch.price = parsed.data.price;
-  }
-  const currentOldPrice = toNullableNumber(existingVariant?.old_price);
-  const desiredOldPrice = toNullableNumber(nextOldPrice);
-  if (hasOldPrice && currentOldPrice !== desiredOldPrice) {
-    variantPatch.old_price = desiredOldPrice;
-  }
-  if (hasStockCount && Number(existingVariant.stock_count) !== Number(parsed.data.stock_count)) {
-    variantPatch.stock_count = parsed.data.stock_count;
-  }
   if (hasVariantActive && existingVariant.is_active !== parsed.data.variant_is_active) {
     variantPatch.is_active = parsed.data.variant_is_active;
   }
@@ -333,6 +317,9 @@ export async function POST(req) {
   if (hasBaseQuantity && toPositiveNullableNumber(existingVariant.base_quantity) !== nextBaseQuantity) {
     variantPatch.base_quantity = nextBaseQuantity;
   }
+  if (hasAvailabilityMode && existingVariant.availability_mode !== parsed.data.availability_mode) variantPatch.availability_mode = parsed.data.availability_mode;
+  if (hasInventoryTrackingMode && existingVariant.inventory_tracking_mode !== parsed.data.inventory_tracking_mode) variantPatch.inventory_tracking_mode = parsed.data.inventory_tracking_mode;
+  if (hasOptionRole && (existingVariant.option_role || null) !== parsed.data.option_role) variantPatch.option_role = parsed.data.option_role;
 
   if (!Object.keys(productPatch).length && !Object.keys(variantPatch).length) {
     return applyRateLimitHeaders(NextResponse.json({ error: "No changes detected" }, { status: 400 }), rl);
@@ -346,7 +333,7 @@ export async function POST(req) {
       .from("product_variants")
       .update(variantPatch)
       .eq("id", variantId)
-      .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity")
+      .select("id, product_id, name, price, old_price, stock_count, is_active, purchase_mode, min_quantity, max_quantity, step_quantity, base_unit, base_quantity, availability_mode, inventory_tracking_mode, option_role")
       .maybeSingle();
     if (result.error) {
       await logAdminError(result.error, {
@@ -367,7 +354,7 @@ export async function POST(req) {
       .from("products")
       .update(productPatch)
       .eq("id", productId)
-      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled")
+      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled, selection_model, variation_note")
       .maybeSingle();
     if (result.error) {
       await logAdminError(result.error, {
@@ -406,12 +393,6 @@ export async function POST(req) {
     after_promo_tag_expires_at: updatedProduct.promo_tag_expires_at,
     before_promo_tag_enabled: existingProduct.promo_tag_enabled,
     after_promo_tag_enabled: updatedProduct.promo_tag_enabled,
-    before_price: existingVariant?.price,
-    after_price: updatedVariant?.price,
-    before_old_price: existingVariant?.old_price,
-    after_old_price: updatedVariant?.old_price,
-    before_stock_count: existingVariant?.stock_count,
-    after_stock_count: updatedVariant?.stock_count,
     before_variant_is_active: existingVariant?.is_active,
     after_variant_is_active: updatedVariant?.is_active,
     before_purchase_mode: existingVariant?.purchase_mode,
@@ -426,7 +407,6 @@ export async function POST(req) {
     after_base_unit: updatedVariant?.base_unit,
     before_base_quantity: existingVariant?.base_quantity,
     after_base_quantity: updatedVariant?.base_quantity,
-    old_price_cleared: normalizedOldPriceCleared,
     note: parsed.data.note || undefined,
     ok: true,
   });
@@ -447,6 +427,8 @@ export async function POST(req) {
         promo_tag_text: updatedProduct.promo_tag_text,
         promo_tag_expires_at: updatedProduct.promo_tag_expires_at,
         promo_tag_enabled: updatedProduct.promo_tag_enabled,
+        selection_model: updatedProduct.selection_model,
+        variation_note: updatedProduct.variation_note,
       },
       variant: updatedVariant
         ? {
@@ -463,11 +445,11 @@ export async function POST(req) {
             step_quantity: updatedVariant.step_quantity,
             base_unit: updatedVariant.base_unit,
             base_quantity: updatedVariant.base_quantity,
+            availability_mode: updatedVariant.availability_mode,
+            inventory_tracking_mode: updatedVariant.inventory_tracking_mode,
+            option_role: updatedVariant.option_role,
           }
         : null,
-      normalized: {
-        oldPriceCleared: normalizedOldPriceCleared,
-      },
     }),
     rl
   );
