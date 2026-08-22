@@ -27,9 +27,9 @@ import {
   syncDerivedNotifications,
 } from "@/lib/notifications";
 import useSharedCartCount from "@/lib/use-shared-cart-count";
+import useSharedWalletBalance from "@/lib/use-shared-wallet-balance";
 
 const ACCOUNT_MENU_ID = "meal05-account-menu";
-const WALLET_REFRESH_EVENT = "meal05:wallet-refresh";
 
 const formatMoney = (amount, currency = "NGN") =>
   new Intl.NumberFormat("en-NG", {
@@ -105,62 +105,6 @@ function useUnreadNotificationCount(user) {
   }, [user]);
 
   return count;
-}
-
-function useWalletBalance(user) {
-  const [wallet, setWallet] = useState({ balance: 0, currencyCode: "NGN", status: "idle" });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const update = async (event) => {
-      if (!readStoredUser()) {
-        if (!cancelled) setWallet({ balance: 0, currencyCode: "NGN", status: "idle" });
-        return;
-      }
-
-      const detail = event?.detail;
-      if (detail && typeof detail === "object" && "balance" in detail) {
-        setWallet({
-          balance: Number(detail.balance) || 0,
-          currencyCode: detail.currencyCode || detail.currency_code || "NGN",
-          status: "ready",
-        });
-        return;
-      }
-
-      setWallet((current) => ({ ...current, status: "loading" }));
-      try {
-        const response = await fetch("/api/wallet", { cache: "no-store" });
-        const payload = await response.json().catch(() => ({}));
-        if (cancelled) return;
-        if (!response.ok) {
-          setWallet((current) => ({ ...current, status: "error" }));
-          return;
-        }
-        setWallet({
-          balance: Number(payload?.balance) || 0,
-          currencyCode: payload?.currencyCode || "NGN",
-          status: "ready",
-        });
-      } catch {
-        if (!cancelled) setWallet((current) => ({ ...current, status: "error" }));
-      }
-    };
-
-    update();
-    window.addEventListener(AUTH_EVENT, update);
-    window.addEventListener("storage", update);
-    window.addEventListener(WALLET_REFRESH_EVENT, update);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(AUTH_EVENT, update);
-      window.removeEventListener("storage", update);
-      window.removeEventListener(WALLET_REFRESH_EVENT, update);
-    };
-  }, [user]);
-
-  return wallet;
 }
 
 function WalletBalancePill({ user, wallet, compact = false }) {
@@ -362,7 +306,7 @@ export default function Meal05HeaderActions({ mobile = false, showWallet = true 
   const cartCount = useSharedCartCount();
   const user = useHeaderUser();
   const unreadNotifications = useUnreadNotificationCount(user);
-  const wallet = useWalletBalance(user);
+  const wallet = useSharedWalletBalance(user);
 
   if (mobile) {
     return (
