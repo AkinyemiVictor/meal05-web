@@ -22,8 +22,8 @@ import {
 } from "@/lib/password-policy";
 import { PASSWORD_RECOVERY_PATH } from "@/lib/auth/password-recovery";
 
-const NAME_PATTERN = "[A-Za-z]+";
-const EMAIL_PATTERN = "[A-Za-z0-9]+@[A-Za-z0-9]+\\.com";
+const NAME_PATTERN = "[A-Za-z][A-Za-z' -]*";
+const EMAIL_PATTERN = "[^\\s@]+@[^\\s@]+\\.[^\\s@]+";
 const PHONE_INPUT_PATTERN = "[0-9\\s().-]{4,24}";
 const PHONE_NUMBER_PATTERN = "[0-9]{4,14}";
 const REMEMBERED_LOGIN_EMAIL_KEY = "meal05_remembered_login_email";
@@ -43,6 +43,14 @@ const normalizeLoginPhone = (value, countryCode = DEFAULT_PHONE_COUNTRY_CODE) =>
   return `${normalizedCountry}${digits}`;
 };
 
+const getEmailAuthOrigin = () => {
+  const configuredOrigin = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+
+  return configuredOrigin
+    ? configuredOrigin.replace(/\/+$/, "")
+    : window.location.origin;
+};
+
 const withTimeout = (promise, ms, message) =>
   Promise.race([
     promise,
@@ -52,7 +60,7 @@ const withTimeout = (promise, ms, message) =>
   ]);
 
 const TAB_OPTIONS = [
-  { key: "login", label: "Sign in", hash: "#loginForm" },
+  { key: "login", label: "Login", hash: "#loginForm" },
   { key: "signup", label: "Create account", hash: "#signupForm" },
 ];
 
@@ -110,6 +118,7 @@ function SignInPageContent() {
   const [recoveryError, setRecoveryError] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoginSubmitting, setIsLoginSubmitting] = useState(false);
+  const [isSignupSubmitting, setIsSignupSubmitting] = useState(false);
   const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPhoneCountry, setLoginPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const { showNotice } = useNotice();
@@ -137,13 +146,13 @@ function SignInPageContent() {
   );
   const getLoginResetRedirect = useCallback(() => {
     return buildAuthCallbackUrl({
-      currentOrigin: window.location.origin,
+      currentOrigin: getEmailAuthOrigin(),
       flow: "recovery",
       next: PASSWORD_RECOVERY_PATH,
     });
   }, []);
   const getSignupConfirmRedirect = useCallback(() => {
-    return buildAuthCallbackUrl({ currentOrigin: window.location.origin, next: requestedNext });
+    return buildAuthCallbackUrl({ currentOrigin: getEmailAuthOrigin(), next: requestedNext });
   }, [requestedNext]);
   const handleGoogleSignIn = useCallback(async () => {
     try {
@@ -151,7 +160,10 @@ function SignInPageContent() {
       const supabase = getBrowserSupabaseClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: callbackUrl },
+        options: {
+          redirectTo: callbackUrl,
+          queryParams: { prompt: "select_account" },
+        },
       });
       if (error) {
         throw error;
@@ -320,7 +332,9 @@ function SignInPageContent() {
     const phoneCountry =
       String(formData.get("login-phone-country") || loginPhoneCountry || DEFAULT_PHONE_COUNTRY_CODE).trim() ||
       DEFAULT_PHONE_COUNTRY_CODE;
-    const password = String(formData.get("login-password") || "").trim();
+    // Passwords are exact values. Trimming here changes valid credentials and
+    // can make two visibly matching values authenticate differently.
+    const password = String(formData.get("login-password") || "");
 
     if (emailInput instanceof HTMLInputElement) {
       emailInput.setCustomValidity("");
@@ -486,6 +500,7 @@ function SignInPageContent() {
 
   const handleSignupSubmit = useCallback(async (event) => {
     event.preventDefault();
+    if (isSignupSubmitting) return;
     const form = event.currentTarget;
     const formData = new FormData(form);
     const firstNameInput = form.elements.namedItem("signup-first-name");
@@ -498,13 +513,13 @@ function SignInPageContent() {
 
     const firstNameRaw = String(formData.get("signup-first-name") || "").trim();
     const lastNameRaw = String(formData.get("signup-last-name") || "").trim();
-    const email = String(formData.get("signup-email") || "").trim();
+    const email = String(formData.get("signup-email") || "").trim().toLowerCase();
     const phoneCountry =
       String(formData.get("signup-phone-country") || DEFAULT_PHONE_COUNTRY_CODE).trim() ||
       DEFAULT_PHONE_COUNTRY_CODE;
     const phoneRaw = String(formData.get("signup-phone") || "").trim();
     const phoneDigits = phoneRaw.replace(/\D/g, "");
-    const phone = `${phoneCountry}${phoneDigits.replace(/^0+/, "")}`;
+    const phone = phoneDigits ? `${phoneCountry}${phoneDigits.replace(/^0+/, "")}` : "";
     const password = String(formData.get("signup-password") || "");
     const confirm = String(formData.get("signup-confirm-password") || "");
 
@@ -518,14 +533,14 @@ function SignInPageContent() {
 
     if (!NAME_REGEX.test(firstNameRaw)) {
       if (firstNameInput instanceof HTMLInputElement) {
-        firstNameInput.setCustomValidity("First name must contain letters only (A-Z or a-z).");
+        firstNameInput.setCustomValidity("Enter a first name using letters, spaces, apostrophes, or hyphens.");
         firstNameInput.reportValidity();
       }
       return;
     }
     if (!NAME_REGEX.test(lastNameRaw)) {
       if (lastNameInput instanceof HTMLInputElement) {
-        lastNameInput.setCustomValidity("Last name must contain letters only (A-Z or a-z).");
+        lastNameInput.setCustomValidity("Enter a last name using letters, spaces, apostrophes, or hyphens.");
         lastNameInput.reportValidity();
       }
       return;
@@ -533,13 +548,13 @@ function SignInPageContent() {
 
     if (!EMAIL_REGEX.test(email)) {
       if (emailInput instanceof HTMLInputElement) {
-        emailInput.setCustomValidity("Email must be letters or numbers followed by @ and end with .com");
+        emailInput.setCustomValidity("Enter a valid email address.");
         emailInput.reportValidity();
       }
       return;
     }
 
-    if (!PHONE_INPUT_REGEX.test(phoneRaw) || !PHONE_NUMBER_REGEX.test(phoneDigits)) {
+    if (phoneRaw && (!PHONE_INPUT_REGEX.test(phoneRaw) || !PHONE_NUMBER_REGEX.test(phoneDigits))) {
       if (phoneDigitsInput instanceof HTMLInputElement) {
         phoneDigitsInput.setCustomValidity("Enter a valid phone number using 4 to 14 digits after the country code.");
         phoneDigitsInput.reportValidity();
@@ -563,31 +578,8 @@ function SignInPageContent() {
       return;
     }
 
-    // Server-side email verification to avoid non-existent domains
-    try {
-      const resp = await fetch("/api/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        const msg = data?.message || "This email doesn't appear to be valid. Please enter a valid email.";
-        if (emailInput instanceof HTMLInputElement) {
-          emailInput.setCustomValidity(msg);
-          emailInput.reportValidity();
-        }
-        return;
-      }
-    } catch (_) {
-      if (emailInput instanceof HTMLInputElement) {
-        emailInput.setCustomValidity("Could not verify email right now. Please check and try again.");
-        emailInput.reportValidity();
-      }
-      return;
-    }
-
     // Attempt Supabase sign-up with metadata
+    setIsSignupSubmitting(true);
     try {
       const supabase = getBrowserSupabaseClient();
       const firstName = firstNameRaw.toUpperCase();
@@ -602,7 +594,7 @@ function SignInPageContent() {
             name: fullName,
             first_name: firstName,
             last_name: lastName,
-            phone,
+            ...(phone ? { phone } : {}),
           },
         },
       });
@@ -643,11 +635,41 @@ function SignInPageContent() {
       const user = { firstName, lastName, fullName, email, phone };
       if (!data?.session) {
         await showNotice({
-          tone: "success",
-          title: "Confirm your email",
-          message: "Please check your email to confirm your account, then sign in.",
+          tone: "info",
+          title: "Email confirmation required",
+          message: "Your account was created, but your email still needs confirmation. If the confirmation email has not arrived, request another one below.",
+          autoClose: false,
+          actions: [
+            {
+              label: "Resend confirmation",
+              variant: "primary",
+              onClick: async () => {
+                try {
+                  const supabase = getBrowserSupabaseClient();
+                  const { error: resendError } = await supabase.auth.resend({
+                    type: "signup",
+                    email,
+                    options: { emailRedirectTo: getSignupConfirmRedirect() },
+                  });
+                  if (resendError) throw resendError;
+                  await showNotice({
+                    tone: "success",
+                    title: "Confirmation requested",
+                    message: "The email service accepted the request. Check your inbox and spam folder.",
+                  });
+                } catch (resendError) {
+                  await showNotice({
+                    tone: "error",
+                    title: "Confirmation not sent",
+                    message: resendError?.message || "Email delivery is unavailable. Please try again later.",
+                    autoClose: false,
+                  });
+                }
+              },
+            },
+            { label: "Go to Login", onClick: () => { window.location.replace(loginTabHref); } },
+          ],
         });
-        setTimeout(() => { window.location.replace(loginTabHref); }, 1400);
         return;
       }
 
@@ -664,7 +686,11 @@ function SignInPageContent() {
           await fetch("/api/users/sync", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ first_name: firstName, last_name: lastName, phone }),
+            body: JSON.stringify({
+              first_name: firstName,
+              last_name: lastName,
+              ...(phone ? { phone } : {}),
+            }),
           });
         }
       } catch {}
@@ -673,8 +699,10 @@ function SignInPageContent() {
     } catch (e) {
       console.error("Supabase signup error", e);
       await showNotice({ tone: "error", title: "Signup error", message: "Unexpected error during signup. Please try again." });
+    } finally {
+      setIsSignupSubmitting(false);
     }
-  }, [fallbackAfterAuth, getLoginResetRedirect, getSignupConfirmRedirect, loginTabHref, showNotice]);
+  }, [fallbackAfterAuth, getLoginResetRedirect, getSignupConfirmRedirect, isSignupSubmitting, loginTabHref, showNotice]);
 
   const handleRecoverySubmit = useCallback(async (event) => {
     event.preventDefault();
@@ -700,7 +728,7 @@ function SignInPageContent() {
       await showNotice({
         tone: "success",
         title: "Password updated",
-        message: "Your password has been updated. Sign in with the new password.",
+        message: "Your password has been updated. Login with the new password.",
       });
       window.location.replace(loginTabHref);
     } catch (error) {
@@ -961,7 +989,7 @@ function SignInPageContent() {
                 <Link href="#" onClick={handleForgotPassword}>Forgot password?</Link>
               </div>
               <button type="submit" className="auth-primary-btn" disabled={isLoginSubmitting} aria-busy={isLoginSubmitting}>
-                <span>{isLoginSubmitting ? "Signing in..." : "Sign in"}</span>
+                <span>{isLoginSubmitting ? "Logging in..." : "Login"}</span>
                 <i className="fa-solid fa-chevron-right" aria-hidden="true" />
               </button>
 
@@ -1003,7 +1031,7 @@ function SignInPageContent() {
                     required
                     autoComplete="given-name"
                     pattern={NAME_PATTERN}
-                    title="Only letters A-Z are allowed in your first name"
+                    title="Letters, spaces, apostrophes, and hyphens are allowed"
                   />
                 </div>
                 <div className="auth-field-half">
@@ -1018,7 +1046,7 @@ function SignInPageContent() {
                     required
                     autoComplete="family-name"
                     pattern={NAME_PATTERN}
-                    title="Only letters A-Z are allowed in your last name"
+                    title="Letters, spaces, apostrophes, and hyphens are allowed"
                   />
                 </div>
               </div>
@@ -1034,13 +1062,13 @@ function SignInPageContent() {
                   required
                   autoComplete="email"
                   pattern={EMAIL_PATTERN}
-                  title="Use letters or numbers, followed by @, ending with .com (e.g. username@domain.com)"
+                  title="Enter a valid email address (for example name@example.com)"
                   onInput={(e) => { try { e.currentTarget.setCustomValidity(""); } catch {} }}
                 />
               </div>
               <div className="auth-field">
                 <label className="auth-label" htmlFor="signup-phone">
-                  Phone number
+                  Phone number <span className="auth-label-optional">(optional)</span>
                 </label>
                 <div className="auth-phone-group">
                   <label className="sr-only" htmlFor="signup-phone-country">
@@ -1051,7 +1079,6 @@ function SignInPageContent() {
                     name="signup-phone-country"
                     className="auth-phone-select"
                     defaultValue={DEFAULT_PHONE_COUNTRY_CODE}
-                    required
                   >
                     {PHONE_COUNTRY_OPTIONS.map((option) => (
                       <option key={option.iso} value={option.code}>
@@ -1065,7 +1092,6 @@ function SignInPageContent() {
                     name="signup-phone"
                     className="auth-phone-input"
                     placeholder="8120000000"
-                    required
                     autoComplete="tel"
                     inputMode="numeric"
                     pattern={PHONE_INPUT_PATTERN}
@@ -1212,8 +1238,8 @@ function SignInPageContent() {
                   <span className="sr-only">{getPasswordValidationMessage(signupPassword)}</span>
                 ) : null}
               </div>
-              <button type="submit" className="auth-primary-btn">
-                <span>Create account</span>
+              <button type="submit" className="auth-primary-btn" disabled={isSignupSubmitting} aria-busy={isSignupSubmitting}>
+                <span>{isSignupSubmitting ? "Creating account..." : "Create account"}</span>
                 <i className="fa-solid fa-chevron-right" aria-hidden="true" />
               </button>
 
@@ -1229,7 +1255,7 @@ function SignInPageContent() {
               <p className="auth-switch">
                 Already have an account?{' '}
                 <button type="button" onClick={() => handleTabChange('login')}>
-                  Sign in
+                  Login
                 </button>
               </p>
             </form>
