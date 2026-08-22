@@ -7,8 +7,20 @@ import {
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
+export const fetchCache = "default-cache";
+
+const HOME_CATALOG_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
+  "CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+};
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
+};
 
 const annotateChefChoice = (product, metadata) => {
   const meta = metadata.get(String(product?.id || ""));
@@ -87,12 +99,12 @@ export async function GET(request) {
         grouped: groupCatalogProducts(flat),
         flat,
       },
-      { headers: { "Cache-Control": "no-store" } }
+      { headers: HOME_CATALOG_CACHE_HEADERS }
     );
   } catch (error) {
     return publicCatalogJson(
       { error: "Failed to load home catalogue", details: error?.message || String(error) },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }
