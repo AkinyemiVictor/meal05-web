@@ -1,4 +1,5 @@
 import { toCategorySlug } from "@/lib/categories-server";
+import { getCatalogPageRange, normalizeCatalogPagination } from "@/lib/catalog-pagination";
 import { publicMarket } from "@/lib/market-catalog-server";
 import { getDefaultMarket } from "@/lib/market-server";
 import { pickFirstNumber } from "@/lib/number";
@@ -38,8 +39,26 @@ const HOME_CARD_FIELDS = [
   "currency_code",
   "currency_symbol",
   "locale",
+  "created_at",
+  "search_text",
   "active_variant_count",
 ].join(", ");
+
+const CATALOG_PAGE_SORTS = {
+  default: [{ column: "product_id", ascending: true }],
+  "price-asc": [
+    { column: "starting_price", ascending: true },
+    { column: "product_id", ascending: true },
+  ],
+  "price-desc": [
+    { column: "starting_price", ascending: false },
+    { column: "product_id", ascending: true },
+  ],
+  "name-asc": [
+    { column: "name", ascending: true },
+    { column: "product_id", ascending: true },
+  ],
+};
 
 const numberOrNull = (value) => {
   const numeric = Number(value);
@@ -157,5 +176,68 @@ export async function loadHomeCatalogCards({ ids, limit = 36 } = {}) {
     grouped: groupProducts(flat),
     flat,
     market: publicMarket(market),
+  };
+}
+
+export async function loadCatalogCardPage({
+  page = 1,
+  pageSize = 20,
+  category = "",
+  search = "",
+  sort = "default",
+} = {}) {
+  const admin = getSupabaseAdminClient();
+  const market = await getDefaultMarket();
+  const range = getCatalogPageRange({ page, pageSize });
+  const categorySlug = toCategorySlug(category || "");
+  const searchTerm = String(search || "")
+    .trim()
+    .replace(/[%_,().]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+  const selectedSort = CATALOG_PAGE_SORTS[sort] || CATALOG_PAGE_SORTS.default;
+
+  let query = admin
+    .from("product_card_catalog")
+    .select(HOME_CARD_FIELDS, { head: false })
+    .eq("market_id", market.id);
+  let countQuery = admin
+    .from("product_card_catalog")
+    .select("product_id", { count: "exact", head: true })
+    .eq("market_id", market.id);
+
+  if (categorySlug) {
+    query = query.eq("category_slug", categorySlug);
+    countQuery = countQuery.eq("category_slug", categorySlug);
+  }
+  if (searchTerm) {
+    query = query.ilike("search_text", `%${searchTerm}%`);
+    countQuery = countQuery.ilike("search_text", `%${searchTerm}%`);
+  }
+  selectedSort.forEach(({ column, ascending }) => {
+    query = query.order(column, { ascending });
+  });
+
+  const [pageResult, countResult] = await Promise.all([
+    query.range(range.from, range.to),
+    countQuery,
+  ]);
+  if (pageResult.error) throw pageResult.error;
+  if (countResult.error) throw countResult.error;
+
+  const flat = (Array.isArray(pageResult.data) ? pageResult.data : [])
+    .map(buildHomeCardProduct)
+    .filter((product) => product.id && product.price > 0);
+  const pagination = normalizeCatalogPagination({
+    page: range.page,
+    pageSize: range.pageSize,
+    total: countResult.count,
+  });
+
+  return {
+    grouped: groupProducts(flat),
+    flat,
+    market: publicMarket(market),
+    pagination,
   };
 }
