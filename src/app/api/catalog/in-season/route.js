@@ -1,4 +1,5 @@
-import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
+import { loadHomeCatalogCards } from "@/lib/home-catalog-cards-server";
+import { publicCatalogJson } from "@/lib/public-catalog-server";
 import { shouldShowSeasonBadge } from "@/lib/season-badge";
 
 export const runtime = "nodejs";
@@ -11,7 +12,7 @@ export async function GET(request) {
   try {
     const searchParams = new URL(request.url).searchParams;
     const limit = clampLimit(searchParams.get("limit"));
-    const payload = await loadPublicCatalogProducts({ view: "in-season", limit });
+    const payload = await loadHomeCatalogCards({ limit, inSeasonOnly: true });
 
     const flat = (Array.isArray(payload?.flat) ? payload.flat : []).filter(
       (product) => product?.inSeason === true && shouldShowSeasonBadge(product)
