@@ -5,6 +5,7 @@ import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { AVAILABILITY_REQUEST_SELECT, attachAvailabilityRequestLifecycle, calculateRequestTotal, expireAvailabilityRequest, resolveRequestState } from "@/lib/availability-requests-server";
 import { loadAvailabilitySettings } from "@/lib/availability-settings-server";
+import { sendAvailabilityReengagement } from "@/lib/availability-reengagement-server";
 import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
 
 const schema = z.discriminatedUnion("action", [
@@ -136,6 +137,17 @@ export async function POST(request, { params }) {
     }).eq("id", id).eq("status", "action_required").select(AVAILABILITY_REQUEST_SELECT).maybeSingle();
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
     if (!updated) return NextResponse.json({ error: "This request changed. Reload and try again." }, { status: 409 });
+
+    if (confirmed) {
+      await sendAvailabilityReengagement({
+        admin,
+        request: updated,
+        status,
+        paymentWindowMinutes: availabilitySettings.paymentWindowMinutes,
+        now,
+      });
+    }
+
     return NextResponse.json({ request: attachAvailabilityRequestLifecycle(updated, now) });
   }
 
