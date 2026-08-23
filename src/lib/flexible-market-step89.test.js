@@ -10,6 +10,7 @@ const productDetail = read("src/components/product-detail-client.js");
 const quickAdd = read("src/components/quick-add-drawer.js");
 const cartRoute = read("src/app/api/cart/route.js");
 const orderRoute = read("src/app/api/orders/route.js");
+const commerceOptions = read("src/lib/commerce-options.js");
 const adminStatus = read("src/components/admin-order-status-control.js");
 const adminPreferenceRoute = read("src/app/api/admin/orders/[id]/size-preferences/route.js");
 
@@ -19,7 +20,8 @@ test("first-wave activation is limited to the four approved Flexible + Standard 
   }
   assert.match(activation, /No Request product is part of this first wave/);
   assert.match(activation, /Do not change `availability_mode`, `inventory_tracking_mode`, prices, stock counts, active flags, or variant IDs/);
-  assert.match(activation, /rollback-only live-database canary/i);
+  assert.match(activation, /Rollback-only canary completed/i);
+  assert.match(activation, /live-database canary was executed/i);
 });
 
 test("product detail and Quick Add both use the shared Preferred size control", () => {
@@ -29,17 +31,18 @@ test("product detail and Quick Add both use the shared Preferred size control", 
   assert.match(quickAdd, /sizePreference/);
 });
 
-test("canonical cart validates flexible preference and defaults it to best available", () => {
-  assert.match(cartRoute, /selectionModel === "flexible_market"/);
+test("canonical cart validates flexible preference and commerce options default flexible products to best available", () => {
+  assert.match(cartRoute, /SELECTION_MODE_FLEXIBLE/);
   assert.match(cartRoute, /normalizeSizePreference/);
-  assert.match(cartRoute, /"best_available"/);
   assert.match(cartRoute, /size_preference/);
+  assert.match(commerceOptions, /SELECTION_MODE_FLEXIBLE = "flexible_market"/);
+  assert.match(commerceOptions, /String\(value \|\| "best_available"\)/);
 });
 
 test("Flexible + Standard remains normal order checkout while Request remains the availability trigger", () => {
   assert.match(orderRoute, /availabilityMode === "request"/);
   assert.match(orderRoute, /AVAILABILITY_CONFIRMATION_REQUIRED/);
-  assert.match(orderRoute, /selectionModel === "flexible_market"/);
+  assert.match(orderRoute, /productMeta\?\.selectionModel === SELECTION_MODE_FLEXIBLE/);
   assert.match(orderRoute, /size_preference: c\.size_preference \|\| null/);
 });
 
