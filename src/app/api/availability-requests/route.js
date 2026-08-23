@@ -49,7 +49,10 @@ export async function POST(request) {
   const admin = getSupabaseAdminClient();
   const existing = await admin.from("availability_requests").select(AVAILABILITY_REQUEST_SELECT)
     .eq("user_id", user.id).eq("idempotency_key", parsed.data.idempotencyKey).maybeSingle();
-  if (existing.data) return NextResponse.json({ request: existing.data, replayed: true });
+  if (existing.error) return NextResponse.json({ error: existing.error.message }, { status: 400 });
+  if (existing.data) {
+    return NextResponse.json({ request: await expireAvailabilityRequest(admin, existing.data), replayed: true });
+  }
 
   const catalog = await loadMarketCatalog(admin);
   let availabilitySettings;
@@ -129,7 +132,7 @@ export async function POST(request) {
   });
   const { data: result } = await admin.from("availability_requests").select(AVAILABILITY_REQUEST_SELECT).eq("id", created.id).single();
   return NextResponse.json(
-    { request: result, timing: toPublicAvailabilityTiming(availabilitySettings) },
+    { request: await expireAvailabilityRequest(admin, result), timing: toPublicAvailabilityTiming(availabilitySettings) },
     { status: 201 }
   );
 }
