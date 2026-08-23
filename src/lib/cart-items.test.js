@@ -24,14 +24,14 @@ test("normalizes authenticated API cart metadata without treating the cart row i
   assert.equal(item.variantId, "variant-omini");
   assert.equal(item.name, "Small Bananas (Omini)");
   assert.equal(item.variantName, "Omini");
-  assert.equal(item.image, "/images/bananas.png");
+  assert.equal(item.image, "/api/products/product-bananas/image?size=thumb");
   assert.equal(item.unit, "bunch");
   assert.equal(item.price, 1000);
   assert.equal(item.quantity, 7);
   assert.equal(item.lineTotal, 7000);
 });
 
-test("prefers variant and nested product images while retaining the real product name", () => {
+test("uses the live product image resolver instead of retaining historical cart image snapshots", () => {
   const [item] = normalizeCartItems([{
     ...apiCartRow,
     image_url: "/images/legacy.png",
@@ -40,7 +40,9 @@ test("prefers variant and nested product images while retaining the real product
   }]);
 
   assert.equal(item.name, "Small Bananas (Omini)");
-  assert.equal(item.image, "/images/omini.png");
+  assert.equal(item.image, "/api/products/product-bananas/image?size=thumb");
+  assert.notEqual(item.image, "/images/legacy.png");
+  assert.notEqual(item.image, "/images/omini.png");
   assert.notEqual(item.name, "Fresh produce");
 });
 
