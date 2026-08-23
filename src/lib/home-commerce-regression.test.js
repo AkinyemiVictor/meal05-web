@@ -125,7 +125,7 @@ test("product detail loaders order options from smallest base quantity to larges
   assert.match(api, expectedOrder);
 });
 
-test("shop navigation preloads the route, first product page, and categories", () => {
+test("shop navigation preloads on intent without restoring idle request amplification", () => {
   const prefetch = read("src/lib/shop-prefetch.js");
   const shop = read("src/app/shop/page.js");
   const mobileNav = read("src/components/mobile-bottom-nav.js");
@@ -135,7 +135,11 @@ test("shop navigation preloads the route, first product page, and categories", (
   assert.match(prefetch, /prefetchCatalogProducts\(SHOP_FIRST_PAGE_CATALOG_URL\)/);
   assert.match(prefetch, /prefetchCategories\(\)/);
   assert.match(shop, /currentPage === 1[\s\S]*SHOP_FIRST_PAGE_CATALOG_URL/);
-  assert.match(mobileNav, /requestIdleCallback[\s\S]*prefetchShop\(router\)/);
+  assert.match(mobileNav, /prefetch=\{false\}/);
+  assert.match(mobileNav, /onPointerEnter=\{item\.href === "\/shop" \? \(\) => void prefetchShop\(router\)/);
+  assert.match(mobileNav, /onFocus=\{item\.href === "\/shop" \? \(\) => void prefetchShop\(router\)/);
+  assert.match(mobileNav, /onTouchStart=\{item\.href === "\/shop" \? \(\) => void prefetchShop\(router\)/);
+  assert.doesNotMatch(mobileNav, /requestIdleCallback/);
 });
 
 test("quantity-cap migration changes only options capped at ten", () => {

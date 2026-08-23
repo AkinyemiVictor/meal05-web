@@ -6,6 +6,8 @@ import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { getAvailabilityDeadlines } from "@/lib/availability-hours";
+import { formatAvailabilityDuration, toPublicAvailabilityTiming } from "@/lib/availability-settings";
+import { loadAvailabilitySettings } from "@/lib/availability-settings-server";
 import { normalizeAvailabilityMode } from "@/lib/commerce-options";
 import { AVAILABILITY_REQUEST_SELECT, expireAvailabilityRequest, validatePreferenceForProduct } from "@/lib/availability-requests-server";
 import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
@@ -47,9 +49,22 @@ export async function POST(request) {
   const admin = getSupabaseAdminClient();
   const existing = await admin.from("availability_requests").select(AVAILABILITY_REQUEST_SELECT)
     .eq("user_id", user.id).eq("idempotency_key", parsed.data.idempotencyKey).maybeSingle();
-  if (existing.data) return NextResponse.json({ request: existing.data, replayed: true });
+  if (existing.error) return NextResponse.json({ error: existing.error.message }, { status: 400 });
+  if (existing.data) {
+    return NextResponse.json({ request: await expireAvailabilityRequest(admin, existing.data), replayed: true });
+  }
 
   const catalog = await loadMarketCatalog(admin);
+  let availabilitySettings;
+  try {
+    availabilitySettings = await loadAvailabilitySettings({ admin, marketId: catalog.market.id });
+  } catch (settingsError) {
+    return NextResponse.json(
+      { error: settingsError?.message || "Availability confirmation is temporarily unavailable." },
+      { status: 503 }
+    );
+  }
+
   const { data: cart, error: cartError } = await admin.from("cart_items")
     .select("id, product_id, variant_id, quantity, size_preference").eq("user_id", user.id).order("id");
   if (cartError) return NextResponse.json({ error: cartError.message }, { status: 400 });
@@ -93,7 +108,7 @@ export async function POST(request) {
   if (!containsRequestItem) return NextResponse.json({ error: "No item in this basket requires availability confirmation" }, { status: 409 });
 
   const submittedTotal = itemRows.reduce((sum, item) => sum + item.quantity * item.submitted_unit_price, 0);
-  const { confirmationDeadline } = getAvailabilityDeadlines();
+  const { confirmationDeadline } = getAvailabilityDeadlines(new Date(), availabilitySettings);
   const requestNumber = `AR-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
   const { data: created, error: createError } = await admin.from("availability_requests").insert({
     request_number: requestNumber, user_id: user.id, market_id: catalog.market.id, status: "pending",
@@ -113,8 +128,11 @@ export async function POST(request) {
   await admin.from("notifications").insert({
     user_id: user.id, channel: "in_app", event: "availability_request_received",
     subject: "Availability request received",
-    body: `${requestNumber} is being checked. We’ll update you within 2 business hours.`, status: "delivered", sent_at: new Date().toISOString(),
+    body: `${requestNumber} is being checked. We’ll update you within ${formatAvailabilityDuration(availabilitySettings.confirmationSlaMinutes)} during business hours.`, status: "delivered", sent_at: new Date().toISOString(),
   });
   const { data: result } = await admin.from("availability_requests").select(AVAILABILITY_REQUEST_SELECT).eq("id", created.id).single();
-  return NextResponse.json({ request: result }, { status: 201 });
+  return NextResponse.json(
+    { request: await expireAvailabilityRequest(admin, result), timing: toPublicAvailabilityTiming(availabilitySettings) },
+    { status: 201 }
+  );
 }

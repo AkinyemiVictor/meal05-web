@@ -1,0 +1,62 @@
+name: Phase A Verify
+
+on:
+  push:
+    branches:
+      - feature/flexible-availability-rollout
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || secrets.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY || secrets.SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_ROLE }}
+      NEXT_PUBLIC_SUPABASE_PRODUCT_IMAGE_BUCKET: ${{ vars.NEXT_PUBLIC_SUPABASE_PRODUCT_IMAGE_BUCKET || secrets.NEXT_PUBLIC_SUPABASE_PRODUCT_IMAGE_BUCKET }}
+      SUPABASE_PRODUCT_IMAGE_BUCKET: ${{ vars.SUPABASE_PRODUCT_IMAGE_BUCKET || secrets.SUPABASE_PRODUCT_IMAGE_BUCKET }}
+      NEXT_PUBLIC_ADMIN_EMAILS: ${{ vars.NEXT_PUBLIC_ADMIN_EMAILS || secrets.NEXT_PUBLIC_ADMIN_EMAILS }}
+      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+      NEXT_PUBLIC_CURRENCY_CODE: ${{ vars.NEXT_PUBLIC_CURRENCY_CODE || secrets.NEXT_PUBLIC_CURRENCY_CODE }}
+      NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ vars.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || secrets.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
+      PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+      PAYMENT_WEBHOOK_SECRET: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_API_TOKEN: ${{ secrets.RESEND_API_TOKEN }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM || secrets.EMAIL_FROM }}
+      EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME || secrets.EMAIL_FROM_NAME }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build Cloudflare Worker
+        run: npm run build:worker
