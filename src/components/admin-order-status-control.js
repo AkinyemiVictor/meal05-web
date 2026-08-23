@@ -119,11 +119,8 @@ export default function AdminOrderStatusControl({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    if (!orderId) return undefined;
     let cancelled = false;
-    if (!orderId) {
-      setSizePreferences([]);
-      return undefined;
-    }
 
     const loadPreferences = async () => {
       try {
