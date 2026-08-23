@@ -37,3 +37,7 @@ test("cart keeps flexible size language aligned with the preferred-size model", 
   assert.match(cartSource, /<span>Preferred size<\/span>/);
   assert.doesNotMatch(cartSource, /<span>Physical size preference<\/span>/);
 });
+
+test("availability summary count cards can collapse on narrow layouts", () => {
+  assert.match(availabilitySource, /repeat\(auto-fit, minmax\(130px, 1fr\)\)/);
+});
