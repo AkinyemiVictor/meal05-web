@@ -5,7 +5,7 @@ export const AVAILABILITY_REQUEST_SELECT = `
   id, request_number, user_id, market_id, status, delivery_address,
   customer_name, customer_phone, customer_note, submitted_total, final_total,
   currency_code, confirmation_deadline_at, confirmed_at, payment_expires_at,
-  converted_order_id, created_at, updated_at,
+  converted_order_id, returned_to_cart_at, created_at, updated_at,
   items:availability_request_items(
     id, product_id, variant_id, product_name, variant_name, unit, quantity,
     submitted_unit_price, confirmed_unit_price, requires_confirmation,
