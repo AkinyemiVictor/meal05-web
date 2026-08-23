@@ -4,7 +4,7 @@ import { z } from "zod";
 import { hasAdminAccess } from "@/lib/admin-access";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
-import { AVAILABILITY_REQUEST_SELECT, calculateRequestTotal, resolveRequestState } from "@/lib/availability-requests-server";
+import { AVAILABILITY_REQUEST_SELECT, attachAvailabilityRequestLifecycle, calculateRequestTotal, resolveRequestState } from "@/lib/availability-requests-server";
 import { formatAvailabilityDuration } from "@/lib/availability-settings";
 import { loadAvailabilitySettings } from "@/lib/availability-settings-server";
 import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
@@ -66,8 +66,11 @@ export async function PATCH(request, { params }) {
       ? new Date(now.getTime() + availabilitySettings.paymentWindowMinutes * 60000).toISOString()
       : null,
     updated_at: now.toISOString(),
-  }).eq("id", id).select(AVAILABILITY_REQUEST_SELECT).single();
+  }).eq("id", id).eq("status", record.status).select(AVAILABILITY_REQUEST_SELECT).maybeSingle();
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
+  if (!updated) {
+    return NextResponse.json({ error: "This request changed while it was being updated. Reload and try again." }, { status: 409 });
+  }
   if (status === "confirmed" || status === "action_required") {
     await admin.from("notifications").insert({
       user_id: record.user_id, channel: "in_app",
@@ -79,5 +82,5 @@ export async function PATCH(request, { params }) {
       status: "delivered", sent_at: now.toISOString(),
     });
   }
-  return NextResponse.json({ request: updated });
+  return NextResponse.json({ request: attachAvailabilityRequestLifecycle(updated, now) });
 }
