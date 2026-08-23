@@ -1,7 +1,11 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { hasAdminAccess } from "@/lib/admin-access";
-import { SIZE_PREFERENCE_LABELS, normalizeSizePreference } from "@/lib/commerce-options";
+import {
+  SELECTION_MODE_FLEXIBLE,
+  SIZE_PREFERENCE_LABELS,
+  normalizeSizePreference,
+} from "@/lib/commerce-options";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
@@ -29,7 +33,7 @@ export async function GET(_request, { params }) {
 
   const preferences = (Array.isArray(data) ? data : [])
     .map((row) => {
-      const value = normalizeSizePreference(row?.size_preference, null);
+      const value = normalizeSizePreference(row?.size_preference, SELECTION_MODE_FLEXIBLE);
       if (!value) return null;
       const product = Array.isArray(row?.products) ? row.products[0] : row?.products;
       return {
