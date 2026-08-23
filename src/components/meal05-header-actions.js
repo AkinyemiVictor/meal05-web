@@ -16,19 +16,14 @@ import {
 } from "@tabler/icons-react";
 
 import DeferredLocationPicker from "@/components/deferred-location-picker";
-import { AUTH_EVENT, clearStoredUser, deriveStoredUserFromAuthUser, persistStoredUser, readStoredUser } from "@/lib/auth";
+import { clearStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
-import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
-import { readCartItems } from "@/lib/cart-storage";
-import { ORDERS_EVENT, readUserOrders } from "@/lib/orders";
-import {
-  NOTIFICATIONS_EVENT,
-  getUnreadNotificationCount,
-  syncDerivedNotifications,
-} from "@/lib/notifications";
+import useSharedCartCount from "@/lib/use-shared-cart-count";
+import useSharedHeaderUser from "@/lib/use-shared-header-user";
+import useSharedUnreadNotificationCount from "@/lib/use-shared-unread-notification-count";
+import useSharedWalletBalance from "@/lib/use-shared-wallet-balance";
 
 const ACCOUNT_MENU_ID = "meal05-account-menu";
-const WALLET_REFRESH_EVENT = "meal05:wallet-refresh";
 
 const formatMoney = (amount, currency = "NGN") =>
   new Intl.NumberFormat("en-NG", {
@@ -37,161 +32,6 @@ const formatMoney = (amount, currency = "NGN") =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(amount) || 0);
-
-function useCartCount() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const update = () => {
-      const localItems = readCartItems();
-      setCount(localItems.reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
-      if (!readStoredUser()) return;
-      fetch("/api/cart", { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((items) => {
-          if (!Array.isArray(items)) return;
-          setCount(items.reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
-        })
-        .catch(() => {});
-    };
-
-    update();
-    window.addEventListener("storage", update);
-    window.addEventListener("cart-updated", update);
-    window.addEventListener(AUTH_EVENT, update);
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener("cart-updated", update);
-      window.removeEventListener(AUTH_EVENT, update);
-    };
-  }, []);
-
-  return count;
-}
-
-function useHeaderUser() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const update = (event) => {
-      setUser(event?.detail?.user ?? readStoredUser());
-    };
-
-    update();
-    let cancelled = false;
-    getBrowserSupabaseClient()
-      .auth.getUser()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data?.user) {
-          clearStoredUser();
-          setUser(null);
-          return;
-        }
-        const verifiedUser = deriveStoredUserFromAuthUser(data.user, readStoredUser() || {});
-        persistStoredUser(verifiedUser);
-        setUser(verifiedUser);
-      })
-      .catch(() => {});
-    window.addEventListener(AUTH_EVENT, update);
-    window.addEventListener("storage", update);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(AUTH_EVENT, update);
-      window.removeEventListener("storage", update);
-    };
-  }, []);
-
-  return user;
-}
-
-function useUnreadNotificationCount(user) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const update = () => {
-      const activeUser = readStoredUser();
-      syncDerivedNotifications({
-        orders: readUserOrders(activeUser),
-        cartItems: readCartItems(activeUser),
-        user: activeUser,
-      });
-      setCount(getUnreadNotificationCount(activeUser));
-    };
-
-    update();
-    window.addEventListener("storage", update);
-    window.addEventListener("cart-updated", update);
-    window.addEventListener(AUTH_EVENT, update);
-    window.addEventListener(ORDERS_EVENT, update);
-    window.addEventListener(NOTIFICATIONS_EVENT, update);
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener("cart-updated", update);
-      window.removeEventListener(AUTH_EVENT, update);
-      window.removeEventListener(ORDERS_EVENT, update);
-      window.removeEventListener(NOTIFICATIONS_EVENT, update);
-    };
-  }, [user]);
-
-  return count;
-}
-
-function useWalletBalance(user) {
-  const [wallet, setWallet] = useState({ balance: 0, currencyCode: "NGN", status: "idle" });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const update = async (event) => {
-      if (!readStoredUser()) {
-        if (!cancelled) setWallet({ balance: 0, currencyCode: "NGN", status: "idle" });
-        return;
-      }
-
-      const detail = event?.detail;
-      if (detail && typeof detail === "object" && "balance" in detail) {
-        setWallet({
-          balance: Number(detail.balance) || 0,
-          currencyCode: detail.currencyCode || detail.currency_code || "NGN",
-          status: "ready",
-        });
-        return;
-      }
-
-      setWallet((current) => ({ ...current, status: "loading" }));
-      try {
-        const response = await fetch("/api/wallet", { cache: "no-store" });
-        const payload = await response.json().catch(() => ({}));
-        if (cancelled) return;
-        if (!response.ok) {
-          setWallet((current) => ({ ...current, status: "error" }));
-          return;
-        }
-        setWallet({
-          balance: Number(payload?.balance) || 0,
-          currencyCode: payload?.currencyCode || "NGN",
-          status: "ready",
-        });
-      } catch {
-        if (!cancelled) setWallet((current) => ({ ...current, status: "error" }));
-      }
-    };
-
-    update();
-    window.addEventListener(AUTH_EVENT, update);
-    window.addEventListener("storage", update);
-    window.addEventListener(WALLET_REFRESH_EVENT, update);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(AUTH_EVENT, update);
-      window.removeEventListener("storage", update);
-      window.removeEventListener(WALLET_REFRESH_EVENT, update);
-    };
-  }, [user]);
-
-  return wallet;
-}
 
 function WalletBalancePill({ user, wallet, compact = false }) {
   if (!user) return null;
@@ -389,10 +229,10 @@ function AccountMenu({ user, wallet }) {
 }
 
 export default function Meal05HeaderActions({ mobile = false, showWallet = true }) {
-  const cartCount = useCartCount();
-  const user = useHeaderUser();
-  const unreadNotifications = useUnreadNotificationCount(user);
-  const wallet = useWalletBalance(user);
+  const cartCount = useSharedCartCount();
+  const user = useSharedHeaderUser();
+  const unreadNotifications = useSharedUnreadNotificationCount();
+  const wallet = useSharedWalletBalance(user);
 
   if (mobile) {
     return (

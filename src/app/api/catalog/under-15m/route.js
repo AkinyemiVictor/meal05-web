@@ -1,4 +1,5 @@
-import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
+import { loadHomeCatalogCards } from "@/lib/home-catalog-cards-server";
+import { publicCatalogJson } from "@/lib/public-catalog-server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
@@ -32,7 +33,9 @@ export async function GET(request) {
       return publicCatalogJson({ grouped: { "under-15m": [] }, flat: [], market: null });
     }
 
-    const payload = await loadPublicCatalogProducts({ ids, limit: ids.length });
+    // Under 15m only needs card-level data for browsing. Full variants remain
+    // deferred until Quick Add requests /api/products/{id} for the selected item.
+    const payload = await loadHomeCatalogCards({ ids, limit: ids.length });
     const byId = new Map((Array.isArray(payload?.flat) ? payload.flat : []).map((product) => [String(product.id), product]));
 
     const flat = ids

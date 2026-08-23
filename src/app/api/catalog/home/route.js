@@ -1,4 +1,5 @@
-import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
+import { publicCatalogJson } from "@/lib/public-catalog-server";
+import { loadHomeCatalogCards } from "@/lib/home-catalog-cards-server";
 import {
   attachFreshStockMetadata,
   groupCatalogProducts,
@@ -7,8 +8,20 @@ import {
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
+export const fetchCache = "default-cache";
+
+const HOME_CATALOG_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
+  "CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+  "Vercel-CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+};
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
+};
 
 const annotateChefChoice = (product, metadata) => {
   const meta = metadata.get(String(product?.id || ""));
@@ -28,7 +41,7 @@ export async function GET(request) {
     const admin = getSupabaseAdminClient();
 
     const [payload, freshStock, chefResult] = await Promise.all([
-      loadPublicCatalogProducts({ view: "home", limit }),
+      loadHomeCatalogCards({ limit }),
       loadRecentRestockedProductIds({ limit }),
       admin
         .from("products")
@@ -48,10 +61,10 @@ export async function GET(request) {
 
     const [freshPayload, chefPayload] = await Promise.all([
       freshStock.ids.length
-        ? loadPublicCatalogProducts({ ids: freshStock.ids, limit: freshStock.ids.length })
+        ? loadHomeCatalogCards({ ids: freshStock.ids, limit: freshStock.ids.length })
         : Promise.resolve({ flat: [] }),
       chefIds.length
-        ? loadPublicCatalogProducts({ ids: chefIds, limit: chefIds.length })
+        ? loadHomeCatalogCards({ ids: chefIds, limit: chefIds.length })
         : Promise.resolve({ flat: [] }),
     ]);
 
@@ -87,12 +100,12 @@ export async function GET(request) {
         grouped: groupCatalogProducts(flat),
         flat,
       },
-      { headers: { "Cache-Control": "no-store" } }
+      { headers: HOME_CATALOG_CACHE_HEADERS }
     );
   } catch (error) {
     return publicCatalogJson(
       { error: "Failed to load home catalogue", details: error?.message || String(error) },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }

@@ -4,7 +4,7 @@ import {
   mapCategoryRows,
   toCategorySlug,
 } from "@/lib/categories-server";
-import { loadPublicCatalogPage } from "@/lib/public-catalog-server";
+import { loadCatalogCardPage } from "@/lib/home-catalog-cards-server";
 
 /**
  * Build a category page from the same compact, market-aware catalogue view used
@@ -18,7 +18,7 @@ export const loadCategoryProductsPayload = async (supabase, slug) => {
   const [rows, counts, catalogPayload] = await Promise.all([
     loadCategoryRows(supabase),
     loadCategoryCounts(supabase),
-    loadPublicCatalogPage({ category: requestedSlug, page: 1, pageSize: 20 }),
+    loadCatalogCardPage({ category: requestedSlug, page: 1, pageSize: 20 }),
   ]);
 
   const categories = mapCategoryRows(rows, counts);

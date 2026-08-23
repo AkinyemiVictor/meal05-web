@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   IconHelpCircle,
@@ -10,10 +9,9 @@ import {
   IconShoppingBag,
   IconUser,
 } from "@tabler/icons-react";
-import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
-import { readCartItems } from "@/lib/cart-storage";
 import { shouldShowMobileBottomNav } from "@/lib/commerce-chrome";
 import { prefetchShop } from "@/lib/shop-prefetch";
+import useSharedCartCount from "@/lib/use-shared-cart-count";
 
 const items = [
   { label: "Home", icon: IconHome, href: "/home", match: (pathname) => pathname === "/home" },
@@ -25,52 +23,11 @@ const items = [
 
 const classNames = (...values) => values.filter(Boolean).join(" ");
 
-function useCartCount() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const update = () => {
-      setCount(readCartItems().reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
-      if (!readStoredUser()) return;
-      fetch("/api/cart", { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((items) => {
-          if (!Array.isArray(items)) return;
-          setCount(items.reduce((sum, item) => sum + Number(item.quantity || item.orderCount || 0), 0));
-        })
-        .catch(() => {});
-    };
-
-    update();
-    window.addEventListener("storage", update);
-    window.addEventListener("cart-updated", update);
-    window.addEventListener(AUTH_EVENT, update);
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener("cart-updated", update);
-      window.removeEventListener(AUTH_EVENT, update);
-    };
-  }, []);
-
-  return count;
-}
-
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const cartCount = useCartCount();
+  const cartCount = useSharedCartCount();
   const shouldRender = shouldShowMobileBottomNav(pathname);
-
-  useEffect(() => {
-    if (!shouldRender || pathname === "/shop") return undefined;
-    const run = () => void prefetchShop(router);
-    if (typeof window.requestIdleCallback === "function") {
-      const idleId = window.requestIdleCallback(run, { timeout: 1200 });
-      return () => window.cancelIdleCallback(idleId);
-    }
-    const timer = window.setTimeout(run, 300);
-    return () => window.clearTimeout(timer);
-  }, [pathname, router, shouldRender]);
 
   if (!shouldRender) return null;
 
@@ -84,7 +41,7 @@ export default function MobileBottomNav() {
             <Link
               key={item.label}
               href={item.href}
-              prefetch={item.href === "/shop"}
+              prefetch={false}
               onPointerEnter={item.href === "/shop" ? () => void prefetchShop(router) : undefined}
               onFocus={item.href === "/shop" ? () => void prefetchShop(router) : undefined}
               onTouchStart={item.href === "/shop" ? () => void prefetchShop(router) : undefined}

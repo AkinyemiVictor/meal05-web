@@ -1,4 +1,5 @@
-import { loadPublicCatalogPage, loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
+import { loadCatalogCardPage } from "@/lib/home-catalog-cards-server";
+import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
 import {
   attachFreshStockMetadata,
   groupCatalogProducts,
@@ -16,7 +17,7 @@ export async function GET(request) {
     const limit = Math.min(Math.max(Number(searchParams.get("limit") || 48), 1), 120);
 
     if (searchParams.has("page") || searchParams.has("pageSize")) {
-      const payload = await loadPublicCatalogPage({
+      const payload = await loadCatalogCardPage({
         page: searchParams.get("page") || 1,
         pageSize: searchParams.get("pageSize") || 20,
         category: searchParams.get("category") || "",
