@@ -20,8 +20,8 @@ test("quick add persists flexible preference and availability metadata", () => {
 test("quick add keeps flexible size preference independent from commercial variant price", () => {
   assert.match(source, /const \[sizePreference, setSizePreference\] = useState\("best_available"\)/);
   assert.match(source, /normalizeSizePreference\(sizePreference, SELECTION_MODE_FLEXIBLE\)/);
-  assert.match(source, /Physical size preference/);
-  assert.match(source, /SIZE_PREFERENCE_LABELS/);
+  assert.match(source, /<SizePreferencePicker/);
+  assert.doesNotMatch(source, /<select[\s>]/);
   assert.doesNotMatch(source, /setSelectedVariant\([^\n]*sizePreference/);
 });
 
@@ -31,4 +31,5 @@ test("request and supplier items bypass local stock while unavailable stays bloc
   assert.match(source, /if \(!targetBypassLocalStock\)[\s\S]*resolveStockClass/);
   assert.match(source, /!targetBypassLocalStock && Number\.isFinite\(availableCount\)/);
   assert.match(source, /Add to availability basket/);
+  assert.match(source, /<AvailabilityRequestNotice compact \/>/);
 });
