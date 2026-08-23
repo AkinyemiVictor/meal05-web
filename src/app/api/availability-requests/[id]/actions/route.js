@@ -14,6 +14,12 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("convert") }),
 ]);
 
+const conversionHttpStatus = (code) => {
+  if (code === "INVALID_INPUT") return 400;
+  if (code === "REQUEST_NOT_FOUND") return 404;
+  return 409;
+};
+
 export async function POST(request, { params }) {
   if (!isTrustedRequestOrigin(request)) return NextResponse.json({ error: "Forbidden origin" }, { status: 403 });
   const { id } = await params;
@@ -100,57 +106,34 @@ export async function POST(request, { params }) {
     return NextResponse.json({ request: attachAvailabilityRequestLifecycle(updated, now) });
   }
 
-  if (availabilityRequest.status === "converted" && availabilityRequest.converted_order_id) {
-    return NextResponse.json({ orderId: availabilityRequest.converted_order_id, replayed: true });
+  const { data: conversion, error: conversionError } = await admin.rpc("convert_availability_request_to_order", {
+    p_request_id: id,
+    p_user_id: user.id,
+  });
+  if (conversionError) {
+    return NextResponse.json({ error: "Unable to create the confirmed order." }, { status: 500 });
   }
-  if (availabilityRequest.status === "expired") {
-    return NextResponse.json({ error: "The payment window has expired", code: "AVAILABILITY_PAYMENT_EXPIRED" }, { status: 409 });
-  }
-  if (availabilityRequest.status !== "confirmed") {
-    return NextResponse.json({ error: "This request is not ready for payment" }, { status: 409 });
-  }
-  const paymentDeadline = availabilityRequest.payment_expires_at
-    ? new Date(availabilityRequest.payment_expires_at).getTime()
-    : Number.NaN;
-  if (!Number.isFinite(paymentDeadline)) {
+  if (!conversion?.ok) {
     return NextResponse.json(
-      { error: "This request is missing a valid payment deadline. Please contact Meal05 support.", code: "PAYMENT_DEADLINE_MISSING" },
-      { status: 409 }
+      {
+        error: conversion?.error || "This request cannot be converted to an order.",
+        code: conversion?.code || "AVAILABILITY_CONVERSION_BLOCKED",
+      },
+      { status: conversionHttpStatus(conversion?.code) }
     );
   }
-  if (paymentDeadline <= Date.now()) {
-    return NextResponse.json({ error: "The payment window has expired", code: "AVAILABILITY_PAYMENT_EXPIRED" }, { status: 409 });
+
+  const orderId = Number(conversion.order_id);
+  if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+    return NextResponse.json({ error: "The confirmed order could not be resolved." }, { status: 500 });
   }
-  const activeItems = (availabilityRequest.items || []).filter((item) => !item.customer_removed_at && ["confirmed", "not_required"].includes(item.resolution_status));
-  if (!activeItems.length) return NextResponse.json({ error: "This request has no confirmed items" }, { status: 409 });
-  const total = calculateRequestTotal(activeItems);
-  const { data: order, error: orderError } = await admin.from("orders").insert({
-    user_id: user.id, total, subtotal: total, delivery_fee: 0, status: "pending",
-    payment_status: "awaiting_payment", payment_method: "moniepoint_transfer",
-    market_id: availabilityRequest.market_id, currency_code: availabilityRequest.currency_code,
-    delivery_address: availabilityRequest.delivery_address,
-    delivery_contact_name: availabilityRequest.customer_name,
-    delivery_contact_phone: availabilityRequest.customer_phone,
-    customer_note: availabilityRequest.customer_note,
-    delivery_instructions: "Delivery scheduling starts 24 hours after verified payment.",
-    fulfillment_type: "delivery", availability_request_id: availabilityRequest.id,
-  }).select("id,total,status,payment_status").single();
-  if (orderError) {
-    const { data: existing } = await admin.from("orders").select("id,total,status,payment_status")
-      .eq("availability_request_id", availabilityRequest.id).maybeSingle();
-    if (existing) return NextResponse.json({ orderId: existing.id, replayed: true });
-    return NextResponse.json({ error: orderError.message }, { status: 400 });
-  }
-  const { error: itemError } = await admin.from("order_items").insert(activeItems.map((item) => ({
-    order_id: order.id, product_id: item.product_id, variant_id: item.variant_id,
-    quantity: item.quantity, price: item.confirmed_unit_price ?? item.submitted_unit_price,
-    currency_code: availabilityRequest.currency_code, size_preference: item.size_preference,
-    fulfillment_note: "Closest reasonable preference may be used to keep fulfilment fast. Delivery scheduling starts 24 hours after verified payment.",
-  })));
-  if (itemError) {
-    await admin.from("orders").delete().eq("id", order.id);
-    return NextResponse.json({ error: itemError.message }, { status: 400 });
-  }
-  await admin.from("availability_requests").update({ status: "converted", converted_order_id: order.id, updated_at: new Date().toISOString() }).eq("id", id);
-  return NextResponse.json({ orderId: order.id, order }, { status: 201 });
+
+  return NextResponse.json(
+    {
+      orderId,
+      order: conversion.order || { id: orderId },
+      replayed: Boolean(conversion.replayed),
+    },
+    { status: conversion.replayed ? 200 : 201 }
+  );
 }
