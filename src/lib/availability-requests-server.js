@@ -1,4 +1,5 @@
 import { normalizeSelectionMode, normalizeSizePreference, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
+import { attachAvailabilityRequestLifecycle, deriveAvailabilityRequestLifecycle } from "@/lib/availability-request-state";
 
 export const AVAILABILITY_REQUEST_SELECT = `
   id, request_number, user_id, market_id, status, delivery_address,
@@ -11,17 +12,37 @@ export const AVAILABILITY_REQUEST_SELECT = `
     resolution_status, size_preference, admin_note, customer_removed_at
   )`;
 
-export const expireAvailabilityRequest = async (admin, request) => {
-  if (!request || !["confirmed", "action_required"].includes(request.status)) return request;
-  if (!request.payment_expires_at || new Date(request.payment_expires_at).getTime() > Date.now()) return request;
-  const { data } = await admin
+export const expireAvailabilityRequest = async (admin, request, now = new Date()) => {
+  if (!request) return request;
+  const lifecycle = deriveAvailabilityRequestLifecycle(request, now);
+
+  // Missing or exceeded confirmation SLAs do not cancel a customer's request.
+  // Only a confirmed basket whose payment window has actually elapsed is expired.
+  if (!lifecycle.paymentWindowExpired) {
+    return attachAvailabilityRequestLifecycle(request, now);
+  }
+
+  const nowIso = new Date(now).toISOString();
+  const { data, error } = await admin
     .from("availability_requests")
-    .update({ status: "expired", updated_at: new Date().toISOString() })
+    .update({ status: "expired", updated_at: nowIso })
     .eq("id", request.id)
-    .in("status", ["confirmed", "action_required"])
+    .eq("status", "confirmed")
+    .lte("payment_expires_at", nowIso)
     .select(AVAILABILITY_REQUEST_SELECT)
     .maybeSingle();
-  return data || { ...request, status: "expired" };
+  if (error) throw error;
+  if (data) return attachAvailabilityRequestLifecycle(data, now);
+
+  // Another request may have changed the record between our read and update.
+  // Re-read it instead of returning a stale lifecycle state.
+  const { data: current, error: refreshError } = await admin
+    .from("availability_requests")
+    .select(AVAILABILITY_REQUEST_SELECT)
+    .eq("id", request.id)
+    .maybeSingle();
+  if (refreshError) throw refreshError;
+  return attachAvailabilityRequestLifecycle(current || request, now);
 };
 
 export const resolveRequestState = (items = []) => {
@@ -43,3 +64,4 @@ export const validatePreferenceForProduct = (preference, product) => {
   return normalizeSizePreference(preference, model) || "best_available";
 };
 
+export { attachAvailabilityRequestLifecycle } from "@/lib/availability-request-state";
