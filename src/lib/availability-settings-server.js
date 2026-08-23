@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
-import { normalizeAvailabilitySettingsRecord } from "@/lib/availability-settings";
+import { normalizeAvailabilitySettingsRecord, parseBusinessTime } from "@/lib/availability-settings";
 
 export class AvailabilitySettingsError extends Error {
   constructor(message, cause) {
@@ -10,6 +10,22 @@ export class AvailabilitySettingsError extends Error {
     this.cause = cause;
   }
 }
+
+const assertUsableSettings = (settings) => {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: settings.timeZone }).format(new Date());
+  } catch (error) {
+    throw new AvailabilitySettingsError("Availability settings contain an invalid timezone.", error);
+  }
+
+  const opens = parseBusinessTime(settings.businessOpens);
+  const closes = parseBusinessTime(settings.businessCloses);
+  const opensAt = opens.hour * 60 + opens.minute;
+  const closesAt = closes.hour * 60 + closes.minute;
+  if (closesAt <= opensAt) {
+    throw new AvailabilitySettingsError("Availability business closing time must be later than opening time.");
+  }
+};
 
 export async function loadAvailabilitySettings({ admin, marketId } = {}) {
   const client = admin || getSupabaseAdminClient();
@@ -32,5 +48,7 @@ export async function loadAvailabilitySettings({ admin, marketId } = {}) {
     throw new AvailabilitySettingsError("Availability settings are not configured for this market.");
   }
 
-  return normalizeAvailabilitySettingsRecord(data);
+  const settings = normalizeAvailabilitySettingsRecord(data);
+  assertUsableSettings(settings);
+  return settings;
 }
