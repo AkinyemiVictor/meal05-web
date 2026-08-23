@@ -4,7 +4,7 @@ import {
   getAvailabilityItemPresentation,
   getAvailabilityRequestPresentation,
   isAvailabilityRequestLive,
-} from "@/lib/availability-request-presenter";
+} from "./availability-request-presenter.js";
 
 const now = new Date("2026-08-23T12:00:00.000Z");
 
