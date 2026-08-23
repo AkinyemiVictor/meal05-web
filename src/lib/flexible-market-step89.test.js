@@ -53,4 +53,5 @@ test("fulfilment staff can see persisted Preferred size on general order managem
   assert.match(adminPreferenceRoute, /hasAdminAccess/);
   assert.match(adminPreferenceRoute, /size_preference/);
   assert.match(adminPreferenceRoute, /SIZE_PREFERENCE_LABELS/);
+  assert.match(adminPreferenceRoute, /normalizeSizePreference\(row\?\.size_preference, SELECTION_MODE_FLEXIBLE\)/);
 });
