@@ -1,4 +1,4 @@
-import { deriveAvailabilityRequestLifecycle } from "@/lib/availability-request-state";
+import { deriveAvailabilityRequestLifecycle } from "./availability-request-state.js";
 
 const PRESENTATIONS = Object.freeze({
   awaiting_confirmation: Object.freeze({
