@@ -8,6 +8,7 @@ const adminRoute = readFileSync(resolve(process.cwd(), "src/app/api/admin/availa
 const actionRoute = readFileSync(resolve(process.cwd(), "src/app/api/availability-requests/[id]/actions/route.js"), "utf8");
 const notificationClient = readFileSync(resolve(process.cwd(), "src/lib/availability-notifications-client.js"), "utf8");
 const notificationPage = readFileSync(resolve(process.cwd(), "src/app/notifications/page.js"), "utf8");
+const audit = readFileSync(resolve(process.cwd(), "docs/flexible-availability-catalogue-audit-2026-08-23.md"), "utf8");
 
 test("availability re-engagement sends only supported actionable events with direct request links", () => {
   assert.match(helper, /availability_request_confirmed/);
@@ -45,4 +46,14 @@ test("notification center derives direct actionable availability links without s
   assert.match(notificationPage, /fetch\("\/api\/availability-requests"/);
   assert.match(notificationPage, /window\.setInterval\(refresh, 60000\)/);
   assert.doesNotMatch(notificationPage, /setInterval\([^,]+,\s*[0-9]{1,4}\)/);
+});
+
+test("catalogue audit remains non-destructive and separates flexible selection from availability confidence", () => {
+  assert.match(audit, /No product, variant, availability mode, inventory mode, price, stock value, or active\/inactive flag was changed/);
+  assert.match(audit, /Irish Potato \| 603/);
+  assert.match(audit, /Sweet Potato \| 602/);
+  assert.match(audit, /Light Red Onions \| 117/);
+  assert.match(audit, /Red Onions \| 1004/);
+  assert.match(audit, /zero stock value is an \*\*operations-review signal\*\*/);
+  assert.match(audit, /Do not use zero `stock_count` alone/);
 });
