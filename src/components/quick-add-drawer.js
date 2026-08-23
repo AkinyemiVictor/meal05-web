@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import AvailabilityRequestNotice from "@/components/availability-request-notice";
+import SizePreferencePicker from "@/components/size-preference-picker";
 import VariantPicker from "@/components/variant-picker";
 import categories from "@/data/categories";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
@@ -14,7 +16,6 @@ import { readStoredUser } from "@/lib/auth";
 import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 import {
   SELECTION_MODE_FLEXIBLE,
-  SIZE_PREFERENCE_LABELS,
   normalizeAvailabilityMode,
   normalizeSelectionMode,
   normalizeSizePreference,
@@ -454,6 +455,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setQuantity(getVariantPurchaseRules(next).minQuantity);
     }
   }, [activeVariations, displayProduct, selectedVariant?.id, selectedVariant?.variationId, variations]);
+
   const priceLabel = useMemo(() => {
     if (!displayProduct) return "";
     return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), getVariantUnit(effectiveVariant, displayProduct));
@@ -665,32 +667,15 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           ) : null}
 
           {isFlexibleMarket ? (
-            <div className="product-variant-picker__section">
-              <label className="product-variant-picker__label" htmlFor={`quick-add-size-preference-${productId}`}>
-                Physical size preference
-              </label>
-              <select
-                id={`quick-add-size-preference-${productId}`}
-                value={sizePreference}
-                onChange={(event) => setSizePreference(event.target.value)}
-                style={{ width: "100%", minHeight: 44, borderRadius: 10, border: "1px solid #d6d3d1", padding: "0 12px", background: "white" }}
-              >
-                {Object.entries(SIZE_PREFERENCE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-              <p style={{ margin: "8px 0 0", color: "#57534e", fontSize: 13 }}>
-                {displayProduct?.variationNote || displayProduct?.variation_note || "Fresh produce naturally varies. We’ll use the closest reasonable size available so fulfilment stays fast."}
-              </p>
-            </div>
+            <SizePreferencePicker
+              value={sizePreference}
+              onChange={setSizePreference}
+              variationNote={displayProduct?.variationNote || displayProduct?.variation_note}
+              compact
+            />
           ) : null}
 
-          {availabilityMode === "request" ? (
-            <div role="note" style={{ border: "1px solid #f59e0b", background: "#fffbeb", borderRadius: 12, padding: 12, color: "#78350f", marginBottom: 12 }}>
-              <strong>Check availability</strong>
-              <p style={{ margin: "4px 0 0" }}>We’ll confirm this item before payment. You can still add it to your basket now.</p>
-            </div>
-          ) : null}
+          {availabilityMode === "request" ? <AvailabilityRequestNotice compact /> : null}
 
           <div className="quick-add-summary">
             <div>
