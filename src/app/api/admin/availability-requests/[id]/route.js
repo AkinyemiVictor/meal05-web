@@ -5,6 +5,8 @@ import { hasAdminAccess } from "@/lib/admin-access";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { AVAILABILITY_REQUEST_SELECT, calculateRequestTotal, resolveRequestState } from "@/lib/availability-requests-server";
+import { formatAvailabilityDuration } from "@/lib/availability-settings";
+import { loadAvailabilitySettings } from "@/lib/availability-settings-server";
 import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
 
 const schema = z.object({
@@ -34,11 +36,6 @@ export async function PATCH(request, { params }) {
     ? Number(parsed.data.confirmedUnitPrice ?? item.submitted_unit_price)
     : null;
   const now = new Date();
-  const { error: itemError } = await admin.from("availability_request_items").update({
-    resolution_status: parsed.data.resolutionStatus, confirmed_unit_price: price,
-    admin_note: parsed.data.adminNote || null, updated_at: now.toISOString(),
-  }).eq("id", item.id).eq("request_id", id);
-  if (itemError) return NextResponse.json({ error: itemError.message }, { status: 400 });
   const nextItems = (record.items || []).map((entry) => entry.id === item.id ? {
     ...entry, resolution_status: parsed.data.resolutionStatus, confirmed_unit_price: price,
     admin_note: parsed.data.adminNote || null,
@@ -46,9 +43,28 @@ export async function PATCH(request, { params }) {
   const status = resolveRequestState(nextItems);
   const confirmed = status === "confirmed";
   const total = calculateRequestTotal(nextItems);
+  let availabilitySettings = null;
+  if (confirmed) {
+    try {
+      availabilitySettings = await loadAvailabilitySettings({ admin, marketId: record.market_id });
+    } catch (settingsError) {
+      return NextResponse.json(
+        { error: settingsError?.message || "Availability settings could not be loaded." },
+        { status: 503 }
+      );
+    }
+  }
+
+  const { error: itemError } = await admin.from("availability_request_items").update({
+    resolution_status: parsed.data.resolutionStatus, confirmed_unit_price: price,
+    admin_note: parsed.data.adminNote || null, updated_at: now.toISOString(),
+  }).eq("id", item.id).eq("request_id", id);
+  if (itemError) return NextResponse.json({ error: itemError.message }, { status: 400 });
   const { data: updated, error: updateError } = await admin.from("availability_requests").update({
     status, final_total: confirmed ? total : null, confirmed_at: confirmed ? now.toISOString() : null,
-    payment_expires_at: confirmed ? new Date(now.getTime() + 120 * 60000).toISOString() : null,
+    payment_expires_at: confirmed
+      ? new Date(now.getTime() + availabilitySettings.paymentWindowMinutes * 60000).toISOString()
+      : null,
     updated_at: now.toISOString(),
   }).eq("id", id).select(AVAILABILITY_REQUEST_SELECT).single();
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
@@ -58,7 +74,7 @@ export async function PATCH(request, { params }) {
       event: status === "confirmed" ? "availability_request_confirmed" : "availability_request_action_required",
       subject: status === "confirmed" ? "Basket availability confirmed" : "Basket update needed",
       body: status === "confirmed"
-        ? `${record.request_number} is confirmed. Pay within 2 hours to keep this availability.`
+        ? `${record.request_number} is confirmed. Pay within ${formatAvailabilityDuration(availabilitySettings.paymentWindowMinutes)} to keep this availability.`
         : `${record.request_number} has an unavailable item. Review it to continue.`,
       status: "delivered", sent_at: now.toISOString(),
     });
