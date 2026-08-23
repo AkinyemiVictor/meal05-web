@@ -66,7 +66,7 @@ const headingStyle = {
 
 const statusGridStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
   gap: 8,
 };
 
