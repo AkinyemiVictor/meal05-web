@@ -45,7 +45,13 @@ import { calculateOrderCapacity, formatCapacitySummary } from "@/lib/order-capac
 import { requestPromoCodeValidation } from "@/lib/promo-code-client";
 import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
 import useDeliverySettings from "@/lib/use-delivery-settings";
-import { isRequestOnlyItem, SELECTION_MODE_FLEXIBLE, SIZE_PREFERENCE_LABELS } from "@/lib/commerce-options";
+import { CartAvailabilitySummary, CartLineAvailabilityBadge } from "@/components/cart-availability-ux";
+import {
+  isRequestOnlyItem,
+  SELECTION_MODE_FLEXIBLE,
+  SIZE_PREFERENCE_LABELS,
+  usesTrackedInventory,
+} from "@/lib/commerce-options";
 
 const CategoryCarousel = dynamic(() => import("@/components/category-carousel"), {
   loading: () => <CategoryCarouselSkeleton />,
@@ -591,19 +597,20 @@ function CartPageContent() {
       let message = "";
       const variantMissing = !item.variantId;
       const requestOnly = isRequestOnlyItem(item);
+      const bypassLocalStock = requestOnly || !usesTrackedInventory(item);
 
       if (!product && productLookupStatus === "loading") {
         level = "pending";
       } else if (!product) {
         level = "error";
         message = copy.cart.unavailableMessage;
-      } else if (!requestOnly && (normalised.includes("out") || normalised.includes("sold"))) {
+      } else if (!bypassLocalStock && (normalised.includes("out") || normalised.includes("sold"))) {
         level = "error";
         message = copy.cart.unavailableMessage;
       } else if (variantMissing) {
         level = "warning";
         message = "Select a specific option for this item to continue.";
-      } else if (normalised.includes("limited") || normalised.includes("low")) {
+      } else if (!bypassLocalStock && (normalised.includes("limited") || normalised.includes("low"))) {
         level = "warning";
         message = copy.cart.limitedMessage;
       }
@@ -626,6 +633,8 @@ function CartPageContent() {
 
   const hasCheckoutBlocker = stockStatus.hasError || stockStatus.hasPending;
   const hasRequestItems = useMemo(() => cartItems.some(isRequestOnlyItem), [cartItems]);
+  const requestLineCount = useMemo(() => cartItems.filter(isRequestOnlyItem).length, [cartItems]);
+  const standardLineCount = Math.max(0, cartItems.length - requestLineCount);
   const deliverySummaryConfig = useMemo(() => getDeliverySummaryConfig(deliverySettings), [deliverySettings]);
   const pricingItems = useMemo(
     () =>
@@ -995,7 +1004,9 @@ function CartPageContent() {
           <section className={styles.cartBoard} aria-labelledby="cart-title">
             <header className={styles.cartHeader}>
               <span id="cart-title" className={styles.cartTag}>
-                {formattedItemsCount} {itemLabel}. ready for delivery
+                {hasRequestItems
+                  ? `${formattedItemsCount} ${itemLabel} in basket`
+                  : `${formattedItemsCount} ${itemLabel}. ready for checkout`}
               </span>
             </header>
 
@@ -1015,8 +1026,10 @@ function CartPageContent() {
                   const minQuantity = Number(item.minQuantity ?? item.min_quantity ?? 1) || 1;
                   const maxQuantityRaw = Number(item.maxQuantity ?? item.max_quantity);
                   const maxQuantity = Number.isFinite(maxQuantityRaw) && maxQuantityRaw > 0 ? maxQuantityRaw : null;
+                  const requestOnly = isRequestOnlyItem(item);
+                  const bypassLocalStock = requestOnly || !usesTrackedInventory(item);
                   const availableCount = getAvailableCount(item.stock);
-                  const effectiveMaxQuantity = Number.isFinite(availableCount)
+                  const effectiveMaxQuantity = !bypassLocalStock && Number.isFinite(availableCount)
                     ? Math.min(maxQuantity ?? availableCount, availableCount)
                     : maxQuantity;
                   const rules = getVariantPurchaseRules(item);
@@ -1046,6 +1059,7 @@ function CartPageContent() {
                       <div className={styles.cartInfo}>
                         <span className={styles.cartCategory}>{categoryLabel}</span>
                         <h3>{item.name}</h3>
+                        <CartLineAvailabilityBadge requestOnly={requestOnly} />
                         <div className={styles.cartPriceRow}>
                           <span className={styles.cartPrice}>{priceLabel}</span>
                           {hasOldPrice ? <span className={styles.cartOldPrice}>{formatCurrency(oldPrice)}</span> : null}
@@ -1058,12 +1072,9 @@ function CartPageContent() {
                             {status.message}
                           </p>
                         ) : null}
-                        {isRequestOnlyItem(item) ? (
-                          <p className={styles.cartWarning} role="status">Availability will be confirmed before payment.</p>
-                        ) : null}
                         {String(item.selectionModel ?? item.selection_model) === SELECTION_MODE_FLEXIBLE ? (
                           <label style={{ display: "grid", gap: 5, marginTop: 10, fontSize: 13 }}>
-                            <span>Physical size preference</span>
+                            <span>Preferred size</span>
                             <select
                               value={item.sizePreference || item.size_preference || "best_available"}
                               onChange={(event) => handleSizePreferenceChange(item, event.target.value)}
@@ -1221,10 +1232,10 @@ function CartPageContent() {
               </div>
             ) : null}
             {hasRequestItems && !bulkRequired ? (
-              <div className={styles.bulkPanel} role="note">
-                <h3>Confirm availability before payment</h3>
-                <p>One or more items need a quick market check. Submit the full basket once; we’ll confirm it within 2 business hours, then open a 2-hour payment window.</p>
-              </div>
+              <CartAvailabilitySummary
+                requestCount={requestLineCount}
+                standardCount={standardLineCount}
+              />
             ) : null}
 
             <button
@@ -1233,7 +1244,7 @@ function CartPageContent() {
               onClick={bulkRequired ? () => handleBulkContact(primaryBulkChannel) : handleCheckout}
               disabled={cartIsEmpty || hasCheckoutBlocker || (bulkRequired && !primaryBulkChannel)}
             >
-              {bulkRequired ? "Continue with fulfilment team" : hasRequestItems ? "Check availability" : "Checkout"} <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              {bulkRequired ? "Continue with fulfilment team" : hasRequestItems ? "Check basket availability" : "Checkout"} <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
             </button>
             {bulkRequired ? (
               <button type="button" className={styles.adjustButton} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
@@ -1241,7 +1252,7 @@ function CartPageContent() {
               </button>
             ) : null}
             <p className={styles.summaryHint}>
-              <i className={`fa-solid ${hasRequestItems ? "fa-clock" : "fa-lock"}`} aria-hidden="true"></i> {hasRequestItems ? "No payment until confirmed" : "Secure checkout"}
+              <i className={`fa-solid ${hasRequestItems ? "fa-clock" : "fa-lock"}`} aria-hidden="true"></i> {hasRequestItems ? "No payment until requested items are confirmed" : "Secure checkout"}
             </p>
           </aside>
           ) : null}
