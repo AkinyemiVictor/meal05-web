@@ -14,10 +14,23 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("convert") }),
 ]);
 
-const conversionHttpStatus = (code) => {
+const actionHttpStatus = (code) => {
   if (code === "INVALID_INPUT") return 400;
   if (code === "REQUEST_NOT_FOUND") return 404;
   return 409;
+};
+
+const conversionHttpStatus = (code) => actionHttpStatus(code);
+
+const loadCurrentRequest = async (admin, id, userId, now = new Date()) => {
+  const { data, error } = await admin
+    .from("availability_requests")
+    .select(AVAILABILITY_REQUEST_SELECT)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? attachAvailabilityRequestLifecycle(data, now) : null;
 };
 
 export async function POST(request, { params }) {
@@ -36,36 +49,56 @@ export async function POST(request, { params }) {
   const availabilityRequest = await expireAvailabilityRequest(admin, data);
 
   if (parsed.data.action === "cancel") {
-    if (["converted", "cancelled", "expired"].includes(availabilityRequest.status)) {
-      return NextResponse.json({ request: availabilityRequest });
+    const { data: cancellation, error: cancelError } = await admin.rpc("cancel_availability_request", {
+      p_request_id: id,
+      p_user_id: user.id,
+    });
+    if (cancelError) return NextResponse.json({ error: "Unable to cancel this request." }, { status: 500 });
+    if (!cancellation?.ok) {
+      return NextResponse.json(
+        {
+          error: cancellation?.error || "This request cannot be cancelled.",
+          code: cancellation?.code || "AVAILABILITY_CANCEL_BLOCKED",
+        },
+        { status: actionHttpStatus(cancellation?.code) }
+      );
     }
-    const now = new Date();
-    const { data: updated, error: updateError } = await admin.from("availability_requests")
-      .update({ status: "cancelled", updated_at: now.toISOString() })
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .eq("status", availabilityRequest.status)
-      .select(AVAILABILITY_REQUEST_SELECT)
-      .maybeSingle();
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
-    if (!updated) return NextResponse.json({ error: "This request changed. Reload and try again." }, { status: 409 });
-    return NextResponse.json({ request: attachAvailabilityRequestLifecycle(updated, now) });
+    try {
+      const current = await loadCurrentRequest(admin, id, user.id);
+      if (!current) return NextResponse.json({ error: "Availability request not found" }, { status: 404 });
+      return NextResponse.json({ request: current, replayed: Boolean(cancellation.replayed) });
+    } catch {
+      return NextResponse.json({ error: "Request cancelled, but its latest state could not be loaded." }, { status: 500 });
+    }
   }
 
   if (parsed.data.action === "return_to_cart") {
-    if (!["cancelled", "expired", "action_required"].includes(availabilityRequest.status)) {
-      return NextResponse.json({ error: "This request cannot be returned to the cart yet" }, { status: 409 });
+    const { data: restored, error: restoreError } = await admin.rpc("return_availability_request_to_cart", {
+      p_request_id: id,
+      p_user_id: user.id,
+    });
+    if (restoreError) return NextResponse.json({ error: "Unable to return this request to the cart." }, { status: 500 });
+    if (!restored?.ok) {
+      return NextResponse.json(
+        {
+          error: restored?.error || "This request cannot be returned to the cart.",
+          code: restored?.code || "AVAILABILITY_RETURN_BLOCKED",
+        },
+        { status: actionHttpStatus(restored?.code) }
+      );
     }
-    const lines = (availabilityRequest.items || []).filter((item) => !item.customer_removed_at && item.resolution_status !== "unavailable");
-    for (const item of lines) {
-      await admin.from("cart_items").upsert({
-        user_id: user.id, product_id: item.product_id, variant_id: item.variant_id,
-        product_name: item.product_name, variant_name: item.variant_name,
-        unit_price_at_add: item.confirmed_unit_price ?? item.submitted_unit_price,
-        quantity: item.quantity, size_preference: item.size_preference, updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id,variant_id" });
+    try {
+      const current = await loadCurrentRequest(admin, id, user.id);
+      if (!current) return NextResponse.json({ error: "Availability request not found" }, { status: 404 });
+      return NextResponse.json({
+        returned: Number(restored.returned || 0),
+        skipped: Number(restored.skipped || 0),
+        replayed: Boolean(restored.replayed),
+        request: current,
+      });
+    } catch {
+      return NextResponse.json({ error: "Items were returned, but the latest request state could not be loaded." }, { status: 500 });
     }
-    return NextResponse.json({ returned: lines.length, request: availabilityRequest });
   }
 
   if (parsed.data.action === "remove_unavailable_item") {
