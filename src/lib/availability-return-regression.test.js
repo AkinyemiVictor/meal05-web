@@ -5,7 +5,7 @@ import { test } from "node:test";
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 
-const migrationPath = "supabase/migrations/20260823130500_availability_request_cancel_and_return_to_cart.sql";
+const migrationPath = "supabase/migrations/20260823130857_availability_request_cancel_and_return_to_cart.sql";
 
 test("availability cancellation is row-locked, clears payable state, and stays server-only", () => {
   const migration = read(migrationPath);
