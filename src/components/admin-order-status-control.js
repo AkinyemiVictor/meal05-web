@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 const ORDER_STATUS_OPTIONS = [
@@ -114,7 +114,41 @@ export default function AdminOrderStatusControl({
       )));
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
+  const [sizePreferences, setSizePreferences] = useState([]);
+  const [preferenceError, setPreferenceError] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!orderId) {
+      setSizePreferences([]);
+      return undefined;
+    }
+
+    const loadPreferences = async () => {
+      try {
+        const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/size-preferences`, {
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || "Unable to load size preferences");
+        if (!cancelled) {
+          setSizePreferences(Array.isArray(payload?.preferences) ? payload.preferences : []);
+          setPreferenceError("");
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setSizePreferences([]);
+          setPreferenceError(loadError?.message || "Unable to load size preferences");
+        }
+      }
+    };
+
+    loadPreferences();
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -161,98 +195,126 @@ export default function AdminOrderStatusControl({
   };
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-      <select
-        value={status}
-        onChange={(event) => setStatus(event.target.value)}
-        disabled={isPending}
-        aria-label="Order status"
-        style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
-      >
-        <option value="">No change</option>
-        {ORDER_STATUS_OPTIONS.filter((option) => {
-          if (!allowedOrderStatusValues) return true;
-          return allowedOrderStatusValues.has(option.value);
-        }).map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+    <div style={{ display: "grid", gap: 10 }}>
+      {sizePreferences.length ? (
+        <div
+          style={{
+            border: "1px solid #bbf7d0",
+            background: "#f0fdf4",
+            borderRadius: 8,
+            padding: "8px 10px",
+            color: "#166534",
+            fontSize: 12,
+          }}
+        >
+          <strong style={{ display: "block", marginBottom: 4 }}>Fulfilment size preference</strong>
+          {sizePreferences.map((preference) => (
+            <div key={String(preference.itemId)}>
+              {preference.productName}: <strong>{preference.label}</strong>
+            </div>
+          ))}
+          <span style={{ display: "block", marginTop: 4, color: "#15803d" }}>
+            Preference guides physical piece size only; fulfil the paid quantity or value.
+          </span>
+        </div>
+      ) : null}
+      {preferenceError ? (
+        <span style={{ color: "#b45309", fontSize: 12 }}>Size preference unavailable: {preferenceError}</span>
+      ) : null}
 
-      {manualPaymentAllowed ? (
+      <form onSubmit={submit} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
         <select
-          value={paymentStatus}
-          onChange={(event) => setPaymentStatus(event.target.value)}
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
           disabled={isPending}
-          aria-label="Payment status"
+          aria-label="Order status"
           style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
         >
           <option value="">No change</option>
-          {PAYMENT_STATUS_OPTIONS.filter((option) => {
-            if (!allowedPaymentStatusValues) return true;
-            return allowedPaymentStatusValues.has(option.value);
+          {ORDER_STATUS_OPTIONS.filter((option) => {
+            if (!allowedOrderStatusValues) return true;
+            return allowedOrderStatusValues.has(option.value);
           }).map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
         </select>
-      ) : (
-        <span
+
+        {manualPaymentAllowed ? (
+          <select
+            value={paymentStatus}
+            onChange={(event) => setPaymentStatus(event.target.value)}
+            disabled={isPending}
+            aria-label="Payment status"
+            style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
+          >
+            <option value="">No change</option>
+            {PAYMENT_STATUS_OPTIONS.filter((option) => {
+              if (!allowedPaymentStatusValues) return true;
+              return allowedPaymentStatusValues.has(option.value);
+            }).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span
+            style={{
+              display: "inline-block",
+              border: "1px solid #e2e8f0",
+              borderRadius: 6,
+              padding: "4px 8px",
+              fontSize: 12,
+              color: "#94a3b8",
+              background: "#f8fafc",
+            }}
+            title={transferPayment ? "Review this transfer in the Payments queue." : "Payment status is controlled by the payment gateway"}
+          >
+            {normalizedCurrentPaymentStatus || "unknown"} ({transferPayment ? "review in Payments" : "gateway"})
+          </span>
+        )}
+
+        <select
+          value={deliveryStatus}
+          onChange={(event) => setDeliveryStatus(event.target.value)}
+          disabled={isPending}
+          aria-label="Delivery status"
+          style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
+        >
+          <option value="">No change</option>
+          {DELIVERY_STATUS_OPTIONS.filter((option) => {
+            if (!allowedDeliveryStatusValues) return true;
+            return allowedDeliveryStatusValues.has(option.value);
+          }).map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <button
+          type="submit"
+          disabled={isPending}
           style={{
-            display: "inline-block",
-            border: "1px solid #e2e8f0",
+            border: "1px solid #0f172a",
             borderRadius: 6,
+            background: "#0f172a",
+            color: "#ffffff",
             padding: "4px 8px",
             fontSize: 12,
-            color: "#94a3b8",
-            background: "#f8fafc",
+            fontWeight: 600,
+            cursor: isPending ? "not-allowed" : "pointer",
+            opacity: isPending ? 0.7 : 1,
           }}
-          title={transferPayment ? "Review this transfer in the Payments queue." : "Payment status is controlled by the payment gateway"}
         >
-          {normalizedCurrentPaymentStatus || "unknown"} ({transferPayment ? "review in Payments" : "gateway"})
-        </span>
-      )}
+          {isPending ? "Saving..." : "Update"}
+        </button>
 
-      <select
-        value={deliveryStatus}
-        onChange={(event) => setDeliveryStatus(event.target.value)}
-        disabled={isPending}
-        aria-label="Delivery status"
-        style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
-      >
-        <option value="">No change</option>
-        {DELIVERY_STATUS_OPTIONS.filter((option) => {
-          if (!allowedDeliveryStatusValues) return true;
-          return allowedDeliveryStatusValues.has(option.value);
-        }).map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-
-      <button
-        type="submit"
-        disabled={isPending}
-        style={{
-          border: "1px solid #0f172a",
-          borderRadius: 6,
-          background: "#0f172a",
-          color: "#ffffff",
-          padding: "4px 8px",
-          fontSize: 12,
-          fontWeight: 600,
-          cursor: isPending ? "not-allowed" : "pointer",
-          opacity: isPending ? 0.7 : 1,
-        }}
-      >
-        {isPending ? "Saving..." : "Update"}
-      </button>
-
-      {error ? <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span> : null}
-      {!error && ok ? <span style={{ color: "#166534", fontSize: 12 }}>{ok}</span> : null}
-    </form>
+        {error ? <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span> : null}
+        {!error && ok ? <span style={{ color: "#166534", fontSize: 12 }}>{ok}</span> : null}
+      </form>
+    </div>
   );
 }
