@@ -363,6 +363,7 @@ export async function loadOverviewMetrics() {
 }
 
 const ORDER_SELECT_CANDIDATES = [
+  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, updated_at, fulfillment_type, customer_note, delivery_instructions",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
@@ -599,6 +600,9 @@ const mapOrderRecord = (row, userLookup, nowMs = Date.now()) => {
     paymentIsManual: isManualPaymentMethod(paymentMethod),
     deliveryStatus: String(row.delivery_status || "").trim(),
     deliveryAddress: String(row.delivery_address || ""),
+    fulfillmentType: String(row.fulfillment_type || "delivery").trim().toLowerCase(),
+    customerNote: String(row.customer_note || "").trim(),
+    deliveryInstructions: String(row.delivery_instructions || "").trim(),
     createdAt: row.created_at,
     updatedAt: row.updated_at || row.created_at,
   };
@@ -1060,6 +1064,7 @@ export async function loadOrderAdminDetail(orderId, { client = null } = {}) {
   let itemRows = [];
   let itemError = null;
   const itemSelectCandidates = [
+    "id, order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note",
     "id, order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url)",
     "id, order_id, product_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url)",
     "id, order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note",
@@ -1080,6 +1085,20 @@ export async function loadOrderAdminDetail(orderId, { client = null } = {}) {
     if (!isUnknownColumnError(result.error.message)) break;
   }
   if (itemError) warnings.push(`Order items query failed: ${itemError.message}`);
+
+  const productIds = uniqueStrings(itemRows.map((row) => row?.product_id));
+  let productLookup = new Map();
+  if (productIds.length) {
+    const productResult = await admin
+      .from("products")
+      .select("id, name, unit, image_url")
+      .in("id", productIds);
+    if (productResult.error) {
+      warnings.push(`Order product names query failed: ${productResult.error.message}`);
+    } else {
+      productLookup = new Map((productResult.data || []).map((row) => [String(row.id), row]));
+    }
+  }
 
   let supportCases = [];
   const supportResult = await admin
@@ -1171,7 +1190,10 @@ export async function loadOrderAdminDetail(orderId, { client = null } = {}) {
 
   return {
     order,
-    items: itemRows.map(mapOrderItemRecord),
+    items: itemRows.map((row) => mapOrderItemRecord({
+      ...row,
+      products: row?.products || productLookup.get(String(row?.product_id || "")) || null,
+    })),
     supportCases,
     statusHistory,
     payment,

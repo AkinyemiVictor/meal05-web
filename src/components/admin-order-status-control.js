@@ -1,317 +1,174 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-const ORDER_STATUS_OPTIONS = [
-  { value: "pending", label: "Pending" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "processing", label: "Processing" },
-  { value: "ready_for_dispatch", label: "Ready for Dispatch" },
-  { value: "dispatched", label: "Dispatched" },
-  { value: "shipped", label: "Shipped" },
-  { value: "delivered", label: "Delivered" },
-  { value: "completed", label: "Completed" },
-  { value: "stock_failed", label: "Stock Failed" },
-  { value: "payment_failed", label: "Payment Failed" },
-  { value: "cancelled", label: "Cancelled" },
-];
-const ORDER_STATUS_VALUES = new Set(ORDER_STATUS_OPTIONS.map((option) => option.value));
+const PAID = new Set(["confirmed", "paid"]);
+const CLOSED = new Set(["completed", "cancelled"]);
 
-const ORDER_STATUS_TRANSITIONS = {
-  pending: new Set(["pending", "confirmed", "processing", "completed", "cancelled"]),
-  confirmed: new Set(["confirmed", "processing", "cancelled"]),
-  processing: new Set(["processing", "ready_for_dispatch", "shipped", "completed", "payment_failed", "cancelled"]),
-  ready_for_dispatch: new Set(["ready_for_dispatch", "dispatched", "cancelled"]),
-  dispatched: new Set(["dispatched", "delivered", "completed"]),
-  shipped: new Set(["shipped", "dispatched", "delivered", "completed"]),
-  delivered: new Set(["delivered", "completed"]),
-  completed: new Set(["completed"]),
-  cancelled: new Set(["cancelled"]),
-  stock_failed: new Set(["stock_failed", "processing", "cancelled"]),
-  payment_failed: new Set(["payment_failed", "processing", "cancelled"]),
-};
+const humanize = (value) =>
+  String(value || "unknown")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-const PAYMENT_STATUS_OPTIONS = [
-  { value: "awaiting_payment", label: "Awaiting Payment" },
-  { value: "awaiting_confirmation", label: "Awaiting Confirmation" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "rejected", label: "Rejected" },
-  { value: "pending", label: "Pending" },
-  { value: "processing", label: "Processing" },
-  { value: "paid", label: "Paid" },
-  { value: "failed", label: "Failed" },
-  { value: "refunded", label: "Refunded" },
-  { value: "unpaid", label: "Unpaid" },
-];
-const PAYMENT_STATUS_VALUES = new Set(PAYMENT_STATUS_OPTIONS.map((option) => option.value));
+function getStepIndex(status) {
+  const value = String(status || "").toLowerCase();
+  if (["completed", "delivered"].includes(value)) return 3;
+  if (["dispatched", "shipped"].includes(value)) return 2;
+  if (["processing", "ready_for_dispatch"].includes(value)) return 1;
+  return 0;
+}
 
-const PAYMENT_STATUS_TRANSITIONS = {
-  awaiting_payment: new Set(["awaiting_payment", "awaiting_confirmation", "confirmed", "rejected", "failed"]),
-  awaiting_confirmation: new Set(["awaiting_confirmation", "confirmed", "rejected"]),
-  confirmed: new Set(["confirmed", "refunded"]),
-  rejected: new Set(["rejected", "awaiting_payment", "awaiting_confirmation"]),
-  pending: new Set(["pending", "processing", "paid", "failed", "unpaid"]),
-  processing: new Set(["processing", "paid", "failed"]),
-  unpaid: new Set(["unpaid", "pending", "processing", "paid", "failed"]),
-  failed: new Set(["failed", "pending", "processing", "paid"]),
-  paid: new Set(["paid", "refunded"]),
-  refunded: new Set(["refunded"]),
-};
+function getNextAction({ status, paymentStatus, fulfillmentType }) {
+  const order = String(status || "").toLowerCase();
+  const payment = String(paymentStatus || "").toLowerCase();
+  const pickup = String(fulfillmentType || "delivery").toLowerCase() === "pickup";
 
-const DELIVERY_STATUS_OPTIONS = [
-  { value: "awaiting dispatch", label: "Awaiting Dispatch" },
-  { value: "dispatched", label: "Dispatched" },
-  { value: "in transit", label: "In Transit" },
-  { value: "delayed", label: "Delayed" },
-  { value: "delivered", label: "Delivered" },
-  { value: "completed", label: "Completed" },
-  { value: "returned", label: "Returned" },
-];
-const DELIVERY_STATUS_VALUES = new Set(DELIVERY_STATUS_OPTIONS.map((option) => option.value));
-
-const DELIVERY_STATUS_TRANSITIONS = {
-  "awaiting dispatch": new Set(["awaiting dispatch", "dispatched", "delayed", "completed", "returned"]),
-  dispatched: new Set(["dispatched", "in transit", "delivered", "completed", "delayed", "returned"]),
-  "in transit": new Set(["in transit", "delivered", "completed", "delayed", "returned"]),
-  delayed: new Set(["delayed", "dispatched", "in transit", "delivered", "completed", "returned"]),
-  delivered: new Set(["delivered", "completed"]),
-  completed: new Set(["completed"]),
-  returned: new Set(["returned"]),
-};
+  if (order === "cancelled") return { kind: "done", title: "Order cancelled", help: "No fulfilment action is required." };
+  if (order === "completed") return { kind: "done", title: "Order complete", help: "This order has finished its fulfilment journey." };
+  if (!PAID.has(payment)) {
+    return {
+      kind: "payment",
+      title: payment === "awaiting_confirmation" ? "Review payment evidence" : "Resolve payment first",
+      help: "Payment decisions are handled in Payments before fulfilment can begin.",
+    };
+  }
+  if (["pending", "confirmed", "stock_failed", "payment_failed"].includes(order)) {
+    return { kind: "update", title: "Start processing", help: "Send this paid order to picking and packing.", patch: { status: "processing" } };
+  }
+  if (order === "processing") {
+    return {
+      kind: "update",
+      title: pickup ? "Mark ready for collection" : "Mark ready for dispatch",
+      help: pickup ? "The customer can collect after this is packed." : "Packing is complete and a rider can now be assigned.",
+      patch: { status: "ready_for_dispatch", delivery_status: "awaiting dispatch" },
+    };
+  }
+  if (order === "ready_for_dispatch") {
+    return pickup
+      ? { kind: "update", title: "Mark collected", help: "Confirm the customer has collected the order.", patch: { status: "completed", delivery_status: "completed" } }
+      : { kind: "update", title: "Mark dispatched", help: "Confirm the order has left with the rider.", patch: { status: "dispatched", delivery_status: "dispatched" } };
+  }
+  if (order === "shipped") {
+    return { kind: "update", title: "Mark dispatched", help: "Move this legacy shipped order into the current delivery flow.", patch: { status: "dispatched", delivery_status: "dispatched" } };
+  }
+  if (order === "dispatched") {
+    return { kind: "update", title: "Mark delivered", help: "Confirm the customer received the order.", patch: { status: "delivered", delivery_status: "delivered" } };
+  }
+  if (order === "delivered") {
+    return { kind: "update", title: "Complete order", help: "Close this delivered order.", patch: { status: "completed", delivery_status: "completed" } };
+  }
+  return { kind: "done", title: "No action available", help: "Review the order history for more context." };
+}
 
 export default function AdminOrderStatusControl({
   orderId,
   currentStatus,
   currentPaymentStatus,
-  currentDeliveryStatus = "",
-  paymentMethod = "",
-  paymentIsManual = null,
+  currentDeliveryStatus,
+  fulfillmentType = "delivery",
 }) {
   const router = useRouter();
-  const normalizedCurrentStatus = String(currentStatus || "").toLowerCase();
-  const normalizedCurrentPaymentStatus = String(currentPaymentStatus || "").toLowerCase();
-  const normalizedCurrentDeliveryStatus = String(currentDeliveryStatus || "").toLowerCase();
-  const allowedOrderStatusValues = ORDER_STATUS_TRANSITIONS[normalizedCurrentStatus] || null;
-  const allowedPaymentStatusValues = PAYMENT_STATUS_TRANSITIONS[normalizedCurrentPaymentStatus] || null;
-  const allowedDeliveryStatusValues = DELIVERY_STATUS_TRANSITIONS[normalizedCurrentDeliveryStatus] || null;
-  const [status, setStatus] = useState(
-    ORDER_STATUS_VALUES.has(normalizedCurrentStatus) ? normalizedCurrentStatus : ""
-  );
-  const [paymentStatus, setPaymentStatus] = useState(
-    PAYMENT_STATUS_VALUES.has(normalizedCurrentPaymentStatus) ? normalizedCurrentPaymentStatus : ""
-  );
-  const [deliveryStatus, setDeliveryStatus] = useState(
-    DELIVERY_STATUS_VALUES.has(normalizedCurrentDeliveryStatus) ? normalizedCurrentDeliveryStatus : ""
-  );
-  const normalizedPaymentMethod = String(paymentMethod || "").toLowerCase();
-  const transferPayment = ["moniepoint_transfer", "opay_transfer"].includes(normalizedPaymentMethod);
-  const manualPaymentAllowed =
-    !transferPayment && (paymentIsManual === true ||
-    (paymentIsManual === null &&
-      ["cash", "cash_on_delivery", "cash_on_pickup", "pos", "cod", "cop", "pay_on_delivery", "pay on delivery"].includes(
-        normalizedPaymentMethod
-      )));
-  const [error, setError] = useState("");
-  const [ok, setOk] = useState("");
-  const [sizePreferences, setSizePreferences] = useState([]);
-  const [preferenceError, setPreferenceError] = useState("");
+  const [message, setMessage] = useState("");
+  const [note, setNote] = useState("");
   const [isPending, startTransition] = useTransition();
+  const action = useMemo(
+    () => getNextAction({ status: currentStatus, paymentStatus: currentPaymentStatus, fulfillmentType }),
+    [currentStatus, currentPaymentStatus, fulfillmentType]
+  );
+  const activeStep = getStepIndex(currentStatus);
+  const steps = ["Received", "Preparing", fulfillmentType === "pickup" ? "Ready" : "On the way", "Complete"];
 
-  useEffect(() => {
-    if (!orderId) return undefined;
-    let cancelled = false;
-
-    const loadPreferences = async () => {
-      try {
-        const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/size-preferences`, {
-          cache: "no-store",
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload?.error || "Unable to load size preferences");
-        if (!cancelled) {
-          setSizePreferences(Array.isArray(payload?.preferences) ? payload.preferences : []);
-          setPreferenceError("");
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setSizePreferences([]);
-          setPreferenceError(loadError?.message || "Unable to load size preferences");
-        }
-      }
-    };
-
-    loadPreferences();
-    return () => {
-      cancelled = true;
-    };
-  }, [orderId]);
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setError("");
-    setOk("");
-
-    const payload = { order_id: orderId };
-    if (status && status !== normalizedCurrentStatus) {
-      payload.status = status;
-    }
-    if (paymentStatus && paymentStatus !== normalizedCurrentPaymentStatus) {
-      if (!manualPaymentAllowed) {
-        setError("Payment status is locked for gateway payments.");
-        return;
-      }
-      payload.payment_status = paymentStatus;
-    }
-    if (deliveryStatus && deliveryStatus !== normalizedCurrentDeliveryStatus) {
-      payload.delivery_status = deliveryStatus;
-    }
-    if (!payload.status && !payload.payment_status && !payload.delivery_status) {
-      setError("No change selected.");
-      return;
-    }
-
+  const update = async (patch) => {
+    setMessage("");
     try {
       const response = await fetch("/api/admin/orders/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ order_id: orderId, ...patch, note: note.trim() || undefined }),
       });
-      const data = await response.json().catch(() => ({}));
+      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(data?.error || `Request failed (${response.status})`);
+        setMessage(payload?.error || "The order could not be updated.");
         return;
       }
-      setOk("Updated");
-      startTransition(() => {
-        router.refresh();
-      });
+      setMessage("Order updated.");
+      startTransition(() => router.refresh());
     } catch {
-      setError("Network error. Try again.");
+      setMessage("Network error. Please try again.");
     }
   };
 
   return (
-    <div style={{ display: "grid", gap: 10 }}>
-      {sizePreferences.length ? (
-        <div
-          style={{
-            border: "1px solid #bbf7d0",
-            background: "#f0fdf4",
-            borderRadius: 8,
-            padding: "8px 10px",
-            color: "#166534",
-            fontSize: 12,
-          }}
-        >
-          <strong style={{ display: "block", marginBottom: 4 }}>Fulfilment size preference</strong>
-          {sizePreferences.map((preference) => (
-            <div key={String(preference.itemId)}>
-              {preference.productName}: <strong>{preference.label}</strong>
-            </div>
-          ))}
-          <span style={{ display: "block", marginTop: 4, color: "#15803d" }}>
-            Preference guides physical piece size only; fulfil the paid quantity or value.
-          </span>
-        </div>
+    <section className="next-action-card">
+      <div className="progress" aria-label="Order progress">
+        {steps.map((step, index) => (
+          <div className={index <= activeStep ? "step step-active" : "step"} key={step}>
+            <span>{index < activeStep ? "✓" : index + 1}</span>
+            <small>{step}</small>
+          </div>
+        ))}
+      </div>
+
+      <div className="action-copy">
+        <p>Next action</p>
+        <h2>{action.title}</h2>
+        <span>{action.help}</span>
+      </div>
+
+      {action.kind === "payment" ? (
+        <Link className="primary" href={`/admin/payments?purpose=order_payment&orderId=${encodeURIComponent(orderId)}`}>
+          Open payment review
+        </Link>
       ) : null}
-      {preferenceError ? (
-        <span style={{ color: "#b45309", fontSize: 12 }}>Size preference unavailable: {preferenceError}</span>
-      ) : null}
-
-      <form onSubmit={submit} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-        <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-          disabled={isPending}
-          aria-label="Order status"
-          style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
-        >
-          <option value="">No change</option>
-          {ORDER_STATUS_OPTIONS.filter((option) => {
-            if (!allowedOrderStatusValues) return true;
-            return allowedOrderStatusValues.has(option.value);
-          }).map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        {manualPaymentAllowed ? (
-          <select
-            value={paymentStatus}
-            onChange={(event) => setPaymentStatus(event.target.value)}
-            disabled={isPending}
-            aria-label="Payment status"
-            style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
-          >
-            <option value="">No change</option>
-            {PAYMENT_STATUS_OPTIONS.filter((option) => {
-              if (!allowedPaymentStatusValues) return true;
-              return allowedPaymentStatusValues.has(option.value);
-            }).map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span
-            style={{
-              display: "inline-block",
-              border: "1px solid #e2e8f0",
-              borderRadius: 6,
-              padding: "4px 8px",
-              fontSize: 12,
-              color: "#94a3b8",
-              background: "#f8fafc",
-            }}
-            title={transferPayment ? "Review this transfer in the Payments queue." : "Payment status is controlled by the payment gateway"}
-          >
-            {normalizedCurrentPaymentStatus || "unknown"} ({transferPayment ? "review in Payments" : "gateway"})
-          </span>
-        )}
-
-        <select
-          value={deliveryStatus}
-          onChange={(event) => setDeliveryStatus(event.target.value)}
-          disabled={isPending}
-          aria-label="Delivery status"
-          style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "4px 6px", fontSize: 12 }}
-        >
-          <option value="">No change</option>
-          {DELIVERY_STATUS_OPTIONS.filter((option) => {
-            if (!allowedDeliveryStatusValues) return true;
-            return allowedDeliveryStatusValues.has(option.value);
-          }).map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        <button
-          type="submit"
-          disabled={isPending}
-          style={{
-            border: "1px solid #0f172a",
-            borderRadius: 6,
-            background: "#0f172a",
-            color: "#ffffff",
-            padding: "4px 8px",
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: isPending ? "not-allowed" : "pointer",
-            opacity: isPending ? 0.7 : 1,
-          }}
-        >
-          {isPending ? "Saving..." : "Update"}
+      {action.kind === "update" ? (
+        <button className="primary" type="button" disabled={isPending} onClick={() => update(action.patch)}>
+          {isPending ? "Updating…" : action.title}
         </button>
+      ) : null}
 
-        {error ? <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span> : null}
-        {!error && ok ? <span style={{ color: "#166534", fontSize: 12 }}>{ok}</span> : null}
-      </form>
-    </div>
+      {!CLOSED.has(String(currentStatus || "").toLowerCase()) ? (
+        <details className="advanced">
+          <summary>More actions</summary>
+          <label>
+            Internal note (optional)
+            <textarea value={note} maxLength={500} onChange={(event) => setNote(event.target.value)} placeholder="Reason for this update" />
+          </label>
+          <div className="advanced-row">
+            <button type="button" disabled={isPending} onClick={() => update({ status: "cancelled" })}>Cancel order</button>
+            <Link href={`/admin/orders/support?orderId=${encodeURIComponent(orderId)}`}>Open support case</Link>
+          </div>
+        </details>
+      ) : null}
+
+      {message ? <p className={message === "Order updated." ? "success" : "error"} role="status">{message}</p> : null}
+
+      <div className="state-line">
+        <span>Order: <strong>{humanize(currentStatus)}</strong></span>
+        <span>Payment: <strong>{humanize(currentPaymentStatus)}</strong></span>
+        <span>Delivery: <strong>{humanize(currentDeliveryStatus || "Not started")}</strong></span>
+      </div>
+
+      <style jsx>{`
+        .next-action-card { display:grid; gap:16px; border:1px solid #bbf7d0; border-radius:16px; background:linear-gradient(145deg,#f0fdf4,#fff); padding:18px; }
+        .progress { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+        .step { position:relative; display:grid; justify-items:center; gap:5px; color:#94a3b8; font-weight:750; text-align:center; }
+        .step:not(:last-child):after { content:""; position:absolute; top:13px; left:calc(50% + 16px); width:calc(100% - 32px); height:2px; background:#e2e8f0; }
+        .step span { position:relative; z-index:1; display:grid; width:28px; height:28px; place-items:center; border-radius:50%; background:#e2e8f0; color:#64748b; font-size:12px; }
+        .step small { font-size:11px; }
+        .step-active { color:#166534; }.step-active span,.step-active:not(:last-child):after { background:#22c55e; color:white; }
+        .action-copy p { margin:0 0 4px; color:#16a34a; font-size:11px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+        .action-copy h2 { margin:0; color:#0f172a; font-size:24px; }.action-copy span { display:block; margin-top:5px; color:#64748b; font-size:13px; line-height:1.5; }
+        .primary { display:inline-flex; min-height:46px; align-items:center; justify-content:center; justify-self:start; border:0; border-radius:11px; background:#111827; padding:0 18px; color:white; font-weight:850; text-decoration:none; cursor:pointer; }
+        .primary:disabled { opacity:.6; cursor:wait; }
+        .advanced { border-top:1px solid #dcfce7; padding-top:12px; }.advanced summary { color:#475569; font-size:13px; font-weight:800; cursor:pointer; }
+        .advanced label { display:grid; gap:6px; margin-top:12px; color:#475569; font-size:12px; font-weight:750; }.advanced textarea { min-height:70px; resize:vertical; border:1px solid #cbd5e1; border-radius:9px; padding:9px; font:inherit; }
+        .advanced-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }.advanced-row button,.advanced-row a { display:inline-flex; min-height:38px; align-items:center; border:1px solid #cbd5e1; border-radius:9px; background:white; padding:0 12px; color:#334155; font-size:12px; font-weight:800; text-decoration:none; cursor:pointer; }.advanced-row button { border-color:#fecaca; color:#b91c1c; }
+        .state-line { display:flex; gap:8px 16px; flex-wrap:wrap; border-top:1px solid #dcfce7; padding-top:12px; color:#64748b; font-size:11px; }.state-line strong { color:#334155; }
+        .success,.error { margin:0; font-size:13px; font-weight:800; }.success{color:#166534}.error{color:#b91c1c}
+        @media(max-width:520px){.progress{gap:3px}.step small{font-size:9px}.primary{width:100%}}
+      `}</style>
+    </section>
   );
 }

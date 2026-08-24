@@ -25,16 +25,16 @@ async function signedPhotoUrl(admin, path) {
   return error ? "" : data?.signedUrl || "";
 }
 
-export async function loadRiderDirectory({ activeOnly = false } = {}) {
+export async function loadRiderDirectory({ activeOnly = false, includePhotos = true } = {}) {
   const admin = getSupabaseAdminClient();
   let query = admin.from("delivery_partners").select(RIDER_SELECT).order("created_at", { ascending: false }).limit(200);
   if (activeOnly) query = query.eq("is_active", true).eq("status", "active");
   const { data, error } = await query;
   if (error) return { riders: [], warning: error.message };
 
-  let riders = await Promise.all(
-    (data || []).map(async (row) => normalizeRider(row, await signedPhotoUrl(admin, row.photo_path)))
-  );
+  let riders = includePhotos
+    ? await Promise.all((data || []).map(async (row) => normalizeRider(row, await signedPhotoUrl(admin, row.photo_path))))
+    : (data || []).map((row) => normalizeRider(row));
   if (activeOnly) riders = riders.filter((rider) => Boolean(normalizePhoneContact(rider.phone)));
   return { riders, warning: "" };
 }

@@ -18,6 +18,7 @@ export default async function AdminPaymentsPage({ searchParams }) {
   const params = await searchParams;
   const status = params?.status && params.status !== "all" ? String(params.status) : "";
   const purpose = params?.purpose && params.purpose !== "all" ? String(params.purpose) : "";
+  const orderId = String(params?.orderId || "").trim();
   let query = getSupabaseAdminClient()
     .from("payments")
     .select("id, reference, user_id, order_id, wallet_topup_id, purpose, provider_code, amount, currency, status, payer_account_name, payer_bank_name, customer_transaction_reference, customer_submitted_at, verified_at, rejected_at, rejection_reason, expires_at, created_at")
@@ -25,6 +26,7 @@ export default async function AdminPaymentsPage({ searchParams }) {
     .limit(100);
   if (status) query = query.eq("status", status);
   if (purpose) query = query.eq("purpose", purpose);
+  if (orderId) query = query.eq("order_id", orderId);
   const { data, error } = await query;
   const rows = Array.isArray(data) ? data : [];
 

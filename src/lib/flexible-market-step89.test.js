@@ -12,6 +12,7 @@ const cartRoute = read("src/app/api/cart/route.js");
 const orderRoute = read("src/app/api/orders/route.js");
 const commerceOptions = read("src/lib/commerce-options.js");
 const adminStatus = read("src/components/admin-order-status-control.js");
+const adminOrdersPage = read("src/app/admin/(secure)/orders/page.js");
 const adminPreferenceRoute = read("src/app/api/admin/orders/[id]/size-preferences/route.js");
 
 test("first-wave activation is limited to the four approved Flexible + Standard products", () => {
@@ -47,9 +48,9 @@ test("Flexible + Standard remains normal order checkout while Request remains th
 });
 
 test("fulfilment staff can see persisted Preferred size on general order management", () => {
-  assert.match(adminStatus, /Fulfilment size preference/);
-  assert.match(adminStatus, /Preference guides physical piece size only; fulfil the paid quantity or value/);
-  assert.match(adminStatus, /\/size-preferences/);
+  assert.match(adminOrdersPage, /Fulfilment size preference/);
+  assert.match(adminOrdersPage, /Preference guides physical piece size only; fulfil the paid quantity or value/);
+  assert.doesNotMatch(adminStatus, /\/size-preferences/);
   assert.match(adminPreferenceRoute, /hasAdminAccess/);
   assert.match(adminPreferenceRoute, /size_preference/);
   assert.match(adminPreferenceRoute, /SIZE_PREFERENCE_LABELS/);

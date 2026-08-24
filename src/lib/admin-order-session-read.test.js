@@ -8,6 +8,7 @@ const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 const adminData = read("src/lib/admin-dashboard-data.js");
 const ordersPage = read("src/app/admin/(secure)/orders/page.js");
 const dashboardPage = read("src/app/admin/(secure)/dashboard/page.js");
+const secureLayout = read("src/app/admin/(secure)/layout.js");
 const migration = read("supabase/migrations/20260824194500_fix_staff_rls_for_admin_order_reads.sql");
 
 test("admin order loaders can use an authenticated request client", () => {
@@ -18,10 +19,12 @@ test("admin order loaders can use an authenticated request client", () => {
   assert.match(adminData, /const admin = client \|\| getSupabaseAdminClient\(\)/);
 });
 
-test("admin orders and dashboard pass the logged-in Supabase session to order reads", () => {
-  assert.match(ordersPage, /getSupabaseRouteClient\(await cookies\(\)\)/);
-  assert.match(ordersPage, /client: adminDataClient/);
-  assert.match(ordersPage, /loadOrderAdminDetail\(selectedOrderId, \{ client: adminDataClient \}\)/);
+test("admin orders use server-only reads behind the authenticated admin layout", () => {
+  assert.match(secureLayout, /getSupabaseRouteClient\(await cookies\(\)\)/);
+  assert.match(secureLayout, /hasAdminAccess\(\{ userId: user\.id, email: user\.email \}\)/);
+  assert.doesNotMatch(ordersPage, /getSupabaseRouteClient|adminDataClient/);
+  assert.match(ordersPage, /loadOrderAdminDetail\(selectedOrderId\)/);
+  assert.match(ordersPage, /loadOrderSupportOrderCatalogue\(\{ page, pageSize, query, status \}\)/);
   assert.match(dashboardPage, /getSupabaseRouteClient\(await cookies\(\)\)/);
   assert.match(dashboardPage, /loadOrdersMetrics\([\s\S]*client: adminDataClient/);
 });

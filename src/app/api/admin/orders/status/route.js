@@ -206,7 +206,7 @@ export async function POST(req) {
   const orderId = String(order_id).trim();
   const { data: existingOrder, error: findErr } = await admin
     .from("orders")
-    .select("id, status, payment_status, delivery_status, payment_method")
+    .select("id, status, payment_status, delivery_status, payment_method, fulfillment_type")
     .eq("id", orderId)
     .maybeSingle();
   if (findErr) {
@@ -221,7 +221,9 @@ export async function POST(req) {
   const currentPaymentStatus = String(existingOrder.payment_status || "").toLowerCase();
   const currentDeliveryStatus = String(existingOrder.delivery_status || "").toLowerCase();
   const paymentMethod = String(existingOrder.payment_method || "").toLowerCase();
-  if (nextStatus && !isAllowedStatusTransition(currentStatus, nextStatus)) {
+  const fulfillmentType = String(existingOrder.fulfillment_type || "delivery").toLowerCase();
+  const completesPickup = fulfillmentType === "pickup" && currentStatus === "ready_for_dispatch" && nextStatus === "completed";
+  if (nextStatus && !completesPickup && !isAllowedStatusTransition(currentStatus, nextStatus)) {
     return applyRateLimitHeaders(
       NextResponse.json(
         {
