@@ -1,0 +1,160 @@
+name: Apply Phase B Production Smoke Hotfix
+
+on:
+  push:
+    branches:
+      - hotfix/phase-b-production-smoke
+
+permissions:
+  contents: write
+
+jobs:
+  apply-hotfix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hotfix branch
+        uses: actions/checkout@v4
+        with:
+          ref: hotfix/phase-b-production-smoke
+          fetch-depth: 0
+
+      - name: Apply guarded source transformations
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match in {path}, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          def regex_once(path, pattern, replacement, label, flags=0):
+              p = Path(path)
+              text = p.read_text()
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one regex match in {path}, found {count}")
+              p.write_text(updated)
+
+          quick = "src/components/quick-add-drawer.js"
+          replace_once(
+              quick,
+              '  const cacheRef = useRef(new Map());\n',
+              '',
+              'remove stale quick-add payload cache',
+          )
+          replace_once(
+              quick,
+              '    const cacheKey = String(productId);\n    const cached = cacheRef.current.get(cacheKey);\n',
+              '',
+              'remove quick-add cache lookup',
+          )
+          replace_once(
+              quick,
+              '      cacheRef.current.set(cacheKey, { product: detailProduct, variations: list });\n',
+              '',
+              'remove quick-add cache write',
+          )
+          replace_once(
+              quick,
+              '''    if (cached) {\n      applyData(cached);\n      return () => {\n        cancelled = true;\n      };\n    }\n\n    if (product?.optionsLoaded === true) {\n      applyData({ product, variations: embeddedVariations });\n      return () => {\n        cancelled = true;\n      };\n    }\n\n    fetch(`/api/products/${productId}`)\n''',
+              '''    // Embedded card data is only an immediate rendering fallback. Commerce metadata\n    // (Flexible/Exact selection and availability/inventory modes) is authoritative on\n    // the product endpoint and may change while a shopper keeps the app open. Always\n    // refresh it when Quick Add opens so catalogue changes cannot be hidden by stale UI.\n    if (product?.optionsLoaded === true) {\n      applyData({ product, variations: embeddedVariations });\n    }\n\n    fetch(`/api/products/${productId}`, { cache: "no-store" })\n''',
+              'make quick-add product metadata authoritative on every open',
+          )
+
+          cart = "src/app/cart/page.js"
+          replace_once(
+              cart,
+              '''                  const product = productIndex.get(String(item.productId || item.id));\n                  const status = stockStatus.map.get(item.id);\n''',
+              '''                  const product = productIndex.get(String(item.productId || item.id));\n                  const cartImage = resolveProductImage(\n                    product?.thumbImageUrl,\n                    product?.cardImageUrl,\n                    product?.image,\n                    product?.mainImageUrl,\n                    item.image\n                  );\n                  const cartImageIsRemote = /^https?:\\/\\//i.test(cartImage);\n                  const status = stockStatus.map.get(item.id);\n''',
+              'prefer current catalogue cart thumbnail',
+          )
+          replace_once(
+              cart,
+              '''                        <Image\n                          src={resolveProductImage(item.image)}\n                          alt={item.name}\n                          width={96}\n                          height={96}\n                          sizes="96px"\n                          loading="lazy"\n                        />\n''',
+              '''                        <Image\n                          src={cartImage}\n                          alt={item.name}\n                          width={96}\n                          height={96}\n                          sizes="96px"\n                          loading="lazy"\n                          unoptimized={cartImageIsRemote}\n                        />\n''',
+              'bypass next optimizer for remote cart thumbnails',
+          )
+
+          product_page = "src/app/products/[productSlug]/page.js"
+          regex_once(
+              product_page,
+              r'const REVIEW_DATE_FORMATTER = new Intl\\.DateTimeFormat\\("en-GB", \\{.*?\\n\\}\\);\\n\\n',
+              '',
+              'remove placeholder review date formatter',
+              re.S,
+          )
+          regex_once(
+              product_page,
+              r'const createPlaceholderRatings = \\(productName\\) => \\(\\{.*?\\n\\}\\);\\n\\n',
+              '',
+              'remove fabricated placeholder ratings',
+              re.S,
+          )
+          regex_once(
+              product_page,
+              r'const formatReviewDate = \\(value\\) => \\{.*?\\n\\};\\n\\nconst normaliseReviews = .*?\\n\\};\\n\\nconst normaliseRatings = .*?\\n\\};\\n\\n',
+              '',
+              'remove fabricated review normalizers',
+              re.S,
+          )
+          replace_once(
+              product_page,
+              '''const normaliseProductDetailContent = (product, rawProduct) => ({\n  ...normaliseDatabaseProductDetailContent(rawProduct),\n  specifications: normaliseSpecifications(product, rawProduct?.specifications),\n  ratings: normaliseRatings(product.name, rawProduct?.ratings),\n});\n''',
+              '''const normaliseProductDetailContent = (product, rawProduct) => ({\n  ...normaliseDatabaseProductDetailContent(rawProduct),\n  specifications: normaliseSpecifications(product, rawProduct?.specifications),\n  // Reviews are intentionally hidden at launch until they come from a verified\n  // customer-review source. Do not manufacture placeholder ratings or reviews.\n  ratings: null,\n});\n''',
+              'disable placeholder product ratings',
+          )
+          regex_once(
+              product_page,
+              r'const initialsFor = \\(name\\) =>.*?\\n\\}\\n\\nfunction CustomerReviewsSection\\(\\{ ratings \\}\\) \\{.*?\\n\\}\\n\\nexport async function generateStaticParams',
+              'export async function generateStaticParams',
+              'remove customer review presentation section',
+              re.S,
+          )
+          replace_once(
+              product_page,
+              '    ratings: detailContent.ratings,\n',
+              '    ratings: null,\n',
+              'remove placeholder ratings from product schema',
+          )
+          replace_once(
+              product_page,
+              '      <CustomerReviewsSection ratings={detailContent.ratings} />\n',
+              '',
+              'remove reviews from product page',
+          )
+
+          detail = "src/components/product-detail-client.js"
+          replace_once(
+              detail,
+              '''  const ratingAverage = Number(ratings?.average || 4.6);\n  const reviewCount = Number(ratings?.totalRatings || ratings?.totalReviews || 128);\n''',
+              '''  const ratingAverage = Number(ratings?.average);\n  const reviewCount = Number(ratings?.totalRatings ?? ratings?.totalReviews ?? 0);\n  const hasRealRatings = Number.isFinite(ratingAverage) && ratingAverage > 0 && reviewCount > 0;\n''',
+              'remove fabricated hero rating defaults',
+          )
+          regex_once(
+              detail,
+              r'        <div className="product-detail-rating" aria-label=\\{`\\$\\{ratingAverage\\.toFixed\\(1\\)\\} out of 5 from \\$\\{reviewCount\\} reviews`\\}>.*?        </div>\\n        <div className="product-detail-pricing">',
+              '''        {hasRealRatings ? (\n          <div className="product-detail-rating" aria-label={`${ratingAverage.toFixed(1)} out of 5 from ${reviewCount} reviews`}>\n            <span className="product-detail-rating__stars" aria-hidden="true">\n              {buildStars(ratingAverage).map((star) => (\n                <i key={star.value} className={`${star.isActive ? "fa-solid" : "fa-regular"} fa-star`} />\n              ))}\n            </span>\n            <strong>{ratingAverage.toFixed(1)}</strong>\n            <span>{reviewCount.toLocaleString()} reviews</span>\n          </div>\n        ) : null}\n        <div className="product-detail-pricing">''',
+              'only render hero rating summary for real ratings',
+              re.S,
+          )
+
+          test_path = Path("src/lib/phase-b-production-hotfix.test.js")
+          test_path.write_text('''import assert from "node:assert/strict";\nimport { readFileSync } from "node:fs";\nimport { resolve } from "node:path";\nimport { test } from "node:test";\n\nconst read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");\n\nconst quickAdd = read("src/components/quick-add-drawer.js");\nconst cart = read("src/app/cart/page.js");\nconst productPage = read("src/app/products/[productSlug]/page.js");\nconst productDetail = read("src/components/product-detail-client.js");\n\ntest("Quick Add refreshes authoritative product commerce metadata whenever it opens", () => {\n  assert.match(quickAdd, /fetch\\(`\\/api\\/products\\/\\$\\{productId\\}`, \\{ cache: "no-store" \\}\\)/);\n  assert.doesNotMatch(quickAdd, /const cacheRef = useRef\\(new Map\\(\\)\\)/);\n  assert.doesNotMatch(quickAdd, /if \\(cached\\)/);\n  assert.match(quickAdd, /SizePreferencePicker/);\n});\n\ntest("cart prefers current catalogue thumbnails and bypasses the Next optimizer for remote thumbnails", () => {\n  assert.match(cart, /product\\?\\.thumbImageUrl/);\n  assert.match(cart, /product\\?\\.cardImageUrl/);\n  assert.match(cart, /item\\.image/);\n  assert.match(cart, /unoptimized=\\{cartImageIsRemote\\}/);\n});\n\ntest("product pages do not manufacture or display launch placeholder customer reviews", () => {\n  for (const fabricated of ["Amaka", "Fresh and flavourful", "Reliable quality", "Great value"]) {\n    assert.doesNotMatch(productPage, new RegExp(fabricated));\n  }\n  assert.doesNotMatch(productPage, /CustomerReviewsSection/);\n  assert.match(productPage, /ratings: null/);\n  assert.doesNotMatch(productDetail, /ratings\\?\\.average \\|\\| 4\\.6/);\n  assert.doesNotMatch(productDetail, /totalReviews \\|\\| 128/);\n  assert.match(productDetail, /hasRealRatings/);\n});\n''')
+
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/apply-phase-b-production-hotfix.yml
+
+      - name: Commit hotfix
+        run: |
+          git config user.name "Meal05 Hotfix Bot"
+          git config user.email "153209288+AkinyemiVictor@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "fix: address Phase B production smoke failures"
+          git push origin HEAD:hotfix/phase-b-production-smoke
