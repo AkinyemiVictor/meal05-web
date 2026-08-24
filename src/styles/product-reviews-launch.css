@@ -1,0 +1,10 @@
+/*
+ * Product reviews are not a launch feature yet. The current product-detail
+ * content contains placeholder rating/review presentation, so keep both the
+ * hero rating summary and the review section out of the customer UI until a
+ * verified customer-review source is wired end to end.
+ */
+.product-detail-rating,
+.product-detail-section--reviews {
+  display: none !important;
+}
