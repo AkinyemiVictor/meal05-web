@@ -9,6 +9,8 @@ const picker = read("src/components/size-preference-picker.js");
 const notice = read("src/components/availability-request-notice.js");
 const productDetail = read("src/components/product-detail-client.js");
 const quickAdd = read("src/components/quick-add-drawer.js");
+const productCard = read("src/components/product-card.js");
+const flexibleStyles = read("src/styles/flexible-availability.css");
 
 test("shared preferred-size picker is a compact, readable product option", () => {
   assert.match(picker, /Piece size preference/);
@@ -19,7 +21,14 @@ test("shared preferred-size picker is a compact, readable product option", () =>
   assert.match(picker, /We’ll try to match your preference/);
   assert.match(picker, /How this works/);
   assert.match(picker, /Your selected quantity or weight stays the same/);
+  assert.match(picker, /size-preference-picker__label/);
+  assert.match(flexibleStyles, /\.size-preference-picker__label\s*\{[^}]*text-align:\s*center/s);
   assert.doesNotMatch(picker, /Recommended|size-preference-picker__indicator/);
+});
+
+test("product cards reserve two title lines before rendering the price", () => {
+  assert.match(productCard, /min-h-10 max-h-10 text-\[14px\] leading-5/);
+  assert.match(productCard, /min-h-12 max-h-12 text-base leading-6/);
 });
 
 test("product detail and quick add share the same flexible preference control", () => {

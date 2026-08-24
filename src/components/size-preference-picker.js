@@ -28,7 +28,7 @@ export default function SizePreferencePicker({ value, onChange, compact = false 
               aria-pressed={isSelected}
             >
               {isSelected ? <span className="size-preference-picker__check" aria-hidden="true">✓</span> : null}
-              <span>{option.label}</span>
+              <span className="size-preference-picker__label">{option.label}</span>
             </button>
           );
         })}

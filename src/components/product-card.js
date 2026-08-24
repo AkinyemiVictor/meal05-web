@@ -137,7 +137,9 @@ export default function ProductCard({
             <span
               className={classNames(
                 "w-full overflow-hidden font-medium text-meal-text",
-                compact ? "mt-1.5 max-h-10 text-[14px] leading-5" : "mt-2 max-h-12 text-base leading-6"
+                compact
+                  ? "mt-1.5 min-h-10 max-h-10 text-[14px] leading-5"
+                  : "mt-2 min-h-12 max-h-12 text-base leading-6"
               )}
               style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 }}
               title={product.name}
