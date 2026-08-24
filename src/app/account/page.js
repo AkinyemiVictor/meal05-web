@@ -381,6 +381,8 @@ export function AccountPageContent() {
   const [user, setUser] = useState(null);
   const [hydrated, setHydrated] = useState(false);
   const [orders, setOrders] = useState([]);
+  const [ordersStatus, setOrdersStatus] = useState("idle");
+  const [ordersMessage, setOrdersMessage] = useState("");
   const [savedCart, setSavedCart] = useState([]);
   const [favoriteProductIds, setFavoriteProductIds] = useState([]);
   const [favoritesStatus, setFavoritesStatus] = useState("idle");
@@ -473,17 +475,29 @@ export function AccountPageContent() {
   const syncOrdersFromServer = useCallback(
     async () => {
       if (!user) return;
+      setOrdersStatus("loading");
+      setOrdersMessage("");
       try {
-        const response = await fetch("/api/orders", { cache: "no-store" });
+        const supabase = getBrowserSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = String(session?.access_token || "").trim();
+        const response = await fetch("/api/orders", {
+          cache: "no-store",
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          return;
+          throw new Error(payload?.error || "Unable to load your orders.");
         }
         const apiOrders = Array.isArray(payload?.orders) ? payload.orders.map(mapApiOrder).filter((order) => order.orderId) : [];
         setUserOrders(apiOrders, user);
         setOrders(apiOrders);
-      } catch {
-        /* Keep the local order snapshot if server sync fails. */
+        setOrdersStatus("ready");
+      } catch (error) {
+        // Keep any local order snapshot, but do not present a failed server
+        // request as a genuine empty order history.
+        setOrdersStatus("error");
+        setOrdersMessage(error?.message || "Unable to load your orders.");
       }
     },
     [user]
@@ -1383,6 +1397,14 @@ export function AccountPageContent() {
       case "orders":
         return (
           <>
+            {ordersStatus === "error" ? (
+              <div className={styles.sectionEmpty} role="alert">
+                <p>{ordersMessage || "Unable to load your orders."}</p>
+                <button type="button" className={styles.orderActionButton} onClick={syncOrdersFromServer}>
+                  Try again
+                </button>
+              </div>
+            ) : null}
             <div className={styles.section}>
               <div className={styles.sectionHeader} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h3 className={styles.sectionTitle}>Current orders</h3>
@@ -1445,7 +1467,12 @@ export function AccountPageContent() {
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : ordersStatus === "loading" ? (
+                <div className={styles.sectionEmpty} role="status" aria-live="polite">
+                  <i className="fa-solid fa-box" aria-hidden="true" style={{ fontSize: "1.4rem" }} />
+                  <p>Loading your orders...</p>
+                </div>
+              ) : ordersStatus === "error" ? null : (
                 <div className={styles.sectionEmpty}>
                   <i className="fa-solid fa-box" aria-hidden="true" style={{ fontSize: "1.4rem" }} />
                   <p>No active orders at the moment.</p>

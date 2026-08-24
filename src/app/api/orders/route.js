@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
-import { getOriginTrustContext } from "@/lib/api/request-origin";
+import { getOriginTrustContext, getVerifiedBearerUser } from "@/lib/api/request-origin";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import {
   buildOrderRequestFingerprint,
@@ -1288,22 +1288,8 @@ export async function GET(request) {
   const admin = getSupabaseAdminClient();
   const auth = getSupabaseRouteClient(await cookies());
   const { data: { user: cookieUser }, error: authErr } = await auth.auth.getUser();
-  let user = cookieUser || null;
-  if (!user) {
-    const header = request.headers.get("authorization") || request.headers.get("Authorization") || "";
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    const token = match?.[1]?.trim();
-    if (token) {
-      try {
-        const { data: tokenData, error: tokenErr } = await admin.auth.getUser(token);
-        if (!tokenErr && tokenData?.user) {
-          user = tokenData.user;
-        }
-      } catch {
-        /* noop */
-      }
-    }
-  }
+  const bearerUser = await getVerifiedBearerUser(request, admin);
+  const user = bearerUser || cookieUser || null;
   if (authErr && !user) return applyRateLimitHeaders(NextResponse.json({ error: authErr.message }, { status: 401 }), rl);
   if (!user) return applyRateLimitHeaders(NextResponse.json({ error: "Not authenticated" }, { status: 401 }), rl);
 
@@ -1324,7 +1310,6 @@ export async function GET(request) {
     );
   }
 
-  const routeClient = getSupabaseRouteClient(await cookies());
   const orderSelects = [
     "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url))",
     "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, price, products(name, unit, image_url))",
@@ -1332,7 +1317,10 @@ export async function GET(request) {
   let data = [];
   let error = null;
   for (const select of orderSelects) {
-    const result = await routeClient
+    // Authentication was already verified above. Keep the privileged read
+    // constrained to that exact user so order history does not depend on a
+    // second Cloudflare cookie/session handoff and cannot cross account bounds.
+    const result = await admin
       .from("orders")
       .select(select)
       .eq("user_id", user.id)
