@@ -15,6 +15,30 @@ const PRODUCT_ASSET_PATH = "/api/product-assets/";
 // preserved, so newly-normalised assets still keep their own version identity.
 const PRODUCT_ASSET_REFRESH_KEY = "m5asset";
 const PRODUCT_ASSET_REFRESH_VALUE = "20260819";
+const NEXT_IMAGE_PATH = "/_next/image";
+
+const unwrapNextImageUrl = (value) => {
+  let current = String(value || "").trim();
+  if (!current) return "";
+
+  // Cart/localStorage snapshots can outlive a deployment. If one contains an
+  // already-optimised Next.js URL, passing it to <Image> again nests the image
+  // optimiser and can produce a 404. Peel off a few nested optimiser layers and
+  // keep the underlying canonical product source instead.
+  for (let depth = 0; depth < 3; depth += 1) {
+    try {
+      const parsed = new URL(current, "https://meal05.invalid");
+      if (parsed.pathname !== NEXT_IMAGE_PATH) break;
+      const source = String(parsed.searchParams.get("url") || "").trim();
+      if (!source || source === current) break;
+      current = source;
+    } catch {
+      break;
+    }
+  }
+
+  return current;
+};
 
 const normalisePath = (value) => {
   if (typeof value !== "string") return "";
@@ -50,7 +74,7 @@ const refreshProductAssetUrl = (value) => {
 
 export const cleanProductImage = (value) => {
   if (typeof value !== "string") return "";
-  const trimmed = value.trim();
+  const trimmed = unwrapNextImageUrl(value);
   if (!trimmed) return "";
   const normalised = normalisePath(trimmed);
   for (const brokenPath of LEGACY_BROKEN_IMAGE_PATHS) {
