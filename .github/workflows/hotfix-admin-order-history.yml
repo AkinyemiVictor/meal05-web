@@ -1,0 +1,40 @@
+name: Hotfix Admin Order History
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  transform:
+    if: github.head_ref == 'hotfix/admin-order-history'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hotfix branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply guarded transform
+        run: node scripts/hotfix-admin-order-history.mjs
+
+      - name: Commit transformed files
+        run: |
+          if git diff --quiet -- src/lib/admin-dashboard-data.js 'src/app/admin/(secure)/orders/page.js'; then
+            echo "No transform changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/admin-dashboard-data.js 'src/app/admin/(secure)/orders/page.js'
+          git commit -m "fix: restore admin order history and fulfilment preference"
+          git push origin HEAD:${{ github.head_ref }}
