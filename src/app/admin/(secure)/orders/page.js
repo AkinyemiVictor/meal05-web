@@ -439,6 +439,16 @@ export default async function AdminOrdersPage({ searchParams }) {
                               Fulfilment note: {item.fulfillmentNote}
                             </p>
                           ) : null}
+                          {item.sizePreferenceLabel ? (
+                            <p style={{ margin: "6px 0 0", color: "#0f172a", fontSize: 12 }}>
+                              Fulfilment size preference: <strong>{item.sizePreferenceLabel}</strong>
+                            </p>
+                          ) : null}
+                          {item.fulfillmentNote ? (
+                            <p style={{ margin: "4px 0 0", color: "#475569", fontSize: 12 }}>
+                              Fulfilment note: {item.fulfillmentNote}
+                            </p>
+                          ) : null}
                         </td>
                         <td style={{ padding: 10 }}>{adminFormatters.number(item.quantity)}</td>
                         <td style={{ padding: 10 }}>{adminFormatters.currency(item.unitPrice)}</td>
