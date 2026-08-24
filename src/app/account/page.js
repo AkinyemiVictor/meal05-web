@@ -1412,7 +1412,7 @@ export function AccountPageContent() {
               {presentOrders.length ? (
                 <div className={styles.list}>
                   {presentOrders.map((order) => (
-                    <div className={styles.listItem} key={order.orderId}>
+                    <div className={`${styles.listItem} ${styles.orderListItem}`} key={order.orderId}>
                       <div className={styles.orderInfo}>
                         <strong>Order {order.orderId}</strong>
                         <span>Placed {formatOrderDate(order.placedAt)}</span>
@@ -1486,7 +1486,7 @@ export function AccountPageContent() {
               {pastOrders.length ? (
                 <div className={styles.list}>
                   {pastOrders.map((order) => (
-                    <div className={styles.listItem} key={order.orderId}>
+                    <div className={`${styles.listItem} ${styles.orderListItem}`} key={order.orderId}>
                       <div className={styles.orderInfo}>
                         <strong>Order {order.orderId}</strong>
                         <span>Delivered {formatOrderDate(order.placedAt)}</span>

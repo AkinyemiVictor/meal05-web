@@ -6,6 +6,7 @@ import { test } from "node:test";
 const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 const accountPage = read("src/app/account/page.js");
+const accountStyles = read("src/app/account/account.module.css");
 const ordersRoute = read("src/app/api/orders/route.js");
 
 test("customer order history sends the verified browser session to the API", () => {
@@ -35,4 +36,12 @@ test("customer order failures are visible instead of rendering a false empty his
   assert.match(accountPage, /Unable to load your orders\./);
   assert.match(accountPage, /Loading your orders\.\.\./);
   assert.match(accountPage, /Try again/);
+});
+
+test("customer order actions use a stable aligned grid on desktop and mobile", () => {
+  assert.match(accountPage, /styles\.listItem\} \$\{styles\.orderListItem/);
+  assert.match(accountStyles, /\.orderListItem\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.match(accountStyles, /\.orderListItem > \.orderActions\s*\{[\s\S]*?justify-self: end/);
+  assert.match(accountStyles, /\.orderListItem > \.orderActions \.orderActionButton\s*\{[\s\S]*?min-width: 9\.25rem/);
+  assert.match(accountStyles, /@media \(max-width: 720px\)[\s\S]*?\.orderListItem\s*\{[\s\S]*?grid-template-columns: 1fr/);
 });

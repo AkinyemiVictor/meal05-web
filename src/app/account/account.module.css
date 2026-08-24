@@ -1618,6 +1618,27 @@
   font-weight: 950;
 }
 
+.orderListItem {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.orderListItem .orderInfo {
+  min-width: 0;
+}
+
+.orderListItem > .orderActions {
+  justify-self: end;
+}
+
+.orderListItem > .orderActions .orderActionButton {
+  min-width: 9.25rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (max-width: 1180px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
@@ -1752,6 +1773,21 @@
   .voucherItem {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .orderListItem {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    gap: 0.9rem;
+  }
+
+  .orderListItem > .orderActions {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .orderListItem > .orderActions .orderActionButton {
+    flex: 1;
   }
 
   .voucherItem > strong {
