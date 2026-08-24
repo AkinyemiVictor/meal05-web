@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   adminFormatters,
   loadOrderAdminDetail,
@@ -9,6 +10,7 @@ import AdminOrderStatusControl from "@/components/admin-order-status-control";
 import AdminOrderSupportCaseControl from "@/components/admin-order-support-case-control";
 import AdminOrderRiderAssignment from "@/components/admin-order-rider-assignment";
 import { loadOrderDeliveryAssignment, loadRiderDirectory } from "@/lib/delivery/riders";
+import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 
 export const dynamic = "force-dynamic";
 
@@ -149,6 +151,7 @@ function OrderStatusBlock({ row }) {
 }
 
 export default async function AdminOrdersPage({ searchParams }) {
+  const adminDataClient = getSupabaseRouteClient(await cookies());
   const params = (await searchParams) || {};
   const query = String(params?.q || "").trim();
   const listPage = toPositiveInt(params?.page, 1);
@@ -168,9 +171,10 @@ export default async function AdminOrdersPage({ searchParams }) {
       status,
       paymentStatus,
       deliveryStatus,
+      client: adminDataClient,
     }),
-    selectedOrderId ? loadOrderAdminDetail(selectedOrderId) : Promise.resolve({ order: null, items: [], supportCases: [], warnings: [] }),
-    loadOrderExceptionQueue({ category: exception, page: exceptionPage, pageSize: 12 }),
+    selectedOrderId ? loadOrderAdminDetail(selectedOrderId, { client: adminDataClient }) : Promise.resolve({ order: null, items: [], supportCases: [], warnings: [] }),
+    loadOrderExceptionQueue({ category: exception, page: exceptionPage, pageSize: 12, client: adminDataClient }),
     selectedOrderId ? loadRiderDirectory({ activeOnly: true }) : Promise.resolve({ riders: [], warning: "" }),
     selectedOrderId ? loadOrderDeliveryAssignment(selectedOrderId) : Promise.resolve(null),
   ]);

@@ -690,8 +690,8 @@ async function queryOrdersByIds(admin, orderIds = []) {
   return { rows, usedSelect, lastError };
 }
 
-export async function loadOrdersMetrics({ status = "all", paymentStatus = "all", page = 1, pageSize = 25 } = {}) {
-  const admin = getSupabaseAdminClient();
+export async function loadOrdersMetrics({ status = "all", paymentStatus = "all", page = 1, pageSize = 25, client = null } = {}) {
+  const admin = client || getSupabaseAdminClient();
   const warnings = createWarnings();
   const currentPage = Math.max(1, Number(page || 1));
   const size = Math.min(100, Math.max(10, Number(pageSize || 25)));
@@ -718,8 +718,8 @@ export async function loadOrdersMetrics({ status = "all", paymentStatus = "all",
   };
 }
 
-export async function loadOrderExceptionQueue({ category = "all", page = 1, pageSize = 15 } = {}) {
-  const admin = getSupabaseAdminClient();
+export async function loadOrderExceptionQueue({ category = "all", page = 1, pageSize = 15, client = null } = {}) {
+  const admin = client || getSupabaseAdminClient();
   const warnings = createWarnings();
   const currentPage = Math.max(1, Number(page || 1));
   const size = Math.min(100, Math.max(5, Number(pageSize || 15)));
@@ -931,8 +931,9 @@ export async function loadOrderSupportOrderCatalogue({
   status = "all",
   paymentStatus = "all",
   deliveryStatus = "all",
+  client = null,
 } = {}) {
-  const admin = getSupabaseAdminClient();
+  const admin = client || getSupabaseAdminClient();
   const warnings = createWarnings();
   const currentPage = Math.max(1, Number(page || 1));
   const size = Math.min(100, Math.max(5, Number(pageSize || 12)));
@@ -1040,8 +1041,8 @@ const mapOrderItemRecord = (row) => {
   };
 };
 
-export async function loadOrderAdminDetail(orderId) {
-  const admin = getSupabaseAdminClient();
+export async function loadOrderAdminDetail(orderId, { client = null } = {}) {
+  const admin = client || getSupabaseAdminClient();
   const warnings = createWarnings();
   const safeOrderId = String(orderId || "").trim();
   if (!safeOrderId) {
