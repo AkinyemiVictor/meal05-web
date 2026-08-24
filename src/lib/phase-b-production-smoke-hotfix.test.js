@@ -7,6 +7,7 @@ const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 const catalogueClient = read("src/lib/use-catalog-products.js");
 const quickAdd = read("src/components/quick-add-drawer.js");
+const searchResultsClient = read("src/components/search-results-client.js");
 const nextConfig = read("next.config.mjs");
 const layout = read("src/app/layout.js");
 const reviewGateCss = read("src/styles/product-reviews-launch.css");
@@ -17,6 +18,12 @@ test("catalogue products cannot make Quick Add skip canonical commerce metadata"
   assert.match(catalogueClient, /optionsLoaded: false/);
   assert.match(quickAdd, /fetch\(`\/api\/products\/\$\{productId\}`\)/);
   assert.match(quickAdd, /SizePreferencePicker/);
+});
+
+test("search results also force canonical Quick Add commerce metadata", () => {
+  assert.match(searchResultsClient, /requireCanonicalQuickAddMetadata/);
+  assert.match(searchResultsClient, /optionsLoaded: false/);
+  assert.match(searchResultsClient, /setQuickAddProduct\(requireCanonicalQuickAddMetadata\(product\)\)/);
 });
 
 test("Cloudflare product images bypass the Next runtime optimizer", () => {
