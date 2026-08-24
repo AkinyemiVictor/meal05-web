@@ -363,6 +363,7 @@ export async function loadOverviewMetrics() {
 }
 
 const ORDER_SELECT_CANDIDATES = [
+  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, delivery_status, delivery_address, created_at, updated_at",
@@ -1030,8 +1031,11 @@ const mapOrderItemRecord = (row) => {
     productName: row?.product_name || product?.name || `Product ${String(row?.product_id || "").slice(0, 8)}...`,
     unit: row?.unit || product?.unit || "",
     quantity: toNumber(row?.quantity),
-    unitPrice: toNumber(row?.unit_price),
-    lineTotal: toNumber(row?.quantity) * toNumber(row?.unit_price),
+    unitPrice: toNumber(row?.unit_price ?? row?.price),
+    lineTotal: toNumber(row?.quantity) * toNumber(row?.unit_price ?? row?.price),
+    sizePreference: String(row?.size_preference || "").trim().toLowerCase(),
+    sizePreferenceLabel: ({ best_available: "Best available", smaller: "Smaller pieces", medium: "Medium pieces", larger: "Larger pieces" })[String(row?.size_preference || "").trim().toLowerCase()] || "",
+    fulfillmentNote: String(row?.fulfillment_note || "").trim(),
     imageUrl: product?.image_url || row?.image_url || "",
   };
 };
@@ -1055,6 +1059,10 @@ export async function loadOrderAdminDetail(orderId) {
   let itemRows = [];
   let itemError = null;
   const itemSelectCandidates = [
+    "id, order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url)",
+    "id, order_id, product_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url)",
+    "id, order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note",
+    "id, order_id, product_id, quantity, price, size_preference, fulfillment_note",
     "id, order_id, product_id, variant_id, quantity, unit_price, products(name, unit, image_url)",
     "id, order_id, product_id, quantity, unit_price, products(name, unit, image_url)",
     "id, order_id, product_id, variant_id, quantity, unit_price",
