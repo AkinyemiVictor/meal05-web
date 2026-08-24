@@ -22,6 +22,14 @@ test("customer order reads stay scoped to the verified user without a second coo
   );
 });
 
+test("customer order items do not depend on an undeclared product relationship", () => {
+  assert.doesNotMatch(ordersRoute, /order_items:order_items\([^\n"]*products\(/);
+  assert.match(ordersRoute, /admin\.from\("products"\)\.select\("id, name, main_image_url"\)/);
+  assert.match(ordersRoute, /admin\.from\("product_variants"\)\.select\("id, unit"\)/);
+  assert.match(ordersRoute, /productsById\.get\(String\(it\?\.product_id\)\)/);
+  assert.match(ordersRoute, /variantsById\.get\(String\(it\?\.variant_id\)\)/);
+});
+
 test("customer order failures are visible instead of rendering a false empty history", () => {
   assert.match(accountPage, /setOrdersStatus\("error"\)/);
   assert.match(accountPage, /Unable to load your orders\./);

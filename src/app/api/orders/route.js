@@ -1311,8 +1311,8 @@ export async function GET(request) {
   }
 
   const orderSelects = [
-    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url))",
-    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, order_items:order_items(order_id, product_id, quantity, price, products(name, unit, image_url))",
+    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note)",
+    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price)",
   ];
   let data = [];
   let error = null;
@@ -1336,6 +1336,29 @@ export async function GET(request) {
   if (error) return applyRateLimitHeaders(NextResponse.json({ error: error.message }, { status: 400 }), rl);
 
   const rows = Array.isArray(data) ? data : [];
+  const orderItems = rows.flatMap((row) => (Array.isArray(row?.order_items) ? row.order_items : []));
+  const productIds = [...new Set(orderItems.map((item) => item?.product_id).filter((id) => id != null))];
+  const variantIds = [...new Set(orderItems.map((item) => item?.variant_id).filter((id) => id != null))];
+  const [productsResult, variantsResult] = await Promise.all([
+    productIds.length
+      ? admin.from("products").select("id, name, main_image_url").in("id", productIds)
+      : Promise.resolve({ data: [], error: null }),
+    variantIds.length
+      ? admin.from("product_variants").select("id, unit").in("id", variantIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (productsResult.error) {
+    await logAdminError(productsResult.error, { route: "/api/orders", stage: "list:products", user_id: user.id });
+  }
+  if (variantsResult.error) {
+    await logAdminError(variantsResult.error, { route: "/api/orders", stage: "list:variants", user_id: user.id });
+  }
+  const productsById = new Map(
+    (Array.isArray(productsResult.data) ? productsResult.data : []).map((product) => [String(product.id), product])
+  );
+  const variantsById = new Map(
+    (Array.isArray(variantsResult.data) ? variantsResult.data : []).map((variant) => [String(variant.id), variant])
+  );
   const normalize = (row) => {
     const items = Array.isArray(row?.order_items) ? row.order_items : [];
     return {
@@ -1352,7 +1375,8 @@ export async function GET(request) {
       items: items.map((it) => {
         const unit = Number(it?.price ?? it?.unit_price) || 0;
         const qty = Number(it?.quantity) || 0;
-        const prod = it?.products || {};
+        const prod = productsById.get(String(it?.product_id)) || {};
+        const variant = variantsById.get(String(it?.variant_id)) || {};
         return {
           orderId: it.order_id,
           productId: it.product_id,
@@ -1365,8 +1389,8 @@ export async function GET(request) {
           product: {
             name: prod?.name || "",
             title: prod?.name || "",
-            unit: prod?.unit || "",
-            image: resolveProductImage(prod?.image_url, prod?.image),
+            unit: variant?.unit || "",
+            image: resolveProductImage(prod?.main_image_url),
           },
         };
       }),
