@@ -111,7 +111,11 @@ export default function ProductCard({
 
   const handleAdd = (event) => {
     const handler = onQuickAdd || onAdd;
-    handler?.(product, event.currentTarget);
+    const quickAddProduct =
+      product && typeof product === "object"
+        ? { ...product, optionsLoaded: false }
+        : product;
+    handler?.(quickAddProduct, event.currentTarget);
   };
 
   return (
