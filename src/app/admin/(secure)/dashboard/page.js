@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { adminFormatters, loadOrdersMetrics, loadOverviewMetrics } from "@/lib/admin-dashboard-data";
+import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +19,9 @@ const issueAgeTone = (issueAgeHours) => {
 };
 
 export default async function AdminDashboardPage() {
+  const adminDataClient = getSupabaseRouteClient(await cookies());
   const overview = await loadOverviewMetrics();
-  const recentOrders = await loadOrdersMetrics({ status: "all", paymentStatus: "all", page: 1, pageSize: 12 });
+  const recentOrders = await loadOrdersMetrics({ status: "all", paymentStatus: "all", page: 1, pageSize: 12, client: adminDataClient });
 
   return (
     <main style={{ maxWidth: 1180, margin: "24px auto", padding: "0 16px 40px" }}>
