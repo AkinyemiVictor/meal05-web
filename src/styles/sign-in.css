@@ -356,6 +356,11 @@
   font-weight: 800;
 }
 
+.auth-label-optional {
+  color: var(--auth-muted);
+  font-weight: 650;
+}
+
 .auth-field input,
 .auth-phone-select {
   width: 100%;
@@ -755,59 +760,24 @@
 
 @media (max-width: 900px) {
   .auth-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-aside {
-    min-height: 17rem;
-    padding: 1.7rem 2rem;
-    background:
-      linear-gradient(rgba(7, 20, 38, 0.7), rgba(7, 20, 38, 0.76)),
-      url("/assets/billboard/vegetables.jpg") center 34% / cover no-repeat;
-  }
-
-  .auth-aside-inner {
-    width: 100%;
-    min-height: 0;
     display: block;
   }
 
-  .auth-aside-badge {
-    min-height: 1.45rem;
-    margin-top: 0;
-    padding: 0.24rem 0.55rem;
-    font-size: 0.58rem;
-  }
-
-  .auth-aside-title {
-    max-width: 16ch;
-    margin: 1rem 0 0.55rem;
-    font-size: 2.35rem;
-    line-height: 1.02;
-  }
-
-  .auth-aside-text {
-    max-width: 22rem;
-    margin: 0;
-    font-size: 0.78rem;
-    line-height: 1.55;
-  }
-
-  .auth-aside-list,
-  .auth-aside-bottom {
+  .auth-aside {
     display: none;
   }
 
   .auth-panel {
-    min-height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
     align-items: center;
-    padding: 1.25rem 2rem 2.75rem;
+    padding: 7.25rem clamp(1rem, 5vw, 3rem) 2.75rem;
   }
 
   .auth-panel-header--top {
-    position: static;
-    width: 100%;
-    margin-bottom: 0;
+    top: 1.5rem;
+    right: clamp(1rem, 5vw, 3rem);
+    left: clamp(1rem, 5vw, 3rem);
   }
 
   .auth-tabs,
@@ -817,127 +787,29 @@
     width: min(100%, 25rem);
   }
 
-  .auth-panel-header--copy {
-    margin-top: 6.1rem;
-  }
-
   .auth-panel-heading {
-    min-height: 4.5rem;
-  }
-
-  .auth-panel-heading h2 {
-    font-size: 1.55rem;
-  }
-
-  .auth-panel-heading p {
-    font-size: 0.8rem;
-  }
-
-  .auth-tab {
-    min-height: 2.4rem;
-    font-size: 0.75rem;
-  }
-
-  .auth-field,
-  .auth-field-half,
-  .auth-form {
-    gap: 0.62rem;
-  }
-
-  .auth-label,
-  .auth-login-options {
-    font-size: 0.68rem;
-  }
-
-  .auth-field input,
-  .auth-phone-select {
-    min-height: 2.55rem;
-    padding: 0.68rem 0.8rem;
-    border-radius: 8px;
-    font-size: 0.78rem;
-  }
-
-  .auth-field input::placeholder {
-    font-size: 0.78rem;
-  }
-
-  .auth-primary-btn,
-  .auth-google-btn {
-    min-height: 2.75rem;
-    border-radius: 9px;
-    font-size: 0.78rem;
+    min-height: 5.25rem;
   }
 }
 
 @media (max-width: 550px) {
-  .auth-aside {
-    min-height: 15.3rem;
-    padding: 1rem 1rem 1.15rem;
-    background-position: center top;
-  }
-
-  .auth-aside-badge {
-    min-height: 1.35rem;
-    padding: 0.2rem 0.5rem;
-    font-size: 0.54rem;
-  }
-
-  .auth-aside-title {
-    margin-top: 0.75rem;
-    max-width: 15ch;
-    font-size: 1.95rem;
-  }
-
-  .auth-aside-text {
-    max-width: 17rem;
-    font-size: 0.68rem;
-  }
-
   .auth-panel {
-    padding: 1rem 0.85rem 1.75rem;
+    padding: 6.75rem 1rem 2rem;
   }
 
   .auth-panel-header--top {
     gap: 0.75rem;
   }
 
-  .auth-panel-logo img {
-    max-width: 58px;
-  }
-
   .auth-back-btn {
-    min-height: 1.85rem;
-    padding: 0 0.65rem;
-    font-size: 0.58rem;
-  }
-
-  .auth-panel-header--copy {
-    margin-top: 5.4rem;
+    padding-inline: 0.8rem;
   }
 
   .auth-tabs,
   .auth-forms,
   .auth-disclaimer,
   .auth-panel-header--copy {
-    width: min(100%, 20rem);
-  }
-
-  .auth-panel-heading {
-    min-height: 4rem;
-  }
-
-  .auth-panel-heading h2 {
-    font-size: 1.45rem;
-  }
-
-  .auth-tabs {
-    border-radius: 9px;
-    padding: 0.22rem;
-  }
-
-  .auth-tab {
-    min-height: 2rem;
-    border-radius: 7px;
+    width: 100%;
   }
 
   .auth-field--split {
@@ -946,48 +818,19 @@
 
   .auth-phone-group,
   .auth-phone-group--login {
-    grid-template-columns: 104px minmax(0, 1fr);
+    grid-template-columns: 108px minmax(0, 1fr);
     gap: 0.55rem;
   }
 
   .auth-phone-select {
     padding-left: 0.75rem;
     padding-right: 2.55rem;
-    font-size: 0.76rem;
-  }
-
-  .auth-login-options {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.65rem;
+    font-size: 0.78rem;
   }
 
   .auth-login-options {
     align-items: center;
     flex-direction: row;
     gap: 0.6rem;
-  }
-
-  .auth-primary-btn,
-  .auth-google-btn,
-  .auth-field input,
-  .auth-phone-select {
-    min-height: 2.35rem;
-  }
-
-  .auth-password-requirements {
-    font-size: 0.68rem;
-  }
-
-  .auth-password-requirements ul {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-switch {
-    font-size: 0.78rem;
-  }
-
-  .auth-disclaimer {
-    font-size: 0.66rem;
   }
 }

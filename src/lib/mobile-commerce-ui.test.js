@@ -15,13 +15,13 @@ test("Browse provides a mobile product search control", () => {
   assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.shop-page__search/);
 });
 
-test("mobile product options use a responsive button grid", () => {
+test("product options never exceed three columns and stay readable on mobile", () => {
   const css = read("src/styles/main.css");
+  const basePickerRule = css.indexOf(".product-variant-picker__options {");
   const finalPickerRule = css.lastIndexOf(".product-detail-page .product-variant-picker__options");
-  const finalSingleColumnRule = css.lastIndexOf("grid-template-columns: 1fr");
 
-  assert.ok(finalPickerRule > finalSingleColumnRule);
-  assert.match(css.slice(finalPickerRule, finalPickerRule + 240), /repeat\(auto-fit, minmax\(5\.5rem, 1fr\)\)/);
+  assert.match(css.slice(basePickerRule, basePickerRule + 240), /repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css.slice(finalPickerRule, finalPickerRule + 240), /repeat\(2, minmax\(0, 1fr\)\)/);
 });
 
 test("quick-add modal keeps two readable option cards and scrolls instead of scaling down", () => {

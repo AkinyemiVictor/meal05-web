@@ -323,77 +323,6 @@ function StorageTipsSection({ tips }) {
   );
 }
 
-const initialsFor = (name) =>
-  String(name || "Meal05 shopper")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "MS";
-
-function CustomerReviewsSection({ ratings }) {
-  const reviews = (ratings?.reviews || []).slice(0, 2);
-  const average = Number(ratings?.average || 4.6);
-  const total = Number(ratings?.totalRatings || 128);
-  return (
-    <section
-      className="product-detail-section product-detail-section--reviews"
-      aria-labelledby="product-reviews-heading"
-    >
-      <h2 id="product-reviews-heading">Customer reviews</h2>
-      <div className="product-reviews-layout">
-        <div className="product-reviews-summary" aria-label={`${average.toFixed(1)} out of 5`}>
-          <div>
-            <span className="product-reviews-score">{average.toFixed(1)}</span>
-            <span className="product-reviews-max">/5</span>
-          </div>
-          <span className="product-reviews-stars" aria-hidden="true">
-            {Array.from({ length: 5 }, (_, index) => (
-              <i
-                key={index}
-                className={`${index + 1 <= Math.round(average) ? "fa-solid" : "fa-regular"} fa-star`}
-              />
-            ))}
-          </span>
-          <p>
-            <i className="fa-solid fa-circle-check" aria-hidden="true" />
-            {total.toLocaleString()} verified
-          </p>
-        </div>
-        <div className="product-reviews-list">
-          {reviews.map((review) => (
-            <article key={review.id} className="product-review-card">
-              <div className="product-review-avatar" aria-hidden="true">
-                {initialsFor(review.author)}
-              </div>
-              <div className="product-review-body">
-                <div className="product-review-header">
-                  <div>
-                    <h3>{review.author}</h3>
-                    <p>{formatReviewDate(review.date)}</p>
-                  </div>
-                  <span className="product-review-stars" aria-hidden="true">
-                    {Array.from({ length: 5 }, (_, index) => (
-                      <i
-                        key={index}
-                        className={`${index + 1 <= Math.round(review.rating) ? "fa-solid" : "fa-regular"} fa-star`}
-                      />
-                    ))}
-                  </span>
-                </div>
-                <p className="product-review-comment">{review.comment}</p>
-              </div>
-            </article>
-          ))}
-          <button type="button" className="product-review-write">
-            Write a review
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export async function generateStaticParams() {
   try {
     const list = await fetchAllProducts();
@@ -525,7 +454,6 @@ export default async function ProductDetailPage({ params }) {
       {detailContent.storageTips.length ? (
         <StorageTipsSection tips={detailContent.storageTips} />
       ) : null}
-      <CustomerReviewsSection ratings={detailContent.ratings} />
     </main>
   );
 }

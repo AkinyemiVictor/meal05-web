@@ -14,6 +14,7 @@ export default function AppComingSoonSection() {
               height={290}
               sizes="140px"
               loading="lazy"
+              unoptimized
             />
             <Image
               src="/assets/img/android mockup potrait.png"
@@ -23,6 +24,7 @@ export default function AppComingSoonSection() {
               height={287}
               sizes="140px"
               loading="lazy"
+              unoptimized
             />
           </div>
           <div className="appTextndButtons">

@@ -4,6 +4,9 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-07-09",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://meal05.com"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
