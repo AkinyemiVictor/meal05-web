@@ -670,7 +670,6 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             <SizePreferencePicker
               value={sizePreference}
               onChange={setSizePreference}
-              variationNote={displayProduct?.variationNote || displayProduct?.variation_note}
               compact
             />
           ) : null}

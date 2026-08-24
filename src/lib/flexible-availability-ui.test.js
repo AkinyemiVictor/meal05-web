@@ -10,15 +10,16 @@ const notice = read("src/components/availability-request-notice.js");
 const productDetail = read("src/components/product-detail-client.js");
 const quickAdd = read("src/components/quick-add-drawer.js");
 
-test("shared preferred-size picker presents preference as non-priced fulfilment guidance", () => {
-  assert.match(picker, /Preferred size/);
+test("shared preferred-size picker is a compact, readable product option", () => {
+  assert.match(picker, /Piece size preference/);
   assert.match(picker, /Best available/);
-  assert.match(picker, /Recommended/);
-  assert.match(picker, /Smaller/);
+  assert.match(picker, /Small/);
   assert.match(picker, /Medium/);
-  assert.match(picker, /Larger/);
-  assert.match(picker, /does not change the price, quantity, or value you pay for/);
-  assert.match(picker, /closest suitable size/);
+  assert.match(picker, /Large/);
+  assert.match(picker, /We’ll try to match your preference/);
+  assert.match(picker, /How this works/);
+  assert.match(picker, /Your selected quantity or weight stays the same/);
+  assert.doesNotMatch(picker, /Recommended|size-preference-picker__indicator/);
 });
 
 test("product detail and quick add share the same flexible preference control", () => {

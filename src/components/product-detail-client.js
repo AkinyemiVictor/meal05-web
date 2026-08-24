@@ -387,7 +387,6 @@ export default function ProductDetailClient({ product, variations = [], fallback
           <SizePreferencePicker
             value={sizePreference}
             onChange={setSizePreference}
-            variationNote={product.variationNote || product.variation_note}
           />
         ) : null}
 

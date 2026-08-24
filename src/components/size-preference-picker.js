@@ -1,40 +1,20 @@
 "use client";
 
-import {
-  SELECTION_MODE_FLEXIBLE,
-  normalizeSizePreference,
-} from "@/lib/commerce-options";
-
-const DEFAULT_VARIATION_NOTE =
-  "Fresh produce naturally varies. Size, shape, weight and number of pieces may differ depending on what is available at the farm or market.";
+import { SELECTION_MODE_FLEXIBLE, normalizeSizePreference } from "@/lib/commerce-options";
 
 const OPTIONS = Object.freeze([
-  {
-    value: "best_available",
-    label: "Best available",
-    description: "We choose the best suitable size available.",
-    recommended: true,
-  },
-  { value: "smaller", label: "Smaller", description: "Prefer smaller pieces." },
-  { value: "medium", label: "Medium", description: "Prefer medium-sized pieces." },
-  { value: "larger", label: "Larger", description: "Prefer larger pieces." },
+  { value: "best_available", label: "Best available" },
+  { value: "smaller", label: "Small" },
+  { value: "medium", label: "Medium" },
+  { value: "larger", label: "Large" },
 ]);
 
-export default function SizePreferencePicker({
-  value,
-  onChange,
-  variationNote,
-  compact = false,
-}) {
-  const selected =
-    normalizeSizePreference(value, SELECTION_MODE_FLEXIBLE) || "best_available";
+export default function SizePreferencePicker({ value, onChange, compact = false }) {
+  const selected = normalizeSizePreference(value, SELECTION_MODE_FLEXIBLE) || "best_available";
 
   return (
     <fieldset className={`size-preference-picker${compact ? " is-compact" : ""}`}>
-      <legend className="size-preference-picker__legend">Preferred size</legend>
-      <p className="size-preference-picker__intro">
-        Choose what you prefer. Your preference does not change the price, quantity, or value you pay for.
-      </p>
+      <legend className="size-preference-picker__legend">Piece size preference</legend>
 
       <div className="size-preference-picker__options">
         {OPTIONS.map((option) => {
@@ -43,33 +23,27 @@ export default function SizePreferencePicker({
             <button
               key={option.value}
               type="button"
-              className={`size-preference-picker__option${isSelected ? " is-selected" : ""}${option.recommended ? " is-recommended" : ""}`}
+              className={`size-preference-picker__option${isSelected ? " is-selected" : ""}`}
               onClick={() => onChange?.(option.value)}
               aria-pressed={isSelected}
             >
-              <span className="size-preference-picker__option-copy">
-                <span className="size-preference-picker__option-title">
-                  {option.label}
-                  {option.recommended ? (
-                    <span className="size-preference-picker__recommended">Recommended</span>
-                  ) : null}
-                </span>
-                <span className="size-preference-picker__option-description">
-                  {option.description}
-                </span>
-              </span>
-              <span className="size-preference-picker__indicator" aria-hidden="true" />
+              {isSelected ? <span className="size-preference-picker__check" aria-hidden="true">✓</span> : null}
+              <span>{option.label}</span>
             </button>
           );
         })}
       </div>
 
       <p className="size-preference-picker__note">
-        {String(variationNote || "").trim() || DEFAULT_VARIATION_NOTE}
+        <span className="size-preference-picker__info" aria-hidden="true">i</span>
+        <span>We’ll try to match your preference. Fresh produce sizes may vary.</span>
       </p>
-      <p className="size-preference-picker__fallback">
-        We’ll aim to match your preference. If it isn’t available, we’ll use the closest suitable size while preserving the quantity or value represented by the option you paid for.
-      </p>
+      <details className="size-preference-picker__details">
+        <summary>How this works</summary>
+        <p>
+          Choose the piece size you prefer. If it isn’t available, we may send the closest available size. Your selected quantity or weight stays the same.
+        </p>
+      </details>
     </fieldset>
   );
 }
