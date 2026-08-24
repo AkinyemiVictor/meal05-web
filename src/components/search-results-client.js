@@ -8,6 +8,11 @@ import ProductGrid from "@/components/product-grid";
 
 const QuickAddDrawer = dynamic(() => import("@/components/quick-add-drawer"), { ssr: false });
 
+const requireCanonicalQuickAddMetadata = (product) =>
+  product && typeof product === "object"
+    ? { ...product, optionsLoaded: false }
+    : product;
+
 export default function SearchResultsClient({ products = [] }) {
   const [quickAddProduct, setQuickAddProduct] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -31,7 +36,7 @@ export default function SearchResultsClient({ products = [] }) {
       return;
     }
     setQuickAddAnchorEl(anchorEl || null);
-    setQuickAddProduct(product);
+    setQuickAddProduct(requireCanonicalQuickAddMetadata(product));
     setQuickAddOpen(true);
   };
 
