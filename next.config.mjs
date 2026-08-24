@@ -39,6 +39,11 @@ const nextConfig = {
     ];
   },
   images: {
+    // Product images are already normalised into purpose-sized WebP assets in
+    // Supabase. OpenNext/Cloudflare's /_next/image path has produced intermittent
+    // 404s for otherwise-valid cart thumbnails, so serve those assets directly
+    // instead of adding another runtime optimisation hop.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
