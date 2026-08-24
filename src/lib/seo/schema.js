@@ -7,6 +7,9 @@ const DEFAULT_CURRENCY = process.env.NEXT_PUBLIC_CURRENCY_CODE || "NGN";
 const ORGANIZATION_FRAGMENT = "#organization";
 const WEBSITE_FRAGMENT = "#website";
 const DEFAULT_ORGANIZATION_LOGO = "/assets/logo/MEAL05 NEW LOGO-01.png";
+// Product review data is not a verified launch data source yet. Keep aggregate
+// rating structured data disabled until genuine customer reviews are wired in.
+const PRODUCT_RATINGS_SCHEMA_ENABLED = false;
 
 const normaliseToken = (value) =>
   String(value || "")
@@ -150,8 +153,8 @@ export const buildProductSchema = ({
   const productUrl = toAbsoluteUrl(productPath || "/");
   const images = buildProductImages(product);
   const price = toFiniteNumber(product.price);
-  const averageRating = toFiniteNumber(ratings?.average);
-  const totalRatings = toFiniteNumber(ratings?.totalRatings);
+  const averageRating = PRODUCT_RATINGS_SCHEMA_ENABLED ? toFiniteNumber(ratings?.average) : null;
+  const totalRatings = PRODUCT_RATINGS_SCHEMA_ENABLED ? toFiniteNumber(ratings?.totalRatings) : null;
 
   const schema = {
     "@context": "https://schema.org",
