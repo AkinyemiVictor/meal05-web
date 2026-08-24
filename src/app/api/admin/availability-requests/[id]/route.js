@@ -5,8 +5,8 @@ import { hasAdminAccess } from "@/lib/admin-access";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { AVAILABILITY_REQUEST_SELECT, attachAvailabilityRequestLifecycle, calculateRequestTotal, resolveRequestState } from "@/lib/availability-requests-server";
-import { formatAvailabilityDuration } from "@/lib/availability-settings";
 import { loadAvailabilitySettings } from "@/lib/availability-settings-server";
+import { sendAvailabilityReengagement } from "@/lib/availability-reengagement-server";
 import { isTrustedRequestOrigin } from "@/lib/api/request-origin";
 
 const schema = z.object({
@@ -71,16 +71,16 @@ export async function PATCH(request, { params }) {
   if (!updated) {
     return NextResponse.json({ error: "This request changed while it was being updated. Reload and try again." }, { status: 409 });
   }
+
   if (status === "confirmed" || status === "action_required") {
-    await admin.from("notifications").insert({
-      user_id: record.user_id, channel: "in_app",
-      event: status === "confirmed" ? "availability_request_confirmed" : "availability_request_action_required",
-      subject: status === "confirmed" ? "Basket availability confirmed" : "Basket update needed",
-      body: status === "confirmed"
-        ? `${record.request_number} is confirmed. Pay within ${formatAvailabilityDuration(availabilitySettings.paymentWindowMinutes)} to keep this availability.`
-        : `${record.request_number} has an unavailable item. Review it to continue.`,
-      status: "delivered", sent_at: now.toISOString(),
+    await sendAvailabilityReengagement({
+      admin,
+      request: updated,
+      status,
+      paymentWindowMinutes: availabilitySettings?.paymentWindowMinutes,
+      now,
     });
   }
+
   return NextResponse.json({ request: attachAvailabilityRequestLifecycle(updated, now) });
 }

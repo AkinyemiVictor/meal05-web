@@ -3,6 +3,7 @@ import "@/styles/main.css";
 import "@/styles/product-badges.css";
 import "@/styles/meal05-footer-download.css";
 import "@/styles/notice.css";
+import "@/styles/flexible-availability.css";
 import "@/styles/fontawesome-subset.css";
 import { Suspense } from "react";
 import Script from "next/script";

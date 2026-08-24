@@ -17,6 +17,7 @@ import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { CART_UPDATED_EVENT, readCartItems } from "@/lib/cart-storage";
 import { ORDERS_EVENT, readUserOrders } from "@/lib/orders";
+import { syncAvailabilityRequestNotifications } from "@/lib/availability-notifications-client";
 import {
   NOTIFICATIONS_EVENT,
   clearReadNotifications,
@@ -68,6 +69,16 @@ export default function NotificationsPage() {
     setNotifications(synced.length ? synced : readNotifications(activeUser));
   }, []);
 
+  const refreshAvailabilityNotifications = useCallback(async () => {
+    const activeUser = readStoredUser();
+    if (!activeUser) return;
+    const response = await fetch("/api/availability-requests", { cache: "no-store" });
+    if (!response.ok) return;
+    const payload = await response.json().catch(() => ({}));
+    syncAvailabilityRequestNotifications({ requests: payload.requests || [], user: activeUser });
+    refreshNotifications();
+  }, [refreshNotifications]);
+
   useEffect(() => {
     refreshNotifications();
     window.addEventListener("storage", refreshNotifications);
@@ -83,6 +94,22 @@ export default function NotificationsPage() {
       window.removeEventListener(NOTIFICATIONS_EVENT, refreshNotifications);
     };
   }, [refreshNotifications]);
+
+  useEffect(() => {
+    const refresh = () => refreshAvailabilityNotifications().catch(() => {});
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener(AUTH_EVENT, refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener(AUTH_EVENT, refresh);
+    };
+  }, [refreshAvailabilityNotifications]);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
@@ -231,7 +258,7 @@ export default function NotificationsPage() {
             </div>
             <h2 className="mt-4 text-xl font-extrabold text-meal-text">No notifications yet</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm font-medium leading-6 text-meal-muted">
-              We will add order updates, delivery changes, saved-cart reminders, and important account alerts here.
+              We will add order updates, availability checks, delivery changes, saved-cart reminders, and important account alerts here.
             </p>
             <Link
               href="/shop"

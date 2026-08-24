@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import AvailabilityRequestNotice from "@/components/availability-request-notice";
+import SizePreferencePicker from "@/components/size-preference-picker";
 import VariantPicker from "@/components/variant-picker";
 import categories from "@/data/categories";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
@@ -12,6 +14,12 @@ import { useNotice } from "@/components/notice-provider";
 import { resolveProductImage } from "@/lib/product-image";
 import { readStoredUser } from "@/lib/auth";
 import { addAuthenticatedCartItem } from "@/lib/cart-sync";
+import {
+  SELECTION_MODE_FLEXIBLE,
+  normalizeAvailabilityMode,
+  normalizeSelectionMode,
+  normalizeSizePreference,
+} from "@/lib/commerce-options";
 import {
   PURCHASE_MODE_FIXED,
   PURCHASE_MODE_LOOSE,
@@ -44,6 +52,29 @@ const buildVariantName = (variant) => {
   return variant.name || variant.label || "";
 };
 
+const getAvailabilityMode = (variant, product) =>
+  normalizeAvailabilityMode(
+    variant?.availabilityMode ??
+      variant?.availability_mode ??
+      product?.availabilityMode ??
+      product?.availability_mode
+  );
+
+const getInventoryTrackingMode = (variant, product) =>
+  String(
+    variant?.inventoryTrackingMode ??
+      variant?.inventory_tracking_mode ??
+      product?.inventoryTrackingMode ??
+      product?.inventory_tracking_mode ??
+      "tracked"
+  ).toLowerCase() === "supplier"
+    ? "supplier"
+    : "tracked";
+
+const bypassesLocalStock = (variant, product) =>
+  getAvailabilityMode(variant, product) === "request" ||
+  getInventoryTrackingMode(variant, product) === "supplier";
+
 const pickDefaultVariant = (variations, product) => {
   if (!Array.isArray(variations) || variations.length === 0) {
     if (!product) return null;
@@ -55,6 +86,8 @@ const pickDefaultVariant = (variations, product) => {
       stock: product.stock,
       image: product.image,
       name: product.variantName || product.name,
+      availabilityMode: product.availabilityMode ?? product.availability_mode,
+      inventoryTrackingMode: product.inventoryTrackingMode ?? product.inventory_tracking_mode,
     };
   }
   const selectable = variations.filter((v) => v && !isVariantInactive(v, product));
@@ -96,17 +129,24 @@ const getVariantImage = (variant, product, fallback) =>
   resolveProductImage(variant?.image, product?.image, fallback);
 
 const getStockValue = (variant, product) => {
-  const count = Number(variant?.stockCount);
-  if (Number.isFinite(count)) return count;
+  if (variant?.stockCount != null) {
+    const count = Number(variant.stockCount);
+    if (Number.isFinite(count)) return count;
+  }
   if (variant?.stock != null) return variant.stock;
-  const productCount = Number(product?.stock);
-  if (Number.isFinite(productCount)) return productCount;
+  if (product?.stock != null) {
+    const productCount = Number(product.stock);
+    if (Number.isFinite(productCount)) return productCount;
+  }
   return product?.stock ?? "";
 };
 
 const isVariantInactive = (variant, product) => {
   if (!variant || typeof variant !== "object") return true;
   if (variant.isSelectable === false || variant.is_active === false || variant.isActive === false) return true;
+  const availabilityMode = getAvailabilityMode(variant, product);
+  if (availabilityMode === "unavailable") return true;
+  if (bypassesLocalStock(variant, product)) return false;
   const stockClass = resolveStockClass(getStockValue(variant, product));
   return stockClass === "is-unavailable";
 };
@@ -148,6 +188,10 @@ const buildFallbackVariantFromProduct = (product) => {
     volume_unit: product.volume_unit ?? product.volumeUnit,
     optionRole: product.optionRole ?? product.option_role,
     option_role: product.option_role ?? product.optionRole,
+    availabilityMode: product.availabilityMode ?? product.availability_mode ?? "standard",
+    availability_mode: product.availability_mode ?? product.availabilityMode ?? "standard",
+    inventoryTrackingMode: product.inventoryTrackingMode ?? product.inventory_tracking_mode ?? "tracked",
+    inventory_tracking_mode: product.inventory_tracking_mode ?? product.inventoryTrackingMode ?? "tracked",
     stock: product.stock,
     stockCount: product.stock,
     image: product.image,
@@ -159,7 +203,7 @@ const buildFallbackVariantFromProduct = (product) => {
   };
 };
 
-const buildCartItem = (product, variant, orderCount, fallbackImage) => {
+const buildCartItem = (product, variant, orderCount, fallbackImage, sizePreference) => {
   const variantId = getVariantId(variant, product);
   const lineId = variantId || product?.id || "";
   const unit = getVariantUnit(variant, product) || "Per pack";
@@ -177,6 +221,11 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
   const volumeMax = pickNumberOrNull(variant?.volume_max, variant?.volumeMax, product?.volume_max, product?.volumeMax);
   const volumeUnit = pickTextOrNull(variant?.volume_unit, variant?.volumeUnit, product?.volume_unit, product?.volumeUnit);
   const optionRole = pickTextOrNull(variant?.option_role, variant?.optionRole, product?.option_role, product?.optionRole);
+  const selectionModel = normalizeSelectionMode(product?.selectionModel ?? product?.selection_model);
+  const availabilityMode = getAvailabilityMode(variant, product);
+  const inventoryTrackingMode = getInventoryTrackingMode(variant, product);
+  const normalizedSizePreference = normalizeSizePreference(sizePreference, selectionModel);
+  const variationNote = String(product?.variationNote ?? product?.variation_note ?? "").trim();
   return {
     id: lineId,
     productId: product?.id,
@@ -214,6 +263,16 @@ const buildCartItem = (product, variant, orderCount, fallbackImage) => {
     volume_unit: volumeUnit,
     optionRole,
     option_role: optionRole,
+    availabilityMode,
+    availability_mode: availabilityMode,
+    inventoryTrackingMode,
+    inventory_tracking_mode: inventoryTrackingMode,
+    selectionModel,
+    selection_model: selectionModel,
+    variationNote,
+    variation_note: variationNote,
+    sizePreference: normalizedSizePreference,
+    size_preference: normalizedSizePreference,
     orderSize: 1,
     orderCount: quantity,
     quantity,
@@ -234,6 +293,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [purchaseMode, setPurchaseMode] = useState(PURCHASE_MODE_FIXED);
   const [quantity, setQuantity] = useState(1);
+  const [sizePreference, setSizePreference] = useState("best_available");
   const [error, setError] = useState("");
 
   const productId = product?.id;
@@ -272,6 +332,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setSelectedVariant(null);
       setPurchaseMode(PURCHASE_MODE_FIXED);
       setQuantity(1);
+      setSizePreference("best_available");
       return;
     }
     if (!productId) return;
@@ -290,6 +351,11 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     setSelectedVariant(fallbackVariant || null);
     setPurchaseMode(fallbackVariant?.purchase_mode || PURCHASE_MODE_FIXED);
     setQuantity(getVariantPurchaseRules(fallbackVariant).minQuantity);
+    setSizePreference(
+      normalizeSelectionMode(product?.selectionModel ?? product?.selection_model) === SELECTION_MODE_FLEXIBLE
+        ? normalizeSizePreference(product?.sizePreference ?? product?.size_preference, SELECTION_MODE_FLEXIBLE) || "best_available"
+        : "best_available"
+    );
 
     const applyData = (payload) => {
       if (cancelled) return;
@@ -311,6 +377,14 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setSelectedVariant(defaultVariant);
       setPurchaseMode(normalizePurchaseMode(defaultVariant?.purchase_mode ?? defaultVariant?.purchaseMode));
       setQuantity(getVariantPurchaseRules(defaultVariant).minQuantity);
+      setSizePreference(
+        normalizeSelectionMode(detailProduct?.selectionModel ?? detailProduct?.selection_model) === SELECTION_MODE_FLEXIBLE
+          ? normalizeSizePreference(
+              detailProduct?.sizePreference ?? detailProduct?.size_preference,
+              SELECTION_MODE_FLEXIBLE
+            ) || "best_available"
+          : "best_available"
+      );
       setStatus("ready");
       cacheRef.current.set(cacheKey, { product: detailProduct, variations: list });
     };
@@ -365,6 +439,11 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   const activeVariations = purchaseMode === PURCHASE_MODE_LOOSE ? looseVariations : fixedVariations;
   const effectiveVariant = selectedVariant || pickDefaultVariant(activeVariations, displayProduct);
   const purchaseRules = useMemo(() => getVariantPurchaseRules(effectiveVariant), [effectiveVariant]);
+  const selectionModel = normalizeSelectionMode(displayProduct?.selectionModel ?? displayProduct?.selection_model);
+  const isFlexibleMarket = selectionModel === SELECTION_MODE_FLEXIBLE;
+  const availabilityMode = getAvailabilityMode(effectiveVariant, displayProduct);
+  const inventoryTrackingMode = getInventoryTrackingMode(effectiveVariant, displayProduct);
+  const bypassLocalStock = availabilityMode === "request" || inventoryTrackingMode === "supplier";
 
   useEffect(() => {
     const pool = activeVariations.length ? activeVariations : variations;
@@ -376,6 +455,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setQuantity(getVariantPurchaseRules(next).minQuantity);
     }
   }, [activeVariations, displayProduct, selectedVariant?.id, selectedVariant?.variationId, variations]);
+
   const priceLabel = useMemo(() => {
     if (!displayProduct) return "";
     return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), getVariantUnit(effectiveVariant, displayProduct));
@@ -387,7 +467,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
   const isUnavailable = isVariantInactive(effectiveVariant, displayProduct);
   const availableCount = getAvailableCount(getStockValue(effectiveVariant, displayProduct));
-  const effectiveMaxQuantity = Number.isFinite(availableCount)
+  const effectiveMaxQuantity = !bypassLocalStock && Number.isFinite(availableCount)
     ? Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount)
     : purchaseRules.maxQuantity;
   const quantityAtMin = quantity <= purchaseRules.minQuantity;
@@ -406,8 +486,10 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         setError("Select an option before adding to cart.");
         return;
       }
-      const stockClass = resolveStockClass(getStockValue(targetVariant, baseProduct));
-      if (stockClass === "is-unavailable") {
+      const targetAvailabilityMode = getAvailabilityMode(targetVariant, baseProduct);
+      const targetInventoryMode = getInventoryTrackingMode(targetVariant, baseProduct);
+      const targetBypassLocalStock = targetAvailabilityMode === "request" || targetInventoryMode === "supplier";
+      if (targetAvailabilityMode === "unavailable") {
         const message = "This option is out of stock.";
         if (isDropdown) {
           setError(message);
@@ -416,6 +498,18 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         }
         return;
       }
+      if (!targetBypassLocalStock) {
+        const stockClass = resolveStockClass(getStockValue(targetVariant, baseProduct));
+        if (stockClass === "is-unavailable") {
+          const message = "This option is out of stock.";
+          if (isDropdown) {
+            setError(message);
+          } else {
+            showNotice({ tone: "error", title: "Out of stock", message });
+          }
+          return;
+        }
+      }
       const validation = validateVariantQuantity(targetVariant, qty ?? quantity);
       if (!validation.ok) {
         setError(validation.error);
@@ -423,6 +517,10 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       }
       const safeQty = validation.quantity;
       const availableCount = getAvailableCount(getStockValue(targetVariant, baseProduct));
+      const cartSizePreference =
+        normalizeSelectionMode(baseProduct?.selectionModel ?? baseProduct?.selection_model) === SELECTION_MODE_FLEXIBLE
+          ? normalizeSizePreference(sizePreference, SELECTION_MODE_FLEXIBLE) || "best_available"
+          : null;
 
       setStatus("adding");
       try {
@@ -449,7 +547,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             setStatus("ready");
             return;
           }
-          if (Number.isFinite(availableCount) && nextCount > availableCount) {
+          if (!targetBypassLocalStock && Number.isFinite(availableCount) && nextCount > availableCount) {
             const message = `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available.`;
             if (isDropdown) {
               setError(message);
@@ -461,10 +559,10 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           }
           items[index] = {
             ...existing,
-            ...buildCartItem(baseProduct, targetVariant, nextCount, product?.image),
+            ...buildCartItem(baseProduct, targetVariant, nextCount, product?.image, cartSizePreference),
           };
         } else {
-          if (Number.isFinite(availableCount) && safeQty > availableCount) {
+          if (!targetBypassLocalStock && Number.isFinite(availableCount) && safeQty > availableCount) {
             const message = `Only ${availableCount} item${availableCount === 1 ? "" : "s"} available.`;
             if (isDropdown) {
               setError(message);
@@ -474,12 +572,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             setStatus("ready");
             return;
           }
-          items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image));
+          items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference));
         }
 
         if (readStoredUser()) {
           await addAuthenticatedCartItem(
-            buildCartItem(baseProduct, targetVariant, safeQty, product?.image),
+            buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference),
             { source: "quick-add" }
           );
         } else {
@@ -495,7 +593,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         showNotice({ tone: "error", title: "Cart not updated", message });
       }
     },
-    [displayProduct, effectiveVariant, isDropdown, onClose, product?.image, quantity, showNotice]
+    [displayProduct, effectiveVariant, isDropdown, onClose, product?.image, quantity, showNotice, sizePreference]
   );
 
   if (!isOpen) return null;
@@ -568,6 +666,17 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             </>
           ) : null}
 
+          {isFlexibleMarket ? (
+            <SizePreferencePicker
+              value={sizePreference}
+              onChange={setSizePreference}
+              variationNote={displayProduct?.variationNote || displayProduct?.variation_note}
+              compact
+            />
+          ) : null}
+
+          {availabilityMode === "request" ? <AvailabilityRequestNotice compact /> : null}
+
           <div className="quick-add-summary">
             <div>
               <p className="quick-add-summary__label">Price</p>
@@ -585,7 +694,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               <input
                 type="number"
                 min={purchaseRules.minQuantity}
-                max={purchaseRules.maxQuantity ?? undefined}
+                max={effectiveMaxQuantity ?? undefined}
                 step={purchaseRules.stepQuantity}
                 inputMode={purchaseRules.purchaseMode === PURCHASE_MODE_LOOSE ? "decimal" : "numeric"}
                 value={quantity}
@@ -626,6 +735,11 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               "Out of stock"
             ) : status === "adding" ? (
               "Adding..."
+            ) : availabilityMode === "request" ? (
+              <>
+                <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+                Add to availability basket
+              </>
             ) : (
               <>
                 <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
