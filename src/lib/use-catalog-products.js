@@ -27,14 +27,38 @@ const normaliseIds = (ids = []) => {
   return out;
 };
 
+// Catalogue/card payloads are intentionally lightweight and some legacy feeds can
+// contain variations without the authoritative product-level commerce metadata
+// (selection_model / variation_note) or variant availability/inventory modes.
+// Quick Add treats optionsLoaded=true as permission to skip /api/products/:id, so
+// never advertise catalogue-card options as canonical. The drawer can still paint
+// its card fallback immediately, then refresh the authoritative product endpoint.
+const requireCanonicalQuickAddMetadata = (product) =>
+  product && typeof product === "object"
+    ? { ...product, optionsLoaded: false }
+    : product;
+
 const buildLookup = (payload, orderedIds = []) => {
   const catalogue = payload?.grouped || {};
   const lookup = normaliseProductCatalogue(catalogue);
+  const canonicalOrdered = lookup.ordered.map(requireCanonicalQuickAddMetadata);
+  const canonicalIndex = new Map(
+    canonicalOrdered
+      .filter((product) => product?.id != null)
+      .map((product) => [String(product.id), product])
+  );
+
   if (!orderedIds.length) {
-    return { catalogue, ordered: lookup.ordered, index: lookup.index, pagination: payload?.pagination || null };
+    return {
+      catalogue,
+      ordered: canonicalOrdered,
+      index: canonicalIndex,
+      pagination: payload?.pagination || null,
+    };
   }
-  const ordered = orderedIds.map((id) => lookup.index.get(String(id))).filter(Boolean);
-  return { catalogue, ordered, index: lookup.index, pagination: payload?.pagination || null };
+
+  const ordered = orderedIds.map((id) => canonicalIndex.get(String(id))).filter(Boolean);
+  return { catalogue, ordered, index: canonicalIndex, pagination: payload?.pagination || null };
 };
 
 const fetchCatalog = async (url, orderedIds = [], { refresh = false } = {}) => {
