@@ -34,7 +34,8 @@ test("OTP delivery uses Termii DND-compatible messaging API with retryable failu
   assert.match(source, /\/api\/sms\/send/);
   assert.match(source, /termiiChannel.*\|\| "dnd"/);
   assert.match(source, /type:\s*"plain"/);
-  assert.match(source, /status:\s*503/);
+  assert.match(source, /SMS provider is temporarily unavailable/);
+  assert.match(source, /retryable \? 503 : 502/);
   assert.match(source, /"retry-after": "2"/);
   assert.match(source, /TERMII_TIMEOUT_MS = 3500/);
 });
