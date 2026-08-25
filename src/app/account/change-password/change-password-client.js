@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react";
 
 import styles from "./change-password.module.css";
+import { clearStoredUser } from "@/lib/auth";
 import { buildAuthCallbackUrl, buildSignInHref } from "@/lib/auth-redirect";
 import { PASSWORD_RECOVERY_PATH } from "@/lib/auth/password-recovery";
 import { getPasswordRequirements, isStrongPassword } from "@/lib/password-policy";
@@ -70,6 +71,7 @@ export default function ChangePasswordClient({ recoveryAuthorized = false }) {
   const [signOutOthers, setSignOutOthers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sendingRecovery, setSendingRecovery] = useState(false);
+  const [cancellingRecovery, setCancellingRecovery] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [success, setSuccess] = useState(false);
@@ -126,6 +128,28 @@ export default function ChangePasswordClient({ recoveryAuthorized = false }) {
     }
   };
 
+  const cancelRecovery = async () => {
+    if (!recoveryAuthorized || cancellingRecovery) return;
+    setError("");
+    setInfo("");
+    setCancellingRecovery(true);
+    try {
+      const response = await fetch("/api/auth/cancel-password-recovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "We could not cancel password recovery safely.");
+      }
+      clearStoredUser();
+      window.location.replace(buildSignInHref({ tab: "login", hash: "loginForm" }));
+    } catch (cancelError) {
+      setError(cancelError?.message || "We could not cancel password recovery safely.");
+      setCancellingRecovery(false);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!canSubmit) return;
@@ -158,6 +182,9 @@ export default function ChangePasswordClient({ recoveryAuthorized = false }) {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      if (recoveryAuthorized) {
+        clearStoredUser();
+      }
       setSuccess(true);
     } catch (submitError) {
       setError(submitError?.message || "We could not update your password. Please try again.");
@@ -169,10 +196,22 @@ export default function ChangePasswordClient({ recoveryAuthorized = false }) {
   return (
     <main className={styles.page}>
       <div className={styles.wrap}>
-        <Link className={styles.backLink} href="/account?tab=management">
-          <IconArrowLeft aria-hidden="true" size={18} />
-          Back to account management
-        </Link>
+        {recoveryAuthorized ? (
+          <button
+            className={`${styles.backLink} ${styles.backButton}`}
+            disabled={cancellingRecovery}
+            onClick={cancelRecovery}
+            type="button"
+          >
+            <IconArrowLeft aria-hidden="true" size={18} />
+            {cancellingRecovery ? "Cancelling recovery..." : "Cancel password recovery"}
+          </button>
+        ) : (
+          <Link className={styles.backLink} href="/account?tab=management">
+            <IconArrowLeft aria-hidden="true" size={18} />
+            Back to account management
+          </Link>
+        )}
 
         <section className={styles.card} aria-labelledby="change-password-title">
           {success ? (
@@ -183,11 +222,18 @@ export default function ChangePasswordClient({ recoveryAuthorized = false }) {
               <p className={styles.eyebrow}>Account secured</p>
               <h1>Password changed</h1>
               <p>
-                Your new password is active. Use it the next time you sign in.
+                {recoveryAuthorized
+                  ? "Your new password is active. Sign in with it to continue."
+                  : "Your new password is active. Use it the next time you sign in."}
               </p>
               {warning ? <p className={styles.warning}>{warning}</p> : null}
-              <Link className={styles.primaryLink} href="/account?tab=management">
-                Return to my account
+              <Link
+                className={styles.primaryLink}
+                href={recoveryAuthorized
+                  ? buildSignInHref({ tab: "login", hash: "loginForm" })
+                  : "/account?tab=management"}
+              >
+                {recoveryAuthorized ? "Sign in with new password" : "Return to my account"}
               </Link>
             </div>
           ) : (

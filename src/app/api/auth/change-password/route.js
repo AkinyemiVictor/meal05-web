@@ -72,6 +72,28 @@ const clearRecoveryCookie = (response) => {
   return response;
 };
 
+const finishRecoverySession = async ({ supabase, signOutOthers }) => {
+  if (!signOutOthers) {
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    return { error, warning: "" };
+  }
+
+  const { error: globalSignOutError } = await supabase.auth.signOut({ scope: "global" });
+  if (!globalSignOutError) {
+    return { error: null, warning: "" };
+  }
+
+  const { error: localSignOutError } = await supabase.auth.signOut({ scope: "local" });
+  if (localSignOutError) {
+    return { error: localSignOutError, warning: "" };
+  }
+
+  return {
+    error: null,
+    warning: "Password changed, but some other signed-in devices may remain active.",
+  };
+};
+
 export async function POST(request) {
   let rateLimit = await checkRateLimit({
     request,
@@ -153,6 +175,24 @@ export async function POST(request) {
   if (updateError) {
     return withRateLimit(
       json({ error: updateError.message || "We could not update your password. Please try again." }, 400),
+      rateLimit
+    );
+  }
+
+  if (recovery) {
+    const { error: recoverySignOutError, warning } = await finishRecoverySession({ supabase, signOutOthers });
+    if (recoverySignOutError) {
+      return withRateLimit(
+        json({
+          error: "Your password changed, but the recovery session could not be closed safely. Close this tab and try signing in again after the recovery window expires.",
+          passwordUpdated: true,
+        }, 503),
+        rateLimit
+      );
+    }
+
+    return withRateLimit(
+      clearRecoveryCookie(json({ ok: true, recoveryComplete: true, ...(warning ? { warning } : {}) })),
       rateLimit
     );
   }

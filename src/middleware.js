@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, applyRateLimitHeaders } from "./lib/api/rate-limit";
+import {
+  PASSWORD_RECOVERY_COOKIE,
+  PASSWORD_RECOVERY_PATH,
+} from "./lib/auth/password-recovery";
 
 const RATE_LIMITED_PREFIXES = [
   "/api/auth",
@@ -13,6 +17,16 @@ const RATE_LIMITED_PREFIXES = [
   "/api/verify-email",
   "/admin",
 ];
+
+const RECOVERY_PAGE_PATH = PASSWORD_RECOVERY_PATH.split("?")[0];
+const RECOVERY_ALLOWED_PAGE_PATHS = new Set([
+  RECOVERY_PAGE_PATH,
+  "/auth/callback",
+]);
+const RECOVERY_ALLOWED_API_PATHS = new Set([
+  "/api/auth/change-password",
+  "/api/auth/cancel-password-recovery",
+]);
 
 const isMutatingMethod = (method) => !["GET", "HEAD", "OPTIONS"].includes(method);
 
@@ -30,6 +44,15 @@ const setRegionCookie = (response, code) => {
   });
 };
 
+const recoveryBlockedApiResponse = () => {
+  const response = NextResponse.json(
+    { error: "Finish or cancel password recovery before using your account." },
+    { status: 403 }
+  );
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  return response;
+};
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl || {};
   const url = request.nextUrl.clone();
@@ -38,6 +61,7 @@ export async function middleware(request) {
   const queryRegion = url.searchParams.get("region");
   const regionSegment = pathname.split("/")[1];
   const hostRegion = getHostRegion(host);
+  const hasRecoverySession = Boolean(request.cookies.get(PASSWORD_RECOVERY_COOKIE)?.value);
   const hasRegionWork = Boolean(
     hostRegion ||
       queryRegion === "gh" ||
@@ -52,6 +76,18 @@ export async function middleware(request) {
     url.hostname = "meal05.com";
     url.port = "";
     return NextResponse.redirect(url, 308);
+  }
+
+  if (hasRecoverySession) {
+    if (pathname.startsWith("/api/") && !RECOVERY_ALLOWED_API_PATHS.has(pathname)) {
+      return recoveryBlockedApiResponse();
+    }
+
+    if (!pathname.startsWith("/api/") && !RECOVERY_ALLOWED_PAGE_PATHS.has(pathname)) {
+      url.pathname = RECOVERY_PAGE_PATH;
+      url.search = "?recovery=1";
+      return NextResponse.redirect(url, 307);
+    }
   }
 
   if (!shouldRateLimit && !hasRegionWork) {
