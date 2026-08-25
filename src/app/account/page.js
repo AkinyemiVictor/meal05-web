@@ -6,18 +6,26 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   IconAddressBook,
+  IconArrowDownLeft,
   IconBell,
+  IconChevronRight,
+  IconCircleCheck,
   IconClock,
+  IconCopy,
   IconFileDescription,
   IconGift,
   IconHeart,
   IconHelpCircle,
+  IconHourglass,
+  IconLock,
   IconLogout,
   IconMail,
   IconMapPin,
   IconMessageCircle,
   IconPackage,
   IconReceiptRefund,
+  IconRefresh,
+  IconShieldCheck,
   IconShoppingBag,
   IconUser,
   IconUserCog,
@@ -1636,24 +1644,17 @@ export function AccountPageContent() {
           <>
             <div className={[styles.creditBanner, styles.walletBalanceCard].join(" ")}>
               <div className={styles.walletBalanceCopy}>
-                <span>Available Meal05 Balance</span>
+                <span>Current balance</span>
                 <strong>{formatMoney(balance, currencyCode)}</strong>
-                <p>For seamless Meal05 checkout.</p>
               </div>
-              <div className={styles.walletBalanceIcon} aria-hidden="true">
-                <i className="fa-solid fa-wallet" />
-              </div>
+              <span className={walletEnabled ? styles.walletStatusReady : styles.walletStatusPending}>
+                {walletEnabled ? <IconCircleCheck size={17} stroke={2.2} aria-hidden="true" /> : <IconClock size={17} stroke={2.2} aria-hidden="true" />}
+                {walletEnabled ? "Available" : "Coming soon"}
+              </span>
             </div>
             <div className={[styles.section, styles.walletTopupSection].join(" ")}>
               <div className={styles.walletSectionHeader}>
-                <div>
-                  <span className={styles.walletSectionEyebrow}>Top up your balance</span>
-                  <h3 className={styles.sectionTitle}>Add money</h3>
-                </div>
-                <span className={walletEnabled ? styles.walletStatusReady : styles.walletStatusPending}>
-                  <i className={walletEnabled ? "fa-solid fa-circle-check" : "fa-solid fa-clock"} aria-hidden="true" />
-                  {walletEnabled ? "Available" : "Coming soon"}
-                </span>
+                <h3 className={styles.sectionTitle}>Add money</h3>
               </div>
               <p className={styles.profileHint}>
                 {walletSnapshot?.disclosure || "Meal05 Balance can only be used for purchases on Meal05. It is not a bank account and does not earn interest."}
@@ -1664,13 +1665,19 @@ export function AccountPageContent() {
               <form className={styles.walletTopupForm} onSubmit={handleWalletTopup}>
                 <div className={styles.walletQuickAmounts}>
                   {[2000, 5000, 10000].map((amount) => (
-                    <button key={amount} type="button" onClick={() => setWalletTopupAmount(String(amount))}>
+                    <button
+                      key={amount}
+                      type="button"
+                      className={walletTopupAmount === String(amount) ? styles.walletQuickAmountActive : undefined}
+                      onClick={() => setWalletTopupAmount(String(amount))}
+                      aria-pressed={walletTopupAmount === String(amount)}
+                    >
                       {formatMoney(amount)}
                     </button>
                   ))}
                 </div>
                 <label className={styles.profileField}>
-                  <span>Amount</span>
+                  <span>Custom amount</span>
                    <input
                      inputMode="numeric"
                     min={settings.minimumTopupAmount || undefined}
@@ -1685,31 +1692,45 @@ export function AccountPageContent() {
                 </label>
                 <label className={styles.profileField}>
                   <span>Funding method</span>
-                  <select value={walletTopupProvider} onChange={(event) => setWalletTopupProvider(event.target.value)}>
-                    <option value="moniepoint_transfer" disabled={!moniepointEnabled}>Moniepoint Transfer (Recommended)</option>
-                    <option value="opay_transfer" disabled>OPay Transfer (Unavailable for now)</option>
-                    <option value="paystack" disabled>Card, USSD and Paystack (Coming later)</option>
-                  </select>
+                  <div className={styles.walletFundingControl}>
+                    <span aria-hidden="true">M</span>
+                    <select value={walletTopupProvider} onChange={(event) => setWalletTopupProvider(event.target.value)}>
+                      <option value="moniepoint_transfer" disabled={!moniepointEnabled}>Moniepoint Transfer</option>
+                      <option value="opay_transfer" disabled>OPay Transfer (Unavailable for now)</option>
+                      <option value="paystack" disabled>Card, USSD and Paystack (Coming later)</option>
+                    </select>
+                  </div>
                 </label>
                 {settings.minimumTopupAmount || settings.maximumTopupAmount ? (
-                  <p className={styles.profileHint}>
-                    Limits: {settings.minimumTopupAmount ? `Min ${formatMoney(settings.minimumTopupAmount)}. ` : ""}
-                    {settings.maximumTopupAmount ? `Max ${formatMoney(settings.maximumTopupAmount)}.` : ""}
+                  <p className={styles.walletLimits}>
+                    <IconLock size={16} stroke={1.8} aria-hidden="true" />
+                    <span>
+                      Limits: {settings.minimumTopupAmount ? `Min ${formatMoney(settings.minimumTopupAmount)}` : ""}
+                      {settings.minimumTopupAmount && settings.maximumTopupAmount ? " · " : ""}
+                      {settings.maximumTopupAmount ? `Max ${formatMoney(settings.maximumTopupAmount)}` : ""}
+                    </span>
                   </p>
                 ) : null}
-                <button type="submit" className={styles.walletTopupButton} disabled={walletStatus === "loading" || !walletEnabled}>
-                  <i className="fa-solid fa-plus" aria-hidden="true" />
-                  {walletStatus === "loading" ? "Please wait..." : "Add money"}
-                 </button>
+                {!activeTopupPayment || !activeTopupProvider ? (
+                  <button type="submit" className={styles.walletTopupButton} disabled={walletStatus === "loading" || !walletEnabled}>
+                    {walletStatus === "loading" ? "Please wait..." : "Add money"}
+                  </button>
+                ) : null}
                </form>
                {activeTopupPayment && activeTopupProvider ? (
                  <section className={styles.walletTransferPanel} aria-labelledby="wallet-transfer-heading">
                    <div className={styles.walletTransferHeader}>
-                     <div>
-                       <span>Wallet deposit</span>
-                       <h4 id="wallet-transfer-heading">{walletTopupTransfer?.heading || "Complete your wallet deposit"}</h4>
+                     <div className={styles.walletTransferTitle}>
+                       <IconShieldCheck size={24} stroke={2} aria-hidden="true" />
+                       <div>
+                         <span>Wallet deposit</span>
+                         <h4 id="wallet-transfer-heading">{walletTopupTransfer?.heading || "Complete your wallet deposit"}</h4>
+                       </div>
                      </div>
-                     <strong>{formatMoney(activeTopupPayment.amount, activeTopupPayment.currency || "NGN")}</strong>
+                     <div className={styles.walletTransferAmount}>
+                       <span>Deposit amount</span>
+                       <strong>{formatMoney(activeTopupPayment.amount, activeTopupPayment.currency || "NGN")}</strong>
+                     </div>
                    </div>
                    <p className={styles.walletTransferNotice}>
                      Transfer the exact amount to the account below. Your balance is credited only after Meal05 verifies the payment.
@@ -1727,7 +1748,7 @@ export function AccountPageContent() {
                            <span>{value || "Unavailable"}</span>
                            {value ? (
                              <button type="button" onClick={() => copyWalletText(value)} aria-label={`Copy ${label.toLowerCase()}`}>
-                               <i className="fa-regular fa-copy" aria-hidden="true" />
+                               <IconCopy size={18} stroke={1.9} aria-hidden="true" />
                              </button>
                            ) : null}
                          </dd>
@@ -1766,17 +1787,26 @@ export function AccountPageContent() {
                {walletMessage ? <span className={walletStatus === "error" ? styles.walletMessageError : styles.walletMessageSuccess}>{walletMessage}</span> : null}
             </div>
             {pendingTopups.length ? (
-              <div className={styles.section}>
+              <div className={[styles.section, styles.walletPendingSection].join(" ")}>
                 <h3 className={styles.sectionTitle}>Pending top-ups</h3>
-                <div className={styles.voucherList}>
+                <div className={styles.walletPendingList}>
                   {pendingTopups.map((topup) => (
-                    <div key={topup.id} className={styles.voucherItem}>
-                      <strong>{formatMoney(topup.amount, topup.currency_code)}</strong>
-                      <div>
+                    <div key={topup.id} className={styles.walletPendingItem}>
+                      <span className={styles.walletPendingIcon} aria-hidden="true">
+                        <IconHourglass size={22} stroke={1.8} />
+                      </span>
+                      <div className={styles.walletPendingCopy}>
                         <h4>{formatWalletReason(topup.status)}</h4>
-                        <p>{topup.provider} Â· {topup.merchant_reference}</p>
+                        <p>{topup.provider} · {topup.merchant_reference}</p>
                       </div>
-                      {topup.authorization_url ? <a href={topup.authorization_url}>Continue</a> : null}
+                      <strong className={styles.walletPendingAmount}>{formatMoney(topup.amount, topup.currency_code)}</strong>
+                      {topup.authorization_url ? (
+                        <a className={styles.walletPendingContinue} href={topup.authorization_url} aria-label={`Continue top-up ${topup.merchant_reference}`}>
+                          <IconChevronRight size={20} stroke={2} aria-hidden="true" />
+                        </a>
+                      ) : (
+                        <IconChevronRight className={styles.walletPendingChevron} size={20} stroke={2} aria-hidden="true" />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1786,25 +1816,33 @@ export function AccountPageContent() {
               <div className={styles.walletHistoryHeader}>
                 <h3 className={styles.sectionTitle}>Transaction history</h3>
                 <button type="button" className={styles.orderActionButton} onClick={() => syncWalletFromServer({ showFeedback: true })}>
+                  <IconRefresh size={16} stroke={2} aria-hidden="true" />
                   Refresh
                 </button>
               </div>
               {walletTransactions.length ? (
-                <div className={styles.list}>
-                  {walletTransactions.map((entry) => (
-                    <div key={entry.id} className={styles.listItem}>
-                      <div className={styles.orderInfo}>
+                <div className={styles.walletTransactionList}>
+                  {walletTransactions.map((entry) => {
+                    const isCredit = Number(entry.amount) >= 0;
+                    return (
+                    <div key={entry.id} className={styles.walletTransactionItem}>
+                      <span className={`${styles.walletTransactionIcon} ${isCredit ? styles.isCredit : styles.isDebit}`} aria-hidden="true">
+                        <IconArrowDownLeft size={22} stroke={1.9} />
+                      </span>
+                      <div className={styles.walletTransactionCopy}>
                          <strong>{formatWalletTransactionLabel(entry)}</strong>
                          <span>{new Date(entry.created_at).toLocaleString("en-NG")}</span>
                          {entry.order_id ? <span>Meal05 Balance payment for order #{entry.order_id}</span> : null}
                          {entry.wallet_topup_id ? <span>Deposit ID: {entry.wallet_topup_id}</span> : null}
-                        {entry.provider_reference ? <span>{entry.provider_reference}</span> : null}
+                         {entry.provider_reference ? <span>{entry.provider_reference}</span> : null}
                       </div>
-                      <strong style={{ color: Number(entry.amount) >= 0 ? "#00ac11" : "#f04e1f" }}>
-                        {formatMoney(entry.amount, entry.currency_code || "NGN")}
-                      </strong>
+                      <div className={`${styles.walletTransactionAmount} ${isCredit ? styles.isCredit : styles.isDebit}`}>
+                        <strong>{formatMoney(entry.amount, entry.currency_code || "NGN")}</strong>
+                        <span>Completed</span>
+                      </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className={styles.sectionEmpty}>

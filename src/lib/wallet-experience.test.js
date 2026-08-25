@@ -15,8 +15,16 @@ test("wallet funding is available end to end with readable form spacing", () => 
   assert.match(account, /activeTopupProvider\.accountNumber/);
   assert.match(account, /api\/wallet\/topups\/\$\{encodeURIComponent\(topupId\)\}\/submit/);
   assert.match(account, /exactAmountConfirmed:\s*true/);
+  assert.match(account, /walletQuickAmountActive/);
+  assert.match(account, /aria-pressed=\{walletTopupAmount === String\(amount\)\}/);
+  assert.match(account, /walletFundingControl/);
+  assert.match(account, /walletTransferTitle/);
+  assert.match(account, /walletPendingItem/);
+  assert.match(account, /walletTransactionItem/);
   assert.match(css, /\.walletTopupForm \.profileField input,[\s\S]*?padding:\s*0\.85rem 1rem/);
   assert.match(css, /\.walletTopupForm \.profileField select \{[\s\S]*?padding-right:\s*2\.8rem/);
+  assert.match(css, /\.walletBalanceCard,[\s\S]*?\.walletTransactionsSection[\s\S]*?width:\s*min\(100%, 48rem\)/);
+  assert.match(css, /\.walletQuickAmounts\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3/);
 });
 
 test("wallet deposits, wallet checkout, and direct checkout remain auditable", () => {

@@ -40,3 +40,25 @@ test("product detail page contains no generated food handling or storage fallbac
   assert.match(page, /handlingProtocols\.length/);
   assert.match(page, /storageTips\.length/);
 });
+
+test("product gallery uses arrows, image count, and dots instead of thumbnail images", () => {
+  const client = readFileSync(resolve(process.cwd(), "src/components/product-detail-client.js"), "utf8");
+  const badges = readFileSync(resolve(process.cwd(), "src/styles/product-badges.css"), "utf8");
+
+  assert.match(client, /product-detail-gallery-arrow--previous/);
+  assert.match(client, /product-detail-gallery-arrow--next/);
+  assert.match(client, /product-detail-gallery-count/);
+  assert.match(client, /product-detail-gallery-dot/);
+  assert.match(client, /Show product image \$\{idx \+ 1\} of \$\{galleryImages\.length\}/);
+  assert.doesNotMatch(client, /product-detail-thumb|Thumbnail \$\{idx \+ 1\}/);
+  assert.match(badges, /\.product-detail-page \.product-detail-gallery-dot\.is-active/);
+});
+
+test("seasonal products show an explicit icon-led in-season or off-season status", () => {
+  const detail = readFileSync(resolve(process.cwd(), "src/components/product-detail-client.js"), "utf8");
+  const card = readFileSync(resolve(process.cwd(), "src/components/product-card.js"), "utf8");
+
+  assert.match(detail, /product-detail-season__icon/);
+  assert.match(detail, /isInSeason \? "In season" : "Off season"/);
+  assert.match(card, /isInSeason \? "In season" : "Off season"/);
+});
