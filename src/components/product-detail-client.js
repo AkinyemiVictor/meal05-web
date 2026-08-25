@@ -15,7 +15,7 @@ import { formatMoney } from "@/lib/region";
 import { PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE, normalizePurchaseMode } from "@/lib/purchase-quantities";
 import { shouldShowSeasonBadge } from "@/lib/season-badge";
 import { loadFavoriteIds, updateFavoriteIds } from "@/lib/favorites-client";
-import { IconHeart } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconHeart, IconLeaf } from "@tabler/icons-react";
 import { SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
 
 const isVariantInactive = (variant) => {
@@ -262,8 +262,17 @@ export default function ProductDetailClient({ product, variations = [], fallback
     return merged.length ? merged : [resolveProductImage(fallbackImage)];
   }, [selectedVariant?.galleryImageUrls, product?.galleryImageUrls, display.image, fallbackImage]);
 
-  const activeImage =
-    resolveProductImage(galleryImages[Math.min(activeImageIndex, galleryImages.length - 1)], fallbackImage);
+  const safeActiveImageIndex = Math.min(activeImageIndex, Math.max(galleryImages.length - 1, 0));
+  const activeImage = resolveProductImage(galleryImages[safeActiveImageIndex], fallbackImage);
+  const hasMultipleImages = galleryImages.length > 1;
+
+  const showPreviousImage = () => {
+    setActiveImageIndex((current) => (current - 1 + galleryImages.length) % galleryImages.length);
+  };
+
+  const showNextImage = () => {
+    setActiveImageIndex((current) => (current + 1) % galleryImages.length);
+  };
 
   const stockClass = resolveStockClass(display.stock);
   const availabilityMode = String(display.availabilityMode ?? display.availability_mode ?? "standard");
@@ -285,6 +294,9 @@ export default function ProductDetailClient({ product, variations = [], fallback
             {display.discount ? <span className="product-detail-discount">{display.discount}% Off</span> : null}
             {showSeasonBadge ? (
               <span className={`product-detail-season ${isInSeason ? "is-in-season" : "is-off-season"}`}>
+                <span className="product-detail-season__icon" aria-hidden="true">
+                  <IconLeaf size={15} stroke={2.2} />
+                </span>
                 {seasonLabel}
               </span>
             ) : null}
@@ -298,32 +310,45 @@ export default function ProductDetailClient({ product, variations = [], fallback
             sizes="(max-width: 900px) 100vw, 420px"
             loading="lazy"
           />
+          {hasMultipleImages ? (
+            <>
+              <button
+                type="button"
+                className="product-detail-gallery-arrow product-detail-gallery-arrow--previous"
+                onClick={showPreviousImage}
+                aria-label="Show previous product image"
+              >
+                <IconChevronLeft size={23} stroke={2} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="product-detail-gallery-arrow product-detail-gallery-arrow--next"
+                onClick={showNextImage}
+                aria-label="Show next product image"
+              >
+                <IconChevronRight size={23} stroke={2} aria-hidden="true" />
+              </button>
+              <span className="product-detail-gallery-count" aria-live="polite">
+                {safeActiveImageIndex + 1} <span aria-hidden="true">/</span> {galleryImages.length}
+              </span>
+            </>
+          ) : null}
           {isUnavailable ? (
             <div className="product-detail-media__overlay" aria-hidden="true">Out of Stock</div>
           ) : null}
         </div>
-        {galleryImages.length ? (
-          <div className="product-detail-thumbs" role="listbox" aria-label="Product images">
-            {galleryImages.map((src, idx) => {
-              return (
-                <button
-                  key={`${product.id}-thumb-${idx}-${src}`}
-                  type="button"
-                  className={`product-detail-thumb${idx === activeImageIndex ? " is-active" : ""}`}
-                  onClick={() => setActiveImageIndex(idx)}
-                  aria-pressed={idx === activeImageIndex}
-                >
-                  <Image
-                    src={src}
-                    alt={`Thumbnail ${idx + 1}`}
-                    width={56}
-                    height={56}
-                    sizes="56px"
-                    loading="lazy"
-                  />
-                </button>
-              );
-            })}
+        {hasMultipleImages ? (
+          <div className="product-detail-gallery-pagination" role="group" aria-label="Product image navigation">
+            {galleryImages.map((src, idx) => (
+              <button
+                key={`${product.id}-image-dot-${idx}-${src}`}
+                type="button"
+                className={`product-detail-gallery-dot${idx === safeActiveImageIndex ? " is-active" : ""}`}
+                onClick={() => setActiveImageIndex(idx)}
+                aria-label={`Show product image ${idx + 1} of ${galleryImages.length}`}
+                aria-pressed={idx === safeActiveImageIndex}
+              />
+            ))}
           </div>
         ) : null}
       </div>

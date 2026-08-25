@@ -2665,3 +2665,557 @@
     font-size: 2rem;
   }
 }
+
+/* Wallet payment flow: compact, single-column transaction layout. */
+.walletBalanceCard,
+.walletTopupSection,
+.walletPendingSection,
+.walletTransactionsSection {
+  width: min(100%, 48rem);
+  margin-inline: auto;
+}
+
+.walletBalanceCard {
+  min-height: 8rem;
+  padding: 1.4rem 1.5rem;
+  border: 1px solid #e3e6eb;
+  border-radius: 1.35rem;
+  background: #ffffff;
+  color: #141622;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.walletBalanceCard::after {
+  display: none;
+}
+
+.walletBalanceCopy > span {
+  color: #667085;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.walletBalanceCard strong {
+  margin-top: 0.45rem;
+  color: #141622;
+  font-size: clamp(2.35rem, 5vw, 3.2rem);
+  font-style: normal;
+  letter-spacing: -0.045em;
+}
+
+.walletBalanceCard .walletStatusReady,
+.walletBalanceCard .walletStatusPending {
+  min-height: 2.5rem;
+  padding: 0.48rem 0.8rem;
+  font-size: 0.82rem;
+  letter-spacing: 0;
+}
+
+.walletBalanceCard .walletStatusReady {
+  color: #078a4d;
+}
+
+.walletBalanceCard .walletStatusPending {
+  color: #946200;
+}
+
+.walletTopupSection {
+  gap: 1.1rem;
+  padding: 1.5rem;
+}
+
+.walletSectionHeader {
+  align-items: center;
+}
+
+.walletTopupSection .sectionTitle,
+.walletPendingSection .sectionTitle,
+.walletTransactionsSection .sectionTitle {
+  font-size: 1.35rem;
+  font-style: normal;
+  letter-spacing: -0.02em;
+}
+
+.walletTopupForm {
+  width: 100%;
+  max-width: none;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.walletQuickAmounts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.walletQuickAmounts::before {
+  grid-column: 1 / -1;
+  color: #3f4651;
+  font-size: 0.84rem;
+}
+
+.walletQuickAmounts button {
+  min-height: 3.2rem;
+  width: 100%;
+  padding: 0 0.65rem;
+  border: 1px solid #d8dde5;
+  border-radius: 0.8rem;
+  background: #ffffff;
+  color: #141622;
+  font-size: 0.94rem;
+  font-weight: 850;
+}
+
+.walletQuickAmounts button:hover,
+.walletQuickAmounts button:focus-visible,
+.walletQuickAmounts .walletQuickAmountActive {
+  border-color: #f4511e;
+  background: #fff5f1;
+  color: #f4511e;
+  outline: none;
+}
+
+.walletTopupForm .profileField > span,
+.walletTransferPanel .profileField > span {
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.walletTopupForm .profileField input,
+.walletTransferPanel .profileField input {
+  min-height: 3.35rem;
+  border-color: #d8dde5;
+  border-radius: 0.8rem;
+  font-size: 0.94rem;
+}
+
+.walletFundingControl {
+  min-height: 3.35rem;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0 0.55rem 0 0.8rem;
+  border: 1px solid #d8dde5;
+  border-radius: 0.8rem;
+  background: #ffffff;
+}
+
+.walletFundingControl > span {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.6rem;
+  background: #2466d1;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.walletTopupForm .profileField .walletFundingControl select {
+  min-height: 3.2rem;
+  width: 100%;
+  padding: 0.7rem 2.4rem 0.7rem 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.walletFundingControl:focus-within {
+  border-color: #f4511e;
+  box-shadow: 0 0 0 3px rgba(244, 81, 30, 0.1);
+}
+
+.walletLimits {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: -0.2rem 0 0;
+  color: #68707a;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.walletLimits svg {
+  flex: 0 0 auto;
+}
+
+.walletTopupButton {
+  min-height: 3.25rem;
+  border-radius: 0.8rem;
+  background: #f4511e;
+  box-shadow: 0 10px 22px rgba(244, 81, 30, 0.2);
+}
+
+.walletTopupButton:hover:not(:disabled),
+.walletTopupButton:focus-visible:not(:disabled) {
+  background: #df4217;
+}
+
+.walletTransferPanel {
+  width: 100%;
+  max-width: none;
+  gap: 1rem;
+  padding: 1.2rem;
+  border-color: #a9e6c7;
+  border-radius: 1.2rem;
+  background: linear-gradient(135deg, #f2fff8 0%, #edfbf5 100%);
+}
+
+.walletTransferHeader {
+  align-items: center;
+}
+
+.walletTransferTitle {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.walletTransferTitle > svg {
+  flex: 0 0 auto;
+  color: #0b9e5b;
+}
+
+.walletTransferTitle span,
+.walletTransferAmount span {
+  color: #68707a;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.walletTransferTitle h4 {
+  margin-top: 0.2rem;
+  font-size: 1.05rem;
+}
+
+.walletTransferAmount {
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: end;
+  gap: 0.15rem;
+}
+
+.walletTransferAmount strong {
+  color: #069c54;
+  font-size: 1.15rem;
+}
+
+.walletTransferNotice {
+  padding: 0;
+  background: transparent;
+  font-size: 0.87rem;
+}
+
+.walletTransferDetails {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #dce8e1;
+  border-radius: 0.85rem;
+  background: #ffffff;
+}
+
+.walletTransferDetails > div {
+  min-height: 3.35rem;
+  padding: 0.7rem 0.85rem;
+  border: 0;
+  border-bottom: 1px solid #e7ede9;
+  border-radius: 0;
+}
+
+.walletTransferDetails > div:last-child {
+  border-bottom: 0;
+}
+
+.walletTransferDetails button {
+  background: transparent;
+  color: #08a45c;
+}
+
+.walletTransferDetails button:hover,
+.walletTransferDetails button:focus-visible {
+  background: #e8fbf1;
+  outline: none;
+}
+
+.walletTransferActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+}
+
+.walletTransferActions button {
+  min-height: 3.1rem;
+}
+
+.walletTransferActions button:last-child {
+  border-color: #f4511e;
+  background: #f4511e;
+}
+
+.walletPendingSection,
+.walletTransactionsSection {
+  gap: 1rem;
+  padding: 1.35rem;
+}
+
+.walletPendingList,
+.walletTransactionList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.walletPendingItem,
+.walletTransactionItem {
+  min-width: 0;
+  min-height: 4.7rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #e5e8ed;
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.walletPendingIcon,
+.walletTransactionIcon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: #fff1eb;
+  color: #f4511e;
+}
+
+.walletPendingCopy,
+.walletTransactionCopy {
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.walletPendingCopy h4,
+.walletPendingCopy p {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.walletPendingCopy h4,
+.walletTransactionCopy strong {
+  color: #141622;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.walletPendingCopy p,
+.walletTransactionCopy span {
+  overflow: hidden;
+  color: #7b818c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.walletPendingAmount {
+  color: #f4511e;
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.walletPendingContinue,
+.walletPendingChevron {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+  color: #717784;
+}
+
+.walletPendingContinue {
+  border-radius: 0.65rem;
+}
+
+.walletPendingContinue:hover,
+.walletPendingContinue:focus-visible {
+  background: #f2f4f7;
+  color: #141622;
+  outline: none;
+}
+
+.walletHistoryHeader {
+  align-items: center;
+}
+
+.walletTransactionsSection .orderActionButton {
+  min-height: 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.3rem;
+  border: 0;
+  background: transparent;
+  color: #f4511e;
+  font-size: 0.84rem;
+}
+
+.walletTransactionItem {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.walletTransactionIcon.isCredit {
+  border: 1px solid #9cddbd;
+  border-radius: 50%;
+  background: #effcf5;
+  color: #089a55;
+}
+
+.walletTransactionIcon.isDebit {
+  border: 1px solid #fac1b1;
+  border-radius: 50%;
+}
+
+.walletTransactionIcon.isDebit svg {
+  transform: rotate(180deg);
+}
+
+.walletTransactionAmount {
+  display: grid;
+  justify-items: end;
+  gap: 0.3rem;
+}
+
+.walletTransactionAmount strong {
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.walletTransactionAmount span {
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.walletTransactionAmount.isCredit strong {
+  color: #079b55;
+}
+
+.walletTransactionAmount.isCredit span {
+  background: #e8fbf1;
+  color: #078a4d;
+}
+
+.walletTransactionAmount.isDebit strong {
+  color: #f4511e;
+}
+
+.walletTransactionAmount.isDebit span {
+  background: #fff1eb;
+  color: #c43f17;
+}
+
+@media (max-width: 720px) {
+  .walletBalanceCard,
+  .walletTopupSection,
+  .walletPendingSection,
+  .walletTransactionsSection {
+    border-radius: 1rem;
+  }
+
+  .walletBalanceCard {
+    min-height: 7.2rem;
+    padding: 1.15rem;
+  }
+
+  .walletBalanceCard strong {
+    font-size: 2.2rem;
+  }
+
+  .walletTopupSection,
+  .walletPendingSection,
+  .walletTransactionsSection {
+    padding: 1rem;
+  }
+
+  .walletQuickAmounts {
+    gap: 0.55rem;
+  }
+
+  .walletQuickAmounts button {
+    min-height: 3rem;
+    padding-inline: 0.35rem;
+    font-size: 0.86rem;
+  }
+
+  .walletTransferPanel {
+    padding: 1rem;
+  }
+
+  .walletTransferHeader,
+  .walletTransferDetails > div {
+    align-items: center;
+  }
+
+  .walletTransferDetails > div {
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+
+  .walletTransferDetails dd {
+    width: auto;
+    min-width: 0;
+    justify-content: flex-end;
+    text-align: right;
+  }
+
+  .walletTransferDetails dd > span {
+    overflow-wrap: anywhere;
+  }
+
+  .walletPendingItem,
+  .walletTransactionItem {
+    gap: 0.65rem;
+    padding: 0.7rem;
+  }
+
+  .walletPendingIcon,
+  .walletTransactionIcon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .walletPendingAmount {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .walletBalanceCard .walletStatusReady,
+  .walletBalanceCard .walletStatusPending {
+    padding-inline: 0.65rem;
+  }
+
+  .walletTransferHeader {
+    align-items: flex-start;
+  }
+
+  .walletTransactionItem {
+    align-items: start;
+  }
+}

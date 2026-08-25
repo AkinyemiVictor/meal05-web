@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { IconShoppingCart } from "@tabler/icons-react";
+import { IconLeaf, IconShoppingCart } from "@tabler/icons-react";
 
 import FavoriteToggleButton from "@/components/favorite-toggle-button";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
@@ -26,6 +26,7 @@ function ProductImage({ product, compact = false, priority = false }) {
   const src = resolveProductImage(product.cardImageUrl, product.image, product.mainImageUrl);
   const unavailable = resolveStockClass(product.stock) === "is-unavailable";
   const canShowSeasonBadge = shouldShowSeasonBadge(product);
+  const isInSeason = product.inSeason !== false;
   const shouldOptimize = canUseNextImageOptimization(src);
   const imageSizes = compact
     ? "(max-width: 767px) 42vw, (max-width: 1023px) 24vw, 180px"
@@ -47,14 +48,18 @@ function ProductImage({ product, compact = false, priority = false }) {
           compact ? "left-2.5 right-2.5 top-2.5" : "left-3 right-3 top-3 sm:left-4 sm:right-4 sm:top-4"
         )}
       >
-        {canShowSeasonBadge && product.inSeason ? (
+        {canShowSeasonBadge ? (
           <span
             className={classNames(
-              "max-w-[calc(70%-0.25rem)] shrink truncate rounded-lg bg-meal-green/20 font-medium uppercase leading-none tracking-wider text-meal-text",
+              "inline-flex max-w-[calc(78%-0.25rem)] shrink items-center gap-1 truncate rounded-full border font-medium leading-none",
+              isInSeason
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-amber-200 bg-amber-50 text-amber-700",
               compact ? "px-1.5 py-1 text-[9px]" : "px-2 py-1 text-[10px] sm:px-2.5 sm:text-[11px]"
             )}
           >
-            In season
+            <IconLeaf size={compact ? 10 : 12} stroke={2.2} aria-hidden="true" />
+            {isInSeason ? "In season" : "Off season"}
           </span>
         ) : null}
       </div>
