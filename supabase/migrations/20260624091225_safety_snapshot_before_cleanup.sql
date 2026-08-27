@@ -1,3 +1,4 @@
+
 CREATE SCHEMA IF NOT EXISTS backup;
 COMMENT ON SCHEMA backup IS 'Point-in-time table snapshots taken 2026-06-24 before the cleanup migrations. Safe to drop once all changes are confirmed stable.';
 
@@ -13,3 +14,4 @@ CREATE TABLE backup.inventory_movements_20260624 AS SELECT * FROM public.invento
 CREATE TABLE backup.restock_log_20260624        AS SELECT * FROM public.restock_log;
 CREATE TABLE backup.stock_deduction_log_20260624 AS SELECT * FROM public.stock_deduction_log;
 CREATE TABLE backup.products_20260624           AS SELECT * FROM public.products;
+;

@@ -68,4 +68,4 @@ for each row
 execute function public.sync_product_main_image();
 
 comment on column public.product_images.is_primary is
-  'Exactly one primary image per product (enforced by partial unique index). Drives products.main_image_url via trigger.';
+  'Exactly one primary image per product (enforced by partial unique index). Drives products.main_image_url via trigger.';;

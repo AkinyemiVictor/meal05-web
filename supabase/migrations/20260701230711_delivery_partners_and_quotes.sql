@@ -61,4 +61,4 @@ comment on column public.orders.partner_cost is 'Actual amount the delivery part
 comment on column public.orders.delivery_subsidy is 'Amount Meal05 absorbs (partner_cost minus delivery_fee), e.g. free-first-delivery promos.';
 
 alter table public.deliveries
-  add column delivery_partner_id uuid references public.delivery_partners(id) on delete set null;
+  add column delivery_partner_id uuid references public.delivery_partners(id) on delete set null;;

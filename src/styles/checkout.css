@@ -1249,6 +1249,96 @@
 }
 
 /* Checkout redesign */
+.manual-transfer-confirmation {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #d8dee8;
+  border-radius: 16px;
+  background: #fff;
+  text-align: left;
+}
+
+.manual-transfer-confirmation h3,
+.manual-transfer-confirmation p {
+  margin: 0;
+}
+
+.manual-transfer-confirmation p,
+.manual-transfer-confirmation small {
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.manual-transfer-confirmation label:not(.manual-transfer-confirmation__checkbox) {
+  display: grid;
+  gap: 0.4rem;
+  color: #172033;
+  font-weight: 700;
+}
+
+.manual-transfer-confirmation input[type="text"] {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.manual-transfer-confirmation input:focus-visible {
+  outline: 3px solid rgba(240, 78, 31, 0.2);
+  border-color: #f04e1f;
+}
+
+.manual-transfer-confirmation__checkbox {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  color: #172033;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.manual-transfer-confirmation__checkbox input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.1rem;
+  accent-color: #f04e1f;
+}
+
+.manual-transfer-confirmation__actions {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr;
+  gap: 0.65rem;
+}
+
+.manual-transfer-confirmation__actions button {
+  min-height: 46px;
+  border: 1px solid #d5dae3;
+  border-radius: 10px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.manual-transfer-confirmation__actions button[type="submit"] {
+  border-color: #f04e1f;
+  background: #f04e1f;
+  color: #fff;
+}
+
+.manual-transfer-confirmation__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .checkout-page {
   max-width: none;
   min-height: 100vh;

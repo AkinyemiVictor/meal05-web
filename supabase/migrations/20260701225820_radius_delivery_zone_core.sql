@@ -229,4 +229,4 @@ where a.zone_id = z.id
   and z.name = 'Akala Express Launch Zone'
   and a.slug in ('apata', 'omi-adio', 'akufo', 'awotan', 'apete');
 
-notify pgrst, 'reload schema';
+notify pgrst, 'reload schema';;

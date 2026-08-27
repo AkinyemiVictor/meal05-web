@@ -6,7 +6,7 @@ import { getOriginTrustContext } from "@/lib/api/request-origin";
 import { withNoStore } from "@/lib/api/no-store";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
-import { insertOrderStatusHistory } from "@/lib/order-status-history";
+import { isExpiredPaymentResult, PAYMENT_EXPIRED_CODE, PAYMENT_EXPIRED_MESSAGE } from "@/lib/payments/manual-payment-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export async function POST(request) {
     const missingExactConfirmation = parsed.error.issues.some((issue) => issue.path?.[0] === "exactAmountConfirmed");
     return send(
       {
-        error: missingExactConfirmation ? "Please confirm that you will transfer the exact amount." : "Payment submission details are incomplete.",
+        error: missingExactConfirmation ? "Please confirm that you transferred the exact amount." : "Payment submission details are incomplete.",
       },
       400,
       rl
@@ -66,69 +66,33 @@ export async function POST(request) {
   const paymentId = Number(parsed.data.paymentId);
   if (!Number.isSafeInteger(paymentId) || paymentId <= 0) return send({ error: "Payment not found." }, 404, rl);
 
-  const { data: payment, error: findError } = await admin
-    .from("payments")
-    .select("id, reference, user_id, amount, currency, status, purpose, order_id, wallet_topup_id, provider_code, verified_at")
-    .eq("id", paymentId)
-    .eq("user_id", auth.user.id)
-    .maybeSingle();
-  if (findError) return send({ error: findError.message || "Unable to load payment." }, 500, rl);
-  if (!payment) return send({ error: "Payment not found." }, 404, rl);
-  if (["verified", "success"].includes(String(payment.status || "").toLowerCase())) return send({ error: "Payment already verified." }, 409, rl);
-  if (!["awaiting_transfer", "submitted", "pending"].includes(String(payment.status || "").toLowerCase())) {
-    return send({ error: "Payment cannot be submitted from its current status." }, 409, rl);
+  const { data: result, error: submitError } = await admin.rpc("submit_manual_payment", {
+    p_payment_id: paymentId,
+    p_user_id: auth.user.id,
+    p_payer_account_name: parsed.data.payerAccountName,
+    p_payer_bank_name: parsed.data.payerBankName,
+    p_customer_transaction_reference: parsed.data.customerTransactionReference || null,
+    p_exact_amount_confirmed: parsed.data.exactAmountConfirmed,
+  });
+  if (submitError) {
+    const message = submitError.message || "Unable to submit payment.";
+    const status = /not found/i.test(message) ? 404 : /already verified|cannot be submitted|already paid|cancelled/i.test(message) ? 409 : 400;
+    return send({ error: message }, status, rl);
   }
-
-  const { data: updated, error: updateError } = await admin
-    .from("payments")
-    .update({
-      status: "submitted",
-      payer_account_name: parsed.data.payerAccountName,
-      payer_bank_name: parsed.data.payerBankName,
-      customer_transaction_reference: parsed.data.customerTransactionReference || null,
-      customer_submitted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", payment.id)
-    .eq("user_id", auth.user.id)
-    .select("id, reference, amount, currency, status, purpose, order_id, wallet_topup_id, provider_code, customer_submitted_at")
-    .single();
-  if (updateError) return send({ error: updateError.message || "Unable to submit payment." }, 500, rl);
-
-  if (payment.purpose === "order_payment" && payment.order_id) {
-    const { data: order, error: orderUpdateError } = await admin
-      .from("orders")
-      .update({ payment_status: "awaiting_confirmation", updated_at: new Date().toISOString() })
-      .eq("id", payment.order_id)
-      .eq("user_id", auth.user.id)
-      .select("id, status")
-      .maybeSingle();
-    if (orderUpdateError || !order) {
-      return send({ error: orderUpdateError?.message || "Payment was submitted, but its order could not be updated." }, 500, rl);
-    }
-    // Reuse the existing audit table for the customer-submission event. The
-    // order state stays pending until an administrator confirms the transfer.
-    await insertOrderStatusHistory(admin, {
-      orderId: order.id,
-      fromStatus: order.status,
-      toStatus: order.status,
-      changedBy: auth.user.id,
-      note: "Payment submitted; awaiting administrator confirmation",
-    });
-    const { error: clearCartError } = await admin
-      .from("cart_items")
-      .delete()
-      .eq("user_id", auth.user.id);
-    if (clearCartError) {
-      return send({ error: clearCartError.message || "Payment was submitted, but the cart could not be cleared." }, 500, rl);
-    }
+  if (isExpiredPaymentResult(result)) {
+    return send(
+      { error: result?.error || PAYMENT_EXPIRED_MESSAGE, code: PAYMENT_EXPIRED_CODE },
+      410,
+      rl
+    );
   }
 
   return send(
     {
-      payment: updated,
-      heading: "Payment submitted",
-      message: "We are confirming your payment. You will receive a notification upon confirmation.",
+      payment: result?.payment || null,
+      alreadyProcessed: result?.already_processed === true,
+      heading: "Transfer submitted",
+      message: "We are confirming your transfer. You will receive a notification once your payment has been confirmed.",
     },
     200,
     rl

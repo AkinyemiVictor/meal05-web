@@ -1,3 +1,4 @@
+
 DO $$
 DECLARE t text;
 BEGIN
@@ -10,3 +11,4 @@ BEGIN
     EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (public.is_admin_user()) WITH CHECK (public.is_admin_user());', t||'_admin_all', t);
   END LOOP;
 END $$;
+;

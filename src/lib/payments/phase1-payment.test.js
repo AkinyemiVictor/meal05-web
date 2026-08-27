@@ -4,9 +4,10 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-const migration = read("../../../supabase/migrations/20260728140000_phase1_manual_payment_wallet.sql");
-const lifecycleMigration = read("../../../supabase/migrations/20260810120000_manual_payment_order_lifecycle.sql");
-const walletFoundationMigration = read("../../../supabase/migrations/20260719120000_meal05_balance_foundation.sql");
+const providerSettingsMigration = read("../../../supabase/migrations/20260728151918_payment_provider_settings.sql");
+const paymentRepairMigration = read("../../../supabase/migrations/20260728175222_repair_stock_and_phase1_payments.sql");
+const lifecycleMigration = read("../../../supabase/migrations/20260826090620_harden_checkout_manual_payments.sql");
+const walletFoundationMigration = read("../../../supabase/migrations/20260719173638_meal05_balance_foundation.sql");
 const paymentMethodsRoute = read("../../app/api/payment-methods/route.js");
 const bankInitRoute = read("../../app/api/payments/bank-transfer/initialize/route.js");
 const bankSubmitRoute = read("../../app/api/payments/bank-transfer/submit/route.js");
@@ -17,14 +18,14 @@ const opayWebhookRoute = read("../../app/api/payments/opay/webhook/route.js");
 const walletPayRoute = read("../../app/api/orders/[orderId]/pay-with-wallet/route.js");
 const providerHelper = read("./provider-settings.js");
 
-test("Phase 1 seeds Moniepoint active and recommended", () => {
-  assert.match(migration, /'moniepoint_transfer', 'Moniepoint Transfer', 'bank_transfer', true, true, true, true/i);
-  assert.match(migration, /payment_provider_one_recommended_transfer_idx/i);
+test("Phase 1 seeds Moniepoint first while provider activation remains fail-closed", () => {
+  assert.match(providerSettingsMigration, /\(\s*'moniepoint_transfer',\s*'Moniepoint Transfer',\s*'bank_transfer',\s*false,\s*false,\s*false,\s*false,\s*1,/i);
+  assert.match(providerSettingsMigration, /payment_provider_settings_one_recommended_transfer_uidx/i);
 });
 
 test("OPay and Paystack stay disabled while Moniepoint is the only transfer option", () => {
-  assert.match(migration, /'opay_transfer', 'OPay Transfer', 'bank_transfer', false, false, false, false/i);
-  assert.match(migration, /'paystack', 'Card, USSD and Paystack', 'gateway', false, false, false, false/i);
+  assert.match(providerSettingsMigration, /\(\s*'opay_transfer',\s*'OPay Transfer',\s*'bank_transfer',\s*false,\s*false,\s*false,\s*false,/i);
+  assert.match(providerSettingsMigration, /\(\s*'paystack',\s*'Card, USSD and Paystack',\s*'gateway',\s*false,\s*false,\s*false,\s*false,/i);
   assert.match(read("./payment-methods.js"), /case "paystack":\s*return false;/);
   assert.match(read("./payment-methods.js"), /export const isOpayEnabled = \(\) => false;/);
   assert.match(read("./payment-methods.js"), /case "opay_transfer":\s*return isOpayEnabled\(\);/);
@@ -49,23 +50,23 @@ test("manual bank-transfer references are server-generated and unique", () => {
   assert.match(providerHelper, /crypto\.randomBytes\(4\)/);
   assert.match(providerHelper, /M5-ORD/);
   assert.match(providerHelper, /M5-WAL/);
-  assert.match(migration, /payments_reference_unique_idx/);
+  assert.match(paymentRepairMigration, /payments_reference_unique_idx/);
   assert.doesNotMatch(providerHelper, /Math\.random/);
 });
 
 test("customer transfer submission cannot alter amount or verify payment", () => {
   assert.doesNotMatch(bankSubmitRoute, /parsed\.data\.amount|amount:/);
-  assert.match(bankSubmitRoute, /status: "submitted"/);
+  assert.match(bankSubmitRoute, /rpc\("submit_manual_payment"/);
   assert.doesNotMatch(bankSubmitRoute, /verified_at:\s*|payment_status.*paid|wallet_transactions|status:\s*"verified"/);
-  assert.match(bankSubmitRoute, /payment\.purpose === "order_payment"[\s\S]*from\("cart_items"\)[\s\S]*\.delete\(\)/);
-  assert.match(bankSubmitRoute, /payment_status: "awaiting_confirmation"/);
+  assert.match(lifecycleMigration, /set payment_status = 'awaiting_confirmation'/);
+  assert.match(lifecycleMigration, /delete from public\.cart_items where user_id = p_user_id/);
 });
 
 test("manual transfer confirmation and rejection move payment and fulfilment independently", () => {
-  assert.match(lifecycleMigration, /payment_status = 'confirmed'[\s\S]*status = 'confirmed'/);
-  assert.match(lifecycleMigration, /payment_status = 'rejected'[\s\S]*status = 'cancelled'/);
+  assert.match(lifecycleMigration, /payment_status = 'paid'[\s\S]*status = 'processing'/);
+  assert.match(lifecycleMigration, /status = 'rejected'[\s\S]*payment_status = 'awaiting_payment'/);
   assert.match(lifecycleMigration, /Payment confirmed by administrator/);
-  assert.match(lifecycleMigration, /Payment rejected:/);
+  assert.match(lifecycleMigration, /order returned to awaiting payment/);
 });
 
 test("wallet deposits are not spendable until admin verification", () => {
@@ -75,9 +76,9 @@ test("wallet deposits are not spendable until admin verification", () => {
 });
 
 test("admin verification is idempotent for order payments and wallet topups", () => {
-  assert.match(migration, /if v_payment\.status in \('verified', 'success'\)/i);
-  assert.match(migration, /already_processed/i);
-  assert.match(migration, /where wallet_topup_id = v_topup\.id\s+and type = 'credit'\s+and reason = 'topup'/i);
+  assert.match(lifecycleMigration, /in \('verified', 'success', 'successful'\)/i);
+  assert.match(lifecycleMigration, /already_processed/i);
+  assert.match(lifecycleMigration, /public\.credit_wallet_topup/);
 });
 
 test("wallet payment route uses atomic RPC and idempotency", () => {

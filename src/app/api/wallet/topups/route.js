@@ -20,6 +20,7 @@ import {
   requireUsableProvider,
   sanitizeProvider,
 } from "@/lib/payments/provider-settings";
+import { expireManualPaymentIfNeeded } from "@/lib/payments/manual-payment-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +93,23 @@ export async function POST(request) {
     todayTopupTotal,
   });
   if (validationError) return send({ error: validationError }, 403, rl);
+
+  const { data: existingManualPayments, error: existingManualPaymentsError } = await admin
+    .from("payments")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("purpose", "wallet_topup")
+    .in("status", ["pending", "awaiting_transfer", "submitted", "processing"]);
+  if (existingManualPaymentsError) {
+    return send({ error: existingManualPaymentsError.message || "Unable to validate existing deposits." }, 500, rl);
+  }
+  try {
+    await Promise.all(
+      (existingManualPayments || []).map((payment) => expireManualPaymentIfNeeded(admin, payment.id, user.id))
+    );
+  } catch (error) {
+    return send({ error: error?.message || "Unable to validate existing deposits." }, 500, rl);
+  }
 
   const reference = createPaymentReference("wallet_topup");
   const expiresAt = paymentExpiryForPurpose("wallet_topup");

@@ -1,3 +1,4 @@
+
 -- view depends on stock_movements_v2; drop now, rebuild on the new ledger below
 DROP VIEW IF EXISTS public.restock_log_v2;
 
@@ -37,3 +38,4 @@ CREATE VIEW public.restock_log_v2 WITH (security_invoker = on) AS
 SELECT id, variant_id, change_qty AS quantity, source AS restocked_by, created_at AS restocked_at
 FROM public.stock_ledger
 WHERE reason = 'restock';
+;

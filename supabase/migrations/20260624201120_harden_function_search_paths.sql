@@ -1,3 +1,4 @@
+
 DO $$
 DECLARE r record;
 BEGIN
@@ -15,3 +16,4 @@ BEGIN
     EXECUTE format('ALTER FUNCTION %s SET search_path = public;', r.sig);
   END LOOP;
 END $$;
+;

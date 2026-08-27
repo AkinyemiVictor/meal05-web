@@ -24,6 +24,7 @@ import { insertOrderStatusHistory } from "@/lib/order-status-history";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { toCategorySlug } from "@/lib/categories-server";
 import { normalizeProviderCode, requireUsableProvider } from "@/lib/payments/provider-settings";
+import { expireManualPaymentIfNeeded } from "@/lib/payments/manual-payment-server";
 import { loadWalletSettings } from "@/lib/wallet/server";
 import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 import { calculateOrderCapacity } from "@/lib/order-capacity";
@@ -1336,6 +1337,44 @@ export async function GET(request) {
   if (error) return applyRateLimitHeaders(NextResponse.json({ error: error.message }, { status: 400 }), rl);
 
   const rows = Array.isArray(data) ? data : [];
+  const orderIds = rows.map((row) => row?.id).filter((id) => id != null);
+  const latestPaymentByOrder = new Map();
+  if (orderIds.length) {
+    const { data: activePayments, error: activePaymentsError } = await admin
+      .from("payments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("purpose", "order_payment")
+      .in("order_id", orderIds)
+      .in("status", ["pending", "awaiting_transfer", "submitted", "processing"]);
+    if (activePaymentsError) {
+      await logAdminError(activePaymentsError, { route: "/api/orders", stage: "list:expire_payments", user_id: user.id });
+    } else {
+      await Promise.all(
+        (activePayments || []).map((payment) =>
+          expireManualPaymentIfNeeded(admin, payment.id, user.id).catch((error) =>
+            logAdminError(error, { route: "/api/orders", stage: "list:expire_payment", payment_id: payment.id, user_id: user.id })
+          )
+        )
+      );
+    }
+
+    const { data: paymentAttempts, error: paymentAttemptsError } = await admin
+      .from("payments")
+      .select("order_id, status, rejection_reason, expires_at, created_at")
+      .eq("user_id", user.id)
+      .eq("purpose", "order_payment")
+      .in("order_id", orderIds)
+      .order("created_at", { ascending: false });
+    if (paymentAttemptsError) {
+      await logAdminError(paymentAttemptsError, { route: "/api/orders", stage: "list:payment_attempts", user_id: user.id });
+    } else {
+      for (const attempt of paymentAttempts || []) {
+        const key = String(attempt.order_id);
+        if (!latestPaymentByOrder.has(key)) latestPaymentByOrder.set(key, attempt);
+      }
+    }
+  }
   const orderItems = rows.flatMap((row) => (Array.isArray(row?.order_items) ? row.order_items : []));
   const productIds = [...new Set(orderItems.map((item) => item?.product_id).filter((id) => id != null))];
   const variantIds = [...new Set(orderItems.map((item) => item?.variant_id).filter((id) => id != null))];
@@ -1372,6 +1411,7 @@ export async function GET(request) {
       deliveryAddress: row.delivery_address || "",
       createdAt: row.created_at,
       availabilityRequestId: row.availability_request_id || null,
+      latestPayment: latestPaymentByOrder.get(String(row.id)) || null,
       items: items.map((it) => {
         const unit = Number(it?.price ?? it?.unit_price) || 0;
         const qty = Number(it?.quantity) || 0;

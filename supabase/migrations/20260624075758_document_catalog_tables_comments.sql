@@ -1,3 +1,4 @@
+
 -- Table-level descriptions (visible in the Supabase dashboard)
 COMMENT ON TABLE public.products IS 'Master product catalog. One row per sellable produce item; pricing and stock live on product_variants.';
 COMMENT ON TABLE public.product_variants IS 'Sellable variants of a product (e.g. different units, sizes, grades). Holds price and stock_count.';
@@ -26,3 +27,4 @@ COMMENT ON COLUMN public.product_variants.is_active IS 'When false, the variant 
 
 -- product_categories columns
 COMMENT ON COLUMN public.product_categories.slug IS 'URL-friendly identifier for the category.';
+;

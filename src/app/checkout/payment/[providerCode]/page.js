@@ -18,6 +18,7 @@ import {
   getCheckoutApiErrorMessage,
   logCheckoutApiError,
 } from "@/lib/checkout-payload";
+import ManualTransferConfirmationForm from "@/components/manual-transfer-confirmation-form";
 
 const MONIEPOINT_CODE = "moniepoint_transfer";
 const MONIEPOINT_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/moniepoint logo.png";
@@ -159,6 +160,7 @@ function AccountDetailsStep({ provider, details, pending, busy, message, onSubmi
   const payment = details?.payment || {};
   const activeProvider = { ...(provider || {}), ...(details?.provider || {}), logoUrl: MONIEPOINT_LOGO_URL };
   const amount = Number(payment.amount ?? details?.order?.summary?.total ?? pending?.summary?.total ?? 0) || 0;
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <div className="checkout-transfer-screen__content">
@@ -191,9 +193,20 @@ function AccountDetailsStep({ provider, details, pending, busy, message, onSubmi
       </p>
 
       {message ? <p className="checkout-transfer-screen__message" role="alert">{message}</p> : null}
-      <button type="button" className="checkout-transfer-screen__sent" onClick={onSubmit} disabled={busy}>
-        {busy ? "Submitting..." : "I’ve sent the money"}
-      </button>
+      {confirming ? (
+        <ManualTransferConfirmationForm
+          amount={amount}
+          currency={payment.currency || "NGN"}
+          defaultPayerAccountName={pending?.form?.fullName || ""}
+          busy={busy}
+          onCancel={() => setConfirming(false)}
+          onSubmit={onSubmit}
+        />
+      ) : (
+        <button type="button" className="checkout-transfer-screen__sent" onClick={() => setConfirming(true)} disabled={busy}>
+          I’ve sent the money
+        </button>
+      )}
 
       <TransferFooter />
     </div>
@@ -223,9 +236,9 @@ function PendingConfirmationDialog({ onCancel }) {
         <span className="checkout-transfer-pending__smile" aria-hidden="true">
           <IconMoodSmile />
         </span>
-        <h1 id="transfer-pending-title">Payment received</h1>
+        <h1 id="transfer-pending-title">Transfer submitted</h1>
         <p id="transfer-pending-message">
-          We are confirming your payment. You will receive a notification upon confirmation.
+          We are confirming your transfer. You will receive a notification once your payment has been confirmed.
         </p>
         <button type="button" onClick={onCancel}>Cancel</button>
       </section>
@@ -366,7 +379,7 @@ export default function ProviderPaymentPage() {
     void createOrderAndPayment();
   }, [createOrderAndPayment, pending, provider, providerStatus, status]);
 
-  const submitTransfer = async () => {
+  const submitTransfer = async (reconciliation) => {
     if (!transferDetails?.payment?.id || busy) return;
     setBusy(true);
     setMessage("");
@@ -379,10 +392,7 @@ export default function ProviderPaymentPage() {
         headers: buildHeaders(token, `${transferDetails.payment.id}:submit`),
         body: JSON.stringify({
           paymentId: transferDetails.payment.id,
-          payerAccountName: pending?.form?.fullName || "Meal05 customer",
-          payerBankName: "Customer bank",
-          customerTransactionReference: "",
-          exactAmountConfirmed: true,
+          ...reconciliation,
         }),
       });
       const payload = await response.json().catch(() => ({}));

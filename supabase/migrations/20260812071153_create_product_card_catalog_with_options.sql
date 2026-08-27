@@ -50,4 +50,4 @@ comment on view public.product_card_catalog_with_options is
 
 grant select on table public.product_card_catalog_with_options to anon;
 grant select on table public.product_card_catalog_with_options to authenticated;
-grant select on table public.product_card_catalog_with_options to service_role;
+grant select on table public.product_card_catalog_with_options to service_role;;

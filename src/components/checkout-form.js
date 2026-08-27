@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import DeferredLocationPicker from "@/components/deferred-location-picker";
+import ManualTransferConfirmationForm from "@/components/manual-transfer-confirmation-form";
 
 import copy from "@/data/copy";
 import {
@@ -270,6 +271,7 @@ function TransferPaymentPanel({ details, status, onSubmitPayment, onBack }) {
   const expiryLabel = expiresAt && Number.isFinite(expiresAt.getTime())
     ? expiresAt.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })
     : "";
+  const [confirming, setConfirming] = useState(false);
   const copyText = (value) => {
     if (typeof navigator === "undefined" || !navigator.clipboard || !value) return;
     navigator.clipboard.writeText(String(value)).catch(() => {});
@@ -339,14 +341,25 @@ function TransferPaymentPanel({ details, status, onSubmitPayment, onBack }) {
 
       {expiryLabel ? <p className="checkout-transfer__expiry">This account expires at {expiryLabel}</p> : null}
 
-      <button
-        type="button"
-        className="checkout-transfer__submit"
-        onClick={onSubmitPayment}
-        disabled={status === "processing"}
-      >
-        {status === "processing" ? "Submitting..." : "I've sent the money"}
-      </button>
+      {confirming ? (
+        <ManualTransferConfirmationForm
+          amount={amount}
+          currency={payment.currency || "NGN"}
+          defaultPayerAccountName={details?.order?.fullName || ""}
+          busy={status === "processing"}
+          onCancel={() => setConfirming(false)}
+          onSubmit={onSubmitPayment}
+        />
+      ) : (
+        <button
+          type="button"
+          className="checkout-transfer__submit"
+          onClick={() => setConfirming(true)}
+          disabled={status === "processing"}
+        >
+          I’ve sent the money
+        </button>
+      )}
     </section>
   );
 }
@@ -1741,7 +1754,7 @@ export default function CheckoutForm({
     }
   };
 
-  const handleTransferSubmitted = async () => {
+  const handleTransferSubmitted = async (reconciliation) => {
     if (!transferDetails?.payment?.id || status === "processing") return;
     const authToken = await getCheckoutAuthToken();
     if (!authToken) {
@@ -1757,10 +1770,7 @@ export default function CheckoutForm({
         cache: "no-store",
         body: JSON.stringify({
           paymentId: transferDetails.payment.id,
-          payerAccountName: transferDetails.order?.fullName || "Meal05 customer",
-          payerBankName: "Customer bank",
-          customerTransactionReference: "",
-          exactAmountConfirmed: true,
+          ...reconciliation,
         }),
       });
       const payload = await response.json().catch(() => ({}));

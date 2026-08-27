@@ -28,4 +28,4 @@ create policy markets_admin_all on public.markets
   with check (is_admin_user());
 
 insert into public.markets (code, country, currency_code, currency_symbol, locale, timezone, status, is_default)
-values ('NG', 'Nigeria', 'NGN', '₦', 'en-NG', 'Africa/Lagos', 'active', true);
+values ('NG', 'Nigeria', 'NGN', '₦', 'en-NG', 'Africa/Lagos', 'active', true);;

@@ -9,7 +9,7 @@ const adminData = read("src/lib/admin-dashboard-data.js");
 const ordersPage = read("src/app/admin/(secure)/orders/page.js");
 const dashboardPage = read("src/app/admin/(secure)/dashboard/page.js");
 const secureLayout = read("src/app/admin/(secure)/layout.js");
-const migration = read("supabase/migrations/20260824194500_fix_staff_rls_for_admin_order_reads.sql");
+const migration = read("supabase/migrations/20260824191411_fix_staff_rls_for_admin_order_reads.sql");
 
 test("admin order loaders can use an authenticated request client", () => {
   assert.match(adminData, /loadOrdersMetrics\([\s\S]*client = null/);

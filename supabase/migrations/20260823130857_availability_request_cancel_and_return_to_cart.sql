@@ -246,4 +246,4 @@ revoke all on function public.return_availability_request_to_cart(uuid, uuid) fr
 grant execute on function public.return_availability_request_to_cart(uuid, uuid) to service_role;
 
 comment on function public.return_availability_request_to_cart(uuid, uuid) is
-  'Atomically restores eligible request items using current catalogue price/availability, merges with the current cart, terminates action-required requests, and is safe to retry.';
+  'Atomically restores eligible request items using current catalogue price/availability, merges with the current cart, terminates action-required requests, and is safe to retry.';;

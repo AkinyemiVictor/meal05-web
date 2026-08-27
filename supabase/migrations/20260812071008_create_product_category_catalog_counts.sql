@@ -14,4 +14,4 @@ comment on view public.product_category_catalog_counts is
 
 grant select on table public.product_category_catalog_counts to anon;
 grant select on table public.product_category_catalog_counts to authenticated;
-grant select on table public.product_category_catalog_counts to service_role;
+grant select on table public.product_category_catalog_counts to service_role;;

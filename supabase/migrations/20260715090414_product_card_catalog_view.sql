@@ -98,17 +98,13 @@ left join lateral (
 where pm.is_listed
   and m.status = 'active'
   and p.is_active
-  and coalesce(c.is_active, true);
-
+  and coalesce(c.is_active, true);;
 comment on view public.product_card_catalog is
-  'Public storefront/mobile product-card view. One market-scoped row per listed active product with resolved display name, category, primary image, default/cheapest available variant, price, stock, promo, and currency fields.';
-
+  'Public storefront/mobile product-card view. One market-scoped row per listed active product with resolved display name, category, primary image, default/cheapest available variant, price, stock, promo, and currency fields.';;
 grant select on table public.product_card_catalog to anon;
 grant select on table public.product_card_catalog to authenticated;
-grant select on table public.product_card_catalog to service_role;
-
+grant select on table public.product_card_catalog to service_role;;
 create index if not exists product_variants_card_lookup_idx
-  on public.product_variants (product_id, market_id, is_active, is_default, price, id);
-
+  on public.product_variants (product_id, market_id, is_active, is_default, price, id);;
 create index if not exists product_markets_listed_product_idx
-  on public.product_markets (market_id, is_listed, product_id);
+  on public.product_markets (market_id, is_listed, product_id);;

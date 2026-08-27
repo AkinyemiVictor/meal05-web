@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-const terminalStatuses = new Set(["verified", "success", "rejected", "failed", "cancelled", "expired"]);
+const terminalStatuses = new Set(["verified", "success", "successful", "rejected", "failed", "cancelled", "expired", "refunded", "reversed"]);
 
 export default function PaymentActions({ paymentId, status }) {
   const router = useRouter();
@@ -15,7 +15,7 @@ export default function PaymentActions({ paymentId, status }) {
     setMessage("");
     let body;
     if (action === "reject") {
-      const reason = window.prompt("Reason for rejecting this payment");
+      const reason = window.prompt("Customer-visible reason for rejecting this payment");
       if (!reason || !reason.trim()) return;
       body = JSON.stringify({ reason: reason.trim() });
     }

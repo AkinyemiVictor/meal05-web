@@ -1,3 +1,4 @@
+
 -- 1. classify products: fresh (daily-menu driven) vs staple (always-on from stock)
 ALTER TABLE public.products
   ADD COLUMN sourcing_type text NOT NULL DEFAULT 'staple'
@@ -70,3 +71,4 @@ LEFT JOIN public.product_categories c ON c.id = p.category_id
 WHERE dm.menu_date = (now() AT TIME ZONE 'Africa/Lagos')::date
   AND i.is_available;
 COMMENT ON VIEW public.v_todays_menu IS 'Today''s live fresh menu (Africa/Lagos date): available items with effective price and remaining quantity.';
+;

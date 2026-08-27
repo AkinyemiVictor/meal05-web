@@ -6,7 +6,7 @@ const read = (relative) => readFileSync(new URL(relative, import.meta.url), "utf
 
 test("rider directory writes are admin-only and photos stay in private storage", () => {
   const route = read("../../app/api/admin/riders/save/route.js");
-  const migration = read("../../../supabase/migrations/20260815133000_rider_directory_and_manifests.sql");
+  const migration = read("../../../supabase/migrations/20260815105703_rider_directory_and_manifests.sql");
   assert.match(route, /requireAdminApiUser/);
   assert.match(route, /MAX_PHOTO_BYTES/);
   assert.match(route, /normalizePhoneContact/);
@@ -16,7 +16,7 @@ test("rider directory writes are admin-only and photos stay in private storage",
 
 test("route assignment records physical package counts atomically", () => {
   const management = read("./management.js");
-  const migration = read("../../../supabase/migrations/20260815133000_rider_directory_and_manifests.sql");
+  const migration = read("../../../supabase/migrations/20260815105703_rider_directory_and_manifests.sql");
   assert.match(management, /create_delivery_route_with_packages_transaction/);
   assert.match(migration, /package_count integer not null default 1/);
   assert.match(migration, /package count must be between 1 and 50/);

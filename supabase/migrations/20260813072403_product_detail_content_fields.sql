@@ -9,4 +9,4 @@ comment on column public.products.handling_protocols is
   'Customer-facing handling and preparation protocol tips shown on the product detail page.';
 
 comment on column public.products.storage_tips is
-  'Customer-facing storage tips shown on the product detail page.';
+  'Customer-facing storage tips shown on the product detail page.';;

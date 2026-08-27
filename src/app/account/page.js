@@ -291,6 +291,8 @@ const mapApiOrder = (order) => ({
   paymentStatus: order?.paymentStatus || "pending",
   paymentMethod: order?.paymentMethod || "",
   paymentReference: order?.paymentReference || "",
+  availabilityRequestId: order?.availabilityRequestId || null,
+  latestPayment: order?.latestPayment || null,
   deliveryStatus: order?.deliveryStatus || "",
   deliveryAddress: order?.deliveryAddress || "",
   summary: { total: Number(order?.total) || 0 },
@@ -402,8 +404,10 @@ export function AccountPageContent() {
   const [walletTopupAmount, setWalletTopupAmount] = useState("");
   const [walletTopupProvider, setWalletTopupProvider] = useState("moniepoint_transfer");
   const [walletTopupTransfer, setWalletTopupTransfer] = useState(null);
+  const [walletPayerAccountName, setWalletPayerAccountName] = useState("");
   const [walletPayerBankName, setWalletPayerBankName] = useState("");
   const [walletTransferReference, setWalletTransferReference] = useState("");
+  const [walletExactAmountConfirmed, setWalletExactAmountConfirmed] = useState(false);
   const [walletTransferStatus, setWalletTransferStatus] = useState("idle");
   const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -570,15 +574,17 @@ export function AccountPageContent() {
         return;
       }
       setWalletTopupTransfer(payload);
+      setWalletPayerAccountName(formatName(user));
       setWalletPayerBankName("");
       setWalletTransferReference("");
+      setWalletExactAmountConfirmed(false);
       setWalletMessage("");
       await syncWalletFromServer();
     } catch {
       setWalletMessage("Unable to start top-up.");
       setWalletStatus("error");
     }
-  }, [syncWalletFromServer, walletTopupAmount, walletTopupProvider]);
+  }, [syncWalletFromServer, user, walletTopupAmount, walletTopupProvider]);
 
   const copyWalletText = useCallback((value) => {
     if (typeof navigator === "undefined" || !navigator.clipboard || !value) return;
@@ -589,8 +595,18 @@ export function AccountPageContent() {
     const topupId = String(walletTopupTransfer?.topupId || "").trim();
     const paymentId = walletTopupTransfer?.payment?.id;
     if (!topupId || !paymentId) return;
+    if (walletPayerAccountName.trim().length < 2) {
+      setWalletMessage("Enter the name on the account you transferred from.");
+      setWalletStatus("error");
+      return;
+    }
     if (walletPayerBankName.trim().length < 2) {
       setWalletMessage("Enter the bank or wallet you transferred from.");
+      setWalletStatus("error");
+      return;
+    }
+    if (!walletExactAmountConfirmed) {
+      setWalletMessage("Confirm that you transferred the exact amount.");
       setWalletStatus("error");
       return;
     }
@@ -604,10 +620,10 @@ export function AccountPageContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentId,
-          payerAccountName: formatName(user),
+          payerAccountName: walletPayerAccountName.trim(),
           payerBankName: walletPayerBankName.trim(),
           customerTransactionReference: walletTransferReference.trim(),
-          exactAmountConfirmed: true,
+          exactAmountConfirmed: walletExactAmountConfirmed,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -615,8 +631,10 @@ export function AccountPageContent() {
 
       setWalletTopupTransfer(null);
       setWalletTopupAmount("");
+      setWalletPayerAccountName("");
       setWalletPayerBankName("");
       setWalletTransferReference("");
+      setWalletExactAmountConfirmed(false);
       setWalletMessage(payload?.message || "Wallet deposit submitted for verification.");
       setWalletStatus("ready");
       await syncWalletFromServer();
@@ -626,7 +644,7 @@ export function AccountPageContent() {
     } finally {
       setWalletTransferStatus("idle");
     }
-  }, [syncWalletFromServer, user, walletPayerBankName, walletTopupTransfer, walletTransferReference]);
+  }, [syncWalletFromServer, walletExactAmountConfirmed, walletPayerAccountName, walletPayerBankName, walletTopupTransfer, walletTransferReference]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1427,6 +1445,13 @@ export function AccountPageContent() {
                         <span>Total {formatProductPrice(order.summary?.total || 0)}</span>
                         <span>Status: {formatStatusLabel(order.status)}</span>
                         <span>Payment: {formatStatusLabel(order.paymentStatus)}</span>
+                        {order.latestPayment?.status === "rejected" ? (
+                          <span>
+                            Transfer could not be confirmed
+                            {order.latestPayment.rejection_reason ? `: ${order.latestPayment.rejection_reason}` : "."}
+                          </span>
+                        ) : null}
+                        {order.latestPayment?.status === "expired" ? <span>Payment request expired.</span> : null}
                       </div>
                       <div className={styles.orderActions}>
                         <button
@@ -1469,6 +1494,18 @@ export function AccountPageContent() {
                             {trackingOrderId === order.orderId ? "Hide tracking" : "Track order"}
                           </button>
                           {trackingOrderId === order.orderId ? <OrderTracker order={order} /> : null}
+                          {String(order.paymentStatus || "").toLowerCase() === "awaiting_payment"
+                            && String(order.paymentMethod || "").toLowerCase() === "moniepoint_transfer"
+                            && !order.availabilityRequestId ? (
+                            <Link
+                              className={styles.orderActionButton}
+                              href={`/checkout/payment/moniepoint_transfer?orderId=${encodeURIComponent(order.orderId)}`}
+                            >
+                              {order.latestPayment?.status === "rejected" || order.latestPayment?.status === "expired"
+                                ? "Retry transfer"
+                                : "Complete payment"}
+                            </Link>
+                          ) : null}
                           <DeliveryContactCard contactState={deliveryContacts[order.orderId]} />
                         </div>
                       ) : null}
@@ -1756,9 +1793,24 @@ export function AccountPageContent() {
                      ))}
                    </dl>
                    <label className={styles.profileField}>
-                     <span>Bank or wallet you sent from</span>
+                     <span>Name on the account you transferred from</span>
                      <input
                        type="text"
+                       minLength={2}
+                       maxLength={120}
+                       required
+                       value={walletPayerAccountName}
+                       onChange={(event) => setWalletPayerAccountName(event.target.value)}
+                       autoComplete="name"
+                     />
+                   </label>
+                   <label className={styles.profileField}>
+                     <span>Bank you transferred from</span>
+                     <input
+                       type="text"
+                       minLength={2}
+                       maxLength={120}
+                       required
                        value={walletPayerBankName}
                        onChange={(event) => setWalletPayerBankName(event.target.value)}
                        placeholder="e.g. GTBank or OPay"
@@ -1766,19 +1818,29 @@ export function AccountPageContent() {
                      />
                    </label>
                    <label className={styles.profileField}>
-                     <span>Your transfer reference (optional)</span>
+                     <span>Transaction reference (optional)</span>
                      <input
                        type="text"
+                       maxLength={120}
                        value={walletTransferReference}
                        onChange={(event) => setWalletTransferReference(event.target.value)}
                        placeholder="Enter the reference from your bank receipt"
                      />
+                     <small>This helps us locate your transfer faster.</small>
+                   </label>
+                   <label className={styles.walletExactConfirmation}>
+                     <input
+                       type="checkbox"
+                       checked={walletExactAmountConfirmed}
+                       onChange={(event) => setWalletExactAmountConfirmed(event.target.checked)}
+                     />
+                     <span>I transferred exactly {formatMoney(activeTopupPayment.amount, activeTopupPayment.currency || "NGN")}</span>
                    </label>
                    <div className={styles.walletTransferActions}>
                      <button type="button" onClick={() => setWalletTopupTransfer(null)} disabled={walletTransferStatus === "loading"}>
                        Cancel
                      </button>
-                     <button type="button" onClick={handleWalletTransferSubmit} disabled={walletTransferStatus === "loading"}>
+                     <button type="button" onClick={handleWalletTransferSubmit} disabled={walletTransferStatus === "loading" || !walletExactAmountConfirmed}>
                        {walletTransferStatus === "loading" ? "Submitting..." : "I've sent the money"}
                      </button>
                    </div>

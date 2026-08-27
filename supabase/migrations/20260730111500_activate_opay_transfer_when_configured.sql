@@ -15,3 +15,4 @@ where code = 'opay_transfer'
   and bank_name not like '{{%}}'
   and account_name not like '{{%}}'
   and account_number not like '{{%}}';
+;

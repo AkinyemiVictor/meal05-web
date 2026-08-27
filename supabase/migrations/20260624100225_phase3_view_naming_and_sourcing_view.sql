@@ -1,3 +1,4 @@
+
 -- standardize view names to the existing vw_ convention
 ALTER VIEW public.v_catalog_overview RENAME TO vw_catalog_overview;
 ALTER VIEW public.v_low_stock        RENAME TO vw_low_stock;
@@ -25,3 +26,4 @@ LEFT JOIN LATERAL (
   ORDER BY v.id LIMIT 1
 ) dv ON true;
 COMMENT ON VIEW public.vw_sourcing IS 'Each product with its primary supplier, last cost, default price, and gross margin percent. Populates as suppliers are linked.';
+;
