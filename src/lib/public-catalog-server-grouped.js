@@ -29,10 +29,10 @@ const applyCatalogueFilters = (query, { category = "", search = "", view = "defa
   return query;
 };
 
-const orderedIdQuery = (admin, marketId, filters = {}) => {
+const orderedRowsQuery = (admin, marketId, filters = {}) => {
   let query = admin
     .from("product_card_catalog")
-    .select("product_id", { head: false })
+    .select("product_id, display_group, display_group_order", { head: false })
     .eq("market_id", marketId);
 
   query = applyCatalogueFilters(query, filters);
@@ -41,13 +41,64 @@ const orderedIdQuery = (admin, marketId, filters = {}) => {
     .order("product_id", { ascending: true });
 };
 
-const countQuery = (admin, marketId, filters = {}) => {
-  let query = admin
-    .from("product_card_catalog")
-    .select("product_id", { count: "exact", head: true })
-    .eq("market_id", marketId);
-  return applyCatalogueFilters(query, filters);
+const rowsToUnits = (rows = []) => {
+  const source = Array.isArray(rows) ? rows : [];
+  const units = [];
+
+  for (let index = 0; index < source.length; ) {
+    const row = source[index];
+    const group = String(row?.display_group || "").trim();
+    if (!group) {
+      units.push([row]);
+      index += 1;
+      continue;
+    }
+
+    const unit = [];
+    while (index < source.length && String(source[index]?.display_group || "").trim() === group) {
+      unit.push(source[index]);
+      index += 1;
+    }
+    units.push(unit);
+  }
+
+  return units;
 };
+
+const packCataloguePages = (rows, pageSize) => {
+  const safeSize = Math.max(1, Number(pageSize) || 20);
+  const pages = [];
+  let current = [];
+
+  rowsToUnits(rows).forEach((unit) => {
+    if (current.length && current.length + unit.length > safeSize) {
+      pages.push(current);
+      current = [];
+    }
+    current.push(...unit);
+  });
+
+  if (current.length) pages.push(current);
+  return pages;
+};
+
+const takeWholeGroups = (rows, limit) => {
+  const safeLimit = Math.max(1, Number(limit) || 48);
+  const selected = [];
+
+  for (const unit of rowsToUnits(rows)) {
+    if (selected.length && selected.length + unit.length > safeLimit) break;
+    if (!selected.length && unit.length > safeLimit) return unit;
+    selected.push(...unit);
+  }
+
+  return selected;
+};
+
+const productIds = (rows) =>
+  (Array.isArray(rows) ? rows : [])
+    .map((row) => String(row?.product_id || "").trim())
+    .filter(Boolean);
 
 export async function loadPublicCatalogPage({
   page = 1,
@@ -64,19 +115,13 @@ export async function loadPublicCatalogPage({
   const admin = getSupabaseAdminClient();
   const market = await getDefaultMarket();
   const range = getCatalogPageRange({ page, pageSize });
-  const filters = { category, search };
+  const result = await orderedRowsQuery(admin, market.id, { category, search });
+  if (result.error) throw result.error;
 
-  const [pageResult, totalResult] = await Promise.all([
-    orderedIdQuery(admin, market.id, filters).range(range.from, range.to),
-    countQuery(admin, market.id, filters),
-  ]);
-
-  if (pageResult.error) throw pageResult.error;
-  if (totalResult.error) throw totalResult.error;
-
-  const ids = (Array.isArray(pageResult.data) ? pageResult.data : [])
-    .map((row) => String(row?.product_id || "").trim())
-    .filter(Boolean);
+  const orderedRows = Array.isArray(result.data) ? result.data : [];
+  const pages = packCataloguePages(orderedRows, range.pageSize);
+  const pageRows = pages[range.page - 1] || [];
+  const ids = productIds(pageRows);
 
   const payload = ids.length
     ? await baseLoadPublicCatalogProducts({ ids, category, search, limit: ids.length })
@@ -84,11 +129,14 @@ export async function loadPublicCatalogPage({
 
   return {
     ...payload,
-    pagination: normalizeCatalogPagination({
-      page: range.page,
-      pageSize: range.pageSize,
-      total: totalResult.count || 0,
-    }),
+    pagination: {
+      ...normalizeCatalogPagination({
+        page: range.page,
+        pageSize: range.pageSize,
+        total: orderedRows.length,
+      }),
+      totalPages: Math.max(1, pages.length),
+    },
   };
 }
 
@@ -106,19 +154,17 @@ export async function loadPublicCatalogProducts({
 
   const requestedLimit = Math.min(Math.max(Number(limit) || 48, 1), 120);
   // The existing authoritative loader preserves up to 80 explicitly ordered IDs.
-  // Larger specialist feeds keep their established behaviour rather than silently truncating.
   if (requestedLimit > 80) {
     return baseLoadPublicCatalogProducts({ ids, category, search, view, limit });
   }
 
   const admin = getSupabaseAdminClient();
   const market = await getDefaultMarket();
-  const result = await orderedIdQuery(admin, market.id, { category, search, view }).limit(requestedLimit);
+  const result = await orderedRowsQuery(admin, market.id, { category, search, view });
   if (result.error) throw result.error;
 
-  const orderedIds = (Array.isArray(result.data) ? result.data : [])
-    .map((row) => String(row?.product_id || "").trim())
-    .filter(Boolean);
+  const orderedRows = takeWholeGroups(result.data, requestedLimit);
+  const orderedIds = productIds(orderedRows);
 
   if (!orderedIds.length) {
     return { grouped: {}, flat: [], market: publicMarket(market) };
