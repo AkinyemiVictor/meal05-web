@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "paths": {
+      "@/lib/public-catalog-server": ["./src/lib/public-catalog-server-grouped.js"],
       "@/*": ["./src/*"]
     }
   }
