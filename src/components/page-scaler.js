@@ -18,13 +18,14 @@ export default function PageScaler({ children }) {
   const [scaleState, setScaleState] = useState({
     scale: 1,
     scaledDocHeight: null,
+    unscaledViewportHeight: null,
     isScaling: false,
   });
 
   useIsomorphicLayoutEffect(() => {
     if (typeof window === "undefined") return undefined;
     if (disableScaling) {
-      setScaleState({ scale: 1, scaledDocHeight: null, isScaling: false });
+      setScaleState({ scale: 1, scaledDocHeight: null, unscaledViewportHeight: null, isScaling: false });
       return undefined;
     }
 
@@ -36,7 +37,7 @@ export default function PageScaler({ children }) {
       const shouldScale = width <= SCALE_TRIGGER_WIDTH;
 
       if (!shouldScale) {
-        setScaleState({ scale: 1, scaledDocHeight: null, isScaling: false });
+        setScaleState({ scale: 1, scaledDocHeight: null, unscaledViewportHeight: null, isScaling: false });
         return;
       }
 
@@ -49,6 +50,7 @@ export default function PageScaler({ children }) {
       setScaleState({
         scale: nextScale,
         scaledDocHeight: `${nextHeight}px`,
+        unscaledViewportHeight: `${Math.ceil(window.innerHeight / nextScale)}px`,
         isScaling: true,
       });
     };
@@ -82,6 +84,7 @@ export default function PageScaler({ children }) {
     ? {
         "--page-scale": String(scaleState.scale),
         "--page-scaled-doc-height": scaleState.scaledDocHeight,
+        "--page-unscaled-viewport-height": scaleState.unscaledViewportHeight,
       }
     : undefined;
 

@@ -39,6 +39,8 @@ test("product detail page contains no generated food handling or storage fallbac
   assert.doesNotMatch(page, /Keep refrigerated or in a cool, dry place|fresh longer|cold-chain care/);
   assert.match(page, /handlingProtocols\.length/);
   assert.match(page, /storageTips\.length/);
+  assert.doesNotMatch(page, /\{ label: "Unit Metric"/);
+  assert.match(page, /"unit", "unit metric"/);
 });
 
 test("product gallery uses arrows, image count, and dots instead of thumbnail images", () => {
@@ -52,6 +54,9 @@ test("product gallery uses arrows, image count, and dots instead of thumbnail im
   assert.match(client, /Show product image \$\{idx \+ 1\} of \$\{galleryImages\.length\}/);
   assert.doesNotMatch(client, /product-detail-thumb|Thumbnail \$\{idx \+ 1\}/);
   assert.match(badges, /\.product-detail-page \.product-detail-gallery-dot\.is-active/);
+  assert.match(badges, /product-detail-gallery-count[\s\S]*?box-shadow:\s*none/);
+  assert.match(badges, /product-detail-gallery-arrow--previous\s*\{\s*left:\s*10%/);
+  assert.match(badges, /product-detail-gallery-dot\.is-active\s*\{[\s\S]*?width:\s*22px/);
 });
 
 test("seasonal products show an explicit icon-led in-season or off-season status", () => {
@@ -61,4 +66,25 @@ test("seasonal products show an explicit icon-led in-season or off-season status
   assert.match(detail, /product-detail-season__icon/);
   assert.match(detail, /isInSeason \? "In season" : "Off season"/);
   assert.match(card, /isInSeason \? "In season" : "Off season"/);
+});
+
+test("handling and storage sections use supported SVG icons for every tip", () => {
+  const page = readFileSync(resolve(process.cwd(), "src/app/products/[productSlug]/page.js"), "utf8");
+  const css = readFileSync(resolve(process.cwd(), "src/styles/main.css"), "utf8");
+
+  for (const icon of [
+    "IconShieldCheck",
+    "IconHandStop",
+    "IconToolsKitchen2",
+    "IconCircleCheck",
+    "IconTemperature",
+    "IconArchive",
+    "IconSnowflake",
+    "IconCalendar",
+  ]) {
+    assert.match(page, new RegExp(`\\b${icon}\\b`));
+  }
+  assert.match(page, /const TipIcon = tipIcons\[index % tipIcons\.length\] \|\| IconCircleCheck/);
+  assert.doesNotMatch(page, /fa-hand-sparkles|fa-kitchen-set|fa-temperature-quarter/);
+  assert.match(css, /\.product-detail-page \.product-buying-guide__icon svg/);
 });

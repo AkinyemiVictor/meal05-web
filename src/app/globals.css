@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 :root {
-  --mk-body-bg: #f8f9fa;
+  --mk-body-bg: #ffffff;
   --mk-surface: #ffffff;
   --mk-surface-muted: rgba(188, 188, 188, 0.2);
   --mk-text: #191919;
@@ -133,6 +133,11 @@ select {
 /* Layout spacing */
 .layout-main {
   min-height: 100vh;
+  background: #ffffff;
+}
+
+.layout-main > main:not(.meal05-home-page):not(.checkout-transfer-screen) {
+  background-color: #ffffff;
 }
 
 .meal05-map-pin{display:grid!important;place-items:center;background:#071426;border:3px solid #fff;border-radius:50%;box-shadow:0 4px 12px #07142655}

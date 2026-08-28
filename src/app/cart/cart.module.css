@@ -889,6 +889,10 @@
     padding: 1.5rem 0.85rem 4.25rem;
   }
 
+  .pageEmpty {
+    min-height: var(--page-unscaled-viewport-height, 100dvh);
+  }
+
   .productSection {
     width: 100%;
     margin-top: 2.25rem;

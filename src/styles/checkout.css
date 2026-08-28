@@ -1418,7 +1418,7 @@
 .checkout-page {
   max-width: none;
   min-height: 100vh;
-  background: #f4f5f7;
+  background: #ffffff;
   padding: 3.4rem max(1.5rem, calc((100vw - 1320px) / 2)) 5rem;
 }
 

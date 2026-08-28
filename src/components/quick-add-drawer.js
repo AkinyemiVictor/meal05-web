@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { IconShoppingBag, IconX } from "@tabler/icons-react";
 
 import AvailabilityRequestNotice from "@/components/availability-request-notice";
 import SizePreferencePicker from "@/components/size-preference-picker";
@@ -464,7 +465,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
   const priceLabel = useMemo(() => {
     if (!displayProduct) return "";
-    return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), getVariantUnit(effectiveVariant, displayProduct));
+    return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), "");
   }, [displayProduct, effectiveVariant]);
   const categoryLabel = useMemo(() => {
     const category = displayProduct?.category || displayProduct?.categorySlug || "";
@@ -635,11 +636,11 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       <div className="quick-add-handle" aria-hidden="true" />
       <div className="quick-add-mobile-topbar">
         <button type="button" className="quick-add-mobile-topbar__close" onClick={onClose} aria-label="Close">
-          <i className="fa-solid fa-xmark" aria-hidden="true" />
+          <IconX size={22} stroke={2} aria-hidden="true" />
         </button>
         <strong>Product details</strong>
         <span aria-hidden="true">
-          <i className="fa-solid fa-basket-shopping" />
+          <IconShoppingBag size={22} stroke={1.8} />
         </span>
       </div>
 
@@ -650,7 +651,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           <p className="quick-add-category">{categoryLabel}</p>
         </div>
         <button type="button" className="quick-add-close" onClick={onClose} aria-label="Close">
-          X
+          <IconX size={20} stroke={2} aria-hidden="true" />
         </button>
       </div>
 
@@ -745,10 +746,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
                       {activeVariations.map((entry) => {
                         const entryId = String(getVariantId(entry, displayProduct) || "");
                         const entryName = buildVariantName(entry) || entry.unit || "Option";
-                        const entryPrice = formatProductPrice(
-                          getVariantPrice(entry, displayProduct),
-                          getVariantUnit(entry, displayProduct)
-                        );
+                        const entryPrice = formatProductPrice(getVariantPrice(entry, displayProduct), "");
                         return (
                           <option key={entryId} value={entryId} disabled={isVariantInactive(entry, displayProduct)}>
                             {entryName} — {entryPrice}
@@ -853,12 +851,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               "Adding..."
             ) : availabilityMode === "request" ? (
               <>
-                <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+                <IconShoppingBag size={20} stroke={1.8} aria-hidden="true" />
                 Add to availability basket
               </>
             ) : (
               <>
-                <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+                <IconShoppingBag size={20} stroke={1.8} aria-hidden="true" />
                 Add to cart
               </>
             )}

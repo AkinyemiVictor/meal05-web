@@ -110,6 +110,15 @@ test("checkout routes through Moniepoint details to a dedicated transfer confirm
   assert.doesNotMatch(providerPage, /OPay|Sterling|Before you make this transfer/);
 });
 
+test("checkout chrome leaves the page-level back-to-cart control as the only back action", () => {
+  const shell = read("src/components/checkout-layout-shell.js");
+  const checkoutPage = read("src/app/checkout/page.js");
+
+  assert.doesNotMatch(shell, /Back to cart|IconArrowLeft|href="\/cart"/);
+  assert.match(checkoutPage, /href="\/cart"/);
+  assert.match(checkoutPage, /copy\.checkout\.backToCart/);
+});
+
 test("first delivery promo is server-authorized and visible in checkout summary", () => {
   const orderRoute = read("src/app/api/orders/route.js");
   const checkoutSummary = read("src/components/checkout-summary.js");

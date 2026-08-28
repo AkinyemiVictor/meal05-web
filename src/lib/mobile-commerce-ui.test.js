@@ -39,6 +39,40 @@ test("quick-add becomes a product-detail bottom sheet with dropdown options on m
   assert.match(drawer, /About this product/);
   assert.match(drawer, /View full product details/);
   assert.match(drawer, /<VariantPicker/);
+  assert.match(drawer, /import \{ IconShoppingBag, IconX \} from "@tabler\/icons-react"/);
+  assert.match(drawer, /<IconShoppingBag size=\{20\} stroke=\{1\.8\}/);
+  assert.match(drawer, /quick-add-mobile-topbar__close[\s\S]*?<IconX/);
+  assert.doesNotMatch(drawer, /fa-xmark|fa-basket-shopping/);
+  assert.match(drawer, /formatProductPrice\(getVariantPrice\(effectiveVariant, displayProduct\), ""\)/);
+  assert.doesNotMatch(drawer, /formatProductPrice\(getVariantPrice\(effectiveVariant, displayProduct\), getVariantUnit/);
+});
+
+test("scaled mobile empty cart fills the unscaled viewport", () => {
+  const scaler = read("src/components/page-scaler.js");
+  const cartCss = read("src/app/cart/cart.module.css");
+
+  assert.match(scaler, /unscaledViewportHeight:\s*`\$\{Math\.ceil\(window\.innerHeight \/ nextScale\)\}px`/);
+  assert.match(scaler, /"--page-unscaled-viewport-height":\s*scaleState\.unscaledViewportHeight/);
+  assert.match(cartCss, /\.pageEmpty\s*\{\s*min-height:\s*var\(--page-unscaled-viewport-height, 100dvh\)/);
+});
+
+test("desktop product details share aligned columns and centered option content", () => {
+  const css = read("src/styles/main.css");
+
+  assert.equal(
+    (css.match(/grid-template-columns:\s*minmax\(0, 1fr\) minmax\(360px, 420px\)/g) || []).length,
+    2
+  );
+  assert.match(css, /\.product-detail-page \.product-variant-picker__option\s*\{\s*display:\s*grid;[\s\S]*?place-items:\s*center;[\s\S]*?text-align:\s*center;/);
+});
+
+test("storefront pages use white canvas while home and transfer details keep route-specific backgrounds", () => {
+  const globals = read("src/app/globals.css");
+  const checkoutCss = read("src/styles/checkout.css");
+
+  assert.match(globals, /--mk-body-bg:\s*#ffffff/);
+  assert.match(globals, /main:not\(\.meal05-home-page\):not\(\.checkout-transfer-screen\)/);
+  assert.match(checkoutCss, /\.checkout-page\s*\{[\s\S]*?background:\s*#ffffff/);
 });
 
 test("quick-add quantity controls share an active colour and only fade when disabled", () => {
