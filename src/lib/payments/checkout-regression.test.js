@@ -83,10 +83,11 @@ test("wallet and quantity errors use flow-specific messages", () => {
   assert.doesNotMatch(checkoutForm, /Maximum is 10/);
 });
 
-test("checkout routes directly to Moniepoint with tap-to-copy amounts and pending confirmation UI", () => {
+test("checkout routes through Moniepoint details to a dedicated transfer confirmation page", () => {
   const checkoutForm = read("src/components/checkout-form.js");
   const paymentPage = read("src/app/checkout/payment/page.js");
   const providerPage = read("src/app/checkout/payment/[providerCode]/page.js");
+  const confirmationPage = read("src/app/checkout/payment/[providerCode]/confirm/page.js");
 
   assert.match(checkoutForm, /router\.push\("\/checkout\/payment\/moniepoint_transfer"\)/);
   assert.match(paymentPage, /redirect\("\/checkout\/payment\/moniepoint_transfer"\)/);
@@ -98,12 +99,13 @@ test("checkout routes directly to Moniepoint with tap-to-copy amounts and pendin
   assert.match(providerPage, /Tap amount to copy/);
   assert.doesNotMatch(providerPage, /fa-regular fa-copy/);
   assert.doesNotMatch(providerPage, /copied \? "fa-solid fa-check"/);
-  assert.match(providerPage, /We are confirming your transfer\. You will receive a notification once your payment has been confirmed\./);
-  assert.match(providerPage, /Transfer submitted/);
-  assert.doesNotMatch(providerPage, /Payment received/);
-  assert.match(providerPage, /IconMoodSmile/);
+  assert.match(providerPage, /router\.push\(`\/checkout\/payment\/\$\{providerCode\}\/confirm`\)/);
+  assert.match(confirmationPage, /We are confirming your transfer\. You will receive a notification once your payment has been confirmed\./);
+  assert.match(confirmationPage, /Transfer submitted/);
+  assert.doesNotMatch(confirmationPage, /Payment received/);
+  assert.match(confirmationPage, /IconMoodSmile/);
   assert.match(providerPage, /IconBuildingBank/);
-  assert.match(providerPage, /role="alertdialog"/);
+  assert.match(confirmationPage, /role="alertdialog"/);
   assert.match(providerPage, />\s*Secured\s*</);
   assert.doesNotMatch(providerPage, /OPay|Sterling|Before you make this transfer/);
 });

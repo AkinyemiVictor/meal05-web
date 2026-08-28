@@ -24,15 +24,21 @@ test("product options never exceed three columns and stay readable on mobile", (
   assert.match(css.slice(finalPickerRule, finalPickerRule + 240), /repeat\(2, minmax\(0, 1fr\)\)/);
 });
 
-test("quick-add modal keeps two readable option cards and scrolls instead of scaling down", () => {
+test("quick-add becomes a product-detail bottom sheet with dropdown options on mobile", () => {
   const css = read("src/styles/main.css");
+  const drawer = read("src/components/quick-add-drawer.js");
   const modalRule = css.lastIndexOf(".quick-add-panel--mobile-modal {");
-  const optionsRule = css.lastIndexOf(".quick-add-panel--mobile-modal .product-variant-picker__options");
+  const overlayRule = css.lastIndexOf(".quick-add-overlay--centered {");
 
-  assert.match(css.slice(modalRule, modalRule + 500), /max-height:\s*min\(680px, calc\(100dvh - 1\.5rem\)\)/);
+  assert.match(css.slice(overlayRule, overlayRule + 220), /align-items:\s*flex-end/);
+  assert.match(css.slice(modalRule, modalRule + 520), /max-height:\s*calc\(100dvh - 0\.75rem\)/);
+  assert.match(css.slice(modalRule, modalRule + 520), /border-radius:\s*28px 28px 0 0/);
   assert.doesNotMatch(css, /--quick-add-scale:\s*0\./);
-  assert.match(css.slice(optionsRule, optionsRule + 260), /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(css.slice(optionsRule, optionsRule + 700), /overflow-wrap:\s*anywhere/);
+  assert.match(drawer, /quick-add-mobile-product__image/);
+  assert.match(drawer, /quick-add-mobile-option-select/);
+  assert.match(drawer, /About this product/);
+  assert.match(drawer, /View full product details/);
+  assert.match(drawer, /<VariantPicker/);
 });
 
 test("quick-add quantity controls share an active colour and only fade when disabled", () => {

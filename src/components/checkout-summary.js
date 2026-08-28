@@ -189,12 +189,6 @@ export default function CheckoutSummary({
           <span>{copy.checkout.labels.packaging}</span>
           <span>{Number(summary.packagingFee || 0) === 0 ? copy.checkout.freeDeliveryLabel : formatProductPrice(summary.packagingFee)}</span>
         </div>
-        {summary.handlingFee > 0 ? (
-          <div>
-            <span>Small order handling</span>
-            <span>{formatProductPrice(summary.handlingFee)}</span>
-          </div>
-        ) : null}
         <div>
           <span>
             {copy.checkout.labels.delivery}

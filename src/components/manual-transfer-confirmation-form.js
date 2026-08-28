@@ -15,6 +15,9 @@ export default function ManualTransferConfirmationForm({
   busy = false,
   onCancel,
   onSubmit,
+  showHeader = true,
+  showCancel = true,
+  standalone = false,
 }) {
   const [payerAccountName, setPayerAccountName] = useState(defaultPayerAccountName);
   const [payerBankName, setPayerBankName] = useState("");
@@ -37,12 +40,19 @@ export default function ManualTransferConfirmationForm({
   };
 
   return (
-    <form className="manual-transfer-confirmation" onSubmit={submit}>
-      <h3>Confirm your transfer details</h3>
-      <p>These details help Meal05 locate your transfer. They do not confirm that payment was received.</p>
+    <form
+      className={`manual-transfer-confirmation${standalone ? " manual-transfer-confirmation--standalone" : ""}`}
+      onSubmit={submit}
+    >
+      {showHeader ? (
+        <header className="manual-transfer-confirmation__header">
+          <h3>Confirm your transfer details</h3>
+          <p>These details help Meal05 locate your transfer. They do not confirm that payment was received.</p>
+        </header>
+      ) : null}
 
-      <label>
-        <span>Name on the account you transferred from</span>
+      <label className="manual-transfer-confirmation__field">
+        <span className="manual-transfer-confirmation__label">Name on the account you transferred from</span>
         <input
           type="text"
           minLength={2}
@@ -54,8 +64,8 @@ export default function ManualTransferConfirmationForm({
         />
       </label>
 
-      <label>
-        <span>Bank you transferred from</span>
+      <label className="manual-transfer-confirmation__field">
+        <span className="manual-transfer-confirmation__label">Bank you transferred from</span>
         <input
           type="text"
           minLength={2}
@@ -68,8 +78,8 @@ export default function ManualTransferConfirmationForm({
         />
       </label>
 
-      <label>
-        <span>Transaction reference (optional)</span>
+      <label className="manual-transfer-confirmation__field">
+        <span className="manual-transfer-confirmation__label">Transaction reference (optional)</span>
         <input
           type="text"
           maxLength={120}
@@ -86,11 +96,14 @@ export default function ManualTransferConfirmationForm({
           checked={exactAmountConfirmed}
           onChange={(event) => setExactAmountConfirmed(event.target.checked)}
         />
-        <span>I transferred exactly {formatAmount(amount, currency)}</span>
+        <span>
+          <small>Exact amount confirmation</small>
+          I transferred exactly <strong>{formatAmount(amount, currency)}</strong>
+        </span>
       </label>
 
-      <div className="manual-transfer-confirmation__actions">
-        <button type="button" onClick={onCancel} disabled={busy}>Back</button>
+      <div className={`manual-transfer-confirmation__actions${showCancel ? "" : " manual-transfer-confirmation__actions--single"}`}>
+        {showCancel ? <button type="button" onClick={onCancel} disabled={busy}>Back</button> : null}
         <button type="submit" disabled={busy || !exactAmountConfirmed}>
           {busy ? "Submitting..." : "Submit transfer"}
         </button>

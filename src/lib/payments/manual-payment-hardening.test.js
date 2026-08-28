@@ -8,6 +8,9 @@ const migration = read("supabase/migrations/20260826090620_harden_checkout_manua
 const submitRoute = read("src/app/api/payments/bank-transfer/submit/route.js");
 const initRoute = read("src/app/api/payments/bank-transfer/initialize/route.js");
 const confirmationForm = read("src/components/manual-transfer-confirmation-form.js");
+const paymentPage = read("src/app/checkout/payment/[providerCode]/page.js");
+const confirmationPage = read("src/app/checkout/payment/[providerCode]/confirm/page.js");
+const confirmationStorage = read("src/lib/payments/manual-transfer-confirmation-storage.js");
 
 test("financial tables expose SELECT-only ownership policies to browser users", () => {
   assert.match(migration, /revoke all on table public\.orders from anon, authenticated/);
@@ -56,6 +59,18 @@ test("transfer reconciliation form collects real values and explicit exact-amoun
   assert.match(confirmationForm, /type="checkbox"/);
   assert.match(confirmationForm, /exactAmountConfirmed/);
   assert.doesNotMatch(submitRoute, /exactAmountConfirmed:\s*true/);
+});
+
+test("manual transfer confirmation is isolated on a dedicated authenticated handoff page", () => {
+  assert.match(paymentPage, /persistManualTransferConfirmation/);
+  assert.match(paymentPage, /router\.push\(`\/checkout\/payment\/\$\{providerCode\}\/confirm`\)/);
+  assert.doesNotMatch(paymentPage, /ManualTransferConfirmationForm/);
+  assert.match(confirmationPage, /ManualTransferConfirmationForm/);
+  assert.match(confirmationPage, /\/api\/payments\/bank-transfer\/submit/);
+  assert.match(confirmationPage, /Authorization: `Bearer \$\{token\}`/);
+  assert.match(confirmationPage, /clearManualTransferConfirmation\(\)/);
+  assert.match(confirmationStorage, /window\.sessionStorage/);
+  assert.doesNotMatch(confirmationStorage, /localStorage/);
 });
 
 test("status checks and security-advisor remediations are explicit", () => {
