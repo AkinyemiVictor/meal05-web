@@ -29,4 +29,4 @@ create policy waitlist_admin_all on public.waitlist
 
 create policy waitlist_public_insert on public.waitlist
   for insert to public
-  with check (true);
+  with check (true);;

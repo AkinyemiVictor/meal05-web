@@ -28,4 +28,4 @@ language sql stable as $$
   limit 1;
 $$;
 
-comment on function public.resolve_delivery_zone is 'Serviceability check: returns the nearest active zone containing the point (haversine radius match), or no rows if out of delivery area. Call client-side for UX and server-side at checkout for enforcement.';
+comment on function public.resolve_delivery_zone is 'Serviceability check: returns the nearest active zone containing the point (haversine radius match), or no rows if out of delivery area. Call client-side for UX and server-side at checkout for enforcement.';;

@@ -42,12 +42,6 @@ const pickDefaultVariant = (variations) => {
   return pool[0] || null;
 };
 
-const formatUnitLabel = (unit) => {
-  const normalized = String(unit || "").trim();
-  if (!normalized) return "unit";
-  return normalized.replace(/^per\s+/i, "") || "unit";
-};
-
 const buildStars = (value) => {
   const safeValue = Math.max(0, Math.min(Number(value) || 0, 5));
   return Array.from({ length: 5 }, (_, index) => ({
@@ -281,7 +275,6 @@ export default function ProductDetailClient({ product, variations = [], fallback
   const showSeasonBadge = shouldShowSeasonBadge(display);
   const isInSeason = display.inSeason !== false;
   const seasonLabel = isInSeason ? "In season" : "Off season";
-  const unitLabel = formatUnitLabel(display.unit);
   const categoryLabel = formatCategory(display.category || product.category);
   const ratingAverage = Number(ratings?.average || 4.6);
   const reviewCount = Number(ratings?.totalRatings || ratings?.totalReviews || 128);

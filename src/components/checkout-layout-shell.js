@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconArrowLeft, IconShieldCheck } from "@tabler/icons-react";
+import { IconShieldCheck } from "@tabler/icons-react";
 
 export default function CheckoutLayoutShell({ children }) {
   const pathname = usePathname();
@@ -13,8 +13,8 @@ export default function CheckoutLayoutShell({ children }) {
     <>
       {!isPaymentPage ? (
         <header className="border-b border-meal-line bg-meal-paper px-5 py-4">
-          <div className="mx-auto flex max-w-[1120px] items-center justify-between gap-4">
-            <Link href="/" aria-label="Meal05 home" className="shrink-0">
+          <div className="mx-auto grid max-w-[1120px] grid-cols-[1fr_auto_1fr] items-center gap-4">
+            <Link href="/" aria-label="Meal05 home" className="shrink-0 justify-self-start">
               <Image
                 src="/assets/logo/MEAL05 NEW LOGO-01.png"
                 alt="Meal05"
@@ -29,14 +29,7 @@ export default function CheckoutLayoutShell({ children }) {
               <IconShieldCheck size={18} stroke={1.8} className="shrink-0 text-meal-green" />
               <span className="hidden sm:inline">Secure checkout</span>
             </div>
-            <Link
-              href="/cart"
-              className="flex h-10 shrink-0 items-center gap-2 rounded-2xl border border-meal-line bg-meal-paper px-3 text-sm font-semibold text-meal-text transition hover:border-meal-pepper hover:text-meal-pepper"
-            >
-              <IconArrowLeft size={17} stroke={1.8} />
-              <span className="hidden sm:inline">Back to cart</span>
-              <span className="sm:hidden">Cart</span>
-            </Link>
+            <span aria-hidden="true" />
           </div>
         </header>
       ) : null}

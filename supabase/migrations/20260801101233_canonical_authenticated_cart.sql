@@ -105,3 +105,5 @@ create policy cart_items_owner_delete
 revoke all on table public.cart_items from anon;
 grant select, insert, update, delete on table public.cart_items to authenticated;
 grant usage, select on sequence public.cart_items_id_seq to authenticated;
+
+;

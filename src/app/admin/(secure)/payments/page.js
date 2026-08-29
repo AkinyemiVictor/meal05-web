@@ -29,6 +29,22 @@ export default async function AdminPaymentsPage({ searchParams }) {
   if (orderId) query = query.eq("order_id", orderId);
   const { data, error } = await query;
   const rows = Array.isArray(data) ? data : [];
+  const orderIds = [...new Set(rows.map((row) => row.order_id).filter((id) => id != null))];
+  const userIds = [...new Set(rows.map((row) => row.user_id).filter(Boolean))];
+  const [ordersResult, usersResult] = await Promise.all([
+    orderIds.length
+      ? getSupabaseAdminClient().from("orders").select("id, order_reference, payment_status, delivery_contact_name, delivery_contact_phone").in("id", orderIds)
+      : Promise.resolve({ data: [] }),
+    userIds.length
+      ? getSupabaseAdminClient().from("users").select("id, auth_id, email, phone, first_name, last_name, name").in("auth_id", userIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const ordersById = new Map((ordersResult.data || []).map((order) => [String(order.id), order]));
+  const usersById = new Map();
+  for (const profile of usersResult.data || []) {
+    if (profile.auth_id) usersById.set(String(profile.auth_id), profile);
+    if (profile.id) usersById.set(String(profile.id), profile);
+  }
 
   return (
     <main style={{ padding: 24, display: "grid", gap: 18 }}>
@@ -41,20 +57,27 @@ export default async function AdminPaymentsPage({ searchParams }) {
       {error ? <p style={{ color: "#b91c1c", fontWeight: 700 }}>{error.message}</p> : null}
 
       <section style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1380 }}>
           <thead>
             <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-              {["Reference", "Purpose", "Status", "Amount", "Provider", "Order", "Sender", "Submitted", "Actions"].map((heading) => (
+              {["Reference", "Purpose", "Status", "Expected amount", "Provider", "Order", "Customer", "Sender", "Submitted", "Expires", "Actions"].map((heading) => (
                 <th key={heading} style={{ padding: 12, fontSize: 13, color: "#475569" }}>{heading}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {!rows.length ? (
-              <tr><td colSpan={9} style={{ padding: 18, color: "#64748b" }}>No payments match this view.</td></tr>
-            ) : rows.map((row) => (
+              <tr><td colSpan={11} style={{ padding: 18, color: "#64748b" }}>No payments match this view.</td></tr>
+            ) : rows.map((row) => {
+              const order = row.order_id ? ordersById.get(String(row.order_id)) : null;
+              const customer = usersById.get(String(row.user_id)) || null;
+              const customerName = [customer?.first_name, customer?.last_name].filter(Boolean).join(" ") || customer?.name || order?.delivery_contact_name || "-";
+              return (
               <tr key={row.id} style={{ borderTop: "1px solid #e2e8f0" }}>
-                <td style={{ padding: 12, fontWeight: 800 }}>{row.reference}</td>
+                <td style={{ padding: 12, fontWeight: 800 }}>
+                  {row.reference}
+                  {row.customer_transaction_reference ? <small style={{ display: "block", marginTop: 3, color: "#64748b" }}>Bank ref: {row.customer_transaction_reference}</small> : null}
+                </td>
                 <td style={{ padding: 12 }}>
                   <strong>{purposeLabel(row.purpose)}</strong>
                   {row.wallet_topup_id ? <small style={{ display: "block", marginTop: 3, color: "#64748b" }}>Deposit {row.wallet_topup_id}</small> : null}
@@ -62,15 +85,25 @@ export default async function AdminPaymentsPage({ searchParams }) {
                 <td style={{ padding: 12 }}>{text(row.status)}</td>
                 <td style={{ padding: 12 }}>{money(row.amount)}</td>
                 <td style={{ padding: 12 }}>{text(row.provider_code)}</td>
-                <td style={{ padding: 12 }}>{row.order_id ? `Order #${row.order_id}` : row.wallet_topup_id ? "Wallet funding" : "-"}</td>
+                <td style={{ padding: 12 }}>
+                  {row.order_id ? (order?.order_reference || `Order #${row.order_id}`) : row.wallet_topup_id ? "Wallet funding" : "-"}
+                  {order?.payment_status ? <small style={{ display: "block", marginTop: 3, color: "#64748b" }}>Payment: {text(order.payment_status)}</small> : null}
+                </td>
+                <td style={{ padding: 12 }}>
+                  <strong>{customerName}</strong>
+                  {customer?.email ? <small style={{ display: "block", marginTop: 3 }}>{customer.email}</small> : null}
+                  {(customer?.phone || order?.delivery_contact_phone) ? <small style={{ display: "block", marginTop: 3 }}>{customer?.phone || order?.delivery_contact_phone}</small> : null}
+                </td>
                 <td style={{ padding: 12 }}>{row.payer_account_name || "-"}{row.payer_bank_name ? ` (${row.payer_bank_name})` : ""}</td>
                 <td style={{ padding: 12 }}>{row.customer_submitted_at ? new Date(row.customer_submitted_at).toLocaleString() : "-"}</td>
+                <td style={{ padding: 12 }}>{row.expires_at ? new Date(row.expires_at).toLocaleString() : "-"}</td>
                 <td style={{ padding: 12 }}>
                   <PaymentActions paymentId={row.id} status={row.status} />
                   {row.order_id ? <a href={`/admin/orders?orderId=${row.order_id}`} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #cbd5e1", color: "#0f172a", textDecoration: "none", fontWeight: 700 }}>Order</a> : null}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </section>

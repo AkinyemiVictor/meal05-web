@@ -1,3 +1,4 @@
+
 -- A one-glance catalog summary: each product with its category, price range, and total stock.
 CREATE OR REPLACE VIEW public.v_catalog_overview
 WITH (security_invoker = on) AS
@@ -40,3 +41,4 @@ WHERE v.is_active
 ORDER BY v.stock_count ASC, p.name;
 
 COMMENT ON VIEW public.v_low_stock IS 'Business view: active variants at or below 5 units in stock — a restock worklist. Threshold can be adjusted.';
+;

@@ -22,4 +22,4 @@ create policy product_markets_admin_all on public.product_markets
   using (is_admin_user()) with check (is_admin_user());
 
 insert into public.product_markets (product_id, market_id, is_listed)
-select p.id, public.default_market_id(), true from public.products p;
+select p.id, public.default_market_id(), true from public.products p;;

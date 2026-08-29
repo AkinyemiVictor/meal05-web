@@ -1,3 +1,4 @@
+
 -- category management columns
 ALTER TABLE public.product_categories
   ADD COLUMN is_active  boolean NOT NULL DEFAULT true,
@@ -28,3 +29,4 @@ UPDATE public.product_categories SET sort_order = CASE name
 INSERT INTO public.product_categories (name, slug, is_active, sort_order) VALUES
   ('Cooked Food',       'cooked-food',      false, 11),
   ('Snacks & Pastries', 'snacks-pastries',  false, 12);
+;

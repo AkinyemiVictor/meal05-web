@@ -3,21 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, useParams, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconBuildingBank, IconMoodSmile } from "@tabler/icons-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { IconBuildingBank } from "@tabler/icons-react";
 
-import {
-  clearPendingCheckoutPayment,
-  clearStoredCart,
-  clearStoredPromo,
-  readPendingCheckoutPayment,
-} from "@/lib/checkout";
+import { readPendingCheckoutPayment } from "@/lib/checkout";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 import {
   buildCheckoutOrderRequest,
   getCheckoutApiErrorMessage,
   logCheckoutApiError,
 } from "@/lib/checkout-payload";
+import { persistManualTransferConfirmation } from "@/lib/payments/manual-transfer-confirmation-storage";
 
 const MONIEPOINT_CODE = "moniepoint_transfer";
 const MONIEPOINT_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/moniepoint logo.png";
@@ -155,7 +151,7 @@ function PaymentHero({ amount }) {
   );
 }
 
-function AccountDetailsStep({ provider, details, pending, busy, message, onSubmit }) {
+function AccountDetailsStep({ provider, details, pending, busy, message, onContinue }) {
   const payment = details?.payment || {};
   const activeProvider = { ...(provider || {}), ...(details?.provider || {}), logoUrl: MONIEPOINT_LOGO_URL };
   const amount = Number(payment.amount ?? details?.order?.summary?.total ?? pending?.summary?.total ?? 0) || 0;
@@ -191,8 +187,8 @@ function AccountDetailsStep({ provider, details, pending, busy, message, onSubmi
       </p>
 
       {message ? <p className="checkout-transfer-screen__message" role="alert">{message}</p> : null}
-      <button type="button" className="checkout-transfer-screen__sent" onClick={onSubmit} disabled={busy}>
-        {busy ? "Submitting..." : "I’ve sent the money"}
+      <button type="button" className="checkout-transfer-screen__sent" onClick={onContinue} disabled={busy}>
+        I’ve sent the money
       </button>
 
       <TransferFooter />
@@ -213,23 +209,6 @@ function TransferFooter() {
         Secured
       </p>
     </footer>
-  );
-}
-
-function PendingConfirmationDialog({ onCancel }) {
-  return (
-    <div className="checkout-transfer-pending" role="alertdialog" aria-modal="true" aria-labelledby="transfer-pending-title" aria-describedby="transfer-pending-message">
-      <section className="checkout-transfer-pending__dialog">
-        <span className="checkout-transfer-pending__smile" aria-hidden="true">
-          <IconMoodSmile />
-        </span>
-        <h1 id="transfer-pending-title">Payment received</h1>
-        <p id="transfer-pending-message">
-          We are confirming your payment. You will receive a notification upon confirmation.
-        </p>
-        <button type="button" onClick={onCancel}>Cancel</button>
-      </section>
-    </div>
   );
 }
 
@@ -366,45 +345,24 @@ export default function ProviderPaymentPage() {
     void createOrderAndPayment();
   }, [createOrderAndPayment, pending, provider, providerStatus, status]);
 
-  const submitTransfer = async () => {
-    if (!transferDetails?.payment?.id || busy) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const token = await getAuthToken();
-      if (!token) throw new Error("Your login session has expired. Please sign in again.");
-      const response = await fetch("/api/payments/bank-transfer/submit", {
-        method: "POST",
-        cache: "no-store",
-        headers: buildHeaders(token, `${transferDetails.payment.id}:submit`),
-        body: JSON.stringify({
-          paymentId: transferDetails.payment.id,
-          payerAccountName: pending?.form?.fullName || "Meal05 customer",
-          payerBankName: "Customer bank",
-          customerTransactionReference: "",
-          exactAmountConfirmed: true,
-        }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error || "Unable to submit payment.");
-      clearStoredCart();
-      clearStoredPromo();
-      clearPendingCheckoutPayment();
-      setStatus("submitted");
-    } catch (error) {
-      setMessage(error?.message || "Unable to submit payment.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const continueToConfirmation = () => {
+    const payment = transferDetails?.payment || {};
+    const amount = Number(payment.amount ?? transferDetails?.order?.summary?.total ?? pending?.summary?.total ?? 0) || 0;
+    const saved = persistManualTransferConfirmation({
+      providerCode,
+      paymentId: payment.id,
+      amount,
+      currency: payment.currency || "NGN",
+      orderId: transferDetails?.order?.orderId,
+      defaultPayerAccountName: pending?.form?.fullName || "",
+    });
 
-  if (status === "submitted") {
-    return (
-      <main className="checkout-transfer-screen checkout-transfer-screen--submitted">
-        <PendingConfirmationDialog onCancel={() => router.replace("/account/orders")} />
-      </main>
-    );
-  }
+    if (!saved) {
+      setMessage("Unable to open transfer confirmation. Please refresh and try again.");
+      return;
+    }
+    router.push(`/checkout/payment/${providerCode}/confirm`);
+  };
 
   if (status === "loading" || status === "preparing") {
     return (
@@ -462,7 +420,7 @@ export default function ProviderPaymentPage() {
         pending={pending}
         busy={busy}
         message={message}
-        onSubmit={submitTransfer}
+        onContinue={continueToConfirmation}
       />
     </TransferShell>
   );

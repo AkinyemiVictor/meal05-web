@@ -15,6 +15,7 @@ import {
   sanitizeProvider,
 } from "@/lib/payments/provider-settings";
 import { validateAvailabilityPaymentWindow } from "@/lib/availability-payment-server";
+import { expireManualPaymentIfNeeded, isExpiredPaymentResult } from "@/lib/payments/manual-payment-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +93,14 @@ export async function POST(request) {
   if (existingError) return send({ error: existingError.message || "Unable to load payment." }, 500, rl);
 
   let payment = existing;
+  if (payment) {
+    try {
+      const expiry = await expireManualPaymentIfNeeded(admin, payment.id, auth.user.id);
+      if (isExpiredPaymentResult(expiry)) payment = null;
+    } catch (error) {
+      return send({ error: error?.message || "Unable to validate payment expiry." }, 500, rl);
+    }
+  }
   if (!payment) {
     const reference = createPaymentReference("order_payment");
     const expiresAt = paymentExpiryForPurpose("order_payment");
@@ -114,12 +123,28 @@ export async function POST(request) {
       })
       .select("id, reference, amount, currency, status, expires_at, provider_code")
       .single();
-    if (insertError) return send({ error: insertError.message || "Unable to create payment." }, 500, rl);
-    payment = inserted;
-    await admin
+    if (insertError?.code === "23505") {
+      const { data: concurrentPayment, error: concurrentError } = await admin
+        .from("payments")
+        .select("id, reference, amount, currency, status, expires_at, provider_code")
+        .eq("order_id", order.id)
+        .eq("purpose", "order_payment")
+        .not("status", "in", "(cancelled,rejected,expired,failed,refunded)")
+        .maybeSingle();
+      if (concurrentError || !concurrentPayment) {
+        return send({ error: concurrentError?.message || insertError.message || "Unable to create payment." }, 500, rl);
+      }
+      payment = concurrentPayment;
+    } else if (insertError) {
+      return send({ error: insertError.message || "Unable to create payment." }, 500, rl);
+    } else {
+      payment = inserted;
+    }
+    const { error: orderPaymentError } = await admin
       .from("orders")
-      .update({ payment_reference: reference, payment_method: providerCode, payment_status: "awaiting_payment" })
+      .update({ payment_reference: payment.reference, payment_method: providerCode, payment_status: "awaiting_payment" })
       .eq("id", order.id);
+    if (orderPaymentError) return send({ error: orderPaymentError.message || "Unable to prepare the order for payment." }, 500, rl);
   }
 
   return send({ payment, provider: sanitizeProvider(provider, "checkout") }, 201, rl);

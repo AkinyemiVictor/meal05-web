@@ -3,6 +3,7 @@ import { applyRateLimitHeaders, checkRateLimit } from "@/lib/api/rate-limit";
 import { withNoStore } from "@/lib/api/no-store";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { requireAdminApiUser } from "@/lib/admin-api-auth";
+import { isExpiredPaymentResult, PAYMENT_EXPIRED_CODE, PAYMENT_EXPIRED_MESSAGE } from "@/lib/payments/manual-payment-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,5 +23,8 @@ export async function POST(request, { params }) {
     p_administrator_id: auth.user.id,
   });
   if (error) return send({ error: error.message || "Unable to verify payment." }, 409, rl);
+  if (isExpiredPaymentResult(data)) {
+    return send({ error: data?.error || PAYMENT_EXPIRED_MESSAGE, code: PAYMENT_EXPIRED_CODE }, 409, rl);
+  }
   return send({ ok: true, result: data }, 200, rl);
 }

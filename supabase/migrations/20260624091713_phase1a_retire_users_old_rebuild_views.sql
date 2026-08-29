@@ -1,3 +1,4 @@
+
 -- snapshot order children before clearing
 CREATE TABLE backup.payments_20260624   AS SELECT * FROM public.payments;
 CREATE TABLE backup.deliveries_20260624  AS SELECT * FROM public.deliveries;
@@ -63,3 +64,4 @@ JOIN public.orders o ON o.user_id = u.id
 WHERE o.status = ANY (ARRAY['paid','completed'])
 GROUP BY u.id, u.name, u.email, u.phone
 ORDER BY sum(o.total) DESC, count(o.id) DESC;
+;

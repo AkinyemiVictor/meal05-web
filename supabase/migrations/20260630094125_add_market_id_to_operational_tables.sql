@@ -62,4 +62,4 @@ alter table public.product_variants add column market_id uuid default public.def
 update public.product_variants set market_id = public.default_market_id() where market_id is null;
 alter table public.product_variants add constraint product_variants_market_id_fkey foreign key (market_id) references public.markets(id);
 alter table public.product_variants alter column market_id set not null;
-create index product_variants_market_id_idx on public.product_variants (market_id);
+create index product_variants_market_id_idx on public.product_variants (market_id);;

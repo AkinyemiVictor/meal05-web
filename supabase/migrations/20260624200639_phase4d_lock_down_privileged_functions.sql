@@ -1,3 +1,4 @@
+
 -- Privileged admin RPCs: callable only server-side via service_role
 REVOKE EXECUTE ON FUNCTION public.reset_user_password(uuid, text) FROM anon, authenticated, public;
 GRANT  EXECUTE ON FUNCTION public.reset_user_password(uuid, text) TO service_role;
@@ -23,3 +24,4 @@ ALTER  FUNCTION public.handle_deleted_user() SET search_path = public;
 REVOKE EXECUTE ON FUNCTION public.refresh_daily_category_performance() FROM anon, authenticated, public;
 GRANT  EXECUTE ON FUNCTION public.refresh_daily_category_performance() TO service_role;
 ALTER  FUNCTION public.refresh_daily_category_performance() SET search_path = public;
+;

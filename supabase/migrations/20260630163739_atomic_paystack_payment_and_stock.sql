@@ -5,7 +5,6 @@
 create unique index if not exists orders_payment_reference_key
   on public.orders (payment_reference)
   where payment_reference is not null;
-
 create or replace function public.mark_paystack_order_paid(
   p_order_id integer,
   p_transaction_ref text,
@@ -149,10 +148,8 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.mark_paystack_order_paid(integer, text, numeric, text) from public, anon, authenticated;
 grant execute on function public.mark_paystack_order_paid(integer, text, numeric, text) to service_role;
-
 -- This legacy function references the retired inventory_movements table and
 -- must not remain callable from public API roles.
 revoke all on function public.deduct_stock_for_order(uuid) from public, anon, authenticated;

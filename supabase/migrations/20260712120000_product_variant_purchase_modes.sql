@@ -3,12 +3,10 @@ alter table public.product_variants
   add column if not exists min_quantity numeric,
   add column if not exists max_quantity numeric,
   add column if not exists step_quantity numeric;
-
 alter table public.product_variants
   drop constraint if exists product_variants_purchase_mode_check,
   add constraint product_variants_purchase_mode_check
     check (purchase_mode in ('fixed', 'loose'));
-
 alter table public.product_variants
   drop constraint if exists product_variants_loose_quantity_bounds_check,
   add constraint product_variants_loose_quantity_bounds_check
@@ -18,7 +16,6 @@ alter table public.product_variants
       and (step_quantity is null or step_quantity > 0)
       and (min_quantity is null or max_quantity is null or min_quantity <= max_quantity)
     );
-
 comment on column public.product_variants.purchase_mode is
   'fixed variants are sold as preset options; loose variants accept a customer-entered scalable quantity.';
 comment on column public.product_variants.min_quantity is
@@ -27,31 +24,23 @@ comment on column public.product_variants.max_quantity is
   'Maximum customer-entered quantity for loose purchase mode.';
 comment on column public.product_variants.step_quantity is
   'Allowed quantity increment for loose purchase mode, e.g. 0.5 for half-kg steps.';
-
 drop view if exists public.vw_sales_summary;
 drop view if exists public.products_cards_view_v2;
 drop view if exists public.vw_catalog_overview;
 drop view if exists public.vw_low_stock;
 drop view if exists public.restock_log_v2;
-
 alter table public.cart_items
   alter column quantity type numeric(12,3) using quantity::numeric(12,3);
-
 alter table public.order_items
   alter column quantity type numeric(12,3) using quantity::numeric(12,3);
-
 alter table public.product_variants
   alter column stock_count type numeric(12,3) using stock_count::numeric(12,3);
-
 alter table public.stock_ledger
   alter column change_qty type numeric(12,3) using change_qty::numeric(12,3);
-
 alter table public.orders
   add column if not exists handling_fee integer not null default 0;
-
 comment on column public.orders.handling_fee is
   'Visible low-order handling fee charged when subtotal is below the global minimum order threshold.';
-
 create or replace view public.vw_catalog_overview
 with (security_invoker = on) as
 select
@@ -71,13 +60,11 @@ left join public.product_categories c on c.id = p.category_id
 left join public.product_variants v on v.product_id = p.id
 group by p.id, p.name, c.name, p.is_active, p.in_season, p.created_at
 order by c.name, p.name;
-
 comment on view public.vw_catalog_overview is
   'Business view: one row per product with category, active-variant count, price range, and total stock. Read-only summary for staff.';
 grant all on table public.vw_catalog_overview to anon;
 grant all on table public.vw_catalog_overview to authenticated;
 grant all on table public.vw_catalog_overview to service_role;
-
 create or replace view public.vw_low_stock
 with (security_invoker = on) as
 select
@@ -93,13 +80,11 @@ join public.products p on p.id = v.product_id
 left join public.product_categories c on c.id = p.category_id
 where v.is_active and v.stock_count <= 5
 order by v.stock_count, p.name;
-
 comment on view public.vw_low_stock is
   'Business view: active variants at or below 5 units in stock - a restock worklist. Threshold can be adjusted.';
 grant all on table public.vw_low_stock to anon;
 grant all on table public.vw_low_stock to authenticated;
 grant all on table public.vw_low_stock to service_role;
-
 create or replace view public.products_cards_view_v2
 with (security_invoker = on) as
 select
@@ -114,11 +99,9 @@ select
 from public.products p
 left join public.product_variants v on v.product_id = p.id
 group by p.id;
-
 grant all on table public.products_cards_view_v2 to anon;
 grant all on table public.products_cards_view_v2 to authenticated;
 grant all on table public.products_cards_view_v2 to service_role;
-
 create or replace view public.restock_log_v2
 with (security_invoker = on) as
 select
@@ -129,11 +112,9 @@ select
   created_at as restocked_at
 from public.stock_ledger
 where reason = 'restock';
-
 grant all on table public.restock_log_v2 to anon;
 grant all on table public.restock_log_v2 to authenticated;
 grant all on table public.restock_log_v2 to service_role;
-
 create or replace view public.vw_sales_summary
 with (security_invoker = on) as
 select
@@ -146,11 +127,9 @@ join public.order_items oi on o.id = oi.order_id
 where o.status <> 'cancelled'
 group by date(o.created_at)
 order by date(o.created_at) desc;
-
 grant all on table public.vw_sales_summary to anon;
 grant all on table public.vw_sales_summary to authenticated;
 grant all on table public.vw_sales_summary to service_role;
-
 create or replace function public.verify_paystack_payment(
   p_order_id bigint,
   p_reference text,

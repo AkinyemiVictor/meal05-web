@@ -1,3 +1,4 @@
+
 -- reliable admin check from users.role; SECURITY DEFINER avoids RLS recursion
 CREATE OR REPLACE FUNCTION public.is_admin_user()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
@@ -44,3 +45,4 @@ DROP POLICY IF EXISTS product_ratings_owner_update ON public.product_ratings;
 CREATE POLICY product_ratings_owner_update ON public.product_ratings FOR UPDATE TO authenticated USING (user_id = (SELECT auth.uid()) OR public.is_admin_user()) WITH CHECK (user_id = (SELECT auth.uid()) OR public.is_admin_user());
 DROP POLICY IF EXISTS product_ratings_owner_delete ON public.product_ratings;
 CREATE POLICY product_ratings_owner_delete ON public.product_ratings FOR DELETE TO authenticated USING (user_id = (SELECT auth.uid()) OR public.is_admin_user());
+;

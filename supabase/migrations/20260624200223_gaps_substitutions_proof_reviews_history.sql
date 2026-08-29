@@ -1,3 +1,4 @@
+
 -- substitutions on order line items
 ALTER TABLE public.order_items
   ADD COLUMN substituted_variant_id bigint REFERENCES public.product_variants(id) ON DELETE SET NULL,
@@ -62,3 +63,4 @@ CREATE POLICY osh_select_own ON public.order_status_history FOR SELECT TO authen
   USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.user_id = (SELECT auth.uid())) OR public.is_admin_user());
 CREATE POLICY osh_admin_all ON public.order_status_history FOR ALL TO authenticated
   USING (public.is_admin_user()) WITH CHECK (public.is_admin_user());
+;

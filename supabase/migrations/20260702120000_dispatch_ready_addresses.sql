@@ -6,11 +6,9 @@ alter table public.orders
   add column if not exists delivery_address_label text,
   add column if not exists delivery_contact_name text,
   add column if not exists delivery_contact_phone text;
-
 alter table public.user_addresses
   add column if not exists house_number text,
   add column if not exists landmark text;
-
 comment on column public.orders.delivery_house_number is 'House, flat, shop or gate number supplied for dispatch.';
 comment on column public.orders.delivery_street is 'Street, estate or locality supplied for dispatch.';
 comment on column public.orders.delivery_landmark is 'Rider-facing landmark or final approach directions.';

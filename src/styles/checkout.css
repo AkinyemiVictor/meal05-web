@@ -1249,10 +1249,176 @@
 }
 
 /* Checkout redesign */
+.manual-transfer-confirmation {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #d8dee8;
+  border-radius: 16px;
+  background: #fff;
+  text-align: left;
+}
+
+.manual-transfer-confirmation h3,
+.manual-transfer-confirmation p {
+  margin: 0;
+}
+
+.manual-transfer-confirmation p,
+.manual-transfer-confirmation small {
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.manual-transfer-confirmation label:not(.manual-transfer-confirmation__checkbox) {
+  display: grid;
+  gap: 0.4rem;
+  color: #172033;
+  font-weight: 700;
+}
+
+.manual-transfer-confirmation input[type="text"] {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.manual-transfer-confirmation input:focus-visible {
+  outline: 3px solid rgba(240, 78, 31, 0.2);
+  border-color: #f04e1f;
+}
+
+.manual-transfer-confirmation__checkbox {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  color: #172033;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.manual-transfer-confirmation__checkbox input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.1rem;
+  accent-color: #f04e1f;
+}
+
+.manual-transfer-confirmation__actions {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr;
+  gap: 0.65rem;
+}
+
+.manual-transfer-confirmation__actions button {
+  min-height: 46px;
+  border: 1px solid #d5dae3;
+  border-radius: 10px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.manual-transfer-confirmation__actions button[type="submit"] {
+  border-color: #f04e1f;
+  background: #f04e1f;
+  color: #fff;
+}
+
+.manual-transfer-confirmation__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.manual-transfer-confirmation__header {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.manual-transfer-confirmation__field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.manual-transfer-confirmation__label {
+  color: #172033;
+  font-size: 0.92rem;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.manual-transfer-confirmation__checkbox > span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.manual-transfer-confirmation__checkbox small {
+  color: #687386;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.manual-transfer-confirmation__actions--single {
+  grid-template-columns: 1fr;
+}
+
+.manual-transfer-confirmation--standalone {
+  gap: 1.15rem;
+  margin: 0;
+  padding: 1.5rem;
+  border-color: #e1e5eb;
+  border-radius: 22px;
+  box-shadow: 0 16px 38px rgba(17, 24, 39, 0.07);
+}
+
+.manual-transfer-confirmation--standalone input[type="text"] {
+  min-height: 54px;
+  border-color: #d9dee7;
+  border-radius: 13px;
+  background: #fbfcfd;
+  padding-inline: 1rem;
+}
+
+.manual-transfer-confirmation--standalone input[type="text"]::placeholder {
+  color: #a0a8b5;
+}
+
+.manual-transfer-confirmation--standalone .manual-transfer-confirmation__checkbox {
+  align-items: center;
+  gap: 0.8rem;
+  border: 1px solid #d8eae4;
+  border-radius: 14px;
+  background: #f2faf7;
+  padding: 1rem;
+}
+
+.manual-transfer-confirmation--standalone .manual-transfer-confirmation__checkbox input {
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+}
+
+.manual-transfer-confirmation--standalone .manual-transfer-confirmation__actions button[type="submit"] {
+  min-height: 56px;
+  border-radius: 14px;
+  box-shadow: 0 12px 24px rgba(240, 78, 31, 0.2);
+}
+
 .checkout-page {
   max-width: none;
   min-height: 100vh;
-  background: #f4f5f7;
+  background: #ffffff;
   padding: 3.4rem max(1.5rem, calc((100vw - 1320px) / 2)) 5rem;
 }
 
@@ -2726,5 +2892,234 @@
   .checkout-transfer-screen__confirmation {
     margin-block: clamp(1rem, 3dvh, 1.75rem) clamp(0.8rem, 2.2dvh, 1.2rem);
     font-size: 0.9rem;
+  }
+}
+
+.checkout-transfer-confirm-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f5f6f8;
+  color: #111827;
+}
+
+.checkout-transfer-confirm-page__topbar {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  height: 56px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  align-items: center;
+  background: #000000;
+  color: #ffffff;
+}
+
+.checkout-transfer-confirm-page__topbar strong {
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.checkout-transfer-confirm-page__topbar button,
+.checkout-transfer-confirm-page__topbar a {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+
+.checkout-transfer-confirm-page__content {
+  width: min(100%, 560px);
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+.checkout-transfer-confirm-page__intro {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 1rem 0.75rem;
+  text-align: center;
+}
+
+.checkout-transfer-confirm-page__intro > span {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: #e7f8f1;
+  color: #0d9b69;
+}
+
+.checkout-transfer-confirm-page__intro svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.8;
+}
+
+.checkout-transfer-confirm-page__intro p,
+.checkout-transfer-confirm-page__intro h1,
+.checkout-transfer-confirm-page__intro small {
+  margin: 0;
+}
+
+.checkout-transfer-confirm-page__intro p {
+  color: #f04e1f;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.checkout-transfer-confirm-page__intro h1 {
+  color: #111827;
+  font-size: clamp(1.65rem, 6vw, 2rem);
+  font-weight: 950;
+  letter-spacing: -0.03em;
+}
+
+.checkout-transfer-confirm-page__intro small {
+  max-width: 28rem;
+  color: #687386;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.checkout-transfer-confirm-page__amount {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #f7d7c9;
+  border-radius: 16px;
+  background: #fff7f2;
+  padding: 1rem 1.15rem;
+}
+
+.checkout-transfer-confirm-page__amount span {
+  color: #7a6258;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.checkout-transfer-confirm-page__amount strong {
+  color: #b63d18;
+  font-size: 1.05rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.checkout-transfer-confirm-page__message {
+  margin: 0;
+  border: 1px solid #fed7aa;
+  border-radius: 13px;
+  background: #fff7ed;
+  color: #9a3412;
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.checkout-transfer-confirm-page__security-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  margin: 0;
+  color: #687386;
+  padding: 0.35rem 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.checkout-transfer-confirm-page__security-note svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: #0d9b69;
+}
+
+.checkout-transfer-confirm-page__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #6b7280;
+  padding-top: 0.5rem;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.checkout-transfer-confirm-page__footer a:hover,
+.checkout-transfer-confirm-page__footer a:focus-visible {
+  color: #111827;
+  text-decoration: underline;
+}
+
+.checkout-transfer-confirm-page__loading,
+.checkout-transfer-confirm-page__missing {
+  width: min(calc(100% - 2rem), 480px);
+  margin: 4rem auto;
+  text-align: center;
+}
+
+.checkout-transfer-confirm-page__missing {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 2rem 1.5rem;
+}
+
+.checkout-transfer-confirm-page__missing h1,
+.checkout-transfer-confirm-page__missing p {
+  margin: 0;
+}
+
+.checkout-transfer-confirm-page__missing a {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: #111827;
+  color: #ffffff;
+  padding: 0 1.25rem;
+  font-weight: 850;
+}
+
+@media (max-width: 640px) {
+  .checkout-transfer-confirm-page {
+    background: #ffffff;
+  }
+
+  .checkout-transfer-confirm-page__content {
+    gap: 0.9rem;
+    padding: 1.25rem 1rem max(2rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .checkout-transfer-confirm-page__intro {
+    padding-inline: 0.25rem;
+  }
+
+  .manual-transfer-confirmation--standalone {
+    padding: 1.15rem;
+    border-radius: 18px;
+    box-shadow: none;
+  }
+
+  .manual-transfer-confirmation--standalone input[type="text"] {
+    min-height: 52px;
   }
 }

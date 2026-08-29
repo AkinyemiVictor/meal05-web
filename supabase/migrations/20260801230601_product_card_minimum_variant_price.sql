@@ -120,3 +120,4 @@ where pm.is_listed
 grant select on table public.product_card_catalog to anon;
 grant select on table public.product_card_catalog to authenticated;
 grant select on table public.product_card_catalog to service_role;
+;

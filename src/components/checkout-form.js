@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import DeferredLocationPicker from "@/components/deferred-location-picker";
+import { persistManualTransferConfirmation } from "@/lib/payments/manual-transfer-confirmation-storage";
 
 import copy from "@/data/copy";
 import {
@@ -262,7 +263,7 @@ function CheckoutStatusOverlay({ status, message, onClose }) {
   );
 }
 
-function TransferPaymentPanel({ details, status, onSubmitPayment, onBack }) {
+function TransferPaymentPanel({ details, status, onContinue, onBack }) {
   const payment = details?.payment || {};
   const provider = details?.provider || {};
   const amount = Number(payment.amount ?? details?.order?.summary?.total ?? 0) || 0;
@@ -342,10 +343,10 @@ function TransferPaymentPanel({ details, status, onSubmitPayment, onBack }) {
       <button
         type="button"
         className="checkout-transfer__submit"
-        onClick={onSubmitPayment}
+        onClick={onContinue}
         disabled={status === "processing"}
       >
-        {status === "processing" ? "Submitting..." : "I've sent the money"}
+        I’ve sent the money
       </button>
     </section>
   );
@@ -1741,40 +1742,25 @@ export default function CheckoutForm({
     }
   };
 
-  const handleTransferSubmitted = async () => {
-    if (!transferDetails?.payment?.id || status === "processing") return;
-    const authToken = await getCheckoutAuthToken();
-    if (!authToken) {
-      showSubmitError("Your login session has expired. Please sign in again to continue checkout.");
+  const openTransferConfirmation = () => {
+    const payment = transferDetails?.payment || {};
+    const providerCode = String(
+      transferDetails?.provider?.code || payment.provider_code || DEFAULT_GATEWAY_PAYMENT_METHOD
+    );
+    const saved = persistManualTransferConfirmation({
+      providerCode,
+      paymentId: payment.id,
+      amount: payment.amount ?? transferDetails?.order?.summary?.total,
+      currency: payment.currency || "NGN",
+      orderId: transferDetails?.order?.orderId,
+      defaultPayerAccountName: transferDetails?.order?.fullName || "",
+    });
+
+    if (!saved) {
+      showSubmitError("Unable to open transfer confirmation. Please try again.");
       return;
     }
-    setStatus("processing");
-    setFormError(null);
-    try {
-      const response = await fetch("/api/payments/bank-transfer/submit", {
-        method: "POST",
-        headers: buildCheckoutRequestHeaders(authToken, `${transferDetails.payment.id}:submit`),
-        cache: "no-store",
-        body: JSON.stringify({
-          paymentId: transferDetails.payment.id,
-          payerAccountName: transferDetails.order?.fullName || "Meal05 customer",
-          payerBankName: "Customer bank",
-          customerTransactionReference: "",
-          exactAmountConfirmed: true,
-        }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error || "Unable to submit payment.");
-      }
-      setStatus("idle");
-      setOverlayStatus("success");
-      setOverlayMessage(payload?.message || "Payment submitted. Meal05 will confirm it before the order appears in your active orders.");
-    } catch (error) {
-      setStatus("idle");
-      setOverlayStatus("failure");
-      setOverlayMessage(error?.message || "Unable to submit payment.");
-    }
+    router.push(`/checkout/payment/${providerCode}/confirm`);
   };
 
   if (result) {
@@ -1793,7 +1779,7 @@ export default function CheckoutForm({
         <TransferPaymentPanel
           details={transferDetails}
           status={status}
-          onSubmitPayment={handleTransferSubmitted}
+          onContinue={openTransferConfirmation}
           onBack={() => {
             setPaymentStep("provider");
             setTransferDetails(null);

@@ -170,4 +170,4 @@ revoke all on function public.verify_paystack_payment(bigint, text, numeric, tex
 grant execute on function public.verify_paystack_payment(bigint, text, numeric, text) to service_role;
 
 comment on function public.verify_paystack_payment(bigint, text, numeric, text) is
-  'Legacy server-only compatibility wrapper. Delegates to mark_paystack_order_paid so stock deduction respects inventory_tracking_mode.';
+  'Legacy server-only compatibility wrapper. Delegates to mark_paystack_order_paid so stock deduction respects inventory_tracking_mode.';;

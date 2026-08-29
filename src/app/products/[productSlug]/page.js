@@ -1,5 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  IconArchive,
+  IconCalendar,
+  IconCircleCheck,
+  IconHandStop,
+  IconInfoCircle,
+  IconShieldCheck,
+  IconSnowflake,
+  IconTemperature,
+  IconToolsKitchen2,
+} from "@tabler/icons-react";
 
 import JsonLdScript from "@/components/json-ld-script";
 import ProductDetailClient from "@/components/product-detail-client";
@@ -18,6 +29,9 @@ import {
 
 const FALLBACK_IMAGE = PRODUCT_PLACEHOLDER_IMAGE;
 export const revalidate = 0;
+
+const HANDLING_TIP_ICONS = [IconHandStop, IconToolsKitchen2, IconCircleCheck];
+const STORAGE_TIP_ICONS = [IconArchive, IconSnowflake, IconCalendar];
 
 const PRODUCT_IMAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_PRODUCT_IMAGE_BUCKET ||
@@ -93,7 +107,6 @@ const createDefaultSpecifications = (product) => {
   return [
     { label: "SKU", value: `M05-${String(product.id).padStart(4, "0")}` },
     { label: "Category", value: categoryText },
-    { label: "Unit Metric", value: product.unit || "unit" },
   ];
 };
 
@@ -140,7 +153,7 @@ const normaliseSpecifications = (product, rawSpecifications) => {
     const cleaned = entries
       .filter((entry) => entry && entry.label && entry.value)
       .map((entry) => ({ label: String(entry.label), value: String(entry.value) }))
-      .filter((entry) => !["storage", "storage protocol", "storage tips"].includes(entry.label.trim().toLowerCase()));
+      .filter((entry) => !["storage", "storage protocol", "storage tips", "unit", "unit metric"].includes(entry.label.trim().toLowerCase()));
     if (cleaned.length) return cleaned;
   }
   return createDefaultSpecifications(product);
@@ -207,7 +220,6 @@ const formatSpecificationLabel = (label) => {
   const normalized = String(label || "").trim().toLowerCase();
   if (normalized === "sku") return "SKU";
   if (normalized === "category") return "Category";
-  if (normalized === "unit" || normalized === "unit metric") return "Unit Metric";
   return String(label || "");
 };
 
@@ -217,11 +229,11 @@ const toSpecificationKey = (label) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-function ProductSectionHeading({ id, icon, title, tone = "info" }) {
+function ProductSectionHeading({ id, Icon, title, tone = "info" }) {
   return (
     <div className={`product-detail-section__heading product-detail-section__heading--${tone}`}>
       <span className="product-detail-section__heading-icon" aria-hidden="true">
-        <i className={`fa-solid ${icon}`} />
+        <Icon size={22} stroke={1.9} />
       </span>
       <h2 id={id}>{title}</h2>
     </div>
@@ -235,7 +247,7 @@ function ProductAboutSection({ description }) {
     <section className="product-detail-section" aria-labelledby="product-about-heading">
       <ProductSectionHeading
         id="product-about-heading"
-        icon="fa-circle-info"
+        Icon={IconInfoCircle}
         title="About this item"
         tone="warning"
       />
@@ -273,21 +285,24 @@ function LogisticsManifestSection({ specifications }) {
   );
 }
 
-function ProductTipsSection({ id, title, icon, tone, tips, iconForIndex }) {
+function ProductTipsSection({ id, title, Icon, tone, tips, tipIcons }) {
   if (!tips.length) return null;
 
   return (
     <section className="product-detail-section" aria-labelledby={id}>
-      <ProductSectionHeading id={id} icon={icon} title={title} tone={tone} />
+      <ProductSectionHeading id={id} Icon={Icon} title={title} tone={tone} />
       <ul className="product-buying-guide">
-        {tips.map((tip, index) => (
-          <li key={`${index}-${tip}`}>
-            <span className="product-buying-guide__icon" aria-hidden="true">
-              <i className={`fa-solid ${iconForIndex(index)}`} />
-            </span>
-            <span>{tip}</span>
-          </li>
-        ))}
+        {tips.map((tip, index) => {
+          const TipIcon = tipIcons[index % tipIcons.length] || IconCircleCheck;
+          return (
+            <li key={`${index}-${tip}`}>
+              <span className="product-buying-guide__icon" aria-hidden="true">
+                <TipIcon size={22} stroke={1.9} />
+              </span>
+              <span>{tip}</span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -298,12 +313,10 @@ function HandlingProtocolsSection({ tips }) {
     <ProductTipsSection
       id="product-handling-protocols-heading"
       title="Handling protocols"
-      icon="fa-shield-halved"
+      Icon={IconShieldCheck}
       tone="success"
       tips={tips}
-      iconForIndex={(index) =>
-        index === 0 ? "fa-hand-sparkles" : index === 1 ? "fa-kitchen-set" : "fa-circle-check"
-      }
+      tipIcons={HANDLING_TIP_ICONS}
     />
   );
 }
@@ -313,12 +326,10 @@ function StorageTipsSection({ tips }) {
     <ProductTipsSection
       id="product-storage-tips-heading"
       title="Storage tips"
-      icon="fa-temperature-quarter"
+      Icon={IconTemperature}
       tone="info"
       tips={tips}
-      iconForIndex={(index) =>
-        index === 0 ? "fa-box-archive" : index === 1 ? "fa-snowflake" : "fa-calendar-days"
-      }
+      tipIcons={STORAGE_TIP_ICONS}
     />
   );
 }

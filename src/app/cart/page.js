@@ -660,7 +660,6 @@ function CartPageContent() {
     return {
       ...merged,
       packaging: merged.packagingFee,
-      handling: merged.handlingFee,
       discount: merged.discountTotal,
       delivery: merged.deliveryFee,
     };
@@ -1173,12 +1172,6 @@ function CartPageContent() {
                 <span>Packaging fee</span>
                 <span>{summary.packaging === 0 ? "Free" : formatCurrency(summary.packaging)}</span>
               </div>
-              {summary.handling > 0 ? (
-                <div className={styles.summaryRow}>
-                  <span>Small order handling</span>
-                  <span>{formatCurrency(summary.handling)}</span>
-                </div>
-              ) : null}
               {summary.discount > 0 ? (
                 <div className={`${styles.summaryRow} ${styles.summaryRowSavings}`.trim()}>
                   <span><i className="fa-solid fa-tag" aria-hidden="true"></i> Savings</span>

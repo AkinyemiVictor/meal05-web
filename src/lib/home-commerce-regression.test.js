@@ -143,7 +143,7 @@ test("shop navigation preloads on intent without restoring idle request amplific
 });
 
 test("quantity-cap migration changes only options capped at ten", () => {
-  const migration = read("supabase/migrations/20260801224305_increase_product_option_cap_to_25.sql");
+  const migration = read("supabase/migrations/20260801221540_increase_product_option_cap_to_25.sql");
 
   assert.match(migration, /set\s+max_quantity\s*=\s*25/i);
   assert.match(migration, /where\s+max_quantity\s*=\s*10/i);

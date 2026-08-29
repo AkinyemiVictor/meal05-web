@@ -1,7 +1,10 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { IconShoppingBag, IconX } from "@tabler/icons-react";
 
 import AvailabilityRequestNotice from "@/components/availability-request-notice";
 import SizePreferencePicker from "@/components/size-preference-picker";
@@ -12,6 +15,7 @@ import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
 import { resolveProductImage } from "@/lib/product-image";
+import { getProductHref } from "@/lib/products";
 import { readStoredUser } from "@/lib/auth";
 import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 import {
@@ -30,6 +34,9 @@ import {
 } from "@/lib/purchase-quantities";
 
 const CATEGORY_LABELS = new Map(categories.map((category) => [category.slug, category.label]));
+const canUseNextImageOptimization = (src) =>
+  String(src || "").startsWith("/") ||
+  /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/public\//i.test(String(src || ""));
 
 const normaliseOrderCount = (value, variant = {}, fallback = 1) => {
   const validation = validateVariantQuantity(variant, value);
@@ -458,7 +465,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
   const priceLabel = useMemo(() => {
     if (!displayProduct) return "";
-    return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), getVariantUnit(effectiveVariant, displayProduct));
+    return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), "");
   }, [displayProduct, effectiveVariant]);
   const categoryLabel = useMemo(() => {
     const category = displayProduct?.category || displayProduct?.categorySlug || "";
@@ -466,6 +473,19 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   }, [displayProduct]);
 
   const isUnavailable = isVariantInactive(effectiveVariant, displayProduct);
+  const productImage = getVariantImage(effectiveVariant, displayProduct, product?.image);
+  const productHref = displayProduct ? getProductHref(displayProduct) : "#";
+  const productDescription = pickTextOrNull(
+    displayProduct?.description,
+    displayProduct?.shortDescription,
+    displayProduct?.short_description
+  );
+  const availabilityLabel =
+    availabilityMode === "request"
+      ? "Available on request"
+      : isUnavailable
+        ? "Out of stock"
+        : "Available";
   const availableCount = getAvailableCount(getStockValue(effectiveVariant, displayProduct));
   const effectiveMaxQuantity = !bypassLocalStock && Number.isFinite(availableCount)
     ? Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount)
@@ -614,15 +634,45 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       ref={panelRef}
     >
       <div className="quick-add-handle" aria-hidden="true" />
-      <div className="quick-add-header">
+      <div className="quick-add-mobile-topbar">
+        <button type="button" className="quick-add-mobile-topbar__close" onClick={onClose} aria-label="Close">
+          <IconX size={22} stroke={2} aria-hidden="true" />
+        </button>
+        <strong>Product details</strong>
+        <span aria-hidden="true">
+          <IconShoppingBag size={22} stroke={1.8} />
+        </span>
+      </div>
+
+      <div className="quick-add-header quick-add-desktop-header">
         <div>
           <p className="quick-add-label">Quick add</p>
           <h3 className="quick-add-title">{displayProduct?.name || "Select an option"}</h3>
           <p className="quick-add-category">{categoryLabel}</p>
         </div>
         <button type="button" className="quick-add-close" onClick={onClose} aria-label="Close">
-          X
+          <IconX size={20} stroke={2} aria-hidden="true" />
         </button>
+      </div>
+
+      <div className="quick-add-mobile-product">
+        <div className="quick-add-mobile-product__image">
+          <Image
+            src={productImage}
+            alt={displayProduct?.name || "Product"}
+            fill
+            unoptimized={!canUseNextImageOptimization(productImage)}
+            sizes="(max-width: 640px) 58vw, 1px"
+          />
+        </div>
+        <div className="quick-add-mobile-product__intro">
+          <p>{categoryLabel}</p>
+          <h3>{displayProduct?.name || "Select an option"}</h3>
+          <span className={isUnavailable ? "is-unavailable" : ""}>
+            <i className="fa-solid fa-circle" aria-hidden="true" />
+            {availabilityLabel}
+          </span>
+        </div>
       </div>
 
       {status === "loading" ? (
@@ -633,45 +683,103 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         <>
           {variations.length ? (
             <>
-              {fixedVariations.length && looseVariations.length ? (
-                <div className="product-variant-picker__section">
-                  <p className="product-variant-picker__label">Purchase mode</p>
-                  <div className="product-variant-picker__options" role="list">
-                    <button
-                      type="button"
-                      className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_FIXED ? " is-active" : ""}`.trim()}
-                      onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
-                      aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
-                    >
-                      <span className="product-variant-picker__option-main">Pack</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_LOOSE ? " is-active" : ""}`.trim()}
-                      onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
-                      aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
-                    >
-                      <span className="product-variant-picker__option-main">Loose</span>
-                    </button>
+              <div className="quick-add-desktop-options">
+                {fixedVariations.length && looseVariations.length ? (
+                  <div className="product-variant-picker__section">
+                    <p className="product-variant-picker__label">Purchase mode</p>
+                    <div className="product-variant-picker__options" role="list">
+                      <button
+                        type="button"
+                        className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_FIXED ? " is-active" : ""}`.trim()}
+                        onClick={() => setPurchaseMode(PURCHASE_MODE_FIXED)}
+                        aria-pressed={purchaseMode === PURCHASE_MODE_FIXED}
+                      >
+                        <span className="product-variant-picker__option-main">Pack</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`product-variant-picker__option${purchaseMode === PURCHASE_MODE_LOOSE ? " is-active" : ""}`.trim()}
+                        onClick={() => setPurchaseMode(PURCHASE_MODE_LOOSE)}
+                        aria-pressed={purchaseMode === PURCHASE_MODE_LOOSE}
+                      >
+                        <span className="product-variant-picker__option-main">Loose</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : null}
-              {purchaseMode === PURCHASE_MODE_FIXED && activeVariations.length ? (
-                <VariantPicker
-                  variations={activeVariations}
-                  selectedId={effectiveVariant?.variationId || effectiveVariant?.id}
-                  onChange={(variant) => setSelectedVariant(variant)}
-                />
-              ) : null}
+                ) : null}
+                {purchaseMode === PURCHASE_MODE_FIXED && activeVariations.length ? (
+                  <VariantPicker
+                    variations={activeVariations}
+                    selectedId={effectiveVariant?.variationId || effectiveVariant?.id}
+                    onChange={(variant) => setSelectedVariant(variant)}
+                  />
+                ) : null}
+              </div>
+
+              <div className="quick-add-mobile-options">
+                {fixedVariations.length && looseVariations.length ? (
+                  <label>
+                    <span>Purchase type</span>
+                    <select
+                      value={purchaseMode}
+                      onChange={(event) => setPurchaseMode(event.target.value)}
+                    >
+                      <option value={PURCHASE_MODE_FIXED}>Pack</option>
+                      <option value={PURCHASE_MODE_LOOSE}>Loose</option>
+                    </select>
+                  </label>
+                ) : null}
+
+                {activeVariations.length ? (
+                  <label>
+                    <span>Choose an option</span>
+                    <select
+                      className="quick-add-mobile-option-select"
+                      value={String(getVariantId(effectiveVariant, displayProduct) || "")}
+                      onChange={(event) => {
+                        const next = activeVariations.find(
+                          (entry) => String(getVariantId(entry, displayProduct)) === event.target.value
+                        );
+                        if (next) setSelectedVariant(next);
+                      }}
+                    >
+                      {activeVariations.map((entry) => {
+                        const entryId = String(getVariantId(entry, displayProduct) || "");
+                        const entryName = buildVariantName(entry) || entry.unit || "Option";
+                        const entryPrice = formatProductPrice(getVariantPrice(entry, displayProduct), "");
+                        return (
+                          <option key={entryId} value={entryId} disabled={isVariantInactive(entry, displayProduct)}>
+                            {entryName} — {entryPrice}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
             </>
           ) : null}
 
           {isFlexibleMarket ? (
-            <SizePreferencePicker
-              value={sizePreference}
-              onChange={setSizePreference}
-              compact
-            />
+            <>
+              <div className="quick-add-desktop-size-preference">
+                <SizePreferencePicker
+                  value={sizePreference}
+                  onChange={setSizePreference}
+                  compact
+                />
+              </div>
+              <label className="quick-add-mobile-size-preference">
+                <span>Piece size preference</span>
+                <select value={sizePreference} onChange={(event) => setSizePreference(event.target.value)}>
+                  <option value="best_available">Best available</option>
+                  <option value="smaller">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="larger">Large</option>
+                </select>
+                <small>We’ll try to match your preferred produce size.</small>
+              </label>
+            </>
           ) : null}
 
           {availabilityMode === "request" ? <AvailabilityRequestNotice compact /> : null}
@@ -722,6 +830,13 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               </button>
             </div>
           </div>
+
+          <section className="quick-add-mobile-about" aria-labelledby="quick-add-about-title">
+            <h4 id="quick-add-about-title">About this product</h4>
+            {productDescription ? <p>{productDescription}</p> : null}
+            <Link href={productHref} onClick={onClose}>View full product details</Link>
+          </section>
+
           {error ? <p className="quick-add-status is-error">{error}</p> : null}
 
           <button
@@ -736,12 +851,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               "Adding..."
             ) : availabilityMode === "request" ? (
               <>
-                <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+                <IconShoppingBag size={20} stroke={1.8} aria-hidden="true" />
                 Add to availability basket
               </>
             ) : (
               <>
-                <i className="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+                <IconShoppingBag size={20} stroke={1.8} aria-hidden="true" />
                 Add to cart
               </>
             )}

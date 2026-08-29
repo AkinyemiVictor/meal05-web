@@ -21,7 +21,8 @@ test("quick add keeps flexible size preference independent from commercial varia
   assert.match(source, /const \[sizePreference, setSizePreference\] = useState\("best_available"\)/);
   assert.match(source, /normalizeSizePreference\(sizePreference, SELECTION_MODE_FLEXIBLE\)/);
   assert.match(source, /<SizePreferencePicker/);
-  assert.doesNotMatch(source, /<select[\s>]/);
+  assert.match(source, /className="quick-add-mobile-size-preference"[\s\S]*select value=\{sizePreference\}/);
+  assert.match(source, /onChange=\{\(event\) => setSizePreference\(event\.target\.value\)\}/);
   assert.doesNotMatch(source, /setSelectedVariant\([^\n]*sizePreference/);
 });
 

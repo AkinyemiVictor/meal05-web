@@ -1,3 +1,4 @@
+
 -- table descriptions
 COMMENT ON TABLE public.users IS 'Customer and staff accounts, linked 1:1 to auth.users. The role column drives access.';
 COMMENT ON TABLE public.user_addresses IS 'Saved delivery addresses in a customer address book.';
@@ -41,3 +42,4 @@ COMMENT ON COLUMN public.delivery_agents.zone IS 'Primary delivery zone the agen
 COMMENT ON COLUMN public.product_ratings.rating IS 'Star rating from 1 to 5.';
 COMMENT ON COLUMN public.product_attributes.product_id IS 'References products.id.';
 COMMENT ON COLUMN public.attribute_options.attribute_id IS 'References attributes.id.';
+;

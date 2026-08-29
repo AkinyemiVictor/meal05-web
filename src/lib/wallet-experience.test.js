@@ -14,7 +14,9 @@ test("wallet funding is available end to end with readable form spacing", () => 
   assert.match(account, /Complete your wallet deposit/);
   assert.match(account, /activeTopupProvider\.accountNumber/);
   assert.match(account, /api\/wallet\/topups\/\$\{encodeURIComponent\(topupId\)\}\/submit/);
-  assert.match(account, /exactAmountConfirmed:\s*true/);
+  assert.match(account, /exactAmountConfirmed:\s*walletExactAmountConfirmed/);
+  assert.match(account, /Name on the account you transferred from/);
+  assert.match(account, /I transferred exactly/);
   assert.match(account, /walletQuickAmountActive/);
   assert.match(account, /aria-pressed=\{walletTopupAmount === String\(amount\)\}/);
   assert.match(account, /walletFundingControl/);
