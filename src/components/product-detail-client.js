@@ -276,7 +276,8 @@ export default function ProductDetailClient({ product, variations = [], fallback
 
   const stockClass = resolveStockClass(display.stock);
   const availabilityMode = String(display.availabilityMode ?? display.availability_mode ?? "standard");
-  const isUnavailable = availabilityMode === "unavailable" || (availabilityMode !== "request" && stockClass === "is-unavailable");
+  const priceUnavailable = availabilityMode === "unavailable";
+  const isUnavailable = priceUnavailable || (availabilityMode !== "request" && stockClass === "is-unavailable");
   const showSeasonBadge = shouldShowSeasonBadge(display);
   const isInSeason = display.inSeason !== false;
   const seasonLabel = isInSeason ? "In season" : "Off season";
@@ -366,8 +367,8 @@ export default function ProductDetailClient({ product, variations = [], fallback
           <span>{reviewCount.toLocaleString()} reviews</span>
         </div>
         <div className="product-detail-pricing">
-          <span className="product-detail-price">{formatMoney(display.price)}</span>
-          {display.oldPrice && display.oldPrice > display.price ? (
+          <span className="product-detail-price">{priceUnavailable ? "Price unavailable" : formatMoney(display.price)}</span>
+          {!priceUnavailable && display.oldPrice && display.oldPrice > display.price ? (
             <>
               <span className="product-detail-old-price">{formatMoney(display.oldPrice)}</span>
               <span className="product-detail-savings">Save {formatMoney(savings)}</span>
