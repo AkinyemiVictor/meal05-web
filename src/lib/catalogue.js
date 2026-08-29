@@ -5,7 +5,9 @@ import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/l
 import { selectProductCardVariant } from "@/lib/product-card-pricing";
 
 export const formatProductPrice = (value, unit) => {
-  const formattedPrice = formatMoney(value);
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "Price unavailable";
+  const formattedPrice = formatMoney(numeric);
   const normalisedUnit = typeof unit === "string" ? unit.trim() : "";
   return normalisedUnit ? `${formattedPrice}/${normalisedUnit}` : formattedPrice;
 };

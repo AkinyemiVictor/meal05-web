@@ -67,9 +67,13 @@ const getStockValue = (variant) => {
   return variant?.stock;
 };
 
+const isPriceUnavailable = (variant) =>
+  String(variant?.availabilityMode ?? variant?.availability_mode ?? "standard") === "unavailable";
+
 const isVariantInactive = (variant) => {
   if (!variant || typeof variant !== "object") return true;
   if (variant.isSelectable === false || variant.is_active === false || variant.isActive === false) return true;
+  if (isPriceUnavailable(variant)) return true;
   const stockClass = resolveStockClass(getStockValue(variant));
   return stockClass === "is-unavailable";
 };
@@ -194,7 +198,7 @@ export default function VariantPicker({ variations = [], selectedId, onChange })
                 >
                   <span className="product-variant-picker__option-main">{option.label}</span>
                   <span className="product-variant-picker__option-price">
-                    {formatProductPrice(variant?.price)}
+                    {isPriceUnavailable(variant) ? "Price unavailable" : formatProductPrice(variant?.price)}
                   </span>
                 </button>
               );
