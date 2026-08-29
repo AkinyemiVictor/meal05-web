@@ -1,20 +1,15 @@
 # Supabase database history
 
-The migration directory currently contains 36 files:
+The migration directory currently contains 136 files. The first 135 timestamps
+match the migration history recorded as applied by the live Meal05 Supabase
+project as of 2026-08-29. The current tip is
+`20260829124046_restore_catalog_security_invoker_after_price_masking.sql`.
 
-- The first 28 files, ending at `20260630100519`, are exact exports of the
-  migration history recorded as applied by the live Meal05 Supabase project on
-  2026-06-30.
-- The 8 later files are the post-export history currently represented in the
-  repository:
-  - `20260630152127_harden_default_market_id_search_path.sql`
-  - `20260630163739_atomic_paystack_payment_and_stock.sql`
-  - `20260701220034_add_zone_geometry_and_resolver.sql`
-  - `20260701225820_radius_delivery_zone_core.sql`
-  - `20260701230711_delivery_partners_and_quotes.sql`
-  - `20260702120000_dispatch_ready_addresses.sql`
-  - `20260705143244_product_images_gallery_constraints.sql`
-  - `20260709103000_add_orders_packaging_fee.sql`
+The first 28 files, ending at `20260630100519`, were exported from the live
+project during the original 2026-06-30 reconciliation. Later migrations include
+the canonical replacement timestamps established during the 2026-08-26 history
+repair and every subsequently applied production migration fetched from the
+Supabase migration ledger.
 
 They are historical deltas from the database structure that existed before
 2026-06-24. They are not a from-zero schema build: several early migrations
@@ -24,9 +19,9 @@ alter, document, snapshot, or remove objects that already existed.
 
 - Do not run `supabase db reset` against an empty database using these files
   alone. It will fail because the pre-2026-06-24 baseline is not present.
-- Do not edit the first 28 exported migrations. Future database changes must be
-  new, timestamped migration files after the latest file already in
-  `migrations/`.
+- Do not edit a migration that is already recorded as applied remotely. Future
+  database changes must be new, timestamped migration files after the latest
+  file already in `migrations/`.
 - Do not restore the removed local-only migrations
   `202606160001_admin_logs_schema.sql` or
   `202606170001_product_category_slugs.sql`; their effects already exist in the
@@ -46,7 +41,7 @@ npx supabase link --project-ref dzkrcmyupeerlbhshwgd
 npx supabase migration list
 ```
 
-All exported history versions should appear as applied locally and remotely
+All history versions should appear in both the local and remote columns
 before running `npx supabase db push` or adding another live migration.
 
 ## Reconciliation workflow
