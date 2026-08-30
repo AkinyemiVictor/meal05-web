@@ -1,4 +1,5 @@
-import { loadPublicCatalogProducts, publicCatalogJson } from "@/lib/public-catalog-server";
+import { loadCatalogCardPage } from "@/lib/home-catalog-cards-server";
+import { publicCatalogJson } from "@/lib/public-catalog-server";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
@@ -10,10 +11,11 @@ export async function GET(request) {
     const q = String(searchParams.get("q") || "").trim();
     const requestedLimit = Number.parseInt(searchParams.get("limit") || "20", 10);
     const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 20, 1), 60);
-    const payload = await loadPublicCatalogProducts({
+    const payload = await loadCatalogCardPage({
+      page: 1,
+      pageSize: limit,
       search: q,
-      view: q ? "default" : "home",
-      limit,
+      sort: "default",
     });
     return publicCatalogJson(payload);
   } catch (error) {
