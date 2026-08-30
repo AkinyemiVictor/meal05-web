@@ -169,7 +169,11 @@ export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = fal
 
   const rows = Array.isArray(data) ? data : [];
   const sortedRows = requestedIds.length
-    ? [...rows].sort((a, b) => requestedIds.indexOf(String(a.product_id)) - requestedIds.indexOf(String(b.product_id)))
+    ? [...rows].sort((a, b) => {
+        const availabilityDifference = Number(b?.in_stock === true) - Number(a?.in_stock === true);
+        if (availabilityDifference !== 0) return availabilityDifference;
+        return requestedIds.indexOf(String(a.product_id)) - requestedIds.indexOf(String(b.product_id));
+      })
     : rows;
   const flat = sortedRows
     .map(buildHomeCardProduct)
