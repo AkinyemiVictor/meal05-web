@@ -160,7 +160,9 @@ export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = fal
 
   if (requestedIds.length) query = query.in("product_id", requestedIds);
   if (inSeasonOnly) query = query.eq("in_season", true);
-  query = query.order("product_id", { ascending: true });
+  query = query
+    .order("in_stock", { ascending: false })
+    .order("product_id", { ascending: true });
 
   const { data, error } = await query.limit(requestedIds.length ? requestedIds.length : maxRows);
   if (error) throw error;
@@ -171,7 +173,7 @@ export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = fal
     : rows;
   const flat = sortedRows
     .map(buildHomeCardProduct)
-    .filter((product) => product.id && product.price > 0);
+    .filter((product) => product.id);
 
   return {
     grouped: groupProducts(flat),
@@ -215,6 +217,7 @@ export async function loadCatalogCardPage({
     query = query.ilike("search_text", `%${searchTerm}%`);
     countQuery = countQuery.ilike("search_text", `%${searchTerm}%`);
   }
+  query = query.order("in_stock", { ascending: false });
   selectedSort.forEach(({ column, ascending }) => {
     query = query.order(column, { ascending });
   });
@@ -228,7 +231,7 @@ export async function loadCatalogCardPage({
 
   const flat = (Array.isArray(pageResult.data) ? pageResult.data : [])
     .map(buildHomeCardProduct)
-    .filter((product) => product.id && product.price > 0);
+    .filter((product) => product.id);
   const pagination = normalizeCatalogPagination({
     page: range.page,
     pageSize: range.pageSize,
