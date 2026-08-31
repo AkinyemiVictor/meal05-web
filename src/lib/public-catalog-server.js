@@ -253,7 +253,14 @@ const isPublicVariantSelectable = (row) => {
 const buildPublicProductVariant = (row, product, market = {}) => {
   const purchaseRules = getVariantPurchaseRules(row);
   const rangeLabel = buildRangeLabel(row);
-  const sizeLabel = rangeLabel || pickFirstText(row, ["size_label", "sizeLabel", "size"]);
+  // Curated option labels describe fixed packs more accurately than measurement
+  // metadata. Keep ranges as a fallback for legacy rows without a label.
+  const optionLabel =
+    pickFirstText(row, ["display_label", "displayLabel", "size_label", "sizeLabel", "name", "size", "ripeness", "label"]) ||
+    rangeLabel;
+  const sizeLabel =
+    pickFirstText(row, ["display_label", "displayLabel", "size_label", "sizeLabel", "size", "name"]) ||
+    rangeLabel;
   const price = pickFirstNumber(row, [
     "price",
     "unit_price",
@@ -284,7 +291,7 @@ const buildPublicProductVariant = (row, product, market = {}) => {
 
   return {
     variationId: String(row?.id ?? ""),
-    name: rangeLabel || pickFirstText(row, ["size_label", "name", "ripeness", "label"]) || "Option",
+    name: optionLabel || "Option",
     ripeness: textOrNull(row?.ripeness) || undefined,
     size: textOrNull(row?.size ?? row?.size_label) || undefined,
     sizeLabel: sizeLabel || undefined,

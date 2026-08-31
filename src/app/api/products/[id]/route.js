@@ -353,7 +353,18 @@ export async function GET(_request, { params }) {
     if (!vError && Array.isArray(variants)) {
       variations = variants.map((row) => {
         const rangeLabel = buildRangeLabel(row);
-        const sizeLabel = rangeLabel || row.size_label || row.sizeLabel || row.size || undefined;
+        const optionLabel =
+          row.display_label ||
+          row.displayLabel ||
+          row.size_label ||
+          row.sizeLabel ||
+          row.name ||
+          row.size ||
+          row.ripeness ||
+          row.label ||
+          rangeLabel;
+        const sizeLabel =
+          row.display_label || row.displayLabel || row.size_label || row.sizeLabel || row.size || row.name || rangeLabel || undefined;
         const stock = resolveVariantStock(row);
         const purchaseRules = getVariantPurchaseRules(row);
         const variantPrice = pickFirstNumber(row, [
@@ -390,7 +401,7 @@ export async function GET(_request, { params }) {
 
         return {
           variationId: row.id,
-          name: rangeLabel || row.size_label || row.name || row.ripeness || row.label || "Option",
+          name: optionLabel || "Option",
           ripeness: row.ripeness || undefined,
           size: row.size || row.size_label || undefined,
           sizeLabel,

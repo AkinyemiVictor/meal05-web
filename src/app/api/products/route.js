@@ -158,7 +158,9 @@ const isVariantSelectable = (variant) => {
 };
 
 const pickVariantLabel = (variant) =>
-  buildVolumeLabel(variant) || pickFirst(variant, ["size_label", "sizeLabel", "size", "name", "label"]) || "";
+  pickFirst(variant, ["display_label", "displayLabel", "size_label", "sizeLabel", "name", "size", "label"]) ||
+  buildVolumeLabel(variant) ||
+  "";
 
 const pickVariantForCard = (variants = []) => {
   if (!Array.isArray(variants) || !variants.length) return null;

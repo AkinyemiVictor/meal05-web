@@ -116,6 +116,27 @@ test("product option buttons retain each variant's price without repeating the u
   assert.doesNotMatch(picker, /formatProductPrice\(variant\?\.price,\s*variant\?\.unit\)/);
 });
 
+test("curated product option labels take priority over derived measurement ranges", () => {
+  const detailSources = [
+    read("src/lib/public-catalog-server.js"),
+    read("src/lib/products-server.js"),
+    read("src/app/api/products/[id]/route.js"),
+  ];
+
+  detailSources.forEach((source) => {
+    const start = source.indexOf("const optionLabel");
+    const end = source.indexOf("const sizeLabel", start);
+    const optionLabelBlock = source.slice(start, end);
+
+    assert.ok(start >= 0 && end > start);
+    assert.ok(optionLabelBlock.indexOf("display_label") < optionLabelBlock.lastIndexOf("rangeLabel"));
+  });
+
+  const cards = read("src/app/api/products/route.js");
+  const cardLabelBlock = cards.slice(cards.indexOf("const pickVariantLabel"), cards.indexOf("const pickVariantForCard"));
+  assert.ok(cardLabelBlock.indexOf("display_label") < cardLabelBlock.indexOf("buildVolumeLabel"));
+});
+
 test("product detail loaders order options from smallest base quantity to largest", () => {
   const server = read("src/lib/products-server.js");
   const api = read("src/app/api/products/[id]/route.js");
