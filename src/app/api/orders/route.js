@@ -802,7 +802,7 @@ export async function POST(request) {
     return applyRateLimitHeaders(
       NextResponse.json(
         {
-          error: "This exact location is outside our current delivery area. Select another location or join the waitlist.",
+          error: "We could not assign this location for delivery. Secure the pin again or contact support.",
           code: "delivery_area_unavailable",
         },
         { status: 400 }

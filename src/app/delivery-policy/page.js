@@ -43,12 +43,12 @@ export default function DeliveryPolicyPage() {
           <section id="areas">
             <h2>1. Delivery areas</h2>
             <p>
-              Meal05 currently delivers within the Akala Express Launch Zone in Ibadan. Our present coverage includes
-              Elebu, Akala Express, Oluyole Estate, New Garage, Challenge, Ring Road and Odo-Ona.
+              Meal05 uses the exact delivery location you secure on the map rather than restricting orders to a fixed
+              distance radius. Place the pin at the entrance or meeting point where the rider should reach you.
             </p>
             <p>
-              If you are unsure whether your address is covered, enter your delivery details at checkout and we will
-              confirm serviceability before payment is completed. Coverage may expand or change as operations grow.
+              Delivery scheduling, partner availability and any applicable fee are confirmed at checkout before payment
+              is completed.
             </p>
           </section>
 

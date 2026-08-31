@@ -241,8 +241,8 @@ export default function CheckoutSummary({
         </summary>
         <div className="checkout-summary__policy-body">
           <p>
-            Meal05 currently delivers within the Akala Express Launch Zone in Ibadan, including Elebu, Akala Express,
-            Oluyole Estate, New Garage, Challenge, Ring Road and Odo-Ona.
+            Meal05 uses your secured delivery pin instead of a fixed launch-radius restriction. Save the exact entrance
+            or meeting point so delivery can be coordinated correctly.
           </p>
           <p>
             Choose either <strong>24-hour</strong> or <strong>48-hour</strong> delivery at checkout. Both options use a

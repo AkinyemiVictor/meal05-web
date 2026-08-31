@@ -1368,7 +1368,7 @@ export default function CheckoutForm({
     const deliveryLatitude = Number(deliveryLocation?.coords?.latitude);
     const deliveryLongitude = Number(deliveryLocation?.coords?.longitude);
     if (fulfillmentType === "delivery" && (!deliveryLocation?.serviceable || !Number.isFinite(deliveryLatitude) || !Number.isFinite(deliveryLongitude))) {
-      showSubmitError("Select and confirm a supported delivery location before placing your order.");
+      showSubmitError("Secure your exact delivery location before placing your order.");
       return;
     }
 

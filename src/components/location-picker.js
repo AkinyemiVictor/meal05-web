@@ -2,7 +2,6 @@
 
 import "leaflet/dist/leaflet.css";
 
-import Link from "next/link";
 import { IconCurrentLocation, IconMapPin, IconSearch, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -17,18 +16,6 @@ import styles from "./location-picker.module.css";
 
 const HUB = { lat: 7.342134, lng: 3.847802 };
 const LOW_ACCURACY_METRES = 1000;
-
-const distanceFromHubKm = (latitude, longitude) => {
-  const radians = (value) => (value * Math.PI) / 180;
-  const dLat = radians(latitude - HUB.lat);
-  const dLng = radians(longitude - HUB.lng);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(radians(HUB.lat)) *
-      Math.cos(radians(latitude)) *
-      Math.sin(dLng / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
 
 const formatAccuracy = (metres) =>
   metres >= 1000 ? `+/- ${(metres / 1000).toFixed(1)} km` : `+/- ${Math.round(metres)} m`;
@@ -171,7 +158,6 @@ export default function LocationPicker({
     try {
       const gps = await requestCurrentLocationPreference();
       const accuracy = Number(gps.accuracy || 0);
-      const distanceKm = distanceFromHubKm(gps.coords.latitude, gps.coords.longitude);
       await selectPoint(
         { lat: gps.coords.latitude, lng: gps.coords.longitude },
         "device",
@@ -181,8 +167,6 @@ export default function LocationPicker({
       if (accuracy > LOW_ACCURACY_METRES) {
         setAddress(`Approximate device location (${formatAccuracy(accuracy)})`);
         setMessage(`GPS accuracy is ${formatAccuracy(accuracy)}. Search your area or tap the map to set the entrance.`);
-      } else if (distanceKm > 30) {
-        setMessage("Your device placed you outside Ibadan. Search your Ibadan area if that is incorrect.");
       }
     } catch (error) {
       setMessage(error.message);
@@ -245,10 +229,10 @@ export default function LocationPicker({
         };
         persistLocationPreference(next);
         setPreference(next);
-        setMessage(`Delivery is available here (${data.zone.name}).`);
+        setMessage("Location secured. We will use this exact pin for delivery.");
         if (!pageMode) setTimeout(() => setOpen(false), 650);
       } else {
-        setMessage("We are not delivering to this exact location yet. Join the waitlist and we will notify you when we expand.");
+        setMessage("We could not secure this location. Please try the pin again.");
       }
     } catch (error) {
       setMessage(error.message);
@@ -275,7 +259,7 @@ export default function LocationPicker({
           </span>
         ) : null}
         <div>
-          <span className={styles.eyebrow}>Delivery coverage</span>
+          <span className={styles.eyebrow}>Delivery location</span>
           <h2 id="location-title">{pageMode ? "Delivery location" : "Where should we deliver?"}</h2>
           {!pageMode ? <p>Choose your location, then place the pin at your exact entrance.</p> : null}
         </div>
@@ -355,7 +339,7 @@ export default function LocationPicker({
           <div className={styles.mapTop}>
             <span>
               <b>Set the exact pin</b>
-              <small>The pin determines delivery eligibility</small>
+              <small>The pin helps us find your exact entrance</small>
             </span>
             {point ? <em>{point.reliable === false ? "Approximate" : "Pin selected"}</em> : null}
           </div>
@@ -369,24 +353,27 @@ export default function LocationPicker({
       {message ? (
         <div className={`${styles.result} ${serviceable ? styles.success : ""}`}>
           {message}
-          {serviceable === false ? (
-            <>
-              <br />
-              <Link className={styles.waitlist} href="/#waitlist" onClick={closePicker}>
-                Join the delivery-area waitlist
-              </Link>
-            </>
-          ) : null}
         </div>
       ) : null}
 
       <footer className={styles.footer}>
         <p>
-          <b>5 km launch zone</b>
-          <span>Exact coverage is checked before checkout.</span>
+          <b>Exact delivery pin</b>
+          <span>Secure the entrance or meeting point for your order.</span>
         </p>
-        <button type="button" className={styles.confirm} disabled={busy || !point || point.reliable === false} onClick={confirm}>
-          {busy ? "Checking coverage..." : point?.reliable === false ? "Set a more accurate pin" : "Confirm this location"}
+        <button
+          type="button"
+          className={styles.confirm}
+          disabled={busy || !point || point.reliable === false || serviceable === true}
+          onClick={confirm}
+        >
+          {busy
+            ? "Securing location..."
+            : point?.reliable === false
+              ? "Set a more accurate pin"
+              : serviceable
+                ? "Location secured"
+                : "Secure location"}
         </button>
       </footer>
     </section>

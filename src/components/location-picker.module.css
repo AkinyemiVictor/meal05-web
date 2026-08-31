@@ -426,13 +426,6 @@
   color: #08732f;
 }
 
-.waitlist {
-  display: inline-block;
-  margin-top: 5px;
-  color: inherit;
-  font-weight: 800;
-}
-
 .footer {
   display: flex;
   align-items: center;
