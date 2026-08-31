@@ -12,8 +12,15 @@ import {
   buildCheckoutOrderRequest,
   getCheckoutApiErrorMessage,
   logCheckoutApiError,
+  logCheckoutNetworkError,
 } from "@/lib/checkout-payload";
 import { persistManualTransferConfirmation } from "@/lib/payments/manual-transfer-confirmation-storage";
+import {
+  fetchWithNetworkRetry,
+  getNetworkErrorMessage,
+  isAmbiguousNetworkError,
+} from "@/lib/fetch-with-network-retry";
+import { reconcileCheckoutOrder } from "@/lib/order-reconciliation";
 
 const MONIEPOINT_CODE = "moniepoint_transfer";
 const MONIEPOINT_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/moniepoint logo.png";
@@ -220,6 +227,7 @@ export default function ProviderPaymentPage() {
   if (providerCode !== MONIEPOINT_CODE) notFound();
 
   const startedRef = useRef(false);
+  const orderRequestKeyRef = useRef("");
   const [pending, setPending] = useState(null);
   const [provider, setProvider] = useState(FALLBACK_PROVIDER);
   const [providerStatus, setProviderStatus] = useState("loading");
@@ -243,7 +251,7 @@ export default function ProviderPaymentPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/payment-methods", { cache: "no-store", signal: controller.signal })
+    fetchWithNetworkRetry("/api/payment-methods", { cache: "no-store", signal: controller.signal })
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error("Unable to load Moniepoint."))))
       .then((payload) => {
         const liveProvider = Array.isArray(payload?.methods)
@@ -272,42 +280,96 @@ export default function ProviderPaymentPage() {
       let orderId = pending.existingOrderId;
       let orderPayload = { summary: pending.summary };
       if (!orderId) {
-        const orderResponse = await fetch("/api/orders", {
-        method: "POST",
-        cache: "no-store",
-        headers: buildHeaders(token, pending.orderIdempotencyKey || createIdempotencyKey("checkout-order")),
-        body: JSON.stringify(buildCheckoutOrderRequest({
-          form,
-          items: pending.cartItems || pending.items || [],
-          fulfillmentType: pending.fulfillmentType,
-          pickupLocationId: pending.pickupLocationId,
-          deliveryPartnerId: pending.selectedDispatchOptionId,
-          deliveryLatitude: pending.deliveryLocation?.latitude,
-          deliveryLongitude: pending.deliveryLocation?.longitude,
-          paymentMethod: MONIEPOINT_CODE,
-          promoCode: pending.promoCode,
-        })),
-      });
-        orderPayload = await orderResponse.json().catch(() => ({}));
-        if (!orderResponse.ok) {
-          logCheckoutApiError("/api/orders", orderResponse, orderPayload);
-          throw new Error(getCheckoutApiErrorMessage(orderPayload, "Unable to create order."));
+        const orderIdempotencyKey =
+          pending.orderIdempotencyKey || orderRequestKeyRef.current || createIdempotencyKey("checkout-order");
+        orderRequestKeyRef.current = orderIdempotencyKey;
+        let orderResponse = null;
+        try {
+          orderResponse = await fetchWithNetworkRetry(
+            "/api/orders",
+            {
+              method: "POST",
+              cache: "no-store",
+              headers: buildHeaders(token, orderIdempotencyKey),
+              body: JSON.stringify(buildCheckoutOrderRequest({
+                form,
+                items: pending.cartItems || pending.items || [],
+                fulfillmentType: pending.fulfillmentType,
+                pickupLocationId: pending.pickupLocationId,
+                deliveryPartnerId: pending.selectedDispatchOptionId,
+                deliveryLatitude: pending.deliveryLocation?.latitude,
+                deliveryLongitude: pending.deliveryLocation?.longitude,
+                paymentMethod: MONIEPOINT_CODE,
+                promoCode: pending.promoCode,
+              })),
+            },
+            { retries: 0 }
+          );
+        } catch (error) {
+          logCheckoutNetworkError("/api/orders", error, { stage: "create_order" });
+          if (!isAmbiguousNetworkError(error)) throw new Error(getNetworkErrorMessage(error, "Unable to create order."));
+
+          setMessage("We could not confirm the response. Checking whether your order was created...");
+          setStatus("reconciling");
+          const recovered = await reconcileCheckoutOrder({
+            idempotencyKey: orderIdempotencyKey,
+            authToken: token,
+          });
+          if (recovered.state === "completed" && recovered.response) {
+            orderPayload = recovered.response;
+            orderId = recovered.orderId || orderPayload?.order?.id;
+          } else {
+            throw new Error(
+              recovered.state === "processing"
+                ? "Your order request is still being checked. Wait a moment, then tap Try again; the same checkout reference will be reused."
+                : getNetworkErrorMessage(error, "Unable to create order.")
+            );
+          }
         }
 
-        orderId = orderPayload?.order?.id;
+        if (orderResponse) {
+          orderPayload = await orderResponse.json().catch(() => ({}));
+          if (!orderResponse.ok) {
+            logCheckoutApiError("/api/orders", orderResponse, orderPayload, { stage: "create_order" });
+            if (orderResponse.status === 409 && /still processing/i.test(String(orderPayload?.error || ""))) {
+              setMessage("Your order request is still processing. Checking its status...");
+              setStatus("reconciling");
+              const recovered = await reconcileCheckoutOrder({
+                idempotencyKey: orderIdempotencyKey,
+                authToken: token,
+              });
+              if (recovered.state === "completed" && recovered.response) {
+                orderPayload = recovered.response;
+                orderId = recovered.orderId || orderPayload?.order?.id;
+              } else {
+                throw new Error("Your order request is still being checked. Wait a moment, then tap Try again.");
+              }
+            } else {
+              throw new Error(getCheckoutApiErrorMessage(orderPayload, "Unable to create order.", orderResponse));
+            }
+          }
+        }
+
+        orderId = orderId || orderPayload?.order?.id;
       }
       if (!orderId) throw new Error("Unable to create order.");
 
-      const transferResponse = await fetch("/api/payments/bank-transfer/initialize", {
-        method: "POST",
-        cache: "no-store",
-        headers: buildHeaders(token, `${pending.orderIdempotencyKey || orderId}:payment`),
-        body: JSON.stringify({ orderId, providerCode: MONIEPOINT_CODE }),
-      });
+      let transferResponse;
+      try {
+        transferResponse = await fetchWithNetworkRetry("/api/payments/bank-transfer/initialize", {
+          method: "POST",
+          cache: "no-store",
+          headers: buildHeaders(token, `${pending.orderIdempotencyKey || orderId}:payment`),
+          body: JSON.stringify({ orderId, providerCode: MONIEPOINT_CODE }),
+        });
+      } catch (error) {
+        logCheckoutNetworkError("/api/payments/bank-transfer/initialize", error, { stage: "initialize_transfer" });
+        throw new Error(getNetworkErrorMessage(error, "Payment could not be initialized."));
+      }
       const transferPayload = await transferResponse.json().catch(() => ({}));
       if (!transferResponse.ok) {
-        logCheckoutApiError("/api/payments/bank-transfer/initialize", transferResponse, transferPayload);
-        throw new Error(getCheckoutApiErrorMessage(transferPayload, "Payment could not be initialized. Please try again."));
+        logCheckoutApiError("/api/payments/bank-transfer/initialize", transferResponse, transferPayload, { stage: "initialize_transfer" });
+        throw new Error(getCheckoutApiErrorMessage(transferPayload, "Payment could not be initialized. Please try again.", transferResponse));
       }
 
       setTransferDetails({
@@ -364,11 +426,15 @@ export default function ProviderPaymentPage() {
     router.push(`/checkout/payment/${providerCode}/confirm`);
   };
 
-  if (status === "loading" || status === "preparing") {
+  if (status === "loading" || status === "preparing" || status === "reconciling") {
     return (
       <TransferShell onBack={() => router.push("/checkout")}>
         <div className="checkout-transfer-screen__content" role="status">
-          <p className="checkout-transfer-screen__confirmation">Preparing your Moniepoint transfer...</p>
+          <p className="checkout-transfer-screen__confirmation">
+            {status === "reconciling" && message
+              ? message
+              : "Preparing your Moniepoint transfer..."}
+          </p>
         </div>
       </TransferShell>
     );

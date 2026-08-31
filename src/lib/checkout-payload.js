@@ -1,4 +1,9 @@
 import { normalizeCartItems } from "./cart-items.js";
+import { reportCheckoutClientEvent } from "./checkout-telemetry.js";
+import {
+  getNetworkRequestMetadata,
+  getRequestIdFromResponse,
+} from "./fetch-with-network-retry.js";
 
 const trimmedText = (value) => (typeof value === "string" ? value.trim() : "");
 
@@ -54,6 +59,7 @@ export const buildCheckoutOrderRequest = ({
     deliveryContactName: trimmedText(safeForm.fullName ?? safeForm.deliveryContactName),
     deliveryContactPhone: trimmedText(safeForm.phone ?? safeForm.deliveryContactPhone),
     deliveryCity: trimmedText(safeForm.city ?? safeForm.deliveryCity),
+    deliverySlot: trimmedText(safeForm.deliverySlot) || "delivery-24-hours",
     fulfillmentType: fulfillmentType === "pickup" ? "pickup" : "delivery",
     note: trimmedText(safeForm.notes ?? safeForm.note),
     paymentMethod: trimmedText(paymentMethod ?? safeForm.paymentMethod),
@@ -83,11 +89,21 @@ const issuePaths = (payload) =>
     .map((issue) => (Array.isArray(issue?.path) ? issue.path.join(".") : String(issue?.path || "")))
     .filter(Boolean);
 
-export const getCheckoutApiErrorMessage = (payload, fallback = "Unable to complete checkout.") => {
+export const getCheckoutApiErrorMessage = (payload, fallback = "Unable to complete checkout.", response = null) => {
   const error = trimmedText(payload?.error);
   const message = trimmedText(payload?.message);
   const raw = message || error;
   const lower = raw.toLowerCase();
+  const status = Number(response?.status) || 0;
+  if (status === 408 || status === 504) {
+    return "The checkout request timed out. Please check your connection and try again.";
+  }
+  if (status === 429) {
+    return "Too many checkout attempts were made. Wait a moment, then try again.";
+  }
+  if (status >= 500) {
+    return "The checkout service is temporarily unavailable. Please try again shortly.";
+  }
   const paths = issuePaths(payload);
 
   if (paths.some((path) => /delivery(address|street|house|latitude|longitude)/i.test(path))) {
@@ -119,13 +135,49 @@ export const getCheckoutApiErrorMessage = (payload, fallback = "Unable to comple
   return raw || fallback;
 };
 
-export const logCheckoutApiError = (endpoint, response, payload) => {
-  if (process.env.NODE_ENV === "production") return;
-  console.error("Checkout API request failed", {
+export const logCheckoutApiError = (endpoint, response, payload, { stage = "checkout_request", durationMs = null } = {}) => {
+  const metadata = getNetworkRequestMetadata(response);
+  const requestId = getRequestIdFromResponse(response) || metadata?.requestId || "";
+  reportCheckoutClientEvent({
+    eventType: "http_error",
     endpoint,
+    stage,
+    requestId,
     status: response?.status,
-    statusText: response?.statusText,
-    payload,
+    durationMs: durationMs ?? metadata?.durationMs ?? null,
+    attempts: metadata?.attempts ?? null,
+    cfRay: response?.headers?.get?.("CF-Ray") || "",
   });
+  if (process.env.NODE_ENV !== "production") {
+    console.error("Checkout API request failed", {
+      endpoint,
+      stage,
+      requestId,
+      status: response?.status,
+      statusText: response?.statusText,
+      payload,
+    });
+  }
 };
 
+export const logCheckoutNetworkError = (endpoint, error, { stage = "checkout_request" } = {}) => {
+  reportCheckoutClientEvent({
+    eventType: "network_error",
+    endpoint,
+    stage,
+    requestId: error?.requestId,
+    errorCode: error?.code,
+    durationMs: error?.durationMs,
+    attempts: error?.attempts,
+  });
+  if (process.env.NODE_ENV !== "production") {
+    console.error("Checkout network request failed", {
+      endpoint,
+      stage,
+      requestId: error?.requestId,
+      code: error?.code,
+      durationMs: error?.durationMs,
+      attempts: error?.attempts,
+    });
+  }
+};

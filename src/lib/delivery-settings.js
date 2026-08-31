@@ -1,7 +1,7 @@
 export const DELIVERY_SETTINGS_KEY = "default";
 export const DEFAULT_DELIVERY_FEE = 1500;
 export const DEFAULT_FREE_DELIVERY_THRESHOLD = 40000;
-export const DEFAULT_SAME_DAY_ENABLED = true;
+export const DEFAULT_SAME_DAY_ENABLED = false;
 export const DEFAULT_SAME_DAY_CUTOFF_TIME = "16:00";
 export const DEFAULT_SERVICE_ZONES = [
   "Ibadan North",
@@ -16,7 +16,7 @@ export const DEFAULT_SERVICE_ZONES = [
   "Ona Ara",
   "Oluyole",
 ];
-export const DEFAULT_SAME_DAY_NOTICE = "Orders placed before 2:00 PM within Ibadan qualify for same-day delivery.";
+export const DEFAULT_SAME_DAY_NOTICE = "Choose 24-hour or 48-hour delivery at checkout. Delivery runs from 4:00 PM to 6:00 PM on the scheduled day.";
 export const DELIVERY_SETTINGS_TIME_ZONE = "Africa/Lagos";
 
 export const DEFAULT_SERVICE_ZONE_FEES = DEFAULT_SERVICE_ZONES.map((name) => ({

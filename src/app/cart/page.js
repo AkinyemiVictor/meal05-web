@@ -1018,8 +1018,7 @@ function CartPageContent() {
                   const lineTotal = price * quantity;
                   const productCategory = product?.category || item.category || "";
                   const categoryLabel = CATEGORY_LABELS.get(productCategory) || productCategory || "Produce";
-                  const unitLabel = item.unit ? String(item.unit).replace(/^per\s+/i, "") : "";
-                  const priceLabel = unitLabel ? `${formatCurrency(price)}/${unitLabel}` : formatCurrency(price);
+                  const priceLabel = formatCurrency(price);
                   const oldPrice = Number(product?.oldPrice || item.oldPrice || 0);
                   const hasOldPrice = oldPrice > price;
                   const minQuantity = Number(item.minQuantity ?? item.min_quantity ?? 1) || 1;

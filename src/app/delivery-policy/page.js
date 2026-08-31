@@ -19,8 +19,8 @@ export default function DeliveryPolicyPage() {
           <span className={styles.eyebrow}>Delivery and fulfilment</span>
           <h1>Delivery Policy</h1>
           <p>
-            This policy explains where Meal05 currently delivers, when same-day orders close, how delivery fees work,
-            and what happens if an item is unavailable or a delivery cannot be completed.
+            This policy explains where Meal05 currently delivers, the available delivery schedules, how delivery fees
+            work, and what happens if an item is unavailable or a delivery cannot be completed.
           </p>
           <span className={styles.updated}>Effective 10 July 2026</span>
         </header>
@@ -30,7 +30,7 @@ export default function DeliveryPolicyPage() {
             <h2>Contents</h2>
             <p className={styles.contents}>
               <a href="#areas">1. Delivery areas</a>
-              <a href="#window">2. Order cut-off and delivery window</a>
+              <a href="#window">2. Delivery schedules and windows</a>
               <a href="#fees">3. Delivery charges</a>
               <a href="#fulfilment">4. How orders are fulfilled</a>
               <a href="#substitutions">5. Substitutions and unavailable items</a>
@@ -53,18 +53,18 @@ export default function DeliveryPolicyPage() {
           </section>
 
           <section id="window">
-            <h2>2. Order cut-off and delivery window</h2>
+            <h2>2. Delivery schedules and windows</h2>
             <p>
-              Meal05 currently runs a single same-day delivery cycle designed around fresh afternoon sourcing and
-              dispatch.
+              Meal05 currently offers scheduled delivery rather than same-day delivery. Choose the timing that works
+              for you at checkout.
             </p>
             <ul>
-              <li><strong>Daily order cut-off:</strong> 2:00 PM</li>
-              <li><strong>Target delivery window:</strong> 4:00 PM to 7:00 PM, same day</li>
+              <li><strong>24-hour option:</strong> 4:00 PM to 6:00 PM on the next day</li>
+              <li><strong>48-hour option:</strong> 4:00 PM to 6:00 PM in two days</li>
             </ul>
             <p>
-              Orders placed after 2:00 PM are typically processed for the next available delivery cycle. Delivery times
-              are estimates rather than guarantees, but we will make reasonable efforts to notify you of material delays.
+              Delivery times are estimates rather than guarantees, but we will make reasonable efforts to notify you
+              of material delays.
             </p>
           </section>
 
@@ -86,21 +86,21 @@ export default function DeliveryPolicyPage() {
             <h2>4. How orders are fulfilled</h2>
             <ol>
               <li>Farmers and suppliers confirm product availability each morning.</li>
-              <li>Customer orders are accepted up to the daily cut-off.</li>
-              <li>Produce and grocery items are sourced, checked and packed the same afternoon.</li>
-              <li>Orders are dispatched for delivery during the active delivery window.</li>
+              <li>Customers choose a 24-hour or 48-hour schedule at checkout.</li>
+              <li>Produce and grocery items are sourced, checked and packed for the selected schedule.</li>
+              <li>Orders are dispatched during the applicable 4:00 PM to 6:00 PM delivery window.</li>
             </ol>
             <p>
-              This same-day sourcing model is intended to reduce storage time and help preserve freshness between farm,
-              packaging and delivery.
+              This scheduled sourcing model is intended to reduce storage time and help preserve freshness between
+              farm, packaging and delivery.
             </p>
           </section>
 
           <section id="substitutions">
             <h2>5. Substitutions and unavailable items</h2>
             <p>
-              Because fulfilment depends on same-day sourcing, an item may occasionally become unavailable after your
-              order is placed. Where that happens, Meal05 may contact you before dispatch to offer a suitable
+              Because fulfilment depends on supplier availability, an item may occasionally become unavailable after
+              your order is placed. Where that happens, Meal05 may contact you before dispatch to offer a suitable
               replacement of equal or greater value or remove the item and issue the applicable refund.
             </p>
             <p>

@@ -761,7 +761,7 @@ function SignInPageContent() {
               <ul className="auth-aside-list">
                 <li>
                   <i className="fa-solid fa-check" aria-hidden="true" />
-                  <span><strong>Same-day delivery across Ibadan</strong></span>
+                  <span><strong>24-hour and 48-hour delivery options</strong></span>
                 </li>
                 <li>
                   <i className="fa-solid fa-check" aria-hidden="true" />

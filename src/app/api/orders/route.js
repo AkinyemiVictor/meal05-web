@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getSupabaseRouteClient } from "@/lib/supabase/route-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { checkRateLimit, applyRateLimitHeaders } from "@/lib/api/rate-limit";
+import { withNoStore } from "@/lib/api/no-store";
 import { getOriginTrustContext, getVerifiedBearerUser } from "@/lib/api/request-origin";
 import { logAdminError, logAdminEvent } from "@/lib/api/log";
 import {
@@ -36,10 +37,12 @@ export const dynamic = "force-dynamic";
 
 const allowedMethodsHeader = { Allow: "GET, POST" };
   const tooManyRequests = (rl) => applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rl);
+const reconciliationResponse = (body, status, rl) =>
+  applyRateLimitHeaders(withNoStore(NextResponse.json(body, { status })), rl);
 const ORDER_SELECT_CANDIDATES = [
-  "id, total, subtotal, packaging_fee, handling_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
-  "id, total, subtotal, packaging_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
-  "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
+  "id, total, subtotal, packaging_fee, handling_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_slot, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
+  "id, total, subtotal, packaging_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_slot, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
+  "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_slot, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
 ];
 const isUnknownColumnError = (message) => {
   const errorText = String(message || "");
@@ -122,6 +125,7 @@ export async function POST(request) {
     deliveryContactName: z.string().trim().max(120).optional().default(""),
     deliveryContactPhone: z.string().trim().max(30).optional().default(""),
     deliveryCity: z.string().max(120).optional().default(""),
+    deliverySlot: z.enum(["delivery-24-hours", "delivery-48-hours"]).default("delivery-24-hours"),
     deliveryLatitude: z.number().finite().min(-90).max(90).optional(),
     deliveryLongitude: z.number().finite().min(-180).max(180).optional(),
     fulfillmentType: z.enum(["delivery", "pickup"]).default("delivery"),
@@ -1009,6 +1013,7 @@ export async function POST(request) {
     delivery_address_label: isPickup ? null : parsed.data.deliveryAddressLabel || "Home",
     delivery_contact_name: parsed.data.deliveryContactName || null,
     delivery_contact_phone: parsed.data.deliveryContactPhone || null,
+    delivery_slot: parsed.data.deliverySlot,
     fulfillment_type: parsed.data.fulfillmentType,
     pickup_location_id: pickupLocation?.id || null,
     delivery_latitude: isPickup ? null : parsed.data.deliveryLatitude,
@@ -1171,6 +1176,7 @@ export async function POST(request) {
   await logAdminEvent({
     route: "/api/orders",
     stage: "created",
+    request_id: request.headers.get("x-request-id") || null,
     order_id: orderId,
     user_id: user.id,
     total: orderTotal,
@@ -1294,7 +1300,46 @@ export async function GET(request) {
   if (authErr && !user) return applyRateLimitHeaders(NextResponse.json({ error: authErr.message }, { status: 401 }), rl);
   if (!user) return applyRateLimitHeaders(NextResponse.json({ error: "Not authenticated" }, { status: 401 }), rl);
 
-  if (new URL(request.url).searchParams.get("deliveryPromo") === "1") {
+  const searchParams = new URL(request.url).searchParams;
+  const reconciliationKey = searchParams.get("idempotencyKey");
+  if (reconciliationKey) {
+    const normalizedKey = normalizeIdempotencyKey(reconciliationKey);
+    if (normalizedKey?.error || !normalizedKey?.key) {
+      return reconciliationResponse({ error: normalizedKey?.error || "Invalid idempotency key" }, 400, rl);
+    }
+    const { data: record, error: reconciliationError } = await admin
+      .from("order_idempotency_keys")
+      .select("order_id, status, response_status, response_body, updated_at")
+      .eq("user_id", user.id)
+      .eq("idempotency_key", normalizedKey.key)
+      .maybeSingle();
+    if (reconciliationError) {
+      await logAdminError(reconciliationError, {
+        route: "/api/orders",
+        stage: "reconcile:idempotency",
+        user_id: user.id,
+        request_id: request.headers.get("x-request-id") || null,
+      });
+      return reconciliationResponse({ error: "Unable to check the order request." }, 503, rl);
+    }
+    if (!record) {
+      return reconciliationResponse({ state: "not_found" }, 404, rl);
+    }
+    if (record.status === "completed" && record.response_body) {
+      return reconciliationResponse({
+        state: "completed",
+        orderId: record.order_id || record.response_body?.order?.id || null,
+        responseStatus: record.response_status || 201,
+        response: record.response_body,
+      }, 200, rl);
+    }
+    if (record.status === "failed") {
+      return reconciliationResponse({ state: "failed" }, 409, rl);
+    }
+    return reconciliationResponse({ state: "processing", orderId: record.order_id || null }, 202, rl);
+  }
+
+  if (searchParams.get("deliveryPromo") === "1") {
     const { data: priorOrders, error: priorOrdersError } = await admin
       .from("orders")
       .select("id")
@@ -1312,8 +1357,8 @@ export async function GET(request) {
   }
 
   const orderSelects = [
-    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note)",
-    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price)",
+    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note)",
+    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price)",
   ];
   let data = [];
   let error = null;
@@ -1408,6 +1453,7 @@ export async function GET(request) {
       paymentMethod: row.payment_method || "",
       paymentReference: row.payment_reference || "",
       deliveryStatus: row.delivery_status || "",
+      deliverySlot: row.delivery_slot || "",
       deliveryAddress: row.delivery_address || "",
       createdAt: row.created_at,
       availabilityRequestId: row.availability_request_id || null,

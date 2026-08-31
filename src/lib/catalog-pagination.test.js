@@ -62,6 +62,21 @@ test("Browse and search use exact server pagination instead of the legacy 120-pr
   assert.doesNotMatch(searchFunction, /120/);
 });
 
+test("available products are ordered before unavailable products prior to pagination", () => {
+  const cardsServer = read("src/lib/home-catalog-cards-server.js");
+  const searchRoute = read("src/app/api/catalog/search/route.js");
+  const pageLoader = cardsServer.slice(cardsServer.indexOf("export async function loadCatalogCardPage"));
+
+  const availabilityOrder = pageLoader.indexOf('query = query.order("in_stock", { ascending: false })');
+  const paginationRange = pageLoader.indexOf("query.range(range.from, range.to)");
+  assert.ok(availabilityOrder >= 0, "catalog page query must order by availability");
+  assert.ok(paginationRange > availabilityOrder, "availability ordering must happen before pagination");
+  assert.match(cardsServer, /\.filter\(\(product\) => product\.id\)/);
+  assert.doesNotMatch(cardsServer, /product\.id && product\.price > 0/);
+  assert.match(searchRoute, /loadCatalogCardPage/);
+  assert.match(searchRoute, /pageSize:\s*limit/);
+});
+
 test("all public search inputs use the shared Search meal05 placeholder", () => {
   const files = [
     "src/components/meal05-header.js",

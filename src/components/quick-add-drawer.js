@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { IconShoppingBag, IconX } from "@tabler/icons-react";
@@ -290,6 +291,7 @@ const buildCartItem = (product, variant, orderCount, fallbackImage, sizePreferen
 
 export default function QuickAddDrawer({ product, isOpen, onClose, variant = "drawer" }) {
   const { showNotice } = useNotice();
+  const router = useRouter();
   const cacheRef = useRef(new Map());
   const panelRef = useRef(null);
   const isDropdown = variant === "dropdown";
@@ -493,6 +495,16 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   const quantityAtMin = quantity <= purchaseRules.minQuantity;
   const quantityAtMax = effectiveMaxQuantity != null && quantity >= effectiveMaxQuantity;
 
+  const handleNavigation = useCallback(
+    (event, href) => {
+      event.preventDefault();
+      if (!href || href === "#") return;
+      router.push(href);
+      onClose?.();
+    },
+    [onClose, router]
+  );
+
   const handleAdd = useCallback(
     async ({ variant, qty, closeAfter = true } = {}) => {
       const targetVariant = variant || effectiveVariant;
@@ -639,9 +651,14 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           <IconX size={22} stroke={2} aria-hidden="true" />
         </button>
         <strong>Product details</strong>
-        <span aria-hidden="true">
+        <Link
+          href="/cart"
+          className="quick-add-mobile-topbar__cart"
+          aria-label="View cart"
+          onClick={(event) => handleNavigation(event, "/cart")}
+        >
           <IconShoppingBag size={22} stroke={1.8} />
-        </span>
+        </Link>
       </div>
 
       <div className="quick-add-header quick-add-desktop-header">
@@ -834,7 +851,9 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           <section className="quick-add-mobile-about" aria-labelledby="quick-add-about-title">
             <h4 id="quick-add-about-title">About this product</h4>
             {productDescription ? <p>{productDescription}</p> : null}
-            <Link href={productHref} onClick={onClose}>View full product details</Link>
+            <Link href={productHref} onClick={(event) => handleNavigation(event, productHref)}>
+              View full product details
+            </Link>
           </section>
 
           {error ? <p className="quick-add-status is-error">{error}</p> : null}

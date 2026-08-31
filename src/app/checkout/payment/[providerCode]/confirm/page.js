@@ -16,6 +16,12 @@ import {
   readManualTransferConfirmation,
 } from "@/lib/payments/manual-transfer-confirmation-storage";
 import { getBrowserSupabaseClient } from "@/lib/supabase/browser-client";
+import {
+  getCheckoutApiErrorMessage,
+  logCheckoutApiError,
+  logCheckoutNetworkError,
+} from "@/lib/checkout-payload";
+import { fetchWithNetworkRetry, getNetworkErrorMessage } from "@/lib/fetch-with-network-retry";
 
 const MONIEPOINT_CODE = "moniepoint_transfer";
 
@@ -49,7 +55,7 @@ function ConfirmationTopbar({ onBack }) {
   );
 }
 
-function SubmittedDialog({ onContinue }) {
+function SubmittedDialog({ onContinue, leaving = false }) {
   return (
     <div className="checkout-transfer-pending" role="alertdialog" aria-modal="true" aria-labelledby="transfer-pending-title" aria-describedby="transfer-pending-message">
       <section className="checkout-transfer-pending__dialog">
@@ -60,7 +66,9 @@ function SubmittedDialog({ onContinue }) {
         <p id="transfer-pending-message">
           We are confirming your transfer. You will receive a notification once your payment has been confirmed.
         </p>
-        <button type="button" onClick={onContinue}>View my orders</button>
+        <button type="button" onClick={onContinue} disabled={leaving} aria-busy={leaving}>
+          {leaving ? "Opening your orders..." : "View my orders"}
+        </button>
       </section>
     </div>
   );
@@ -95,7 +103,7 @@ export default function ManualTransferConfirmationPage() {
       const token = await getAuthToken();
       if (!token) throw new Error("Your login session has expired. Please sign in again.");
 
-      const response = await fetch("/api/payments/bank-transfer/submit", {
+      const response = await fetchWithNetworkRetry("/api/payments/bank-transfer/submit", {
         method: "POST",
         cache: "no-store",
         headers: {
@@ -109,7 +117,10 @@ export default function ManualTransferConfirmationPage() {
         }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error || "Unable to submit payment.");
+      if (!response.ok) {
+        logCheckoutApiError("/api/payments/bank-transfer/submit", response, payload, { stage: "submit_transfer" });
+        throw new Error(getCheckoutApiErrorMessage(payload, "Unable to submit payment.", response));
+      }
 
       clearStoredCart();
       clearStoredPromo();
@@ -117,17 +128,31 @@ export default function ManualTransferConfirmationPage() {
       clearManualTransferConfirmation();
       setStatus("submitted");
     } catch (error) {
-      setMessage(error?.message || "Unable to submit payment.");
+      if (error?.code) {
+        logCheckoutNetworkError("/api/payments/bank-transfer/submit", error, { stage: "submit_transfer" });
+        setMessage(getNetworkErrorMessage(error, "Unable to submit payment."));
+      } else {
+        setMessage(error?.message || "Unable to submit payment.");
+      }
       setStatus("ready");
     }
   };
 
   const paymentHref = `/checkout/payment/${providerCode}`;
 
-  if (status === "submitted") {
+  const continueToOrders = () => {
+    setStatus("leaving");
+    if (typeof window !== "undefined") {
+      window.location.assign("/account/orders");
+      return;
+    }
+    router.replace("/account/orders");
+  };
+
+  if (status === "submitted" || status === "leaving") {
     return (
       <main className="checkout-transfer-confirm-page">
-        <SubmittedDialog onContinue={() => router.replace("/account/orders")} />
+        <SubmittedDialog onContinue={continueToOrders} leaving={status === "leaving"} />
       </main>
     );
   }

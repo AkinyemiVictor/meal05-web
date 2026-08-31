@@ -51,7 +51,8 @@ const copy = {
       },
     ],
     deliverySlots: {
-      "same-day-evening": "Same day (4PM - 8PM)",
+      "delivery-24-hours": "Next day, 4:00 PM - 6:00 PM (24 hours)",
+      "delivery-48-hours": "In 2 days, 4:00 PM - 6:00 PM (48 hours)",
     },
     paymentMethods: [
       {

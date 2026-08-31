@@ -6779,7 +6779,7 @@ main > section:not(.home-hero) {
   }
 
   .quick-add-mobile-topbar__close,
-  .quick-add-mobile-topbar > span {
+  .quick-add-mobile-topbar__cart {
     width: 38px;
     height: 38px;
     display: grid;
@@ -6795,9 +6795,11 @@ main > section:not(.home-hero) {
     cursor: pointer;
   }
 
-  .quick-add-mobile-topbar > span {
+  .quick-add-mobile-topbar__cart {
     justify-self: end;
     color: #f4511e;
+    text-decoration: none;
+    cursor: pointer;
   }
 
   .quick-add-mobile-product {

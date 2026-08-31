@@ -29,6 +29,25 @@ const RECOVERY_ALLOWED_API_PATHS = new Set([
 ]);
 
 const isMutatingMethod = (method) => !["GET", "HEAD", "OPTIONS"].includes(method);
+const REQUEST_ID_PATTERN = /^[a-zA-Z0-9._:-]{8,100}$/;
+
+const resolveRequestId = (request) => {
+  const incoming = String(request.headers.get("x-request-id") || "").trim();
+  if (REQUEST_ID_PATTERN.test(incoming)) return incoming;
+  return `m5-${crypto.randomUUID()}`;
+};
+
+const applyRequestId = (response, requestId) => {
+  if (requestId) response.headers.set("X-Request-ID", requestId);
+  return response;
+};
+
+const nextWithRequestId = (request, requestId) => {
+  if (!requestId) return NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("X-Request-ID", requestId);
+  return applyRequestId(NextResponse.next({ request: { headers: requestHeaders } }), requestId);
+};
 
 const getHostRegion = (host) => {
   const lowerHost = host.toLowerCase();
@@ -44,13 +63,13 @@ const setRegionCookie = (response, code) => {
   });
 };
 
-const recoveryBlockedApiResponse = () => {
+const recoveryBlockedApiResponse = (requestId = "") => {
   const response = NextResponse.json(
     { error: "Finish or cancel password recovery before using your account." },
     { status: 403 }
   );
   response.headers.set("Cache-Control", "private, no-store, max-age=0");
-  return response;
+  return applyRequestId(response, requestId);
 };
 
 export async function middleware(request) {
@@ -62,6 +81,7 @@ export async function middleware(request) {
   const regionSegment = pathname.split("/")[1];
   const hostRegion = getHostRegion(host);
   const hasRecoverySession = Boolean(request.cookies.get(PASSWORD_RECOVERY_COOKIE)?.value);
+  const requestId = pathname.startsWith("/api/") ? resolveRequestId(request) : "";
   const hasRegionWork = Boolean(
     hostRegion ||
       queryRegion === "gh" ||
@@ -75,34 +95,37 @@ export async function middleware(request) {
   if (normalizedHost === "www.meal05.com") {
     url.hostname = "meal05.com";
     url.port = "";
-    return NextResponse.redirect(url, 308);
+    return applyRequestId(NextResponse.redirect(url, 308), requestId);
   }
 
   if (hasRecoverySession) {
     if (pathname.startsWith("/api/") && !RECOVERY_ALLOWED_API_PATHS.has(pathname)) {
-      return recoveryBlockedApiResponse();
+      return recoveryBlockedApiResponse(requestId);
     }
 
     if (!pathname.startsWith("/api/") && !RECOVERY_ALLOWED_PAGE_PATHS.has(pathname)) {
       url.pathname = RECOVERY_PAGE_PATH;
       url.search = "?recovery=1";
-      return NextResponse.redirect(url, 307);
+      return applyRequestId(NextResponse.redirect(url, 307), requestId);
     }
   }
 
   if (!shouldRateLimit && !hasRegionWork) {
-    return NextResponse.next();
+    return nextWithRequestId(request, requestId);
   }
 
   let rateLimitResult = null;
   if (shouldRateLimit) {
     rateLimitResult = await checkRateLimit({ request, id: "global", limit: 30, windowMs: 10_000 });
     if (!rateLimitResult.allowed) {
-      return applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rateLimitResult);
+      return applyRequestId(
+        applyRateLimitHeaders(NextResponse.json({ error: "Too many requests" }, { status: 429 }), rateLimitResult),
+        requestId
+      );
     }
   }
 
-  let response = NextResponse.next();
+  let response = nextWithRequestId(request, requestId);
 
   if (hostRegion) {
     setRegionCookie(response, hostRegion);
@@ -120,7 +143,8 @@ export async function middleware(request) {
     setRegionCookie(response, regionSegment);
   }
 
-  return rateLimitResult ? applyRateLimitHeaders(response, rateLimitResult) : response;
+  response = rateLimitResult ? applyRateLimitHeaders(response, rateLimitResult) : response;
+  return applyRequestId(response, requestId);
 }
 
 export const config = {

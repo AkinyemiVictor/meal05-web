@@ -245,12 +245,12 @@ export default function CheckoutSummary({
             Oluyole Estate, New Garage, Challenge, Ring Road and Odo-Ona.
           </p>
           <p>
-            Orders placed by <strong>2:00 PM</strong> are targeted for same-day delivery between <strong>4:00 PM and
-            7:00 PM</strong>. Orders placed after cut-off usually move to the next delivery cycle.
+            Choose either <strong>24-hour</strong> or <strong>48-hour</strong> delivery at checkout. Both options use a
+            target delivery window of <strong>4:00 PM to 6:00 PM</strong> on the scheduled day.
           </p>
           <p>
             Delivery and packaging fees are shown separately at checkout. If an item becomes unavailable during
-            same-day sourcing, we may offer a replacement or refund the affected item.
+            sourcing, we may offer a replacement or refund the affected item.
           </p>
           <p>
             Review the full <Link href="/delivery-policy">Delivery Policy</Link>.

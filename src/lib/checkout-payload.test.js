@@ -91,5 +91,16 @@ test("turns API validation, wallet, stock, auth, and gateway failures into usefu
     getCheckoutApiErrorMessage({ error: "This payment method is currently unavailable.", code: "PAYMENT_METHOD_DISABLED" }),
     "Payment could not be initialized. Please choose another option or try again."
   );
+  assert.equal(
+    getCheckoutApiErrorMessage({ error: "upstream error" }, "fallback", { status: 504 }),
+    "The checkout request timed out. Please check your connection and try again."
+  );
+  assert.equal(
+    getCheckoutApiErrorMessage({ error: "internal details" }, "fallback", { status: 503 }),
+    "The checkout service is temporarily unavailable. Please try again shortly."
+  );
+  assert.equal(
+    getCheckoutApiErrorMessage({ error: "rate limited" }, "fallback", { status: 429 }),
+    "Too many checkout attempts were made. Wait a moment, then try again."
+  );
 });
-

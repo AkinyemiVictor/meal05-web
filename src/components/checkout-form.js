@@ -39,10 +39,17 @@ import { formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/pu
 import { calculateOrderCapacity, formatCapacitySummary } from "@/lib/order-capacity";
 import { normalizeCartItems } from "@/lib/cart-items";
 import {
+  fetchWithNetworkRetry,
+  getNetworkErrorMessage,
+  isAmbiguousNetworkError,
+} from "@/lib/fetch-with-network-retry";
+import { reconcileCheckoutOrder } from "@/lib/order-reconciliation";
+import {
   buildCheckoutOrderItems,
   buildCheckoutOrderRequest,
   getCheckoutApiErrorMessage,
   logCheckoutApiError,
+  logCheckoutNetworkError,
   normalizeDeliveryAddress,
 } from "@/lib/checkout-payload";
 
@@ -55,7 +62,7 @@ const INITIAL_FORM_STATE = {
   landmark: "",
   addressLabel: "Home",
   city: "",
-  deliverySlot: "same-day-evening",
+  deliverySlot: "delivery-24-hours",
   paymentMethod: "moniepoint_transfer",
   cardName: "",
   cardNumber: "",
@@ -1236,7 +1243,7 @@ export default function CheckoutForm({
     return true;
   };
 
-  const handleOrderApiError = (payload, fallbackItems, defaultMessage = "Unable to create order.") => {
+  const handleOrderApiError = (payload, fallbackItems, defaultMessage = "Unable to create order.", response = null) => {
     if (payload?.code === "CART_CHANGED" || payload?.cartChanged) {
       if (Array.isArray(payload?.cart)) writeStoredCart(payload.cart);
       return payload?.error || "Your cart changed. Review it before continuing to payment.";
@@ -1264,7 +1271,7 @@ export default function CheckoutForm({
     if (removedFromCart || hasStockIssue(payload)) {
       return formatStockError(payload, { removedFromCart });
     }
-    return getCheckoutApiErrorMessage(payload, defaultMessage);
+    return getCheckoutApiErrorMessage(payload, defaultMessage, response);
   };
 
   const handleSubmit = async (event) => {
@@ -1389,7 +1396,7 @@ export default function CheckoutForm({
         city: pendingCanonicalCity,
         paymentMethod: DEFAULT_GATEWAY_PAYMENT_METHOD,
         notes: fulfillmentType === "delivery" ? formState.notes.trim() : "",
-        deliverySlot: "same-day-evening",
+        deliverySlot: formState.deliverySlot,
       };
       const previewAuthToken = await getCheckoutAuthToken();
       if (!previewAuthToken) {
@@ -1400,7 +1407,7 @@ export default function CheckoutForm({
       setStatus("processing");
       let previewPayload = null;
       try {
-        const previewResponse = await fetch("/api/orders", {
+        const previewResponse = await fetchWithNetworkRetry("/api/orders", {
           method: "POST",
           headers: buildCheckoutRequestHeaders(previewAuthToken, `${createCheckoutIdempotencyKey()}:preview`),
           cache: "no-store",
@@ -1419,13 +1426,14 @@ export default function CheckoutForm({
         });
         previewPayload = await previewResponse.json().catch(() => ({}));
         if (!previewResponse.ok) {
-          logCheckoutApiError("/api/orders (preview)", previewResponse, previewPayload);
-          showSubmitError(handleOrderApiError(previewPayload, cartItems, previewResponse.statusText || "Unable to verify cart prices."));
+          logCheckoutApiError("/api/orders", previewResponse, previewPayload, { stage: "preview_order" });
+          showSubmitError(handleOrderApiError(previewPayload, cartItems, previewResponse.statusText || "Unable to verify cart prices.", previewResponse));
           setStatus("idle");
           return;
         }
       } catch (error) {
-        showSubmitError(error?.message || "Unable to verify cart prices.");
+        logCheckoutNetworkError("/api/orders", error, { stage: "preview_order" });
+        showSubmitError(getNetworkErrorMessage(error, "Unable to verify cart prices."));
         setStatus("idle");
         return;
       }
@@ -1575,16 +1583,16 @@ export default function CheckoutForm({
     const finalize = async (serverOrderId, serverPayload = null) => {
       // Attempt to create server order (requires Supabase session)
       if (!serverOrderId) {
-        const res = await fetch("/api/orders", {
+        const res = await fetchWithNetworkRetry("/api/orders", {
           method: "POST",
           headers: buildCheckoutRequestHeaders(authToken, orderIdempotencyKey),
           cache: "no-store",
           body: JSON.stringify(orderRequestPayload),
-        });
+        }, { retries: 0 });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
-          logCheckoutApiError("/api/orders", res, payload);
-          throw new Error(handleOrderApiError(payload, cartItems, res.statusText || "Unable to create order."));
+          logCheckoutApiError("/api/orders", res, payload, { stage: "finalize_order" });
+          throw new Error(handleOrderApiError(payload, cartItems, res.statusText || "Unable to create order.", res));
         }
         serverOrderId = payload?.order?.id || null;
         serverPayload = payload;
@@ -1644,39 +1652,80 @@ export default function CheckoutForm({
     let createdOrderId = null;
     try {
       let createdOrderPayload = null;
-      // Always create the server order first to get an id
+      // Always create the server order first to get an id.
+      let orderResponse = null;
       try {
-        const res = await fetch("/api/orders", {
+        orderResponse = await fetchWithNetworkRetry("/api/orders", {
           method: "POST",
           headers: buildCheckoutRequestHeaders(authToken, orderIdempotencyKey),
           cache: "no-store",
           body: JSON.stringify(orderRequestPayload),
-        });
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          logCheckoutApiError("/api/orders", res, payload);
-          throw new Error(handleOrderApiError(payload, cartItems, res.statusText || "Unable to create order."));
+        }, { retries: 0 });
+      } catch (error) {
+        logCheckoutNetworkError("/api/orders", error, { stage: "create_order" });
+        if (!isAmbiguousNetworkError(error)) {
+          throw new Error(getNetworkErrorMessage(error, "Unable to create order."));
         }
-        createdOrderId = payload?.order?.id || null;
+        setFormError("We could not confirm the response. Checking whether your order was created...");
+        const recovered = await reconcileCheckoutOrder({
+          idempotencyKey: orderIdempotencyKey,
+          authToken,
+        });
+        if (recovered.state === "completed" && recovered.response) {
+          createdOrderPayload = recovered.response;
+          createdOrderId = recovered.orderId || recovered.response?.order?.id || null;
+        } else {
+          throw new Error(
+            recovered.state === "processing"
+              ? "Your order request is still being checked. Wait a moment, then try again; the same checkout reference will be reused."
+              : getNetworkErrorMessage(error, "Unable to create order.")
+          );
+        }
+      }
+      if (orderResponse) {
+        let payload = await orderResponse.json().catch(() => ({}));
+        if (!orderResponse.ok) {
+          logCheckoutApiError("/api/orders", orderResponse, payload, { stage: "create_order" });
+          if (orderResponse.status === 409 && /still processing/i.test(String(payload?.error || ""))) {
+            setFormError("Your order request is still processing. Checking its status...");
+            const recovered = await reconcileCheckoutOrder({
+              idempotencyKey: orderIdempotencyKey,
+              authToken,
+            });
+            if (recovered.state === "completed" && recovered.response) {
+              payload = recovered.response;
+              createdOrderId = recovered.orderId || recovered.response?.order?.id || null;
+            } else {
+              throw new Error("Your order request is still being checked. Wait a moment, then try again.");
+            }
+          } else {
+            throw new Error(handleOrderApiError(payload, cartItems, orderResponse.statusText || "Unable to create order.", orderResponse));
+          }
+        }
+        createdOrderId = createdOrderId || payload?.order?.id || null;
         createdOrderPayload = payload;
-      } catch (err) {
-        throw err;
       }
 
       if (TRANSFER_PAYMENT_METHODS.includes(paymentMethodForOrder)) {
         if (!createdOrderId) {
           throw new Error("Unable to create order for bank transfer");
         }
-        const transferResponse = await fetch("/api/payments/bank-transfer/initialize", {
-          method: "POST",
-          headers: buildCheckoutRequestHeaders(authToken, `${orderIdempotencyKey}:payment`),
-          cache: "no-store",
-          body: JSON.stringify({ orderId: createdOrderId, providerCode: paymentMethodForOrder }),
-        });
+        let transferResponse;
+        try {
+          transferResponse = await fetchWithNetworkRetry("/api/payments/bank-transfer/initialize", {
+            method: "POST",
+            headers: buildCheckoutRequestHeaders(authToken, `${orderIdempotencyKey}:payment`),
+            cache: "no-store",
+            body: JSON.stringify({ orderId: createdOrderId, providerCode: paymentMethodForOrder }),
+          });
+        } catch (error) {
+          logCheckoutNetworkError("/api/payments/bank-transfer/initialize", error, { stage: "initialize_transfer" });
+          throw new Error(getNetworkErrorMessage(error, "Payment could not be initialized."));
+        }
         const transferPayload = await transferResponse.json().catch(() => ({}));
         if (!transferResponse.ok) {
-          logCheckoutApiError("/api/payments/bank-transfer/initialize", transferResponse, transferPayload);
-          throw new Error(getCheckoutApiErrorMessage(transferPayload, "Payment could not be initialized. Please try again."));
+          logCheckoutApiError("/api/payments/bank-transfer/initialize", transferResponse, transferPayload, { stage: "initialize_transfer" });
+          throw new Error(getCheckoutApiErrorMessage(transferPayload, "Payment could not be initialized. Please try again.", transferResponse));
         }
         setTransferDetails({
           order: {
@@ -2012,7 +2061,9 @@ export default function CheckoutForm({
           <label className="checkout-field">
             <span>Delivery window</span>
             <select name="deliverySlot" value={formState.deliverySlot} onChange={handleChange}>
-              <option value="same-day-evening">{copy.checkout.deliverySlots["same-day-evening"]}</option>
+              {Object.entries(copy.checkout.deliverySlots).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
             </select>
           </label>
         </div>
@@ -2086,7 +2137,9 @@ export default function CheckoutForm({
             <label className="checkout-field">
               <span>Pickup window</span>
               <select name="deliverySlot" value={formState.deliverySlot} onChange={handleChange}>
-                <option value="same-day-evening">{copy.checkout.deliverySlots["same-day-evening"]}</option>
+                {Object.entries(copy.checkout.deliverySlots).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </label>
           </div>

@@ -166,7 +166,8 @@ test("authenticated cart additions merge matching variants and checkout retries 
   assert.match(cartMigration, /sum\(quantity\)/);
   assert.match(cartMigration, /unique index cart_items_user_variant_unique_idx/);
   assert.match(checkoutForm, /orderIdempotencyKey:\s*createCheckoutIdempotencyKey\(\)/);
-  assert.match(providerPage, /pending\.orderIdempotencyKey \|\| createIdempotencyKey/);
+  assert.match(providerPage, /pending\.orderIdempotencyKey \|\| orderRequestKeyRef\.current \|\| createIdempotencyKey/);
+  assert.match(providerPage, /orderRequestKeyRef\.current = orderIdempotencyKey/);
 });
 
 test("wallet checkout is atomically idempotent and submitted transfers clear the cart pending verification", () => {
