@@ -53,6 +53,7 @@ Manifest shape:
   "root": "./local-images",
   "items": [
     { "productId": 123, "file": "dangote-spaghetti-main.jpg", "role": "primary" },
+    { "productId": 456, "file": "corrected-rice.jpg", "role": "replace" },
     { "sku": "DANGOTE-SPAGHETTI-500G", "file": "dangote-spaghetti-side.jpg", "role": "gallery" },
     {
       "productId": 456,
@@ -132,7 +133,8 @@ const resolveRoot = (manifest) => {
 
 const normalizeRole = (value) => {
   const role = normalizeLookup(value || "gallery");
-  if (["primary", "main", "replace", "replace-primary"].includes(role)) return "primary";
+  if (["replace", "replace-primary"].includes(role)) return "replace";
+  if (["primary", "main"].includes(role)) return "primary";
   return "gallery";
 };
 
@@ -164,7 +166,8 @@ const flattenManifest = (manifest, rootDir) => {
         index: `${itemIndex + 1}.${fileIndex + 1}`,
         ...keys,
         role,
-        isPrimary: role === "primary" || fileSpec.primary === true || item.primary === true,
+        isReplacement: role === "replace",
+        isPrimary: role === "primary" || role === "replace" || fileSpec.primary === true || item.primary === true,
         file: relativeFile,
         absoluteFile: path.resolve(rootDir, relativeFile),
         altText: normalizeText(fileSpec.alt ?? fileSpec.altText ?? item.alt ?? item.altText),
@@ -328,11 +331,9 @@ const updatePrimaryImage = async ({ productId, imageId, cardUrl }) => {
 
   const productUpdate = await supabase
     .from("products")
-    .update({ image_url: cardUrl })
+    .update({ main_image_url: cardUrl })
     .eq("id", productId);
-  if (productUpdate.error && !String(productUpdate.error.message || "").includes("'image_url' column")) {
-    throw productUpdate.error;
-  }
+  if (productUpdate.error) throw productUpdate.error;
 };
 
 const updateImageVariants = async ({ imageId, entry, existing = {} }) => {
@@ -385,12 +386,74 @@ const findExistingImage = async ({ productId, safeBase }) => {
     .limit(500);
   if (error) throw error;
 
-  const marker = `/${productId}/gallery/`;
-  const suffix = `-${safeBase}/original.`;
+  const marker = `/${productId}/gallery/${runBatchId}-${safeBase}/original.`;
   return (data || []).find((row) => {
     const originalUrl = row.original_url || row.image_url || "";
-    return originalUrl.includes(marker) && originalUrl.includes(suffix);
+    return originalUrl.includes(marker);
   });
+};
+
+const findPrimaryImage = async (productId) => {
+  const { data, error } = await supabase
+    .from("product_images")
+    .select("id, position")
+    .eq("product_id", productId)
+    .eq("is_primary", true)
+    .order("position", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+};
+
+const replacePrimaryImage = async ({ entry, imageId, position }) => {
+  const productId = String(entry.product.id);
+  const safeBase = slugify(entry.file);
+  const originalPath = `${productId}/gallery/${runBatchId}-${safeBase}/original.${entry.mime.extension}`;
+  const originalUrl = await upload({
+    storagePath: originalPath,
+    buffer: entry.buffer,
+    contentType: entry.mime.mime,
+  });
+
+  const [thumbBuffer, cardBuffer, detailBuffer] = await Promise.all([
+    makeVariant(entry.buffer, VARIANTS.thumb),
+    makeVariant(entry.buffer, VARIANTS.card),
+    makeVariant(entry.buffer, VARIANTS.detail),
+  ]);
+  const paths = {
+    thumb: `${productId}/${imageId}/${runBatchId}/${VARIANTS.thumb.filename}`,
+    card: `${productId}/${imageId}/${runBatchId}/${VARIANTS.card.filename}`,
+    detail: `${productId}/${imageId}/${runBatchId}/${VARIANTS.detail.filename}`,
+  };
+  const [thumbUrl, cardUrl, detailUrl] = await Promise.all([
+    upload({ storagePath: paths.thumb, buffer: thumbBuffer, contentType: "image/webp" }),
+    upload({ storagePath: paths.card, buffer: cardBuffer, contentType: "image/webp" }),
+    upload({ storagePath: paths.detail, buffer: detailBuffer, contentType: "image/webp" }),
+  ]);
+
+  const update = await supabase
+    .from("product_images")
+    .update({
+      variant_id: entry.variantId,
+      image_url: originalUrl,
+      original_url: originalUrl,
+      thumb_url: thumbUrl,
+      card_url: cardUrl,
+      detail_url: detailUrl,
+      alt_text: entry.altText || entry.product.name,
+      position,
+      is_primary: true,
+      image_width: entry.metadata.width || null,
+      image_height: entry.metadata.height || null,
+      normalized_at: new Date().toISOString(),
+    })
+    .eq("id", imageId);
+  if (update.error) throw update.error;
+
+  await updatePrimaryImage({ productId, imageId, cardUrl });
+  return { id: imageId, originalUrl, thumbUrl, cardUrl, detailUrl, position, replaced: true };
 };
 
 const importImage = async (entry, position) => {
@@ -423,6 +486,17 @@ const importImage = async (entry, position) => {
       position,
       existing: true,
     };
+  }
+
+  if (entry.isReplacement) {
+    const primaryImage = await findPrimaryImage(productId);
+    if (primaryImage) {
+      return replacePrimaryImage({
+        entry,
+        imageId: primaryImage.id,
+        position: Number(primaryImage.position) || 1,
+      });
+    }
   }
 
   const originalUrl = await upload({
@@ -510,12 +584,12 @@ for (const entry of validated) {
 
   try {
     console.log(
-      `${dryRun ? "plan" : "import"} product=${productId} sku=${entry.product.sku || "-"} role=${entry.isPrimary ? "primary" : "gallery"} position=${nextPosition} file=${entry.file}`
+      `${dryRun ? "plan" : "import"} product=${productId} sku=${entry.product.sku || "-"} role=${entry.role} position=${nextPosition} file=${entry.file}`
     );
     const result = await importImage(entry, nextPosition);
     imported += 1;
     if (!dryRun) {
-      console.log(`${result.existing ? "resume" : "ok"} product_image=${result.id} card=${result.cardUrl}`);
+      console.log(`${result.existing ? "resume" : result.replaced ? "replace" : "ok"} product_image=${result.id} card=${result.cardUrl}`);
     }
   } catch (error) {
     failed += 1;
