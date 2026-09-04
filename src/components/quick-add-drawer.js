@@ -467,8 +467,9 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
   const priceLabel = useMemo(() => {
     if (!displayProduct) return "";
+    if (availabilityMode === "unavailable") return "Price unavailable";
     return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), "");
-  }, [displayProduct, effectiveVariant]);
+  }, [availabilityMode, displayProduct, effectiveVariant]);
   const categoryLabel = useMemo(() => {
     const category = displayProduct?.category || displayProduct?.categorySlug || "";
     return CATEGORY_LABELS.get(category) || category || "Produce";

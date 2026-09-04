@@ -34,3 +34,7 @@ test("request and supplier items bypass local stock while unavailable stays bloc
   assert.match(source, /Add to availability basket/);
   assert.match(source, /<AvailabilityRequestNotice compact \/>/);
 });
+
+test("quick add hides stored prices for explicitly unavailable products", () => {
+  assert.match(source, /availabilityMode\s*===\s*"unavailable"\)\s*return\s*"Price unavailable"/);
+});
