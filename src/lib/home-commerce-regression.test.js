@@ -137,6 +137,19 @@ test("curated product option labels take priority over derived measurement range
   assert.ok(cardLabelBlock.indexOf("display_label") < cardLabelBlock.indexOf("buildVolumeLabel"));
 });
 
+test("catalogue cards prefer the database card variant and retain responsive image URLs", () => {
+  const source = read("src/lib/public-catalog-server.js");
+  const start = source.indexOf("const buildPublicCatalogProductFromCard");
+  const end = source.indexOf("const groupProducts", start);
+  const mapper = source.slice(start, end);
+
+  assert.ok(start >= 0 && end > start);
+  assert.match(mapper, /resolveProductImage\(row\?\.card_image_url, row\?\.main_image_url/);
+  assert.match(mapper, /thumbImageUrl:\s*resolveProductImage\(row\?\.thumb_image_url, image\)/);
+  assert.match(mapper, /cardImageUrl:\s*resolveProductImage\(row\?\.card_image_url, image\)/);
+  assert.match(mapper, /detailImageUrl:\s*resolveProductImage\(row\?\.detail_image_url, image\)/);
+});
+
 test("product detail loaders order options from smallest base quantity to largest", () => {
   const server = read("src/lib/products-server.js");
   const api = read("src/app/api/products/[id]/route.js");

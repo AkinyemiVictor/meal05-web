@@ -405,7 +405,7 @@ const buildPublicCatalogProductFromCard = (row) => {
   const oldPrice = Number.isFinite(oldPriceRaw) && oldPriceRaw > 0 ? Math.max(price, oldPriceRaw) : price;
   const discount = oldPrice > price && price > 0 ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
   const categorySlug = toCategorySlug(row?.category_slug || row?.category_name || "");
-  const image = resolveProductImage(row?.main_image_url, row?.image, row?.image_url);
+  const image = resolveProductImage(row?.card_image_url, row?.main_image_url, row?.image, row?.image_url);
 
   return {
     id: String(row?.product_id ?? row?.id ?? ""),
@@ -414,6 +414,9 @@ const buildPublicCatalogProductFromCard = (row) => {
     name: String(row?.name || "Fresh produce"),
     image,
     mainImageUrl: image,
+    thumbImageUrl: resolveProductImage(row?.thumb_image_url, image),
+    cardImageUrl: resolveProductImage(row?.card_image_url, image),
+    detailImageUrl: resolveProductImage(row?.detail_image_url, image),
     price,
     oldPrice,
     unit: String(row?.unit || ""),
