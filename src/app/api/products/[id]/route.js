@@ -9,6 +9,7 @@ import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/l
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
+import { sortVariantsBySize } from "@/lib/variant-order";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -351,7 +352,7 @@ export async function GET(_request, { params }) {
       .order("base_quantity", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
     if (!vError && Array.isArray(variants)) {
-      variations = variants.map((row) => {
+      variations = sortVariantsBySize(variants.map((row) => {
         const rangeLabel = buildRangeLabel(row);
         const optionLabel =
           row.display_label ||
@@ -455,7 +456,7 @@ export async function GET(_request, { params }) {
             categorySlug: categoryMeta?.categorySlug || "",
           }),
         };
-      });
+      }));
     }
   } catch (_) {}
 

@@ -150,13 +150,24 @@ test("catalogue cards prefer the database card variant and retain responsive ima
   assert.match(mapper, /detailImageUrl:\s*resolveProductImage\(row\?\.detail_image_url, image\)/);
 });
 
-test("product detail loaders order options from smallest base quantity to largest", () => {
+test("explicitly unavailable products remain visible with unavailable pricing", () => {
+  const source = read("src/lib/public-catalog-server.js");
+
+  assert.match(source, /\bavailabilityMode,\s*[\r\n]+\s*availability_mode:\s*availabilityMode/);
+  assert.match(source, /Number\(product\?\.price\)\s*>\s*0[\s\S]*availabilityMode[\s\S]*===\s*"unavailable"/);
+  assert.doesNotMatch(source, /filter\(\(product\)\s*=>\s*product\.id\s*&&\s*product\.price\s*>\s*0\)/);
+});
+
+test("product detail loaders filter inactive options and apply semantic size ordering", () => {
   const server = read("src/lib/products-server.js");
   const api = read("src/app/api/products/[id]/route.js");
   const expectedOrder = /\.order\("base_quantity",\s*\{\s*ascending:\s*true,\s*nullsFirst:\s*false\s*\}\)[\s\S]*?\.order\("id",\s*\{\s*ascending:\s*true\s*\}\)/;
 
   assert.match(server, expectedOrder);
   assert.match(api, expectedOrder);
+  assert.match(server, /\.eq\("is_active",\s*true\)/);
+  assert.match(server, /sortVariantsBySize\(variantsData\.map/);
+  assert.match(api, /sortVariantsBySize\(variants\.map/);
 });
 
 test("shop navigation preloads on intent without restoring idle request amplification", () => {

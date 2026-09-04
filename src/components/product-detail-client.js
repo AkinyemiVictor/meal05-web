@@ -302,7 +302,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
             width={640}
             height={380}
             sizes="(max-width: 900px) 100vw, 420px"
-            loading="lazy"
+            priority
           />
           {hasMultipleImages ? (
             <>

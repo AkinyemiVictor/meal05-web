@@ -13,6 +13,7 @@ import { getDefaultMarket } from "@/lib/market-server";
 import { getCatalogPageRange, normalizeCatalogPagination } from "@/lib/catalog-pagination";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
+import { sortVariantsBySize } from "@/lib/variant-order";
 
 export const PUBLIC_CATALOG_CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
@@ -369,7 +370,7 @@ const attachPublicProductVariations = async (admin, products, market = {}) => {
   });
 
   return list.map((product) => {
-    const variations = grouped.get(String(product.id)) || [];
+    const variations = sortVariantsBySize(grouped.get(String(product.id)) || []);
     return {
       ...product,
       variations,
@@ -387,8 +388,10 @@ const attachEmbeddedProductVariations = (rows, products, market = {}) => {
 
   return (Array.isArray(products) ? products : []).map((product) => {
     const rawVariations = rowIndex.get(String(product?.id || ""))?.variations;
-    const variations = (Array.isArray(rawVariations) ? rawVariations : [])
-      .map((row) => buildPublicProductVariant(row, product, market));
+    const variations = sortVariantsBySize(
+      (Array.isArray(rawVariations) ? rawVariations : [])
+        .map((row) => buildPublicProductVariant(row, product, market))
+    );
     return {
       ...product,
       variations,
@@ -406,6 +409,16 @@ const buildPublicCatalogProductFromCard = (row) => {
   const discount = oldPrice > price && price > 0 ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
   const categorySlug = toCategorySlug(row?.category_slug || row?.category_name || "");
   const image = resolveProductImage(row?.card_image_url, row?.main_image_url, row?.image, row?.image_url);
+  const embeddedVariations = Array.isArray(row?.variations) ? row.variations : [];
+  const defaultEmbeddedVariant = embeddedVariations.find(
+    (variant) => String(variant?.id || "") === String(row?.default_variant_id || "")
+  );
+  const availabilityMode = String(
+    defaultEmbeddedVariant?.availability_mode ??
+      (embeddedVariations.length && embeddedVariations.every((variant) => variant?.availability_mode === "unavailable")
+        ? "unavailable"
+        : "standard")
+  );
 
   return {
     id: String(row?.product_id ?? row?.id ?? ""),
@@ -419,6 +432,8 @@ const buildPublicCatalogProductFromCard = (row) => {
     detailImageUrl: resolveProductImage(row?.detail_image_url, image),
     price,
     oldPrice,
+    availabilityMode,
+    availability_mode: availabilityMode,
     unit: String(row?.unit || ""),
     stock: row?.stock_count ?? (row?.in_stock ? "In stock" : 0),
     inSeason: row?.in_season !== false,
@@ -471,6 +486,10 @@ const buildPublicCatalogProductFromCard = (row) => {
     }),
   };
 };
+
+const isVisibleCatalogProduct = (product) =>
+  Boolean(product?.id) &&
+  (Number(product?.price) > 0 || String(product?.availabilityMode ?? product?.availability_mode) === "unavailable");
 
 const groupProducts = (products) =>
   products.reduce((acc, product) => {
@@ -574,7 +593,7 @@ const loadPublicCatalogProductsFromCardView = async ({
     : rows;
   const flat = sortedRows
     .map(buildPublicCatalogProductFromCard)
-    .filter((product) => product.id && product.price > 0);
+    .filter(isVisibleCatalogProduct);
   const hydratedFlat = attachEmbeddedProductVariations(sortedRows, flat, market);
 
   return {
@@ -634,7 +653,7 @@ export async function loadPublicCatalogPage({
 
   const flat = (Array.isArray(data) ? data : [])
     .map(buildPublicCatalogProductFromCard)
-    .filter((product) => product.id && product.price > 0);
+    .filter(isVisibleCatalogProduct);
   const hydratedFlat = attachEmbeddedProductVariations(data, flat, market);
   const pagination = normalizeCatalogPagination({ page: range.page, pageSize: range.pageSize, total: count });
 
@@ -768,7 +787,7 @@ export async function loadPublicCatalogProducts({
   }
   const flat = rows
     .map((row) => overlayVariantMetadata(buildPublicCatalogProduct(row, categoryIndex), variantByProduct.get(String(row?.id || ""))))
-    .filter((product) => product?.id && product.price > 0);
+    .filter(isVisibleCatalogProduct);
   const hydratedFlat = await attachPublicProductVariations(admin, flat, catalog.market);
 
   return {
@@ -793,6 +812,8 @@ export function toProductCardDTO(product = {}) {
     detailImageUrl: resolveProductImage(product?.detailImageUrl, product?.detail_image_url, cardImage),
     price: Number(product?.price || 0) || 0,
     oldPrice: Number(product?.oldPrice || product?.price || 0) || 0,
+    availabilityMode: String(product?.availabilityMode ?? product?.availability_mode ?? "standard"),
+    availability_mode: String(product?.availability_mode ?? product?.availabilityMode ?? "standard"),
     unit: String(product?.unit || ""),
     stock: product?.stock ?? "",
     inSeason: product?.inSeason !== false,

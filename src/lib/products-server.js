@@ -10,6 +10,7 @@ import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/l
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
+import { sortVariantsBySize } from "@/lib/variant-order";
 
 const pickFirst = (row, fields = []) => {
   for (const key of fields) {
@@ -445,6 +446,7 @@ const fetchProductByIdUncached = async (id) => {
       .select("*", { head: false })
       .eq("product_id", id)
       .eq("market_id", catalog.market.id)
+      .eq("is_active", true)
       .order("base_quantity", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true }),
   ]);
@@ -465,7 +467,7 @@ const fetchProductByIdUncached = async (id) => {
   if (variantsResult.status === "fulfilled") {
     const { data: variantsData, error: variantsError } = variantsResult.value || {};
     if (!variantsError && Array.isArray(variantsData)) {
-      variations = variantsData.map((row) => {
+      variations = sortVariantsBySize(variantsData.map((row) => {
         const rangeLabel = buildRangeLabel(row);
         const optionLabel =
           row.display_label ||
@@ -555,7 +557,7 @@ const fetchProductByIdUncached = async (id) => {
           is_default: row.is_default === true,
           isSelectable: isVariantSelectable({ ...row, stock }),
         };
-      });
+      }));
     }
   }
 
