@@ -10,6 +10,12 @@ export const runtime = "nodejs";
 export const revalidate = 300;
 export const fetchCache = "default-cache";
 
+const LIVE_STOCK_HEADERS = {
+  "Cache-Control": "no-store",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
+};
+
 export async function GET(request) {
   try {
     const searchParams = new URL(request.url).searchParams;
@@ -24,7 +30,9 @@ export async function GET(request) {
         search: searchParams.get("search") || "",
         sort: searchParams.get("sort") || "default",
       });
-      return publicCatalogJson(payload);
+      // Shop/category pagination is stock-sensitive. Do not let an older edge copy
+      // re-introduce depleted products ahead of newly available ones.
+      return publicCatalogJson(payload, { headers: LIVE_STOCK_HEADERS });
     }
 
     if (view === "new") {
