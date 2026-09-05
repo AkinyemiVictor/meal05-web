@@ -1,5 +1,6 @@
 import { toCategorySlug } from "@/lib/categories-server";
 import { getCatalogPageRange, normalizeCatalogPagination } from "@/lib/catalog-pagination";
+import { applyCatalogSearchTerms, getCatalogSearchTerms } from "@/lib/catalog-search";
 import { publicMarket } from "@/lib/market-catalog-server";
 import { getDefaultMarket } from "@/lib/market-server";
 import { pickFirstNumber } from "@/lib/number";
@@ -197,11 +198,7 @@ export async function loadCatalogCardPage({
   const market = await getDefaultMarket();
   const range = getCatalogPageRange({ page, pageSize });
   const categorySlug = toCategorySlug(category || "");
-  const searchTerm = String(search || "")
-    .trim()
-    .replace(/[%_,().]/g, " ")
-    .replace(/\s+/g, " ")
-    .slice(0, 80);
+  const searchTerms = getCatalogSearchTerms(search);
   const selectedSort = CATALOG_PAGE_SORTS[sort] || CATALOG_PAGE_SORTS.default;
 
   let query = admin
@@ -217,9 +214,9 @@ export async function loadCatalogCardPage({
     query = query.eq("category_slug", categorySlug);
     countQuery = countQuery.eq("category_slug", categorySlug);
   }
-  if (searchTerm) {
-    query = query.ilike("search_text", `%${searchTerm}%`);
-    countQuery = countQuery.ilike("search_text", `%${searchTerm}%`);
+  if (searchTerms.length) {
+    query = applyCatalogSearchTerms(query, search);
+    countQuery = applyCatalogSearchTerms(countQuery, search);
   }
   query = query.order("in_stock", { ascending: false });
   selectedSort.forEach(({ column, ascending }) => {

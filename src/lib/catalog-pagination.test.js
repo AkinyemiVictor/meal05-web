@@ -88,3 +88,14 @@ test("all public search inputs use the shared Search meal05 placeholder", () => 
   files.forEach((file) => assert.match(read(file), /Search meal05/));
   assert.doesNotMatch(publicSearchSource, /Search tomatoes|Search fruits|Try &quot;|Try "/);
 });
+
+test("catalog search applies each query word independently across every server path", () => {
+  const homeCards = read("src/lib/home-catalog-cards-server.js");
+  const publicCatalog = read("src/lib/public-catalog-server.js");
+
+  assert.match(homeCards, /applyCatalogSearchTerms\(query, search\)/);
+  assert.match(homeCards, /applyCatalogSearchTerms\(countQuery, search\)/);
+  assert.match(publicCatalog, /applyCatalogSearchTerms\(query, search\)/);
+  assert.match(publicCatalog, /applyCatalogSearchTerms\(countQuery, search\)/);
+  assert.doesNotMatch(`${homeCards}\n${publicCatalog}`, /ilike\("search_text",\s*`%\$\{searchTerm\}%`\)/);
+});

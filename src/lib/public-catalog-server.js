@@ -11,6 +11,7 @@ import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 import { getDefaultMarket } from "@/lib/market-server";
 import { getCatalogPageRange, normalizeCatalogPagination } from "@/lib/catalog-pagination";
+import { applyCatalogSearchTerms, getCatalogSearchTerms } from "@/lib/catalog-search";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { sortVariantsBySize } from "@/lib/variant-order";
@@ -568,7 +569,7 @@ const loadPublicCatalogProductsFromCardView = async ({
   const requestedIds = uniqueIds(ids, 80);
   const maxRows = Math.min(Math.max(Number(limit) || 48, 1), 120);
   const requestedCategorySlug = toCategorySlug(category || "");
-  const searchTerm = String(search || "").trim().replace(/[%_,().]/g, " ").replace(/\s+/g, " ").slice(0, 80);
+  const searchTerms = getCatalogSearchTerms(search);
 
   let query = admin
     .from("product_card_catalog_with_options")
@@ -578,7 +579,7 @@ const loadPublicCatalogProductsFromCardView = async ({
   if (requestedIds.length) query = query.in("product_id", requestedIds);
   if (requestedCategorySlug) query = query.eq("category_slug", requestedCategorySlug);
   if (view === "in-season") query = query.eq("in_season", true);
-  if (searchTerm) query = query.ilike("search_text", `%${searchTerm}%`);
+  if (searchTerms.length) query = applyCatalogSearchTerms(query, search);
 
   query = view === "new"
     ? query.order("created_at", { ascending: false })
@@ -614,11 +615,7 @@ export async function loadPublicCatalogPage({
   const market = await getDefaultMarket();
   const range = getCatalogPageRange({ page, pageSize });
   const requestedCategorySlug = toCategorySlug(category || "");
-  const searchTerm = String(search || "")
-    .trim()
-    .replace(/[%_,().]/g, " ")
-    .replace(/\s+/g, " ")
-    .slice(0, 80);
+  const searchTerms = getCatalogSearchTerms(search);
   const selectedSort = CATALOG_PAGE_SORTS[sort] || CATALOG_PAGE_SORTS.default;
 
   let query = admin
@@ -634,9 +631,9 @@ export async function loadPublicCatalogPage({
     query = query.eq("category_slug", requestedCategorySlug);
     countQuery = countQuery.eq("category_slug", requestedCategorySlug);
   }
-  if (searchTerm) {
-    query = query.ilike("search_text", `%${searchTerm}%`);
-    countQuery = countQuery.ilike("search_text", `%${searchTerm}%`);
+  if (searchTerms.length) {
+    query = applyCatalogSearchTerms(query, search);
+    countQuery = applyCatalogSearchTerms(countQuery, search);
   }
   selectedSort.forEach(({ column, ascending }) => {
     query = query.order(column, { ascending });
@@ -700,7 +697,8 @@ export async function loadPublicCatalogProducts({
   if (categoryRes.error) throw categoryRes.error;
   const categoryIndex = buildCategoryIndex(categoryRes.data);
   const requestedCategorySlug = toCategorySlug(category || "");
-  const searchTerm = String(search || "").trim().replace(/[%_]/g, "").slice(0, 80);
+  const searchTerms = getCatalogSearchTerms(search);
+  const searchTerm = searchTerms.join(" ");
   const searchCategorySlug = searchTerm ? toCategorySlug(searchTerm) : "";
   const categoryIds = requestedCategorySlug
     ? (Array.isArray(categoryRes.data) ? categoryRes.data : [])
@@ -738,7 +736,9 @@ export async function loadPublicCatalogProducts({
 
   if (categoryIds.length) query = query.in("category_id", categoryIds);
   if (view === "in-season") query = query.eq("in_season", true);
-  if (searchTerm && !categoryIds.length) query = query.ilike("name", `%${searchTerm}%`);
+  if (searchTerms.length && !categoryIds.length) {
+    query = applyCatalogSearchTerms(query, search, "name");
+  }
 
   const productRes = await query.limit(requestedIds.length ? productIds.length : Math.min(maxRows * 3, 360));
   if (productRes.error) throw productRes.error;
