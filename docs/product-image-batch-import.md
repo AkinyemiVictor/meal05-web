@@ -27,6 +27,10 @@ npm run images:import -- --manifest=scripts/product-image-batch-20260903.json --
 
 Keep the batch ID unchanged when resuming an interrupted run. The correctly spelled `ayoola poundo yam 0.9kg.png` is the selected 900g image; the older `ayoola poudo yam 0.9kg.png` file is intentionally unused.
 
+### 5 September edited replacements
+
+The four user-edited replacements are mapped in `scripts/product-image-batch-20260905-edited.json`. Run it with the Downloads directory as `--root` and `20260905-user-edited` as the batch ID. This batch intentionally excludes both Slim spaghetti products and all Gino Party Jollof products.
+
 ## Example
 
 ```json

@@ -1,9 +1,9 @@
 # Supabase database history
 
-The migration directory currently contains 136 files. The first 135 timestamps
-match the migration history recorded as applied by the live Meal05 Supabase
-project as of 2026-08-29. The current tip is
-`20260829124046_restore_catalog_security_invoker_after_price_masking.sql`.
+The migration directory currently contains 143 files. Migration timestamps
+through `20260904080709_restore_large_plantain_first_option.sql` match the
+migration history recorded as applied by the live Meal05 Supabase project. The
+current repository tip is `20260905182920_align_catalogue_edits.sql`.
 
 The first 28 files, ending at `20260630100519`, were exported from the live
 project during the original 2026-06-30 reconciliation. Later migrations include

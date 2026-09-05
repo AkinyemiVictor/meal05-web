@@ -15,7 +15,7 @@ test("location picker secures an exact pin without advertising or enforcing a la
 });
 
 test("delivery zone resolver provides an unrestricted fallback outside precise zones", () => {
-  const migration = read("supabase/migrations/20260831184630_remove_launch_radius_limit.sql");
+  const migration = read("supabase/migrations/20260831184923_remove_launch_radius_limit.sql");
 
   assert.match(migration, /zone_type\s*=\s*'unrestricted'/i);
   assert.match(migration, /z\.zone_type\s*=\s*'unrestricted'[\s\S]*or\s*\([\s\S]*z\.zone_type\s*=\s*'radius'/i);

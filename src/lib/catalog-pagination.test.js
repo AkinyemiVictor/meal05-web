@@ -64,6 +64,7 @@ test("Browse and search use exact server pagination instead of the legacy 120-pr
 
 test("available products are ordered before unavailable products prior to pagination", () => {
   const cardsServer = read("src/lib/home-catalog-cards-server.js");
+  const cardsRoute = read("src/app/api/catalog/cards/route.js");
   const searchRoute = read("src/app/api/catalog/search/route.js");
   const pageLoader = cardsServer.slice(cardsServer.indexOf("export async function loadCatalogCardPage"));
 
@@ -73,6 +74,9 @@ test("available products are ordered before unavailable products prior to pagina
   assert.ok(paginationRange > availabilityOrder, "availability ordering must happen before pagination");
   assert.match(cardsServer, /\.filter\(\(product\) => product\.id\)/);
   assert.doesNotMatch(cardsServer, /product\.id && product\.price > 0/);
+  assert.match(cardsRoute, /export const dynamic = "force-dynamic"/);
+  assert.match(cardsRoute, /"Cache-Control": "no-store"/);
+  assert.doesNotMatch(cardsRoute, /export const revalidate = 300/);
   assert.match(searchRoute, /loadCatalogCardPage/);
   assert.match(searchRoute, /pageSize:\s*limit/);
 });

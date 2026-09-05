@@ -1,0 +1,29 @@
+{
+  "root": ".",
+  "items": [
+    {
+      "productId": 924,
+      "file": "crown_premium_spaghetti_standard.png",
+      "role": "replace",
+      "alt": "Crown Premium Spaghetti (Standard)"
+    },
+    {
+      "productId": 1015,
+      "file": "golden_penny_semovita_2kg.png",
+      "role": "replace",
+      "alt": "Golden Penny Semovita (2kg)"
+    },
+    {
+      "productId": 921,
+      "file": "golden_penny_pasta_twist.png",
+      "role": "replace",
+      "alt": "Golden Penny Pasta Twist"
+    },
+    {
+      "productId": 887,
+      "file": "golden_penny_spaghetti_standard.png",
+      "role": "replace",
+      "alt": "Golden Penny Spaghetti (Standard)"
+    }
+  ]
+}
