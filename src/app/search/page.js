@@ -7,7 +7,7 @@ import SearchHistoryRecorder from "@/components/search-history-recorder";
 import SearchResultsClient from "@/components/search-results-client";
 import categories from "@/data/categories";
 import copy from "@/data/copy";
-import { loadPublicSearchResults } from "@/lib/public-catalog-server";
+import { loadCatalogCardPage } from "@/lib/home-catalog-cards-server";
 
 export const revalidate = 300;
 export const fetchCache = "default-cache";
@@ -54,11 +54,24 @@ export default async function SearchPage({ searchParams }) {
 
   if (query) {
     try {
-      results = await loadPublicSearchResults({
+      const payload = await loadCatalogCardPage({
         search: query,
         page: currentPage,
         pageSize: PAGE_SIZE,
+        sort: "default",
       });
+      const items = Array.isArray(payload?.flat) ? payload.flat : [];
+      const pagination = payload?.pagination || {};
+      results = {
+        items,
+        page: Number(pagination.page) || currentPage,
+        pageSize: Number(pagination.pageSize) || PAGE_SIZE,
+        total: Number(pagination.total) || 0,
+        totalPages: Number(pagination.totalPages) || 0,
+        hasMore: Number(pagination.page) < Number(pagination.totalPages),
+        returned: items.length,
+        market: payload?.market || null,
+      };
     } catch (error) {
       loadError = error?.message || "Unable to load products right now.";
     }

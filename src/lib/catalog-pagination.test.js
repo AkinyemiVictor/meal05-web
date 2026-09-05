@@ -58,7 +58,7 @@ test("Browse and search use exact server pagination instead of the legacy 120-pr
   assert.match(catalogServer, /Promise\.all\(\[\s*query\.range\(range\.from, range\.to\),\s*countQuery/);
   assert.match(catalogServer, /query\.range\(range\.from, range\.to\)/);
   const searchFunction = catalogServer.slice(catalogServer.indexOf("export async function loadPublicSearchResults"));
-  assert.match(searchFunction, /loadCatalogCardPage/);
+  assert.match(searchFunction, /loadPublicCatalogPage/);
   assert.doesNotMatch(searchFunction, /120/);
 });
 
@@ -100,12 +100,13 @@ test("catalog search applies each query word independently across every server p
   assert.doesNotMatch(`${homeCards}\n${publicCatalog}`, /ilike\("search_text",\s*`%\$\{searchTerm\}%`\)/);
 });
 
-test("the public search page shares the same catalog loader as the search API", () => {
-  const publicCatalog = read("src/lib/public-catalog-server.js");
+test("the public search page uses the working catalog-card search loader directly", () => {
+  const searchPage = read("src/app/search/page.js");
 
-  assert.match(publicCatalog, /import \{ loadCatalogCardPage \} from "@\/lib\/home-catalog-cards-server"/);
+  assert.match(searchPage, /import \{ loadCatalogCardPage \} from "@\/lib\/home-catalog-cards-server"/);
   assert.match(
-    publicCatalog,
-    /export async function loadPublicSearchResults[\s\S]*?const payload = await loadCatalogCardPage\(\{/
+    searchPage,
+    /const payload = await loadCatalogCardPage\(\{[\s\S]*?search: query,[\s\S]*?page: currentPage/
   );
+  assert.doesNotMatch(searchPage, /loadPublicSearchResults/);
 });

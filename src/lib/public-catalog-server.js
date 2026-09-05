@@ -12,7 +12,6 @@ import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/marke
 import { getDefaultMarket } from "@/lib/market-server";
 import { getCatalogPageRange, normalizeCatalogPagination } from "@/lib/catalog-pagination";
 import { applyCatalogSearchTerms, getCatalogSearchTerms } from "@/lib/catalog-search";
-import { loadCatalogCardPage } from "@/lib/home-catalog-cards-server";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { sortVariantsBySize } from "@/lib/variant-order";
@@ -879,11 +878,10 @@ export async function loadPublicSearchResults({
     };
   }
 
-  const payload = await loadCatalogCardPage({
+  const payload = await loadPublicCatalogPage({
     search: query,
     page: safePage,
     pageSize: safePageSize,
-    sort: "default",
   });
   const items = (Array.isArray(payload?.flat) ? payload.flat : []).map(toProductCardDTO).filter((product) => product.id);
   const pagination = payload?.pagination || normalizeCatalogPagination({ page: safePage, pageSize: safePageSize });
