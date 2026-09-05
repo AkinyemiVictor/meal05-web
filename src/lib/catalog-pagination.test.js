@@ -58,7 +58,7 @@ test("Browse and search use exact server pagination instead of the legacy 120-pr
   assert.match(catalogServer, /Promise\.all\(\[\s*query\.range\(range\.from, range\.to\),\s*countQuery/);
   assert.match(catalogServer, /query\.range\(range\.from, range\.to\)/);
   const searchFunction = catalogServer.slice(catalogServer.indexOf("export async function loadPublicSearchResults"));
-  assert.match(searchFunction, /loadPublicCatalogPage/);
+  assert.match(searchFunction, /loadCatalogCardPage/);
   assert.doesNotMatch(searchFunction, /120/);
 });
 
@@ -98,4 +98,14 @@ test("catalog search applies each query word independently across every server p
   assert.match(publicCatalog, /applyCatalogSearchTerms\(query, search\)/);
   assert.match(publicCatalog, /applyCatalogSearchTerms\(countQuery, search\)/);
   assert.doesNotMatch(`${homeCards}\n${publicCatalog}`, /ilike\("search_text",\s*`%\$\{searchTerm\}%`\)/);
+});
+
+test("the public search page shares the same catalog loader as the search API", () => {
+  const publicCatalog = read("src/lib/public-catalog-server.js");
+
+  assert.match(publicCatalog, /import \{ loadCatalogCardPage \} from "@\/lib\/home-catalog-cards-server"/);
+  assert.match(
+    publicCatalog,
+    /export async function loadPublicSearchResults[\s\S]*?const payload = await loadCatalogCardPage\(\{/
+  );
 });
