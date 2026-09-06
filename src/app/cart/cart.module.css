@@ -27,21 +27,15 @@
   object-fit: contain;
 }
 
-.emptyCartCopy {
+.emptyCartStateCopy {
   display: grid;
+  justify-items: center;
   gap: 0.45rem;
+  width: 100%;
+  text-align: center;
 }
 
-.emptyCartKicker {
-  margin: 0;
-  color: #f04e1f;
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.emptyCartCopy h1 {
+.emptyCartStateCopy h1 {
   margin: 0;
   color: #080d1d;
   font-size: clamp(2rem, 8vw, 3.2rem);
@@ -50,7 +44,7 @@
   line-height: 1.05;
 }
 
-.emptyCartCopy p:last-child {
+.emptyCartStateCopy p {
   margin: 0;
   color: #5a6475;
   font-size: 1rem;

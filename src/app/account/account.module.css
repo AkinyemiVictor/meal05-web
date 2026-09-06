@@ -2908,9 +2908,13 @@
 .walletBalanceCard .walletStatusReady,
 .walletBalanceCard .walletStatusPending {
   min-height: 2.5rem;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
   padding: 0.48rem 0.8rem;
   font-size: 0.82rem;
   letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .walletBalanceCard .walletStatusReady {

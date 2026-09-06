@@ -969,8 +969,7 @@ function CartPageContent() {
             priority
             className={styles.emptyCartImage}
           />
-          <div className={styles.emptyCartCopy}>
-            <p className={styles.emptyCartKicker}>Cart</p>
+          <div className={styles.emptyCartStateCopy}>
             <h1 id="empty-cart-title">Your cart is empty.</h1>
             <p>Add fresh groceries, proteins, grains, and pantry staples to start your Meal05 order.</p>
           </div>

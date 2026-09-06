@@ -27,6 +27,7 @@ test("wallet funding is available end to end with readable form spacing", () => 
   assert.match(css, /\.walletTopupForm \.profileField select \{[\s\S]*?padding-right:\s*2\.8rem/);
   assert.match(css, /\.walletBalanceCard,[\s\S]*?\.walletTransactionsSection[\s\S]*?width:\s*min\(100%, 48rem\)/);
   assert.match(css, /\.walletQuickAmounts\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3/);
+  assert.match(css, /\.walletBalanceCard \.walletStatusReady,[\s\S]*?display:\s*inline-flex;[\s\S]*?flex:\s*0 0 auto;[\s\S]*?white-space:\s*nowrap/);
 });
 
 test("wallet deposits, wallet checkout, and direct checkout remain auditable", () => {
