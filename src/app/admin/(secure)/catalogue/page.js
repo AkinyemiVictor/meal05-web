@@ -13,6 +13,15 @@ import ProductPromoRibbon from "@/components/product-promo-ribbon";
 import { loadCategoryRows, mapCategoryRows } from "@/lib/categories-server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 
+const SEASON_STATUS_TONES = {
+  peak: { bg: "#dcfce7", fg: "#166534", label: "Peak season" },
+  in_season: { bg: "#dbeafe", fg: "#1d4ed8", label: "In season" },
+  shoulder: { bg: "#fef3c7", fg: "#92400e", label: "Shoulder season" },
+  out: { bg: "#fee2e2", fg: "#991b1b", label: "Out of season" },
+  year_round: { bg: "#ede9fe", fg: "#5b21b6", label: "Year-round" },
+  manual: { bg: "#f1f5f9", fg: "#475569", label: "Not calendar-managed" },
+};
+
 export const dynamic = "force-dynamic";
 
 const PAGE_PATH = "/admin/catalogue";
@@ -380,16 +389,22 @@ export default async function AdminCataloguePage({ searchParams }) {
           <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>Tracked Variants</p>
           <p style={{ margin: "4px 0 0", fontWeight: 700 }}>{adminFormatters.number(priceCatalogue.totalVariants)}</p>
         </article>
-        <article style={{ border: "1px solid #dcfce7", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
-          <p style={{ margin: 0, color: "#166534", fontSize: 12 }}>Products In Season</p>
-          <p style={{ margin: "4px 0 0", fontWeight: 700, color: "#166534" }}>
-            {adminFormatters.number(seasonCatalogue.inSeasonProducts)}
+        <article style={{ border: "1px solid #dbeafe", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
+          <p style={{ margin: 0, color: "#1d4ed8", fontSize: 12 }}>Calendar-managed</p>
+          <p style={{ margin: "4px 0 0", fontWeight: 700, color: "#1d4ed8" }}>
+            {adminFormatters.number(seasonCatalogue.managedProducts)}
           </p>
         </article>
-        <article style={{ border: "1px solid #fecaca", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
-          <p style={{ margin: 0, color: "#991b1b", fontSize: 12 }}>Products Out Of Season</p>
-          <p style={{ margin: "4px 0 0", fontWeight: 700, color: "#991b1b" }}>
-            {adminFormatters.number(seasonCatalogue.outOfSeasonProducts)}
+        <article style={{ border: "1px solid #dcfce7", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
+          <p style={{ margin: 0, color: "#166534", fontSize: 12 }}>Reliable This Month</p>
+          <p style={{ margin: "4px 0 0", fontWeight: 700, color: "#166534" }}>
+            {adminFormatters.number(seasonCatalogue.reliableProducts)}
+          </p>
+        </article>
+        <article style={{ border: "1px solid #fde68a", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
+          <p style={{ margin: 0, color: "#92400e", fontSize: 12 }}>Supplier Check</p>
+          <p style={{ margin: "4px 0 0", fontWeight: 700, color: "#92400e" }}>
+            {adminFormatters.number(seasonCatalogue.supplierCheckProducts)}
           </p>
         </article>
         <article style={{ border: "1px solid #fecaca", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
@@ -708,9 +723,9 @@ export default async function AdminCataloguePage({ searchParams }) {
 
       <section id="season-control" style={{ border: "1px solid #e2e8f0", borderRadius: 12, background: "#ffffff" }}>
         <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e2e8f0" }}>
-          <strong>Product Management</strong>
+          <strong>Product &amp; Season Calendar</strong>
           <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 13 }}>
-            Update category, product availability, season status, image URL, and bundle eligibility without touching variant pricing.
+            Peak, in-season, shoulder, out-of-season, and year-round statuses update automatically for Ibadan. Stock availability remains a separate daily decision.
           </p>
         </div>
 
@@ -782,9 +797,7 @@ export default async function AdminCataloguePage({ searchParams }) {
             </thead>
             <tbody>
               {seasonCatalogue.records.map((row) => {
-                const seasonTone = row.productInSeason
-                  ? { bg: "#dcfce7", fg: "#166534", label: "In Season" }
-                  : { bg: "#fee2e2", fg: "#991b1b", label: "Out Of Season" };
+                const seasonTone = SEASON_STATUS_TONES[row.seasonStatus] || SEASON_STATUS_TONES.manual;
 
                 return (
                   <tr key={String(row.productId)} style={{ borderBottom: "1px solid #f1f5f9" }}>
@@ -822,6 +835,19 @@ export default async function AdminCataloguePage({ searchParams }) {
                       >
                         {seasonTone.label}
                       </span>
+                      <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 11 }}>
+                        {row.seasonManaged
+                          ? `${row.seasonMonth} · ${row.seasonConfidence || "unrated"} confidence`
+                          : `Manual flag: ${row.productInSeason ? "in season" : "out of season"}`}
+                      </p>
+                      {row.seasonSourceNote ? (
+                        <p
+                          style={{ margin: "5px 0 0", color: "#475569", fontSize: 11, lineHeight: 1.4, maxWidth: 280 }}
+                          title={row.seasonSourceNote}
+                        >
+                          {row.seasonSourceNote}
+                        </p>
+                      ) : null}
                       {row.isBundleEligible ? (
                         <span
                           style={{
@@ -869,6 +895,7 @@ export default async function AdminCataloguePage({ searchParams }) {
                         imageUrl={row.imageUrl}
                         isBundleEligible={row.isBundleEligible}
                         categories={categoryOptions}
+                        seasonManaged={row.seasonManaged}
                       />
                     </td>
                   </tr>

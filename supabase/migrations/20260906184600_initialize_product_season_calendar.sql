@@ -1,0 +1,4 @@
+-- Historical marker for the first season-calendar draft that was applied
+-- directly to the linked Supabase project. The complete, idempotent schema,
+-- seed profiles, access controls, and scheduler definition are versioned in
+-- 20260906185305_finalize_product_season_calendar.sql immediately after this.

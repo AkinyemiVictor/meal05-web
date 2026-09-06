@@ -1865,25 +1865,47 @@ export async function loadProductSeasonAdminCatalogue({ page = 1, pageSize = 25,
   const size = Math.min(100, Math.max(10, Number(pageSize || 25)));
   const search = String(query || "").trim().toLowerCase();
 
-  const productsRes = await admin
-    .from("products")
-    .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible")
-    .range(0, 4999);
+  const [productsRes, currentSeasonRes] = await Promise.all([
+    admin
+      .from("products")
+      .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible")
+      .range(0, 4999),
+    admin
+      .from("product_current_season")
+      .select("product_id, month_no, month_name, season_status, confidence, source_note")
+      .range(0, 4999),
+  ]);
   if (productsRes.error) warnings.push(`Products season query failed: ${productsRes.error.message}`);
+  if (currentSeasonRes.error) warnings.push(`Season calendar query failed: ${currentSeasonRes.error.message}`);
+
+  const currentSeasonByProduct = new Map(
+    (Array.isArray(currentSeasonRes.data) ? currentSeasonRes.data : []).map((row) => [String(row?.product_id), row])
+  );
 
   const products = (Array.isArray(productsRes.data) ? productsRes.data : [])
-    .map((row) => ({
-      productId: row?.id,
-      productName: String(row?.name || "").trim() || `Product ${String(row?.id || "").slice(0, 8)}...`,
-      productInSeason: row?.in_season !== false,
-      productRawInSeason: row?.in_season ?? null,
-      productActive: row?.is_active !== false,
-      categoryId: row?.category_id ?? "",
-      imageUrl: row?.image_url || "",
-      isBundleEligible: row?.is_bundle_eligible === true,
-      searchText: `${String(row?.name || "")} ${String(row?.image_url || "")}`.trim().toLowerCase(),
-    }))
-    .sort((a, b) => a.productName.localeCompare(b.productName, "en", { sensitivity: "base" }));
+    .map((row) => {
+      const season = currentSeasonByProduct.get(String(row?.id)) || null;
+      return {
+        productId: row?.id,
+        productName: String(row?.name || "").trim() || `Product ${String(row?.id || "").slice(0, 8)}...`,
+        productInSeason: row?.in_season !== false,
+        productRawInSeason: row?.in_season ?? null,
+        productActive: row?.is_active !== false,
+        categoryId: row?.category_id ?? "",
+        imageUrl: row?.image_url || "",
+        isBundleEligible: row?.is_bundle_eligible === true,
+        seasonManaged: Boolean(season),
+        seasonStatus: String(season?.season_status || "").trim(),
+        seasonMonth: String(season?.month_name || "").trim(),
+        seasonConfidence: String(season?.confidence || "").trim(),
+        seasonSourceNote: String(season?.source_note || "").trim(),
+        searchText: `${String(row?.name || "")} ${String(row?.image_url || "")} ${String(season?.season_status || "")}`.trim().toLowerCase(),
+      };
+    })
+    .sort((a, b) => {
+      if (a.seasonManaged !== b.seasonManaged) return a.seasonManaged ? -1 : 1;
+      return a.productName.localeCompare(b.productName, "en", { sensitivity: "base" });
+    });
 
   const filtered = search ? products.filter((row) => row.searchText.includes(search)) : products;
   const totalCount = filtered.length;
@@ -1892,6 +1914,13 @@ export async function loadProductSeasonAdminCatalogue({ page = 1, pageSize = 25,
   const start = (safePage - 1) * size;
   const paged = filtered.slice(start, start + size);
   const outOfSeasonProducts = products.filter((row) => row.productInSeason === false).length;
+  const statusCounts = products.reduce(
+    (counts, row) => {
+      if (row.seasonManaged && Object.hasOwn(counts, row.seasonStatus)) counts[row.seasonStatus] += 1;
+      return counts;
+    },
+    { peak: 0, in_season: 0, shoulder: 0, out: 0, year_round: 0 }
+  );
 
   return {
     records: paged,
@@ -1902,6 +1931,10 @@ export async function loadProductSeasonAdminCatalogue({ page = 1, pageSize = 25,
     totalProducts: products.length,
     inSeasonProducts: Math.max(0, products.length - outOfSeasonProducts),
     outOfSeasonProducts,
+    managedProducts: currentSeasonByProduct.size,
+    reliableProducts: statusCounts.peak + statusCounts.in_season + statusCounts.year_round,
+    supplierCheckProducts: statusCounts.shoulder + statusCounts.out,
+    statusCounts,
     warnings,
   };
 }

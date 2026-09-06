@@ -188,7 +188,7 @@ export async function POST(req) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Base quantity must be greater than 0." }, { status: 400 }), rl);
   }
 
-  const [productRes, variantRes] = await Promise.all([
+  const [productRes, variantRes, seasonProfileRes] = await Promise.all([
     admin
       .from("products")
       .select("id, name, in_season, is_active, category_id, image_url, is_bundle_eligible, promo_tag_text, promo_tag_expires_at, promo_tag_enabled, selection_model, variation_note")
@@ -201,6 +201,14 @@ export async function POST(req) {
           .eq("id", variantId)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    hasSeason
+      ? admin
+          .from("product_season_profiles")
+          .select("product_id")
+          .eq("product_id", productId)
+          .eq("active", true)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (productRes.error) {
@@ -210,6 +218,24 @@ export async function POST(req) {
   if (variantRes.error) {
     await logAdminError(variantRes.error, { route: "/api/admin/products/update", actor: user.email, variant_id: variantId });
     return applyRateLimitHeaders(NextResponse.json({ error: variantRes.error.message }, { status: 400 }), rl);
+  }
+  if (seasonProfileRes.error) {
+    await logAdminError(seasonProfileRes.error, {
+      route: "/api/admin/products/update",
+      actor: user.email,
+      product_id: productId,
+      stage: "season-profile-check",
+    });
+    return applyRateLimitHeaders(NextResponse.json({ error: seasonProfileRes.error.message }, { status: 400 }), rl);
+  }
+  if (hasSeason && seasonProfileRes.data) {
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        { error: "This product is calendar-managed. Update its season profile instead of the monthly flag." },
+        { status: 409 }
+      ),
+      rl
+    );
   }
 
   const existingProduct = productRes.data;

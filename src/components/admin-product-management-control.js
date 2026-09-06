@@ -87,6 +87,7 @@ export default function AdminProductManagementControl({
   imageUrl = "",
   isBundleEligible = false,
   categories = [],
+  seasonManaged = false,
 }) {
   const router = useRouter();
   const initial = useMemo(
@@ -139,7 +140,7 @@ export default function AdminProductManagementControl({
     const nextImageUrl = normalizeText(form.imageUrl);
     const requestBody = { product_id: productId };
 
-    if ((form.season === "in") !== (initial.season === "in")) {
+    if (!seasonManaged && (form.season === "in") !== (initial.season === "in")) {
       requestBody.in_season = form.season === "in";
     }
     if ((form.active === "active") !== (initial.active === "active")) {
@@ -255,13 +256,16 @@ export default function AdminProductManagementControl({
           <select
             value={form.season}
             onChange={(event) => update("season", event.target.value)}
-            disabled={disabled}
+            disabled={disabled || seasonManaged}
             aria-label={`Season for ${productName}`}
             style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 6px", fontSize: 12 }}
           >
             <option value="in">In Season</option>
             <option value="out">Out Of Season</option>
           </select>
+          {seasonManaged ? (
+            <small style={{ color: "#64748b", fontSize: 10 }}>Updated automatically</small>
+          ) : null}
         </label>
 
         <label style={{ display: "grid", gap: 4 }}>
