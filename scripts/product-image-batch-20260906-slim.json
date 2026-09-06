@@ -1,0 +1,11 @@
+{
+  "root": ".",
+  "items": [
+    {
+      "productId": 1008,
+      "file": "golden_penny_spaghetti_slim.png",
+      "role": "replace",
+      "alt": "Golden Penny Spaghetti (Slim)"
+    }
+  ]
+}

@@ -36,6 +36,9 @@ const textStatus = (value) =>
     .replace(/_/g, " ")
     .replace(/\b\w/g, (match) => match.toUpperCase());
 
+const formatLineQuantity = (value) =>
+  new Intl.NumberFormat("en-NG", { maximumFractionDigits: 3 }).format(Number(value) || 0);
+
 const statusTone = (value) => {
   const normalized = String(value || "").toLowerCase();
   if (["confirmed", "paid", "delivered", "completed"].includes(normalized)) return styles.good;
@@ -191,7 +194,7 @@ export default async function AdminOrdersPage({ searchParams }) {
                   <Link href={buildHref(params, { orderId: "" })} className={styles.mobileBack}>← Order queue</Link>
                   <p>{order.fulfillmentType === "pickup" ? "Pickup order" : "Delivery order"}</p>
                   <h2>Order #{order.id}</h2>
-                  <span>{order.customer} · {adminFormatters.dateTime(order.createdAt)}</span>
+                  <span>{order.orderReference || `Order #${order.id}`} · {order.customer} · {adminFormatters.dateTime(order.createdAt)}</span>
                 </div>
                 <strong>{adminFormatters.currency(order.total)}</strong>
               </div>
@@ -212,9 +215,11 @@ export default async function AdminOrdersPage({ searchParams }) {
                 <div className={styles.items}>
                   {selectedDetail.items.map((item) => (
                     <article key={String(item.id)}>
-                      <div>
+                      <div className={styles.itemIdentity}>
                         <strong>{item.productName}</strong>
-                        <span>{item.quantity} × {adminFormatters.currency(item.unitPrice)}{item.unit ? ` · ${item.unit}` : ""}</span>
+                        {item.variantName ? <span>Option: {item.variantName}</span> : null}
+                        <span>Quantity ordered: {formatLineQuantity(item.quantity)}</span>
+                        <span>Unit price: {adminFormatters.currency(item.unitPrice)}{item.unit ? ` · ${item.unit}` : ""}</span>
                         {item.sizePreferenceLabel ? (
                           <>
                             <small>Fulfilment size preference: {item.sizePreferenceLabel}</small>
@@ -223,7 +228,7 @@ export default async function AdminOrdersPage({ searchParams }) {
                         ) : null}
                         {item.fulfillmentNote ? <small>Note: {item.fulfillmentNote}</small> : null}
                       </div>
-                      <b>{adminFormatters.currency(item.lineTotal)}</b>
+                      <b aria-label="Line total">{adminFormatters.currency(item.lineTotal)}</b>
                     </article>
                   ))}
                   {!selectedDetail.items.length ? <p className={styles.muted}>No items were found for this order.</p> : null}

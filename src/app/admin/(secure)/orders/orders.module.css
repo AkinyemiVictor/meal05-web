@@ -2,3 +2,25 @@
 @media(max-width:1050px){.workspace{grid-template-columns:330px minmax(0,1fr)}.facts{grid-template-columns:1fr}.detailContent{padding:16px}}
 @media(max-width:760px){.page{padding:18px 12px 36px}.header{align-items:flex-start}.header h1{font-size:29px}.header>div>p:last-child{max-width:420px}.workspace{display:block;min-height:0}.listPane{border-right:0}.detailPane:not(:empty){border-top:1px solid #e2e8f0}.orderList{max-height:none}.chooseOrder{min-height:320px}.detailContent{padding:14px}.mobileBack{display:inline-block;margin-bottom:11px;color:#1d4ed8;font-size:12px;font-weight:800;text-decoration:none}.detailHeader{align-items:flex-end}.supportLink{white-space:nowrap}}
 @media(max-width:520px){.header{display:grid}.supportLink{justify-self:start}.workspace{border-radius:13px}.filters{grid-template-columns:1fr}.filters select,.filters button{grid-column:1;grid-row:auto}.filters button{min-height:40px}.detailHeader>strong{font-size:16px}.facts{grid-template-columns:1fr}}
+
+.itemIdentity {
+  min-width: 0;
+}
+
+.itemIdentity strong,
+.itemIdentity span,
+.itemIdentity small {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .items article {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+
+  .items article > b {
+    align-self: start;
+  }
+}

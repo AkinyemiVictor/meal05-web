@@ -286,6 +286,7 @@ const ensureUserAddressBook = (user) => {
 
 const mapApiOrder = (order) => ({
   orderId: String(order?.id ?? ""),
+  orderReference: String(order?.orderReference || order?.id || ""),
   placedAt: order?.createdAt || new Date().toISOString(),
   status: order?.status || "pending",
   paymentStatus: order?.paymentStatus || "pending",
@@ -304,6 +305,55 @@ const normaliseOrderQuantity = (value) => {
   if (!Number.isFinite(numeric) || numeric <= 0) return 1;
   return Math.max(1, Math.round(numeric));
 };
+
+const ORDER_SIZE_PREFERENCE_LABELS = {
+  best_available: "Best available",
+  smaller: "Smaller pieces",
+  medium: "Medium pieces",
+  larger: "Larger pieces",
+};
+
+const ORDER_LINE_QUANTITY_FORMATTER = new Intl.NumberFormat("en-NG", { maximumFractionDigits: 3 });
+const formatOrderLineQuantity = (value) => ORDER_LINE_QUANTITY_FORMATTER.format(Number(value) || 0);
+
+function OrderItemsList({ items }) {
+  const lines = Array.isArray(items) ? items : [];
+  return (
+    <section className={styles.orderItemsBlock} aria-label="Items ordered">
+      <div className={styles.orderItemsHeading}>
+        <h4>Items ordered</h4>
+        <span>{lines.length} line{lines.length === 1 ? "" : "s"}</span>
+      </div>
+      {lines.length ? (
+        <ul className={styles.orderItemsList}>
+          {lines.map((item, index) => {
+            const name = item?.product?.title || item?.product?.name || "Archived product";
+            const option = String(item?.variantName || item?.variant_name || "").trim();
+            const preference = ORDER_SIZE_PREFERENCE_LABELS[String(item?.sizePreference || "").toLowerCase()] || "";
+            const quantity = formatOrderLineQuantity(item?.quantity);
+            return (
+              <li key={`${item?.variantId || item?.productId || "line"}-${index}`}>
+                <div className={styles.orderItemIdentity}>
+                  <strong>{name}</strong>
+                  {option ? <span>Option: {option}</span> : null}
+                  {preference ? <span>Size preference: {preference}</span> : null}
+                  {item?.fulfillmentNote ? <span>Note: {item.fulfillmentNote}</span> : null}
+                </div>
+                <div className={styles.orderItemPrice}>
+                  <span>Quantity: {quantity}</span>
+                  <span>{formatProductPrice(item?.unitPrice || 0)} each</span>
+                  <strong>{formatProductPrice(item?.lineTotal || 0)}</strong>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className={styles.orderItemsEmpty}>Item details are unavailable for this order.</p>
+      )}
+    </section>
+  );
+}
 
 const getCartLineKey = (item) =>
   String(item?.variantId || item?.id || item?.productId || "").trim();
@@ -1443,6 +1493,7 @@ export function AccountPageContent() {
                         <strong>Order {order.orderId}</strong>
                         <span>Placed {formatOrderDate(order.placedAt)}</span>
                         <span>Total {formatProductPrice(order.summary?.total || 0)}</span>
+                        <span>{order.items.length} item{order.items.length === 1 ? "" : "s"}</span>
                         <span>Status: {formatStatusLabel(order.status)}</span>
                         <span>Payment: {formatStatusLabel(order.paymentStatus)}</span>
                         {order.latestPayment?.status === "rejected" ? (
@@ -1484,8 +1535,9 @@ export function AccountPageContent() {
                         <div className={styles.orderDetailsPanel}>
                           <div className={styles.orderReferenceRow}>
                             <span>Order reference</span>
-                            <strong>{order.orderId}</strong>
+                            <strong>{order.orderReference}</strong>
                           </div>
+                          <OrderItemsList items={order.items} />
                           <button
                             type="button"
                             className={styles.orderActionButton}
@@ -1536,12 +1588,14 @@ export function AccountPageContent() {
                         <strong>Order {order.orderId}</strong>
                         <span>Delivered {formatOrderDate(order.placedAt)}</span>
                         <span>Total {formatProductPrice(order.summary?.total || 0)}</span>
+                        <span>{order.items.length} item{order.items.length === 1 ? "" : "s"}</span>
                         {expandedOrderId === order.orderId ? (
                           <div className={styles.orderDetailsPanel}>
                             <div className={styles.orderReferenceRow}>
                               <span>Order reference</span>
-                              <strong>{order.orderId}</strong>
+                              <strong>{order.orderReference}</strong>
                             </div>
+                            <OrderItemsList items={order.items} />
                             <button
                               type="button"
                               className={styles.orderActionButton}

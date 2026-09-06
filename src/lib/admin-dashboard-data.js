@@ -363,7 +363,7 @@ export async function loadOverviewMetrics() {
 }
 
 const ORDER_SELECT_CANDIDATES = [
-  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, updated_at, fulfillment_type, customer_note, delivery_instructions",
+  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, order_reference, delivery_status, delivery_address, created_at, updated_at, fulfillment_type, customer_note, delivery_instructions",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
@@ -597,6 +597,7 @@ const mapOrderRecord = (row, userLookup, nowMs = Date.now()) => {
     paymentStatus: String(row.payment_status || "unknown"),
     paymentMethod,
     paymentReference: String(row?.payment_reference || "").trim(),
+    orderReference: String(row?.order_reference || "").trim(),
     paymentIsManual: isManualPaymentMethod(paymentMethod),
     deliveryStatus: String(row.delivery_status || "").trim(),
     deliveryAddress: String(row.delivery_address || ""),
@@ -1028,20 +1029,22 @@ export async function loadOrderSupportOrderCatalogue({
 
 const mapOrderItemRecord = (row) => {
   const product = Array.isArray(row?.products) ? row.products[0] : row?.products;
+  const variant = Array.isArray(row?.product_variants) ? row.product_variants[0] : row?.product_variants;
   return {
     id: row?.id ?? `${row?.order_id || ""}-${row?.product_id || ""}`,
     orderId: row?.order_id,
     productId: row?.product_id,
     variantId: row?.variant_id ?? null,
-    productName: row?.product_name || product?.name || `Product ${String(row?.product_id || "").slice(0, 8)}...`,
-    unit: row?.unit || product?.unit || "",
+    productName: String(row?.product_name || product?.name || "Archived product").trim(),
+    variantName: String(row?.variant_name || variant?.display_label || variant?.name || variant?.size || "").trim(),
+    unit: String(row?.unit || variant?.unit || "").trim(),
     quantity: toNumber(row?.quantity),
     unitPrice: toNumber(row?.unit_price ?? row?.price),
     lineTotal: toNumber(row?.quantity) * toNumber(row?.unit_price ?? row?.price),
     sizePreference: String(row?.size_preference || "").trim().toLowerCase(),
     sizePreferenceLabel: ({ best_available: "Best available", smaller: "Smaller pieces", medium: "Medium pieces", larger: "Larger pieces" })[String(row?.size_preference || "").trim().toLowerCase()] || "",
     fulfillmentNote: String(row?.fulfillment_note || "").trim(),
-    imageUrl: product?.image_url || row?.image_url || "",
+    imageUrl: product?.main_image_url || row?.image_url || "",
   };
 };
 
@@ -1064,13 +1067,9 @@ export async function loadOrderAdminDetail(orderId, { client = null } = {}) {
   let itemRows = [];
   let itemError = null;
   const itemSelectCandidates = [
-    "id, order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note",
-    "id, order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url)",
-    "id, order_id, product_id, quantity, price, size_preference, fulfillment_note, products(name, unit, image_url)",
+    "id, order_id, product_id, variant_id, product_name, variant_name, unit, quantity, price, size_preference, fulfillment_note",
     "id, order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note",
     "id, order_id, product_id, quantity, price, size_preference, fulfillment_note",
-    "id, order_id, product_id, variant_id, quantity, unit_price, products(name, unit, image_url)",
-    "id, order_id, product_id, quantity, unit_price, products(name, unit, image_url)",
     "id, order_id, product_id, variant_id, quantity, unit_price",
     "id, order_id, product_id, quantity, unit_price",
   ];
@@ -1086,18 +1085,33 @@ export async function loadOrderAdminDetail(orderId, { client = null } = {}) {
   }
   if (itemError) warnings.push(`Order items query failed: ${itemError.message}`);
 
-  const productIds = uniqueStrings(itemRows.map((row) => row?.product_id));
+  const productIds = uniqueStrings(
+    itemRows.filter((row) => !String(row?.product_name || "").trim()).map((row) => row?.product_id)
+  );
+  const variantIds = uniqueStrings(
+    itemRows
+      .filter((row) => !String(row?.variant_name || "").trim() || !String(row?.unit || "").trim())
+      .map((row) => row?.variant_id)
+  );
   let productLookup = new Map();
-  if (productIds.length) {
-    const productResult = await admin
-      .from("products")
-      .select("id, name, unit, image_url")
-      .in("id", productIds);
-    if (productResult.error) {
-      warnings.push(`Order product names query failed: ${productResult.error.message}`);
-    } else {
-      productLookup = new Map((productResult.data || []).map((row) => [String(row.id), row]));
-    }
+  let variantLookup = new Map();
+  const [productResult, variantResult] = await Promise.all([
+    productIds.length
+      ? admin.from("products").select("id, name, main_image_url").in("id", productIds)
+      : Promise.resolve({ data: [], error: null }),
+    variantIds.length
+      ? admin.from("product_variants").select("id, name, display_label, size, unit").in("id", variantIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (productResult.error) {
+    warnings.push(`Order product names query failed: ${productResult.error.message}`);
+  } else {
+    productLookup = new Map((productResult.data || []).map((row) => [String(row.id), row]));
+  }
+  if (variantResult.error) {
+    warnings.push(`Order option names query failed: ${variantResult.error.message}`);
+  } else {
+    variantLookup = new Map((variantResult.data || []).map((row) => [String(row.id), row]));
   }
 
   let supportCases = [];
@@ -1193,6 +1207,7 @@ export async function loadOrderAdminDetail(orderId, { client = null } = {}) {
     items: itemRows.map((row) => mapOrderItemRecord({
       ...row,
       products: row?.products || productLookup.get(String(row?.product_id || "")) || null,
+      product_variants: row?.product_variants || variantLookup.get(String(row?.variant_id || "")) || null,
     })),
     supportCases,
     statusHistory,

@@ -486,6 +486,101 @@
   border-top: 1px solid #edf0f3;
 }
 
+.orderItemsBlock {
+  min-width: 0;
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid #e4e9e6;
+  border-radius: 1rem;
+  background: #ffffff;
+  padding: 0.85rem;
+}
+
+.orderItemsHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.orderItemsHeading h4 {
+  margin: 0;
+  color: #101828;
+  font-size: 0.95rem;
+}
+
+.orderItemsHeading span {
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.orderItemsList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.orderItemsList li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: start;
+  border-top: 1px solid #edf0f3;
+  padding: 0.8rem 0;
+}
+
+.orderItemsList li:first-child {
+  border-top: 0;
+  padding-top: 0.2rem;
+}
+
+.orderItemsList li:last-child {
+  padding-bottom: 0.2rem;
+}
+
+.orderItemIdentity,
+.orderItemPrice {
+  min-width: 0;
+  display: grid;
+  gap: 0.22rem;
+}
+
+.orderItemIdentity strong {
+  color: #101828;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.orderItemIdentity span,
+.orderItemPrice span {
+  color: #667085;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.orderItemPrice {
+  justify-items: end;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.orderItemPrice strong {
+  color: #101828;
+  font-size: 0.88rem;
+}
+
+.orderItemsEmpty {
+  margin: 0;
+  color: #667085;
+  font-size: 0.84rem;
+}
+
 .orderReferenceRow {
   display: flex;
   align-items: center;
@@ -1790,6 +1885,24 @@
     flex: 1;
   }
 
+  .orderItemsList li {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .orderItemPrice {
+    grid-template-columns: repeat(2, minmax(0, max-content)) minmax(0, 1fr);
+    justify-items: start;
+    align-items: baseline;
+    gap: 0.35rem 0.75rem;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .orderItemPrice strong {
+    justify-self: end;
+  }
+
   .voucherItem > strong {
     width: 100%;
     min-height: 5rem;
@@ -1803,6 +1916,63 @@
 
   .toggle {
     justify-self: end;
+  }
+}
+
+@media (max-width: 420px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    display: block;
+    min-width: 0;
+    padding: 0.55rem;
+    overflow: hidden;
+  }
+
+  .profileCard,
+  .sidebarHeading,
+  .sidebarLogout {
+    display: none;
+  }
+
+  .navList {
+    display: flex;
+    gap: 0.45rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  .navItem {
+    flex: 0 0 3.6rem;
+  }
+
+  .navItem button {
+    min-height: 3.6rem;
+    padding: 0.45rem;
+  }
+
+  .orderReferenceRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .orderReferenceRow strong {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .orderItemPrice {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 0.2rem;
+  }
+
+  .orderItemPrice strong {
+    justify-self: start;
   }
 }
 

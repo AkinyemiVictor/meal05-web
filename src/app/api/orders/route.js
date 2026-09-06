@@ -1057,6 +1057,9 @@ export async function POST(request) {
     order_id: orderId,
     product_id: resolveCartVariant(c)?.product_id,
     variant_id: resolveVariantIdForOrderItem(c),
+    product_name: resolveProductName(c) || "Archived product",
+    variant_name: resolveVariantName(c) || null,
+    unit: resolveUnit(c) || null,
     quantity: c.quantity,
     price: resolveUnitPrice(c),
     currency_code: catalog.market.currencyCode,
@@ -1357,7 +1360,8 @@ export async function GET(request) {
   }
 
   const orderSelects = [
-    "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note)",
+    "id, order_reference, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, product_name, variant_name, unit, quantity, price, size_preference, fulfillment_note)",
+    "id, order_reference, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note)",
     "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price)",
   ];
   let data = [];
@@ -1421,14 +1425,24 @@ export async function GET(request) {
     }
   }
   const orderItems = rows.flatMap((row) => (Array.isArray(row?.order_items) ? row.order_items : []));
-  const productIds = [...new Set(orderItems.map((item) => item?.product_id).filter((id) => id != null))];
-  const variantIds = [...new Set(orderItems.map((item) => item?.variant_id).filter((id) => id != null))];
+  const productIds = [...new Set(
+    orderItems
+      .filter((item) => !String(item?.product_name || "").trim())
+      .map((item) => item?.product_id)
+      .filter((id) => id != null)
+  )];
+  const variantIds = [...new Set(
+    orderItems
+      .filter((item) => !String(item?.variant_name || "").trim() || !String(item?.unit || "").trim())
+      .map((item) => item?.variant_id)
+      .filter((id) => id != null)
+  )];
   const [productsResult, variantsResult] = await Promise.all([
     productIds.length
       ? admin.from("products").select("id, name, main_image_url").in("id", productIds)
       : Promise.resolve({ data: [], error: null }),
     variantIds.length
-      ? admin.from("product_variants").select("id, unit").in("id", variantIds)
+      ? admin.from("product_variants").select("id, name, display_label, size, unit").in("id", variantIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (productsResult.error) {
@@ -1447,6 +1461,7 @@ export async function GET(request) {
     const items = Array.isArray(row?.order_items) ? row.order_items : [];
     return {
       id: row.id,
+      orderReference: row.order_reference || String(row.id),
       total: Number(row.total) || 0,
       status: row.status || "processing",
       paymentStatus: row.payment_status || "pending",
@@ -1472,10 +1487,11 @@ export async function GET(request) {
           lineTotal: unit * qty,
           sizePreference: it.size_preference || null,
           fulfillmentNote: it.fulfillment_note || null,
+          variantName: it.variant_name || variant?.display_label || variant?.name || variant?.size || "",
           product: {
-            name: prod?.name || "",
-            title: prod?.name || "",
-            unit: variant?.unit || "",
+            name: it.product_name || prod?.name || "Archived product",
+            title: it.product_name || prod?.name || "Archived product",
+            unit: it.unit || variant?.unit || "",
             image: resolveProductImage(prod?.main_image_url),
           },
         };

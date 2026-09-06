@@ -26,9 +26,28 @@ test("customer order reads stay scoped to the verified user without a second coo
 test("customer order items do not depend on an undeclared product relationship", () => {
   assert.doesNotMatch(ordersRoute, /order_items:order_items\([^\n"]*products\(/);
   assert.match(ordersRoute, /admin\.from\("products"\)\.select\("id, name, main_image_url"\)/);
-  assert.match(ordersRoute, /admin\.from\("product_variants"\)\.select\("id, unit"\)/);
+  assert.match(ordersRoute, /admin\.from\("product_variants"\)\.select\("id, name, display_label, size, unit"\)/);
   assert.match(ordersRoute, /productsById\.get\(String\(it\?\.product_id\)\)/);
   assert.match(ordersRoute, /variantsById\.get\(String\(it\?\.variant_id\)\)/);
+});
+
+test("checkout snapshots readable order-line details and history renders them", () => {
+  assert.match(ordersRoute, /product_name: resolveProductName\(c\)/);
+  assert.match(ordersRoute, /variant_name: resolveVariantName\(c\)/);
+  assert.match(ordersRoute, /unit: resolveUnit\(c\)/);
+  assert.match(ordersRoute, /order_items:order_items\(order_id, product_id, variant_id, product_name, variant_name, unit/);
+  assert.match(accountPage, /function OrderItemsList/);
+  assert.match(accountPage, /Items ordered/);
+  assert.match(accountPage, /Option: \{option\}/);
+  assert.match(accountPage, /Quantity: \{quantity\}/);
+});
+
+test("customer order item layout reflows without a wide table", () => {
+  assert.match(accountStyles, /\.orderItemsList li\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.match(accountStyles, /@media \(max-width: 720px\)[\s\S]*?\.orderItemsList li\s*\{[\s\S]*?grid-template-columns: 1fr/);
+  assert.match(accountStyles, /overflow-wrap: anywhere/);
+  assert.match(accountStyles, /@media \(max-width: 420px\)[\s\S]*?\.layout\s*\{[\s\S]*?grid-template-columns: 1fr/);
+  assert.match(accountStyles, /@media \(max-width: 420px\)[\s\S]*?\.orderItemPrice\s*\{[\s\S]*?grid-template-columns: 1fr/);
 });
 
 test("customer order failures are visible instead of rendering a false empty history", () => {
