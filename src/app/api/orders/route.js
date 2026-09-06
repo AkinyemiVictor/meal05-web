@@ -344,7 +344,7 @@ export async function POST(request) {
     const [productResult, eligibilityResult] = await Promise.all([
       admin
         .from("products")
-        .select("id, name, category_id, selection_model")
+        .select("id, name, category_id, selection_model, main_image_url")
         .in("id", resolvedProductIds),
       admin
         .from("product_card_catalog")
@@ -404,6 +404,7 @@ export async function POST(request) {
         {
           categoryId: row?.category_id ?? null,
           selectionModel: normalizeSelectionMode(row?.selection_model),
+          imageUrl: String(row?.main_image_url || "").trim(),
           ...(categoryMetaIndex.get(String(row?.category_id ?? "")) || {}),
         },
       ])
@@ -1060,6 +1061,7 @@ export async function POST(request) {
     product_name: resolveProductName(c) || "Archived product",
     variant_name: resolveVariantName(c) || null,
     unit: resolveUnit(c) || null,
+    image_url: resolveProductMeta(c)?.imageUrl || null,
     quantity: c.quantity,
     price: resolveUnitPrice(c),
     currency_code: catalog.market.currencyCode,
@@ -1360,7 +1362,7 @@ export async function GET(request) {
   }
 
   const orderSelects = [
-    "id, order_reference, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, product_name, variant_name, unit, quantity, price, size_preference, fulfillment_note)",
+    "id, order_reference, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, product_name, variant_name, unit, image_url, quantity, price, size_preference, fulfillment_note)",
     "id, order_reference, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note)",
     "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price)",
   ];
@@ -1427,7 +1429,7 @@ export async function GET(request) {
   const orderItems = rows.flatMap((row) => (Array.isArray(row?.order_items) ? row.order_items : []));
   const productIds = [...new Set(
     orderItems
-      .filter((item) => !String(item?.product_name || "").trim())
+      .filter((item) => !String(item?.product_name || "").trim() || !String(item?.image_url || "").trim())
       .map((item) => item?.product_id)
       .filter((id) => id != null)
   )];
@@ -1492,7 +1494,7 @@ export async function GET(request) {
             name: it.product_name || prod?.name || "Archived product",
             title: it.product_name || prod?.name || "Archived product",
             unit: it.unit || variant?.unit || "",
-            image: resolveProductImage(prod?.main_image_url),
+            image: resolveProductImage(it.image_url, prod?.main_image_url),
           },
         };
       }),

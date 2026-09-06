@@ -113,6 +113,8 @@ export default function ProductCard({
       0
   );
   const hasOldPrice = Number.isFinite(oldPrice) && Number.isFinite(currentPrice) && oldPrice > currentPrice && currentPrice > 0;
+  const formattedPrice = formatProductPrice(currentPrice, "");
+  const pricePrefix = product.hasMultipleOptions && currentPrice > 0 ? "From " : "";
 
   const handleAdd = (event) => {
     const handler = onQuickAdd || onAdd;
@@ -172,9 +174,9 @@ export default function ProductCard({
           )}
           aria-label={`View ${product.name} details`}
         >
-          <div className="flex items-baseline gap-2 whitespace-nowrap">
-            <p className={classNames("font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
-              {product.hasMultipleOptions ? "From " : ""}{formatProductPrice(product.price, "")}
+          <div className="product-card__price-row flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <p className={classNames("max-w-full whitespace-nowrap font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
+              {pricePrefix}{formattedPrice}
             </p>
             {hasOldPrice ? (
               <p className={classNames("font-medium text-meal-muted line-through", compact ? "text-xs" : "text-sm")}>

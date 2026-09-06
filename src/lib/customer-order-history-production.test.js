@@ -35,8 +35,10 @@ test("checkout snapshots readable order-line details and history renders them", 
   assert.match(ordersRoute, /product_name: resolveProductName\(c\)/);
   assert.match(ordersRoute, /variant_name: resolveVariantName\(c\)/);
   assert.match(ordersRoute, /unit: resolveUnit\(c\)/);
-  assert.match(ordersRoute, /order_items:order_items\(order_id, product_id, variant_id, product_name, variant_name, unit/);
+  assert.match(ordersRoute, /image_url: resolveProductMeta\(c\)\?\.imageUrl/);
+  assert.match(ordersRoute, /order_items:order_items\(order_id, product_id, variant_id, product_name, variant_name, unit, image_url/);
   assert.match(accountPage, /function OrderItemsList/);
+  assert.match(accountPage, /<Image src=\{image\}/);
   assert.match(accountPage, /Items ordered/);
   assert.match(accountPage, /Option: \{option\}/);
   assert.match(accountPage, /Quantity: \{quantity\}/);
@@ -46,6 +48,7 @@ test("customer order item layout reflows without a wide table", () => {
   assert.match(accountStyles, /\.orderItemsList li\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto/);
   assert.match(accountStyles, /@media \(max-width: 720px\)[\s\S]*?\.orderItemsList li\s*\{[\s\S]*?grid-template-columns: 1fr/);
   assert.match(accountStyles, /overflow-wrap: anywhere/);
+  assert.match(accountStyles, /\.orderItemProduct\s*\{[\s\S]*?grid-template-columns: 3\.5rem minmax\(0, 1fr\)/);
   assert.match(accountStyles, /@media \(max-width: 420px\)[\s\S]*?\.layout\s*\{[\s\S]*?grid-template-columns: 1fr/);
   assert.match(accountStyles, /@media \(max-width: 420px\)[\s\S]*?\.orderItemPrice\s*\{[\s\S]*?grid-template-columns: 1fr/);
 });

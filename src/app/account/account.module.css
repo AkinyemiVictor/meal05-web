@@ -542,6 +542,29 @@
   padding-bottom: 0.2rem;
 }
 
+.orderItemProduct {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  gap: 0.72rem;
+  align-items: center;
+}
+
+.orderItemImage {
+  position: relative;
+  width: 3.5rem;
+  height: 3.5rem;
+  overflow: hidden;
+  border: 1px solid #e5e9ee;
+  border-radius: 0.8rem;
+  background: #f8fafb;
+}
+
+.orderItemImageAsset {
+  object-fit: contain;
+  padding: 0.22rem;
+}
+
 .orderItemIdentity,
 .orderItemPrice {
   min-width: 0;
@@ -1973,6 +1996,15 @@
 
   .orderItemPrice strong {
     justify-self: start;
+  }
+
+  .orderItemProduct {
+    grid-template-columns: 3rem minmax(0, 1fr);
+  }
+
+  .orderItemImage {
+    width: 3rem;
+    height: 3rem;
   }
 }
 

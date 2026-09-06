@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -331,13 +332,19 @@ function OrderItemsList({ items }) {
             const option = String(item?.variantName || item?.variant_name || "").trim();
             const preference = ORDER_SIZE_PREFERENCE_LABELS[String(item?.sizePreference || "").toLowerCase()] || "";
             const quantity = formatOrderLineQuantity(item?.quantity);
+            const image = resolveProductImage(item?.product?.image);
             return (
               <li key={`${item?.variantId || item?.productId || "line"}-${index}`}>
-                <div className={styles.orderItemIdentity}>
-                  <strong>{name}</strong>
-                  {option ? <span>Option: {option}</span> : null}
-                  {preference ? <span>Size preference: {preference}</span> : null}
-                  {item?.fulfillmentNote ? <span>Note: {item.fulfillmentNote}</span> : null}
+                <div className={styles.orderItemProduct}>
+                  <div className={styles.orderItemImage}>
+                    <Image src={image} alt="" fill sizes="56px" className={styles.orderItemImageAsset} />
+                  </div>
+                  <div className={styles.orderItemIdentity}>
+                    <strong>{name}</strong>
+                    {option ? <span>Option: {option}</span> : null}
+                    {preference ? <span>Size preference: {preference}</span> : null}
+                    {item?.fulfillmentNote ? <span>Note: {item.fulfillmentNote}</span> : null}
+                  </div>
                 </div>
                 <div className={styles.orderItemPrice}>
                   <span>Quantity: {quantity}</span>
