@@ -18,7 +18,11 @@ import {
 import { sendAdminOrderAlertEmail, sendOrderConfirmationEmail } from "@/lib/notify";
 import { resolveProductImage } from "@/lib/product-image";
 import { applyPromoToOrderSummary, computeOrderSummary } from "@/lib/order-pricing";
-import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
+import {
+  MAX_FIRST_ORDER_DELIVERY_CREDIT,
+  getDeliverySummaryConfig,
+  getFirstOrderDeliveryPricing,
+} from "@/lib/delivery-settings";
 import { loadDeliverySettings } from "@/lib/delivery-settings-server";
 import { isMissingPromoCodeSchemaError, validatePromoCode } from "@/lib/promo-codes";
 import { insertOrderStatusHistory } from "@/lib/order-status-history";
@@ -828,9 +832,13 @@ export async function POST(request) {
     .limit(1);
   if (priorOrdersError) await logAdminError(priorOrdersError, { route: "/api/orders", stage: "first_order_check", user_id: user.id });
   const firstOrderFreeDelivery = !priorOrdersError && !(priorOrders || []).length;
+  const firstOrderDeliveryPricing = getFirstOrderDeliveryPricing(
+    isPickup ? 0 : partnerCost,
+    firstOrderFreeDelivery
+  );
   const deliverySummaryConfig = {
     ...getDeliverySummaryConfig(deliverySettings, "Ibadan"),
-    deliveryFee: isPickup || firstOrderFreeDelivery ? 0 : partnerCost,
+    deliveryFee: firstOrderDeliveryPricing.customerFee,
   };
   const pricingItems = cart.map((row) => ({
     quantity: Number(row?.quantity || 0),
@@ -950,7 +958,7 @@ export async function POST(request) {
             promoCode: finalSummary.promoCode || "",
             promoDescription: finalSummary.promoDescription || "",
             firstOrderFreeDelivery,
-            deliveryPromoCoverage: firstOrderFreeDelivery ? Math.round(partnerCost) : 0,
+            deliveryPromoCoverage: firstOrderDeliveryPricing.credit,
             dispatchPartner: dispatchOption,
           },
           fulfillment: {
@@ -1219,7 +1227,7 @@ export async function POST(request) {
         promoCode: orderIns.promo_code ?? finalSummary.promoCode ?? "",
         promoDescription: orderIns.promo_description ?? finalSummary.promoDescription ?? "",
         firstOrderFreeDelivery,
-        deliveryPromoCoverage: firstOrderFreeDelivery ? Math.round(partnerCost) : 0,
+        deliveryPromoCoverage: firstOrderDeliveryPricing.credit,
         dispatchPartner: dispatchOption,
       },
       items: cart.map((c) => ({
@@ -1356,7 +1364,10 @@ export async function GET(request) {
       return applyRateLimitHeaders(NextResponse.json({ error: "Unable to confirm delivery promotion." }, { status: 503 }), rl);
     }
     return applyRateLimitHeaders(
-      NextResponse.json({ eligible: !(priorOrders || []).length }, { status: 200 }),
+      NextResponse.json({
+        eligible: !(priorOrders || []).length,
+        maximumCredit: MAX_FIRST_ORDER_DELIVERY_CREDIT,
+      }, { status: 200 }),
       rl
     );
   }

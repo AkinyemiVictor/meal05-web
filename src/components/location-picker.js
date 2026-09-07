@@ -229,10 +229,12 @@ export default function LocationPicker({
         };
         persistLocationPreference(next);
         setPreference(next);
-        setMessage("Location secured. We will use this exact pin for delivery.");
+        const distance = Number(data.zone?.distanceMetres || 0) / 1000;
+        const distanceLabel = Number.isFinite(distance) && distance > 0 ? ` (${distance.toFixed(1)} km from our hub)` : "";
+        setMessage(`Location secured in ${data.zone.name}${distanceLabel}. Your delivery fee will be shown at checkout.`);
         if (!pageMode) setTimeout(() => setOpen(false), 650);
       } else {
-        setMessage("We could not secure this location. Please try the pin again.");
+        setMessage("This address is outside our current extended-delivery area. You can still choose pickup at checkout.");
       }
     } catch (error) {
       setMessage(error.message);

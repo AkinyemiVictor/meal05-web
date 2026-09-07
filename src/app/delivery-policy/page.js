@@ -22,7 +22,7 @@ export default function DeliveryPolicyPage() {
             This policy explains where Meal05 currently delivers, the available delivery schedules, how delivery fees
             work, and what happens if an item is unavailable or a delivery cannot be completed.
           </p>
-          <span className={styles.updated}>Effective 10 July 2026</span>
+          <span className={styles.updated}>Effective 7 September 2026</span>
         </header>
 
         <article className={styles.content}>
@@ -43,13 +43,15 @@ export default function DeliveryPolicyPage() {
           <section id="areas">
             <h2>1. Delivery areas</h2>
             <p>
-              Meal05 uses the exact delivery location you secure on the map rather than restricting orders to a fixed
-              distance radius. Place the pin at the entrance or meeting point where the rider should reach you.
+              Meal05 uses the exact delivery location you secure on the map to calculate the distance from the Meal05
+              Hub. Place the pin at the entrance where the rider should reach you.
             </p>
-            <p>
-              Delivery scheduling, partner availability and any applicable fee are confirmed at checkout before payment
-              is completed.
-            </p>
+            <ul>
+              <li><strong>Core zone:</strong> 0–5 km from the Meal05 Hub.</li>
+              <li><strong>Extended zone:</strong> over 5 km and up to 10 km.</li>
+              <li><strong>Extended Plus zone:</strong> over 10 km and up to 20 km.</li>
+            </ul>
+            <p>Addresses outside the active extended-delivery area can use an official pickup station shown at checkout.</p>
           </section>
 
           <section id="window">
@@ -72,13 +74,22 @@ export default function DeliveryPolicyPage() {
             <h2>3. Delivery charges</h2>
             <p>
               Delivery fees are calculated at checkout based on the serviceable zone and the fulfilment settings
-              applicable to your address. Where packaging fees apply, they are shown as a separate line item so the
-              total remains transparent.
+              applicable to your secured address. The launch rates are ₦1,500 for the Core zone, ₦2,500 for Extended,
+              and ₦3,500 for Extended Plus. Where packaging fees apply, they are shown separately.
             </p>
             <p>
               The final amount displayed at checkout — including subtotal, packaging fee, delivery fee and any valid
               discount — is the amount charged for the order. Meal05 does not add hidden delivery charges after payment
               for a successfully confirmed order.
+            </p>
+          </section>
+
+          <section>
+            <h2>Pickup</h2>
+            <p>
+              Customers may choose an active Meal05 pickup station at checkout and collect during its displayed opening
+              hours. Pickup has no delivery fee. A church, roadside meeting point or other informal handover location is
+              not a pickup station unless Meal05 deliberately lists it as one at checkout.
             </p>
           </section>
 

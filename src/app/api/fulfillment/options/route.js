@@ -32,10 +32,37 @@ export async function POST(request) {
     if (zoneError) throw zoneError; const zone = zones?.[0];
     if (!zone) return applyRateLimitHeaders(NextResponse.json({ serviceable: false, quotes: [] }), rl);
     const { data, error } = await admin.from("delivery_partner_services")
-      .select("id,partner_id,base_fee,currency_code,eta_note,ranking,is_recommended,delivery_partners!inner(id,name,slug,logo_url,status,market_id)")
+      .select("id,partner_id,pricing_method,base_fee,currency_code,eta_note,ranking,is_recommended,delivery_partners!inner(id,name,slug,logo_url,status,market_id)")
       .eq("zone_id", zone.zone_id).eq("is_active", true).eq("delivery_partners.status", "active").eq("delivery_partners.market_id", market.id).order("ranking");
     if (error) throw error;
-    const quotes = (data || []).map(row => ({ id: row.partner_id, serviceId: row.id, name: row.delivery_partners.name, slug: row.delivery_partners.slug, logoUrl: row.delivery_partners.logo_url || "", fee: Number(row.base_fee), currencyCode: row.currency_code, eta: row.eta_note || "Timing confirmed after booking", recommended: row.is_recommended }));
-    return applyRateLimitHeaders(NextResponse.json({ serviceable: true, zone: { id: zone.zone_id, name: zone.zone_name }, quotes }), rl);
+    const distanceMetres = Math.max(0, Math.round(Number(zone.distance_m || 0)));
+    const distanceKm = Math.round((distanceMetres / 1000) * 10) / 10;
+    const quotes = (data || []).map(row => ({
+      id: row.partner_id,
+      serviceId: row.id,
+      name: row.delivery_partners.name,
+      slug: row.delivery_partners.slug,
+      logoUrl: row.delivery_partners.logo_url || "",
+      fee: Number(row.base_fee),
+      currencyCode: row.currency_code,
+      eta: row.eta_note || "Timing confirmed after booking",
+      recommended: row.is_recommended,
+      pricingMethod: row.pricing_method || "flat",
+      zoneName: zone.zone_name,
+      distanceKm,
+      summary: `${zone.zone_name} · ${distanceKm.toFixed(1)} km from the Meal05 Hub`,
+    }));
+    return applyRateLimitHeaders(NextResponse.json({
+      serviceable: true,
+      zone: {
+        id: zone.zone_id,
+        name: zone.zone_name,
+        deliveryFee: Number(zone.delivery_fee || 0),
+        distanceMetres,
+        distanceKm,
+        eta: zone.eta_note || "",
+      },
+      quotes,
+    }), rl);
   } catch (error) { return applyRateLimitHeaders(NextResponse.json({ error: error.message || "Quotes unavailable." }, { status: 503 }), rl); }
 }

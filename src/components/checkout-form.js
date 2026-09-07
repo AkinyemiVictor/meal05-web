@@ -31,6 +31,7 @@ import {
   buildCityServiceMessage,
   findMatchingServiceZone,
   getDeliverySummaryConfig,
+  getFirstOrderDeliveryPricing,
   normalizeServiceZoneFees,
   resolveDeliveryArea,
 } from "@/lib/delivery-settings";
@@ -482,6 +483,7 @@ export default function CheckoutForm({
   onPickupLocationChange,
   onCityChange,
   onDispatchChange,
+  firstOrderDeliveryPromo = false,
   onProcessingChange,
 }) {
   const router = useRouter();
@@ -517,9 +519,10 @@ export default function CheckoutForm({
       const config = getDeliverySummaryConfig(deliverySettings, formState.city);
       if (fulfillmentType === "pickup") return { ...config, deliveryFee: 0 };
       const dispatchOption = dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId));
-      return { ...config, deliveryFee: Number(dispatchOption?.fee || 0) };
+      const pricing = getFirstOrderDeliveryPricing(dispatchOption?.fee, firstOrderDeliveryPromo);
+      return { ...config, deliveryFee: pricing.customerFee };
     },
-    [deliverySettings, formState.city, selectedDispatchOptionId, dispatchOptions, fulfillmentType]
+    [deliverySettings, formState.city, selectedDispatchOptionId, dispatchOptions, fulfillmentType, firstOrderDeliveryPromo]
   );
   const selectedDispatchOption = useMemo(
     () => dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId)) || null,
@@ -1950,7 +1953,43 @@ export default function CheckoutForm({
             ) : null}
           </label>
         </div>
-        {fulfillmentType === "pickup" ? <label className={errors.pickupLocation ? "checkout-field has-error" : "checkout-field"}><span>Pickup location</span><select name="pickupLocation" value={pickupLocationId} onChange={event => onPickupLocationChange?.(event.target.value)} required aria-invalid={Boolean(errors.pickupLocation)}><option value="">Select a pickup point</option>{pickupLocations.map(location => <option key={location.id} value={location.id}>{location.name} - {location.address}</option>)}</select>{errors.pickupLocation ? <span className="checkout-field__error" id="checkout-pickupLocation-error">{errors.pickupLocation}</span> : null}</label> : <>
+        {fulfillmentType === "pickup" ? (
+          <div className={errors.pickupLocation ? "checkout-pickup-options has-error" : "checkout-pickup-options"}>
+            <div className="checkout-pickup-options__intro">
+              <strong>Choose a pickup station</strong>
+              <span>Order during the week and collect from an official Meal05 pickup point. Pickup is free.</span>
+            </div>
+            <div className="checkout-pickup-options__list" role="radiogroup" aria-label="Pickup station">
+              {pickupLocations.map((location) => (
+                <label
+                  key={location.id}
+                  className={`checkout-pickup-card${String(pickupLocationId) === String(location.id) ? " checkout-pickup-card--active" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="pickupLocation"
+                    value={location.id}
+                    checked={String(pickupLocationId) === String(location.id)}
+                    onChange={(event) => onPickupLocationChange?.(event.target.value)}
+                    required
+                  />
+                  <span className="checkout-pickup-card__marker" aria-hidden="true"><i className="fa-solid fa-store" /></span>
+                  <span className="checkout-pickup-card__body">
+                    <strong>{location.name}</strong>
+                    <span>{location.address}</span>
+                    {location.hours ? <small>{location.hours}</small> : null}
+                    {location.instructions ? <small>{location.instructions}</small> : null}
+                  </span>
+                  <span className="checkout-pickup-card__fee">Free</span>
+                </label>
+              ))}
+            </div>
+            {!pickupLocations.length ? (
+              <span className="checkout-field__error">No pickup station is available right now.</span>
+            ) : null}
+            {errors.pickupLocation ? <span className="checkout-field__error" id="checkout-pickupLocation-error">{errors.pickupLocation}</span> : null}
+          </div>
+        ) : <>
         {savedAddresses.length ? (
           <label className={(errors.address || errors.houseNumber || errors.landmark) && !usingNewAddress ? "checkout-field has-error" : "checkout-field"}>
             <span>Delivery address <RequiredMark /></span>
@@ -2070,7 +2109,8 @@ export default function CheckoutForm({
         <div className="checkout-dispatch" aria-labelledby="checkout-dispatch-heading">
           <div className="checkout-dispatch__header">
             <div>
-              <h3 id="checkout-dispatch-heading">Choose dispatch company</h3>
+              <h3 id="checkout-dispatch-heading">Delivery fee for this address</h3>
+              <p>The fee is calculated from your secured pin and confirmed before payment.</p>
             </div>
             {selectedDispatchOption?.name ? (
               <span className="checkout-dispatch__current">

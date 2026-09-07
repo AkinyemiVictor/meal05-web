@@ -13,7 +13,11 @@ import {
   readStoredCart,
   readStoredPromo,
 } from "@/lib/checkout";
-import { getDeliverySummaryConfig, resolveDeliveryArea } from "@/lib/delivery-settings";
+import {
+  getDeliverySummaryConfig,
+  getFirstOrderDeliveryPricing,
+  resolveDeliveryArea,
+} from "@/lib/delivery-settings";
 import { resolveProductImage } from "@/lib/product-image";
 import { useProductsByIds } from "@/lib/use-catalog-products";
 import { formatQuantity } from "@/lib/purchase-quantities";
@@ -50,7 +54,8 @@ export default function CheckoutSummary({
       }
       if (fulfillmentType === "pickup") return { ...config, deliveryFee: 0 };
       const dispatchOption = dispatchOptions.find(option => String(option.id) === String(selectedDispatchOptionId));
-      return { ...config, deliveryFee: firstOrderDeliveryPromo ? 0 : Number(dispatchOption?.fee || 0) };
+      const pricing = getFirstOrderDeliveryPricing(dispatchOption?.fee, firstOrderDeliveryPromo);
+      return { ...config, deliveryFee: pricing.customerFee };
     },
     [deliveryArea, deliverySettings, deliveryCity, selectedDispatchOptionId, dispatchOptions, fulfillmentType, firstOrderDeliveryPromo]
   );
@@ -200,7 +205,7 @@ export default function CheckoutSummary({
             {fulfillmentType === "pickup" ? formatProductPrice(0) : deliveryUnavailable
               ? "Unavailable"
               : firstOrderDeliveryPromo
-              ? <><strong>{formatProductPrice(0)}</strong><small className="checkout-summary__promo-coverage">Promo coverage</small></>
+              ? <><strong>{summary.deliveryFee === 0 ? copy.checkout.freeDeliveryLabel : formatProductPrice(summary.deliveryFee)}</strong><small className="checkout-summary__promo-coverage">Up to ₦1,500 first-order delivery credit</small></>
               : summary.deliveryFee === 0
               ? copy.checkout.freeDeliveryLabel
               : formatProductPrice(summary.deliveryFee)}
@@ -241,8 +246,8 @@ export default function CheckoutSummary({
         </summary>
         <div className="checkout-summary__policy-body">
           <p>
-            Meal05 uses your secured delivery pin instead of a fixed launch-radius restriction. Save the exact entrance
-            or meeting point so delivery can be coordinated correctly.
+            Meal05 uses your secured delivery pin to place the address in a distance band. The core zone covers the
+            first 5 km, while extended delivery is available up to 20 km with the exact fee shown before payment.
           </p>
           <p>
             Choose either <strong>24-hour</strong> or <strong>48-hour</strong> delivery at checkout. Both options use a
@@ -251,6 +256,10 @@ export default function CheckoutSummary({
           <p>
             Delivery and packaging fees are shown separately at checkout. If an item becomes unavailable during
             sourcing, we may offer a replacement or refund the affected item.
+          </p>
+          <p>
+            Pickup from an official Meal05 pickup station is free. Collection from informal meeting points is not
+            promised unless Meal05 lists that point at checkout.
           </p>
           <p>
             Review the full <Link href="/delivery-policy">Delivery Policy</Link>.

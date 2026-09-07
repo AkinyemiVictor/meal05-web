@@ -1,5 +1,6 @@
 export const DELIVERY_SETTINGS_KEY = "default";
 export const DEFAULT_DELIVERY_FEE = 1500;
+export const MAX_FIRST_ORDER_DELIVERY_CREDIT = 1500;
 export const DEFAULT_FREE_DELIVERY_THRESHOLD = 40000;
 export const DEFAULT_SAME_DAY_ENABLED = false;
 export const DEFAULT_SAME_DAY_CUTOFF_TIME = "16:00";
@@ -366,5 +367,19 @@ export const getDeliverySummaryConfig = (settings, city = "") => {
   return {
     freeDeliveryThreshold: normalized.freeDeliveryThreshold,
     deliveryFee: getDeliveryFeeForCity(normalized, city),
+  };
+};
+
+export const getFirstOrderDeliveryPricing = (
+  quotedFee,
+  eligible,
+  maximumCredit = MAX_FIRST_ORDER_DELIVERY_CREDIT
+) => {
+  const fee = roundMoney(quotedFee, 0);
+  const credit = eligible ? Math.min(fee, roundMoney(maximumCredit, MAX_FIRST_ORDER_DELIVERY_CREDIT)) : 0;
+  return {
+    quotedFee: fee,
+    credit,
+    customerFee: Math.max(0, fee - credit),
   };
 };

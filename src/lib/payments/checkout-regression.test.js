@@ -125,9 +125,11 @@ test("first delivery promo is server-authorized and visible in checkout summary"
   const checkoutForm = read("src/components/checkout-form.js");
 
   assert.match(orderRoute, /firstOrderFreeDelivery/);
+  assert.match(orderRoute, /getFirstOrderDeliveryPricing/);
+  assert.match(orderRoute, /maximumCredit:\s*MAX_FIRST_ORDER_DELIVERY_CREDIT/);
   assert.match(orderRoute, /deliveryPromoCoverage/);
   assert.match(orderRoute, /searchParams\.get\("deliveryPromo"\) === "1"/);
-  assert.match(checkoutSummary, /Promo coverage/);
+  assert.match(checkoutSummary, /first-order delivery credit/);
   assert.match(checkoutSummary, /checkout-summary__processing/);
   assert.doesNotMatch(checkoutForm, /checkout-alert--processing/);
 });

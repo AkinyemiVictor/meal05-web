@@ -34,6 +34,7 @@ export default function CheckoutWorkspace({
         onPickupLocationChange={onPickupLocationChange}
         onCityChange={onCityChange}
         onDispatchChange={onDispatchChange}
+        firstOrderDeliveryPromo={firstOrderDeliveryPromo}
         onProcessingChange={setIsProcessing}
       />
       <CheckoutSummary

@@ -791,9 +791,10 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
   font-size: 1.6rem;
   font-weight: 800;
   color: #fff;
@@ -1612,7 +1613,100 @@
 }
 
 .checkout-dispatch {
-  display: none;
+  display: grid;
+}
+
+.checkout-pickup-options {
+  display: grid;
+  gap: 1rem;
+}
+
+.checkout-pickup-options__intro {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.checkout-pickup-options__intro strong {
+  color: #141622;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.checkout-pickup-options__intro span {
+  color: #747780;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.checkout-pickup-options__list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.checkout-pickup-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #e2e1dc;
+  border-radius: 1rem;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.checkout-pickup-card--active,
+.checkout-pickup-card:focus-within {
+  border-color: #141622;
+  box-shadow: inset 0 0 0 1px #141622;
+}
+
+.checkout-pickup-card input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.checkout-pickup-card__marker {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.75rem;
+  background: #f3f4f6;
+  color: #181a25;
+}
+
+.checkout-pickup-card__body {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.checkout-pickup-card__body strong {
+  color: #141622;
+  font-weight: 900;
+}
+
+.checkout-pickup-card__body span,
+.checkout-pickup-card__body small {
+  overflow-wrap: anywhere;
+  color: #747780;
+  line-height: 1.4;
+}
+
+.checkout-pickup-card__fee {
+  align-self: start;
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  background: #eafaf0;
+  color: #087a39;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .checkout-payment-options {
@@ -2064,6 +2158,35 @@
   .checkout-payment-tile {
     grid-template-columns: 1.35rem 2.25rem minmax(0, 1fr);
   }
+
+  .checkout-dispatch__header,
+  .checkout-dispatch-card__topline,
+  .checkout-dispatch-card__meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .checkout-dispatch__current {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .checkout-pickup-card {
+    grid-template-columns: 2.6rem minmax(0, 1fr);
+  }
+
+  .checkout-pickup-card__fee {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.checkout-transfer-screen__topbar i,
+.checkout-transfer-confirm-page__topbar i,
+.checkout-status-overlay__icon i,
+.checkout-status-overlay__icon svg {
+  display: block;
+  line-height: 1;
 }
 
 .checkout-required-mark {
