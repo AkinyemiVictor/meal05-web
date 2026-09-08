@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { IconShoppingBag, IconX } from "@tabler/icons-react";
+import { IconCircleCheck, IconShoppingBag, IconX } from "@tabler/icons-react";
 
 import AvailabilityRequestNotice from "@/components/availability-request-notice";
 import SizePreferencePicker from "@/components/size-preference-picker";
@@ -687,7 +687,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           <p>{categoryLabel}</p>
           <h3>{displayProduct?.name || "Select an option"}</h3>
           <span className={isUnavailable ? "is-unavailable" : ""}>
-            <i className="fa-solid fa-circle" aria-hidden="true" />
+            <IconCircleCheck
+              className="quick-add-availability-icon"
+              size={16}
+              stroke={2.4}
+              aria-hidden="true"
+            />
             {availabilityLabel}
           </span>
           {productDescription ? <p className="quick-add-product-description">{productDescription}</p> : null}

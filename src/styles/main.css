@@ -6686,6 +6686,17 @@ main > section:not(.home-hero) {
   display: none;
 }
 
+.quick-add-availability-icon {
+  width: 1rem;
+  height: 1rem;
+  min-width: 1rem;
+  display: block;
+  flex: 0 0 1rem;
+  color: currentColor;
+  stroke: currentColor;
+  overflow: visible;
+}
+
 /* Desktop and tablet Quick Add is a full-height, edge-aligned drawer. */
 @media (min-width: 489px) {
   .quick-add-overlay,
@@ -7288,13 +7299,19 @@ main > section:not(.home-hero) {
 
   .quick-add-mobile-options select,
   .quick-add-mobile-size-preference select {
+    appearance: none;
+    -webkit-appearance: none;
     width: 100%;
     min-height: 52px;
     border: 1px solid #dfe3e8;
     border-radius: 13px;
-    background: #f8f9fa;
+    background-color: #f8f9fa;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2311131f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 1.15rem center;
+    background-repeat: no-repeat;
+    background-size: 1rem 1rem;
     color: #11131f;
-    padding: 0 2.65rem 0 0.9rem;
+    padding: 0 3.25rem 0 0.9rem;
     font: inherit;
     font-size: 0.9rem;
     font-weight: 750;

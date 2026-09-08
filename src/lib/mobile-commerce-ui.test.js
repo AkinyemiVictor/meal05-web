@@ -39,8 +39,9 @@ test("quick-add becomes a product-detail bottom sheet with dropdown options on m
   assert.match(drawer, /About this product/);
   assert.match(drawer, /View full product details/);
   assert.match(drawer, /<VariantPicker/);
-  assert.match(drawer, /import \{ IconShoppingBag, IconX \} from "@tabler\/icons-react"/);
+  assert.match(drawer, /import \{ IconCircleCheck, IconShoppingBag, IconX \} from "@tabler\/icons-react"/);
   assert.match(drawer, /<IconShoppingBag size=\{20\} stroke=\{1\.8\}/);
+  assert.match(drawer, /<IconCircleCheck[\s\S]*?className="quick-add-availability-icon"/);
   assert.match(drawer, /quick-add-mobile-topbar__close[\s\S]*?<IconX/);
   assert.doesNotMatch(drawer, /fa-xmark|fa-basket-shopping/);
   assert.match(drawer, /formatProductPrice\(getVariantPrice\(effectiveVariant, displayProduct\), ""\)/);
@@ -66,6 +67,7 @@ test("quick-add uses an edge-aligned desktop drawer above the 488px mobile bound
   assert.match(drawer, /<strong>Quick add<\/strong>/);
   assert.match(drawer, /className="quick-add-backdrop quick-add-backdrop--blur"/);
   assert.match(drawer, /quick-add-product-description/);
+  assert.match(css, /\.quick-add-availability-icon\s*\{[\s\S]*?flex:\s*0 0 1rem;[\s\S]*?stroke:\s*currentColor/);
 });
 
 test("quick-add sticky cart action keeps breathing room above every screen edge", () => {
@@ -74,6 +76,16 @@ test("quick-add sticky cart action keeps breathing room above every screen edge"
   const mobileCss = css.slice(mobileRule, mobileRule + 7000);
 
   assert.match(mobileCss, /\.quick-add-panel--mobile-modal \.quick-add-cta\s*\{[\s\S]*?bottom:\s*max\(1rem, env\(safe-area-inset-bottom, 0px\)\)/);
+});
+
+test("mobile quick-add select uses an inset custom dropdown arrow", () => {
+  const css = read("src/styles/main.css");
+  const mobileRule = css.lastIndexOf("@media (max-width: 488px)");
+  const mobileCss = css.slice(mobileRule, mobileRule + 7000);
+
+  assert.match(mobileCss, /\.quick-add-mobile-options select,[\s\S]*?appearance:\s*none/);
+  assert.match(mobileCss, /background-position:\s*right 1\.15rem center/);
+  assert.match(mobileCss, /padding:\s*0 3\.25rem 0 0\.9rem/);
 });
 
 test("scaled mobile empty cart fills the unscaled viewport", () => {
