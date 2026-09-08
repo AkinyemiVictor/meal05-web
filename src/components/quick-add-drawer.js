@@ -651,7 +651,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         <button type="button" className="quick-add-mobile-topbar__close" onClick={onClose} aria-label="Close">
           <IconX size={22} stroke={2} aria-hidden="true" />
         </button>
-        <strong>Product details</strong>
+        <strong>Quick add</strong>
         <Link
           href="/cart"
           className="quick-add-mobile-topbar__cart"
@@ -680,7 +680,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             alt={displayProduct?.name || "Product"}
             fill
             unoptimized={!canUseNextImageOptimization(productImage)}
-            sizes="(max-width: 640px) 58vw, 1px"
+            sizes="(max-width: 488px) 58vw, (max-width: 1024px) 34vw, 260px"
           />
         </div>
         <div className="quick-add-mobile-product__intro">
@@ -690,6 +690,14 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             <i className="fa-solid fa-circle" aria-hidden="true" />
             {availabilityLabel}
           </span>
+          {productDescription ? <p className="quick-add-product-description">{productDescription}</p> : null}
+          <Link
+            className="quick-add-product-link"
+            href={productHref}
+            onClick={(event) => handleNavigation(event, productHref)}
+          >
+            View full product details <span aria-hidden="true">&rarr;</span>
+          </Link>
         </div>
       </div>
 
@@ -892,7 +900,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     <div className={`quick-add-overlay${useCenteredModal ? " quick-add-overlay--centered" : ""}`.trim()}>
       <button
         type="button"
-        className={`quick-add-backdrop${isDropdown ? " quick-add-backdrop--blur" : ""}`.trim()}
+        className="quick-add-backdrop quick-add-backdrop--blur"
         onClick={onClose}
         aria-label="Close quick add"
       />

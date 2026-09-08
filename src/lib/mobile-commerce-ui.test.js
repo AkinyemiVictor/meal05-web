@@ -47,6 +47,26 @@ test("quick-add becomes a product-detail bottom sheet with dropdown options on m
   assert.doesNotMatch(drawer, /formatProductPrice\(getVariantPrice\(effectiveVariant, displayProduct\), getVariantUnit/);
 });
 
+test("quick-add uses an edge-aligned desktop drawer above the 488px mobile boundary", () => {
+  const css = read("src/styles/main.css");
+  const drawer = read("src/components/quick-add-drawer.js");
+  const desktopRule = css.indexOf("@media (min-width: 489px)");
+  const mobileRule = css.lastIndexOf("@media (max-width: 488px)");
+  const desktopCss = css.slice(desktopRule, mobileRule);
+
+  assert.ok(desktopRule > -1);
+  assert.ok(mobileRule > desktopRule);
+  assert.match(desktopCss, /\.quick-add-overlay--centered[\s\S]*?justify-content:\s*flex-end/);
+  assert.match(desktopCss, /\.quick-add-panel--mobile-modal[\s\S]*?height:\s*100dvh/);
+  assert.match(desktopCss, /\.quick-add-panel--mobile-modal[\s\S]*?border-radius:\s*0/);
+  assert.match(desktopCss, /backdrop-filter:\s*blur\(8px\)/);
+  assert.match(desktopCss, /grid-template-columns:\s*minmax\(12rem, 0\.82fr\) minmax\(0, 1\.18fr\)/);
+  assert.match(css.slice(mobileRule, mobileRule + 700), /\.quick-add-panel--mobile-modal/);
+  assert.match(drawer, /<strong>Quick add<\/strong>/);
+  assert.match(drawer, /className="quick-add-backdrop quick-add-backdrop--blur"/);
+  assert.match(drawer, /quick-add-product-description/);
+});
+
 test("scaled mobile empty cart fills the unscaled viewport", () => {
   const scaler = read("src/components/page-scaler.js");
   const cartCss = read("src/app/cart/cart.module.css");
