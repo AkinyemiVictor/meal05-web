@@ -7026,7 +7026,7 @@ main > section:not(.home-hero) {
   .quick-add-panel--mobile-modal .quick-add-cta {
     position: sticky;
     z-index: 5;
-    bottom: 0;
+    bottom: max(1rem, env(safe-area-inset-bottom, 0px));
     width: calc(100% - 4rem);
     min-height: 58px;
     display: inline-flex;
@@ -7395,7 +7395,7 @@ main > section:not(.home-hero) {
   .quick-add-panel--mobile-modal .quick-add-cta {
     position: sticky;
     z-index: 4;
-    bottom: 0;
+    bottom: max(1rem, env(safe-area-inset-bottom, 0px));
     min-height: 56px;
     margin-top: 1rem;
     border-radius: 999px;

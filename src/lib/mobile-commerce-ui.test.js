@@ -61,10 +61,19 @@ test("quick-add uses an edge-aligned desktop drawer above the 488px mobile bound
   assert.match(desktopCss, /\.quick-add-panel--mobile-modal[\s\S]*?border-radius:\s*0/);
   assert.match(desktopCss, /backdrop-filter:\s*blur\(8px\)/);
   assert.match(desktopCss, /grid-template-columns:\s*minmax\(12rem, 0\.82fr\) minmax\(0, 1\.18fr\)/);
+  assert.match(desktopCss, /\.quick-add-panel--mobile-modal \.quick-add-cta\s*\{[\s\S]*?bottom:\s*max\(1rem, env\(safe-area-inset-bottom, 0px\)\)/);
   assert.match(css.slice(mobileRule, mobileRule + 700), /\.quick-add-panel--mobile-modal/);
   assert.match(drawer, /<strong>Quick add<\/strong>/);
   assert.match(drawer, /className="quick-add-backdrop quick-add-backdrop--blur"/);
   assert.match(drawer, /quick-add-product-description/);
+});
+
+test("quick-add sticky cart action keeps breathing room above every screen edge", () => {
+  const css = read("src/styles/main.css");
+  const mobileRule = css.lastIndexOf("@media (max-width: 488px)");
+  const mobileCss = css.slice(mobileRule, mobileRule + 7000);
+
+  assert.match(mobileCss, /\.quick-add-panel--mobile-modal \.quick-add-cta\s*\{[\s\S]*?bottom:\s*max\(1rem, env\(safe-area-inset-bottom, 0px\)\)/);
 });
 
 test("scaled mobile empty cart fills the unscaled viewport", () => {
