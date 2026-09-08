@@ -28,6 +28,8 @@ test("wallet funding is available end to end with readable form spacing", () => 
   assert.match(css, /\.walletBalanceCard,[\s\S]*?\.walletTransactionsSection[\s\S]*?width:\s*min\(100%, 48rem\)/);
   assert.match(css, /\.walletQuickAmounts\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3/);
   assert.match(css, /\.walletBalanceCard \.walletStatusReady,[\s\S]*?display:\s*inline-flex;[\s\S]*?flex:\s*0 0 auto;[\s\S]*?white-space:\s*nowrap/);
+  assert.match(account, /IconCircleCheck className=\{styles\.walletStatusIcon\}/);
+  assert.match(css, /\.walletBalanceCard \.walletStatusIcon\s*\{[\s\S]*?min-width:\s*1\.1rem;[\s\S]*?flex:\s*0 0 1\.1rem;[\s\S]*?stroke:\s*currentColor/);
 });
 
 test("wallet deposits, wallet checkout, and direct checkout remain auditable", () => {

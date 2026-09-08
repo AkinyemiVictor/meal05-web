@@ -2925,6 +2925,17 @@
   color: #946200;
 }
 
+.walletBalanceCard .walletStatusIcon {
+  width: 1.1rem;
+  height: 1.1rem;
+  min-width: 1.1rem;
+  display: block;
+  flex: 0 0 1.1rem;
+  color: currentColor;
+  stroke: currentColor;
+  overflow: visible;
+}
+
 .walletTopupSection {
   gap: 1.1rem;
   padding: 1.5rem;

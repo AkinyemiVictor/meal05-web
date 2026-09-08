@@ -1746,7 +1746,11 @@ export function AccountPageContent() {
                 <strong>{formatMoney(balance, currencyCode)}</strong>
               </div>
               <span className={walletEnabled ? styles.walletStatusReady : styles.walletStatusPending}>
-                {walletEnabled ? <IconCircleCheck size={17} stroke={2.2} aria-hidden="true" /> : <IconClock size={17} stroke={2.2} aria-hidden="true" />}
+                {walletEnabled ? (
+                  <IconCircleCheck className={styles.walletStatusIcon} size={17} stroke={2.2} aria-hidden="true" />
+                ) : (
+                  <IconClock className={styles.walletStatusIcon} size={17} stroke={2.2} aria-hidden="true" />
+                )}
                 {walletEnabled ? "Available" : "Coming soon"}
               </span>
             </div>
