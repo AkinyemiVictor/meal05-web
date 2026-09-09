@@ -15,6 +15,7 @@ import { applyCatalogSearchTerms, getCatalogSearchTerms } from "@/lib/catalog-se
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { sortVariantsBySize } from "@/lib/variant-order";
+import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
 
 export const PUBLIC_CATALOG_CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
@@ -595,7 +596,10 @@ const loadPublicCatalogProductsFromCardView = async ({
   const flat = sortedRows
     .map(buildPublicCatalogProductFromCard)
     .filter(isVisibleCatalogProduct);
-  const hydratedFlat = attachEmbeddedProductVariations(sortedRows, flat, market);
+  const hydratedFlat = await enrichCatalogSeasonMetadata(
+    admin,
+    attachEmbeddedProductVariations(sortedRows, flat, market)
+  );
 
   return {
     grouped: groupProducts(hydratedFlat),
@@ -651,7 +655,10 @@ export async function loadPublicCatalogPage({
   const flat = (Array.isArray(data) ? data : [])
     .map(buildPublicCatalogProductFromCard)
     .filter(isVisibleCatalogProduct);
-  const hydratedFlat = attachEmbeddedProductVariations(data, flat, market);
+  const hydratedFlat = await enrichCatalogSeasonMetadata(
+    admin,
+    attachEmbeddedProductVariations(data, flat, market)
+  );
   const pagination = normalizeCatalogPagination({ page: range.page, pageSize: range.pageSize, total: count });
 
   return {
@@ -788,7 +795,10 @@ export async function loadPublicCatalogProducts({
   const flat = rows
     .map((row) => overlayVariantMetadata(buildPublicCatalogProduct(row, categoryIndex), variantByProduct.get(String(row?.id || ""))))
     .filter(isVisibleCatalogProduct);
-  const hydratedFlat = await attachPublicProductVariations(admin, flat, catalog.market);
+  const hydratedFlat = await enrichCatalogSeasonMetadata(
+    admin,
+    await attachPublicProductVariations(admin, flat, catalog.market)
+  );
 
   return {
     grouped: groupProducts(hydratedFlat),
@@ -817,6 +827,10 @@ export function toProductCardDTO(product = {}) {
     unit: String(product?.unit || ""),
     stock: product?.stock ?? "",
     inSeason: product?.inSeason !== false,
+    brand: String(product?.brand || ""),
+    sourcingType: String(product?.sourcingType || product?.sourcing_type || ""),
+    seasonManaged: product?.seasonManaged === true,
+    seasonStatus: String(product?.seasonStatus || "unvalidated"),
     discount: Number(product?.discount || 0) || 0,
     variantCount: Number(product?.variantCount || product?.active_variant_count || 0) || 0,
     hasMultipleOptions: Boolean(

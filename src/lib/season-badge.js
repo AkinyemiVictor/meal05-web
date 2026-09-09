@@ -29,6 +29,7 @@ const SEASONAL_CATEGORY_TERMS = [
   "vegetable",
   "tuber legume",
   "tubers legumes",
+  "tubers and legumes",
 ];
 
 const SEASONAL_GRAIN_TERMS = [
@@ -50,7 +51,6 @@ const YEAR_ROUND_PRODUCT_TERMS = [
   "gari",
   "goat meat",
   "meat",
-  "palm oil",
   "pork",
   "snail",
   "stockfish",
@@ -86,9 +86,24 @@ const explicitBrandValue = (product = {}) =>
   product.manufacturerName ||
   product.manufacturer_name;
 
+const STATUS_LABELS = {
+  peak: "Peak season",
+  in_season: "In season",
+  shoulder: "Shoulder season",
+  out: "Off season",
+  year_round: "Year-round",
+};
+
+export const getSeasonBadgeLabel = (product = {}) => {
+  const status = String(product?.seasonStatus || product?.season_status || "").trim();
+  if (STATUS_LABELS[status]) return STATUS_LABELS[status];
+  return product?.inSeason === false ? "Off season" : "In season";
+};
+
 export const shouldShowSeasonBadge = (product = {}) => {
   if (!product || typeof product !== "object") return false;
   if (product.showSeasonBadge === false || product.seasonalBadge === false || product.isSeasonal === false) return false;
+  if (product.seasonManaged === false || product.seasonStatus === "unvalidated") return false;
   if (product.isBranded === true || product.branded === true || explicitBrandValue(product)) return false;
 
   const name = normalize(product.name);
@@ -106,7 +121,9 @@ export const shouldShowSeasonBadge = (product = {}) => {
       .join(" ")
   );
 
-  if (containsAny(category, NON_SEASONAL_CATEGORY_TERMS)) return false;
+  const isManagedPalmOil = product.seasonManaged === true && name.includes("farmer s palm oil");
+  if (isManagedPalmOil) return true;
+  if (containsAny(category, NON_SEASONAL_CATEGORY_TERMS) && !isManagedPalmOil) return false;
   if (containsAny(name, YEAR_ROUND_PRODUCT_TERMS)) return false;
   if (containsAny(name, BRANDED_OR_PROCESSED_TERMS)) return false;
   if (containsAny(category, SEASONAL_CATEGORY_TERMS)) return true;

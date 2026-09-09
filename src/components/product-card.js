@@ -8,7 +8,7 @@ import FavoriteToggleButton from "@/components/favorite-toggle-button";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { resolveProductImage } from "@/lib/product-image";
 import { getProductHref } from "@/lib/products";
-import { shouldShowSeasonBadge } from "@/lib/season-badge";
+import { getSeasonBadgeLabel, shouldShowSeasonBadge } from "@/lib/season-badge";
 
 const classNames = (...items) => items.filter(Boolean).join(" ");
 const canUseNextImageOptimization = (src) =>
@@ -27,6 +27,7 @@ function ProductImage({ product, compact = false, priority = false }) {
   const unavailable = resolveStockClass(product.stock) === "is-unavailable";
   const canShowSeasonBadge = shouldShowSeasonBadge(product);
   const isInSeason = product.inSeason !== false;
+  const seasonLabel = getSeasonBadgeLabel(product);
   const shouldOptimize = canUseNextImageOptimization(src);
   const imageSizes = compact
     ? "(max-width: 767px) 42vw, (max-width: 1023px) 24vw, 180px"
@@ -59,7 +60,7 @@ function ProductImage({ product, compact = false, priority = false }) {
             )}
           >
             <IconLeaf size={compact ? 10 : 12} stroke={2.2} aria-hidden="true" />
-            {isInSeason ? "In season" : "Off season"}
+            {seasonLabel}
           </span>
         ) : null}
       </div>

@@ -5,6 +5,7 @@ import { test } from "node:test";
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 const migration = read("supabase/migrations/20260906185305_finalize_product_season_calendar.sql");
+const palmOilMigration = read("supabase/migrations/20260909052109_add_palm_oil_season_profile.sql");
 const adminData = read("src/lib/admin-dashboard-data.js");
 const adminPage = read("src/app/admin/(secure)/catalogue/page.js");
 const adminControl = read("src/components/admin-product-management-control.js");
@@ -38,4 +39,11 @@ test("admin catalogue explains five-state calendar status without allowing tempo
   assert.match(adminPage, /seasonManaged=\{row\.seasonManaged\}/);
   assert.match(adminControl, /disabled=\{disabled \|\| seasonManaged\}/);
   assert.match(updateRoute, /This product is calendar-managed/);
+});
+
+test("palm oil follows its researched annual supply and price cycle", () => {
+  assert.match(palmOilMigration, /Farmer''s Palm Oil/);
+  assert.match(palmOilMigration, /array\[3, 4, 5, 6, 7\]::smallint\[\]/);
+  assert.match(palmOilMigration, /array\[1, 2, 8, 9\]::smallint\[\]/);
+  assert.match(palmOilMigration, /select public\.refresh_product_season_flags\(\)/);
 });

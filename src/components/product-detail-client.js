@@ -13,7 +13,7 @@ import { buildSignInHref } from "@/lib/auth-redirect";
 import { resolveProductImage } from "@/lib/product-image";
 import { formatMoney } from "@/lib/region";
 import { PURCHASE_MODE_FIXED, PURCHASE_MODE_LOOSE, normalizePurchaseMode } from "@/lib/purchase-quantities";
-import { shouldShowSeasonBadge } from "@/lib/season-badge";
+import { getSeasonBadgeLabel, shouldShowSeasonBadge } from "@/lib/season-badge";
 import { loadFavoriteIds, updateFavoriteIds } from "@/lib/favorites-client";
 import { IconChevronLeft, IconChevronRight, IconHeart, IconLeaf } from "@tabler/icons-react";
 import { SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
@@ -274,7 +274,7 @@ export default function ProductDetailClient({ product, variations = [], fallback
   const isUnavailable = priceUnavailable || (availabilityMode !== "request" && stockClass === "is-unavailable");
   const showSeasonBadge = shouldShowSeasonBadge(display);
   const isInSeason = display.inSeason !== false;
-  const seasonLabel = isInSeason ? "In season" : "Off season";
+  const seasonLabel = getSeasonBadgeLabel(display);
   const categoryLabel = formatCategory(display.category || product.category);
   const ratingAverage = Number(ratings?.average || 4.6);
   const reviewCount = Number(ratings?.totalRatings || ratings?.totalReviews || 128);

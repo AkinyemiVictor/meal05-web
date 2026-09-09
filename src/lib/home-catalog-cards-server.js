@@ -8,6 +8,7 @@ import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
+import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
 
 const HOME_CARD_FIELDS = [
   "product_id",
@@ -179,10 +180,11 @@ export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = fal
   const flat = sortedRows
     .map(buildHomeCardProduct)
     .filter((product) => product.id);
+  const enrichedFlat = await enrichCatalogSeasonMetadata(admin, flat);
 
   return {
-    grouped: groupProducts(flat),
-    flat,
+    grouped: groupProducts(enrichedFlat),
+    flat: enrichedFlat,
     market: publicMarket(market),
   };
 }
@@ -233,6 +235,7 @@ export async function loadCatalogCardPage({
   const flat = (Array.isArray(pageResult.data) ? pageResult.data : [])
     .map(buildHomeCardProduct)
     .filter((product) => product.id);
+  const enrichedFlat = await enrichCatalogSeasonMetadata(admin, flat);
   const pagination = normalizeCatalogPagination({
     page: range.page,
     pageSize: range.pageSize,
@@ -240,8 +243,8 @@ export async function loadCatalogCardPage({
   });
 
   return {
-    grouped: groupProducts(flat),
-    flat,
+    grouped: groupProducts(enrichedFlat),
+    flat: enrichedFlat,
     market: publicMarket(market),
     pagination,
   };

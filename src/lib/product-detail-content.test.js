@@ -59,13 +59,13 @@ test("product gallery uses arrows, image count, and dots instead of thumbnail im
   assert.match(badges, /product-detail-gallery-dot\.is-active\s*\{[\s\S]*?width:\s*22px/);
 });
 
-test("seasonal products show an explicit icon-led in-season or off-season status", () => {
+test("seasonal products show an icon-led detailed calendar status", () => {
   const detail = readFileSync(resolve(process.cwd(), "src/components/product-detail-client.js"), "utf8");
   const card = readFileSync(resolve(process.cwd(), "src/components/product-card.js"), "utf8");
 
   assert.match(detail, /product-detail-season__icon/);
-  assert.match(detail, /isInSeason \? "In season" : "Off season"/);
-  assert.match(card, /isInSeason \? "In season" : "Off season"/);
+  assert.match(detail, /getSeasonBadgeLabel\(display\)/);
+  assert.match(card, /getSeasonBadgeLabel\(product\)/);
 });
 
 test("handling and storage sections use supported SVG icons for every tip", () => {

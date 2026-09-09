@@ -30,6 +30,7 @@ export default function sitemap() {
     "/contact-us",
     "/career",
     "/help-center",
+    "/delete-account",
   ];
   for (const p of staticPaths) {
     urls.push(buildUrlEntry(`${baseUrl}${p}`, stableLastModified));

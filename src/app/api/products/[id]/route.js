@@ -10,6 +10,7 @@ import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { sortVariantsBySize } from "@/lib/variant-order";
+import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -486,9 +487,8 @@ export async function GET(_request, { params }) {
   const purchaseRules = getVariantPurchaseRules(defaultVariation || marketData);
   const defaultMeasurementSource = defaultVariation || marketData;
 
-  return NextResponse.json(
-    {
-      product: {
+  const [product] = await enrichCatalogSeasonMetadata(admin, [
+      {
         ...marketData,
         ...(categoryMeta || {}),
         id: String(marketData.id),
@@ -553,6 +553,11 @@ export async function GET(_request, { params }) {
         }),
         ...merchandising,
       },
+  ]);
+
+  return NextResponse.json(
+    {
+      product,
       variations,
       defaultVariantId,
       market: publicMarket(catalog.market),
