@@ -2124,7 +2124,13 @@ export function AccountPageContent() {
               <div className={styles.listItem}>
                 <i className="fa-solid fa-lock" aria-hidden="true" />
                 <span>Password</span>
-                <Link href="/account/change-password">Change password</Link>
+                <div className={styles.listItemValue}>
+                  <span className={styles.passwordMask} aria-hidden="true">••••••••</span>
+                  <Link className={styles.passwordAction} href="/account/change-password">
+                    Change password
+                    <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+                  </Link>
+                </div>
               </div>
             </div>
             {isEditingPhone ? (

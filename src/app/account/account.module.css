@@ -1394,6 +1394,52 @@
   box-shadow: 0 14px 26px rgba(243, 73, 32, 0.2);
 }
 
+.passwordMask {
+  color: #92959d !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.16em;
+}
+
+.passwordAction {
+  min-height: 3.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1.5px solid #d9dde5;
+  border-radius: 0.8rem;
+  background: #ffffff;
+  color: #141622;
+  padding: 0.75rem 1.05rem;
+  font-size: 0.92rem;
+  font-weight: 950;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.passwordAction > i {
+  font-size: 0.72rem;
+  transition: transform 0.2s ease;
+}
+
+.passwordAction:hover,
+.passwordAction:focus-visible {
+  border-color: #f34920;
+  background: #fff4ef;
+  color: #d93d18;
+  box-shadow: 0 10px 22px rgba(243, 73, 32, 0.14);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.passwordAction:hover > i,
+.passwordAction:focus-visible > i {
+  transform: translateX(0.16rem);
+}
+
 .profileForm {
   padding-top: 1.55rem;
   border-top-color: #eceef2;
@@ -2855,6 +2901,18 @@
     flex: 0 0 auto;
   }
 
+  .managementSection .passwordMask {
+    flex: 0 1 auto;
+    overflow: hidden;
+  }
+
+  .managementSection .passwordAction {
+    flex: 0 0 auto;
+    min-height: 2.65rem;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.84rem;
+  }
+
   .managementSection .profileEditButton,
   .managementSection .listItem > a {
     min-width: 4.5rem;
@@ -3423,6 +3481,14 @@
 }
 
 @media (max-width: 430px) {
+  .managementSection .passwordMask {
+    display: none;
+  }
+
+  .managementSection .passwordAction {
+    margin-left: auto;
+  }
+
   .walletBalanceCard .walletStatusReady,
   .walletBalanceCard .walletStatusPending {
     padding-inline: 0.65rem;

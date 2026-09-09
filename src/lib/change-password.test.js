@@ -16,7 +16,9 @@ test("shared password policy requires upper, lower, number, symbol, and eight ch
 
 test("account management links directly to the change-password page", () => {
   const account = read("src/app/account/page.js");
-  assert.match(account, /href="\/account\/change-password">Change password/);
+  assert.match(account, /href="\/account\/change-password"/);
+  assert.match(account, /className=\{styles\.passwordAction\}/);
+  assert.match(account, /Change password/);
 });
 
 test("password changes verify the current password unless recovery is server-authorized", () => {
