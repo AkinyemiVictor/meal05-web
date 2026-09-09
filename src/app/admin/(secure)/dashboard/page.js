@@ -51,6 +51,7 @@ export default async function AdminDashboardPage() {
           <article key={card.label} style={{ border: "1px solid #e2e8f0", borderRadius: 10, background: "#ffffff", padding: "10px 12px" }}>
             <p style={{ margin: 0, color: "#64748b", fontSize: 12 }}>{card.label}</p>
             <p style={{ margin: "5px 0 0", fontWeight: 700, fontSize: 20, color: "#0f172a" }}>{card.value}</p>
+            {card.detail ? <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 11, lineHeight: 1.35 }}>{card.detail}</p> : null}
           </article>
         ))}
       </section>

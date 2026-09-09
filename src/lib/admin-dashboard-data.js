@@ -7,6 +7,7 @@ import {
   normalizeAdminRole,
   normalizeAdminStaffFilter,
 } from "@/lib/admin-roles";
+import { startOfLagosBusinessDayIso, summarizeGrossProductProfit } from "@/lib/admin-profit";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import {
   DEFAULT_BANNER_PLACEMENT,
@@ -84,12 +85,6 @@ const chunk = (list, size = 500) => {
 };
 
 const daysAgoIso = (days) => new Date(Date.now() - Number(days || 0) * 24 * 60 * 60 * 1000).toISOString();
-
-const startOfTodayIso = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-};
 
 const isUnknownColumnError = (message) => {
   const text = String(message || "");
@@ -285,7 +280,7 @@ export async function loadOverviewMetrics() {
 
   const since7d = daysAgoIso(7);
   const since30d = daysAgoIso(30);
-  const todayStart = startOfTodayIso();
+  const todayStart = startOfLagosBusinessDayIso();
 
   const [
     totalOrdersRes,
@@ -294,11 +289,10 @@ export async function loadOverviewMetrics() {
     paidNotDeliveredRes,
     cancelledOrdersRes,
     failedPaymentsRes,
-    paidOrders7dRes,
-    paidOrders30dRes,
     paidTotalsTodayRes,
     paidTotals7dRes,
     cartItemsRes,
+    paidOrderItemsTodayRes,
   ] = await Promise.all([
     admin.from("orders").select("id", { head: true, count: "exact" }),
     admin.from("orders").select("id", { head: true, count: "exact" }).gte("created_at", todayStart),
@@ -306,16 +300,20 @@ export async function loadOverviewMetrics() {
     admin.from("orders").select("id", { head: true, count: "exact" }).eq("payment_status", "paid").not("status", "in", "(delivered)"),
     admin.from("orders").select("id", { head: true, count: "exact" }).eq("status", "cancelled"),
     admin.from("orders").select("id", { head: true, count: "exact" }).eq("payment_status", "failed"),
-    admin.from("orders").select("id", { head: true, count: "exact" }).eq("payment_status", "paid").gte("created_at", since7d),
-    admin.from("orders").select("id", { head: true, count: "exact" }).eq("payment_status", "paid").gte("created_at", since30d),
-    admin.from("orders").select("total").eq("payment_status", "paid").gte("created_at", todayStart).range(0, 4999),
-    admin.from("orders").select("total").eq("payment_status", "paid").gte("created_at", since7d).range(0, 4999),
+    admin.from("orders").select("total").eq("payment_status", "paid").gte("paid_at", todayStart).range(0, 4999),
+    admin.from("orders").select("total").eq("payment_status", "paid").gte("paid_at", since7d).range(0, 4999),
     admin.from("cart_items").select("id", { head: true, count: "exact" }),
+    admin
+      .from("orders")
+      .select("id, order_items(quantity, price, supplier_unit_cost)")
+      .eq("payment_status", "paid")
+      .gte("paid_at", todayStart)
+      .range(0, 4999),
   ]);
 
   let paidTotals30dRes;
   try {
-    paidTotals30dRes = await admin.from("orders").select("total").eq("payment_status", "paid").gte("created_at", since30d).range(0, 4999);
+    paidTotals30dRes = await admin.from("orders").select("total").eq("payment_status", "paid").gte("paid_at", since30d).range(0, 4999);
   } catch (error) {
     paidTotals30dRes = { data: [], error };
     warnings.push(`Revenue 30d unavailable: ${error?.message || String(error)}`);
@@ -328,12 +326,11 @@ export async function loadOverviewMetrics() {
     ["Paid not delivered", paidNotDeliveredRes],
     ["Cancelled orders", cancelledOrdersRes],
     ["Failed payments", failedPaymentsRes],
-    ["Paid orders 7d", paidOrders7dRes],
-    ["Paid orders 30d", paidOrders30dRes],
     ["Revenue today", paidTotalsTodayRes],
     ["Revenue 7d", paidTotals7dRes],
     ["Revenue 30d", paidTotals30dRes],
     ["Cart items", cartItemsRes],
+    ["Gross profit today", paidOrderItemsTodayRes],
   ].forEach(([name, result]) => {
     if (result?.error) warnings.push(`${name} unavailable: ${result.error.message}`);
   });
@@ -341,15 +338,39 @@ export async function loadOverviewMetrics() {
   const paidRevenueToday = sumBy(paidTotalsTodayRes?.data, "total");
   const paidRevenue7d = sumBy(paidTotals7dRes?.data, "total");
   const paidRevenue30d = sumBy(paidTotals30dRes?.data, "total");
-  const paidOrders30d = Number(paidOrders30dRes?.count || 0);
-  const aov30d = paidOrders30d > 0 ? paidRevenue30d / paidOrders30d : 0;
+  const grossProfitToday = paidOrderItemsTodayRes?.error
+    ? null
+    : summarizeGrossProductProfit(paidOrderItemsTodayRes?.data);
+  const grossProfitCard = grossProfitToday == null
+    ? {
+        label: "Gross Profit Today",
+        value: "Unavailable",
+        detail: "The purchase-cost calculation could not be loaded.",
+      }
+    : grossProfitToday.status === "incomplete"
+    ? {
+        label: "Gross Profit Today",
+        value: "Unavailable",
+        detail: `Supplier cost missing for ${grossProfitToday.missingCostLineCount} of ${grossProfitToday.lineCount} purchased lines.`,
+      }
+    : {
+        label: "Gross Profit Today",
+        value: CURRENCY.format(Math.round(grossProfitToday.grossProfit || 0)),
+        detail: grossProfitToday.status === "no_sales"
+          ? "No paid purchases today."
+          : `${grossProfitToday.marginPercent.toFixed(1)}% gross product margin`,
+      };
+
+  if (grossProfitToday?.status === "incomplete") {
+    warnings.push("Gross profit today is unavailable until every purchased line has a captured supplier cost.");
+  }
 
   return {
     cards: [
       { label: "Revenue Today", value: CURRENCY.format(Math.round(paidRevenueToday || 0)) },
       { label: "Revenue (7d)", value: CURRENCY.format(Math.round(paidRevenue7d || 0)) },
       { label: "Revenue (30d)", value: CURRENCY.format(Math.round(paidRevenue30d || 0)) },
-      { label: "AOV (30d)", value: CURRENCY.format(Math.round(aov30d || 0)) },
+      grossProfitCard,
       { label: "Orders Today", value: Number(todayOrdersRes?.count || 0).toLocaleString() },
       { label: "Pending Orders", value: Number(pendingOrdersRes?.count || 0).toLocaleString() },
       { label: "Paid Not Delivered", value: Number(paidNotDeliveredRes?.count || 0).toLocaleString() },
