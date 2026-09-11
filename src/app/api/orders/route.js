@@ -35,6 +35,8 @@ import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity }
 import { calculateOrderCapacity } from "@/lib/order-capacity";
 import { loadPublicOrderSettings } from "@/lib/order-settings";
 import { normalizeAvailabilityMode, normalizeSelectionMode, normalizeSizePreference, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
+import { PROCUREMENT_TAG, normalizeProcurementMode } from "@/lib/tag-buy";
+import { loadTagBatch } from "@/lib/tag-buy-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +46,7 @@ const allowedMethodsHeader = { Allow: "GET, POST" };
 const reconciliationResponse = (body, status, rl) =>
   applyRateLimitHeaders(withNoStore(NextResponse.json(body, { status })), rl);
 const ORDER_SELECT_CANDIDATES = [
+  "id, total, subtotal, packaging_fee, handling_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, procurement_mode, tag_acknowledged_at, delivery_slot, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
   "id, total, subtotal, packaging_fee, handling_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_slot, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
   "id, total, subtotal, packaging_fee, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_slot, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
   "id, total, subtotal, delivery_fee, item_discount, delivery_discount, discount_total, promo_code, promo_description, status, payment_status, delivery_slot, delivery_address, delivery_house_number, delivery_street, delivery_landmark, delivery_address_label, delivery_contact_name, delivery_contact_phone, fulfillment_type, pickup_location_id, delivery_latitude, delivery_longitude, delivery_zone_id, delivery_zone_name, delivery_partner_id, partner_cost, delivery_subsidy, created_at",
@@ -139,6 +142,7 @@ export async function POST(request) {
     paymentMethod: z.string().max(64).optional().default("moniepoint_transfer"),
     preview: z.boolean().optional().default(false),
     promo_code: z.string().trim().max(64).optional(),
+    tagAcknowledged: z.boolean().optional().default(false),
     items: z
       .array(
         z.object({
@@ -229,7 +233,7 @@ export async function POST(request) {
   // 1) Fetch cart items with schema fallbacks
   const cartSelectCandidates = [
     {
-      select: "id, product_id, variant_id, quantity, unit_price_at_add, variant_name, product_name, size_preference",
+      select: "id, product_id, variant_id, quantity, unit_price_at_add, variant_name, product_name, size_preference, procurement_mode, tag_batch_id, tag_price_at_add",
       hasVariant: true,
     },
     {
@@ -299,6 +303,31 @@ export async function POST(request) {
         rl
       );
     }
+  }
+
+  const cartModes = new Set(cart.map((item) => normalizeProcurementMode(item?.procurement_mode)));
+  if (cartModes.size !== 1) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Standard and Tag Buy items require separate checkouts.", code: "PROCUREMENT_MODE_CONFLICT" }, { status: 409 }), rl);
+  }
+  const procurementMode = [...cartModes][0] || "standard";
+  const tagBatchIds = [...new Set(cart.map((item) => String(item?.tag_batch_id || "").trim()).filter(Boolean))];
+  if (procurementMode === PROCUREMENT_TAG && (!parsed.data.tagAcknowledged || tagBatchIds.length !== 1 || !idempotencyKey)) {
+    return applyRateLimitHeaders(NextResponse.json({
+      error: !parsed.data.tagAcknowledged
+        ? "Confirm the Tag Buy timing and failure policy before checkout."
+        : "This Tag Buy cart is invalid. Refresh your cart and try again.",
+      code: "TAG_ACKNOWLEDGEMENT_REQUIRED",
+    }, { status: 409 }), rl);
+  }
+  if (procurementMode !== PROCUREMENT_TAG && tagBatchIds.length) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Standard cart contains invalid Tag Buy metadata.", code: "PROCUREMENT_MODE_CONFLICT" }, { status: 409 }), rl);
+  }
+
+  const tagBatch = procurementMode === PROCUREMENT_TAG
+    ? await loadTagBatch(tagBatchIds[0], { adminClient: admin, requireOpen: true })
+    : null;
+  if (procurementMode === PROCUREMENT_TAG && !tagBatch) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "This Tag Buy has closed or reached capacity.", code: "TAG_BATCH_CLOSED" }, { status: 409 }), rl);
   }
 
   const catalog = await loadMarketCatalog(admin);
@@ -510,6 +539,14 @@ export async function POST(request) {
         return;
       }
       const availabilityMode = normalizeAvailabilityMode(variant.availability_mode);
+      if (procurementMode === PROCUREMENT_TAG && (
+        String(row?.tag_batch_id || "") !== tagBatch.id ||
+        String(variant.id) !== tagBatch.variantId ||
+        String(variant.product_id) !== tagBatch.productId
+      )) {
+        issues.push({ variantId, productId: variant.product_id, message: "Tag Buy no longer matches this product option", code: "TAG_BATCH_CHANGED" });
+        return;
+      }
       if (availabilityMode === "request") {
         issues.push({
           variantId,
@@ -562,7 +599,7 @@ export async function POST(request) {
         });
         return;
       }
-      if (String(row.inventory_tracking_mode || "tracked") === "supplier") return;
+      if (procurementMode === PROCUREMENT_TAG || String(row.inventory_tracking_mode || "tracked") === "supplier") return;
       const availableRaw = parseAvailableStock(row);
       if (availableRaw === undefined) {
         issues.push({
@@ -631,6 +668,7 @@ export async function POST(request) {
   }
 
   const resolveUnitPrice = (row) => {
+    if (procurementMode === PROCUREMENT_TAG && tagBatch) return Number(tagBatch.tagPrice);
     const variant = resolveCartVariant(row);
     const price = Number(variant?.price);
     return Number.isFinite(price) && price >= 0 ? price : 0;
@@ -898,6 +936,13 @@ export async function POST(request) {
         rl
       );
     }
+    const discountType = String(promoValidation?.promo?.discountType ?? promoValidation?.promo?.discount_type ?? "").toLowerCase();
+    if (procurementMode === PROCUREMENT_TAG && discountType !== "delivery") {
+      return applyRateLimitHeaders(NextResponse.json({
+        error: "Item promo codes cannot be combined with Tag Buy pricing.",
+        code: "TAG_PROMO_CONFLICT",
+      }, { status: 409 }), rl);
+    }
   }
 
   const finalSummary = promoValidation?.ok ? applyPromoToOrderSummary(baseSummary, promoValidation) : baseSummary;
@@ -997,6 +1042,29 @@ export async function POST(request) {
     idempotencyReservation = reservation.record;
   }
 
+  const tagReservationKey = procurementMode === PROCUREMENT_TAG ? `tag:${idempotencyFingerprint}` : null;
+  const cancelUnboundTagReservation = async () => {
+    if (!tagReservationKey || !tagBatch) return;
+    await admin.from("tag_commitments").update({
+      status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("tag_batch_id", tagBatch.id).eq("user_id", user.id).eq("reservation_key", tagReservationKey).eq("status", "reserved");
+  };
+  if (procurementMode === PROCUREMENT_TAG) {
+    const { error } = await admin.rpc("reserve_tag_capacity", {
+      p_batch_id: tagBatch.id,
+      p_user_id: user.id,
+      p_quantity: Number(cart[0].quantity),
+      p_reservation_key: tagReservationKey,
+      p_hold_minutes: 20,
+    });
+    if (error) {
+      await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
+      return applyRateLimitHeaders(NextResponse.json({ error: error.message || "Unable to reserve Tag Buy capacity.", code: "TAG_CAPACITY_UNAVAILABLE" }, { status: 409 }), rl);
+    }
+  }
+
   // 2) Create order row
   const orderRowBase = {
     user_id: user.id,
@@ -1013,6 +1081,8 @@ export async function POST(request) {
     // order visible to the customer, but do not let it enter fulfilment yet.
     payment_status: requestedPaymentMethod === "wallet" ? "pending" : "awaiting_payment",
     payment_method: requestedPaymentMethod,
+    procurement_mode: procurementMode,
+    tag_acknowledged_at: procurementMode === PROCUREMENT_TAG ? new Date().toISOString() : null,
     market_id: catalog.market.id,
     currency_code: catalog.market.currencyCode,
     delivery_address: isPickup ? pickupLocation.address : [parsed.data.deliveryHouseNumber, parsed.data.deliveryStreet].filter(Boolean).join(", "),
@@ -1056,6 +1126,7 @@ export async function POST(request) {
     break;
   }
   if (orderErr) {
+    await cancelUnboundTagReservation();
     await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
     return applyRateLimitHeaders(NextResponse.json({ error: orderErr.message }, { status: 400 }), rl);
   }
@@ -1074,15 +1145,41 @@ export async function POST(request) {
     price: resolveUnitPrice(c),
     currency_code: catalog.market.currencyCode,
     size_preference: c.size_preference || null,
+    procurement_mode: procurementMode,
+    tag_batch_id: procurementMode === PROCUREMENT_TAG ? tagBatch.id : null,
+    tag_price_snapshot: procurementMode === PROCUREMENT_TAG ? Number(tagBatch.tagPrice) : null,
+    tag_closes_at_snapshot: procurementMode === PROCUREMENT_TAG ? tagBatch.closesAt : null,
+    expected_procurement_at_snapshot: procurementMode === PROCUREMENT_TAG ? tagBatch.expectedProcurementAt : null,
   }));
   let orderItems = orderItemsWithVariant;
-  const { error: oiErr } = await admin.from("order_items").insert(orderItemsWithVariant);
+  const { data: insertedOrderItems, error: oiErr } = await admin
+    .from("order_items")
+    .insert(orderItemsWithVariant)
+    .select("id, order_id, product_id, variant_id, product_name, variant_name, unit, image_url, quantity, price, currency_code, size_preference, procurement_mode, tag_batch_id, tag_price_snapshot, tag_closes_at_snapshot, expected_procurement_at_snapshot");
   if (oiErr) {
     // Roll back the order row when items fail (e.g., stock trigger)
     try { await admin.from("orders").delete().eq("id", orderId); } catch {}
+    await cancelUnboundTagReservation();
     await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
     await logAdminError(oiErr, { route: "/api/orders", stage: "insert:order_items", order_id: orderId, user_id: user.id });
     return applyRateLimitHeaders(NextResponse.json({ error: oiErr.message }, { status: 400 }), rl);
+  }
+  orderItems = insertedOrderItems || orderItemsWithVariant;
+
+  if (procurementMode === PROCUREMENT_TAG) {
+    const { error: bindError } = await admin.rpc("bind_tag_commitment_to_order", {
+      p_batch_id: tagBatch.id,
+      p_user_id: user.id,
+      p_reservation_key: tagReservationKey,
+      p_order_id: Number(orderId),
+    });
+    if (bindError) {
+      try { await admin.from("order_items").delete().eq("order_id", orderId); } catch {}
+      try { await admin.from("orders").delete().eq("id", orderId); } catch {}
+      await cancelUnboundTagReservation();
+      await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
+      return applyRateLimitHeaders(NextResponse.json({ error: bindError.message || "Unable to attach Tag Buy reservation.", code: "TAG_RESERVATION_FAILED" }, { status: 409 }), rl);
+    }
   }
 
   if (!isPickup) {
@@ -1156,6 +1253,9 @@ export async function POST(request) {
     });
     if (walletPaymentError) {
       const insufficientWalletBalance = /insufficient/i.test(walletPaymentError.message || "");
+      if (procurementMode === PROCUREMENT_TAG) {
+        try { await admin.rpc("release_tag_commitments_for_order", { p_order_id: Number(orderId), p_reason: "wallet payment failed" }); } catch {}
+      }
       try { await admin.from("order_items").delete().eq("order_id", orderId); } catch {}
       try { await admin.from("orders").delete().eq("id", orderId); } catch {}
       await releaseOrderIdempotencyKey(admin, { recordId: idempotencyReservation?.id });
@@ -1373,6 +1473,7 @@ export async function GET(request) {
   }
 
   const orderSelects = [
+    "id, order_reference, total, status, payment_status, payment_method, payment_reference, procurement_mode, tag_acknowledged_at, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, product_name, variant_name, unit, image_url, quantity, price, size_preference, fulfillment_note, procurement_mode, tag_batch_id, tag_price_snapshot, tag_closes_at_snapshot, expected_procurement_at_snapshot)",
     "id, order_reference, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, product_name, variant_name, unit, image_url, quantity, price, size_preference, fulfillment_note)",
     "id, order_reference, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, availability_request_id, order_items:order_items(order_id, product_id, variant_id, quantity, price, size_preference, fulfillment_note)",
     "id, total, status, payment_status, payment_method, payment_reference, delivery_status, delivery_slot, delivery_address, created_at, order_items:order_items(order_id, product_id, variant_id, quantity, price)",
@@ -1480,6 +1581,8 @@ export async function GET(request) {
       paymentStatus: row.payment_status || "pending",
       paymentMethod: row.payment_method || "",
       paymentReference: row.payment_reference || "",
+      procurementMode: row.procurement_mode || "standard",
+      tagAcknowledgedAt: row.tag_acknowledged_at || null,
       deliveryStatus: row.delivery_status || "",
       deliverySlot: row.delivery_slot || "",
       deliveryAddress: row.delivery_address || "",
@@ -1500,6 +1603,11 @@ export async function GET(request) {
           lineTotal: unit * qty,
           sizePreference: it.size_preference || null,
           fulfillmentNote: it.fulfillment_note || null,
+          procurementMode: it.procurement_mode || "standard",
+          tagBatchId: it.tag_batch_id || null,
+          tagPriceSnapshot: it.tag_price_snapshot == null ? null : Number(it.tag_price_snapshot),
+          tagClosesAt: it.tag_closes_at_snapshot || null,
+          expectedProcurementAt: it.expected_procurement_at_snapshot || null,
           variantName: it.variant_name || variant?.display_label || variant?.name || variant?.size || "",
           product: {
             name: it.product_name || prod?.name || "Archived product",

@@ -44,7 +44,12 @@ test("quick-add becomes a product-detail bottom sheet with dropdown options on m
   assert.match(drawer, /<IconCircleCheck[\s\S]*?className="quick-add-availability-icon"/);
   assert.match(drawer, /quick-add-mobile-topbar__close[\s\S]*?<IconX/);
   assert.doesNotMatch(drawer, /fa-xmark|fa-basket-shopping/);
-  assert.match(drawer, /formatProductPrice\(getVariantPrice\(effectiveVariant, displayProduct\), ""\)/);
+  assert.match(drawer, /regularUnitPrice\s*=\s*getVariantPrice\(effectiveVariant, displayProduct\)/);
+  assert.match(drawer, /How would you like to buy\?/);
+  assert.match(drawer, /isTagSelection \? "Join Tag Buy" : "Add to cart"/);
+  assert.match(drawer, /role="radiogroup" aria-label="Purchase method"/);
+  assert.match(drawer, /\{isTagSelection \? \([\s\S]*?committed[\s\S]*?progressPercent/);
+  assert.doesNotMatch(drawer, /quick-add-summary__label">Price/);
   assert.doesNotMatch(drawer, /formatProductPrice\(getVariantPrice\(effectiveVariant, displayProduct\), getVariantUnit/);
 });
 

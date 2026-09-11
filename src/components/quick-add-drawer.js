@@ -20,6 +20,16 @@ import { getProductHref } from "@/lib/products";
 import { readStoredUser } from "@/lib/auth";
 import { addAuthenticatedCartItem } from "@/lib/cart-sync";
 import {
+  PROCUREMENT_STANDARD,
+  PROCUREMENT_TAG,
+  TAG_PURCHASE_ONLY,
+  buildTagCartMetadata,
+  formatTagDeadline,
+  getCartProcurementConflict,
+  getTagBatchForVariant,
+  normalizeTagPurchaseMode,
+} from "@/lib/tag-buy";
+import {
   SELECTION_MODE_FLEXIBLE,
   normalizeAvailabilityMode,
   normalizeSelectionMode,
@@ -211,11 +221,13 @@ const buildFallbackVariantFromProduct = (product) => {
   };
 };
 
-const buildCartItem = (product, variant, orderCount, fallbackImage, sizePreference) => {
+const buildCartItem = (product, variant, orderCount, fallbackImage, sizePreference, procurementChoice = PROCUREMENT_STANDARD) => {
   const variantId = getVariantId(variant, product);
   const lineId = variantId || product?.id || "";
   const unit = getVariantUnit(variant, product) || "Per pack";
-  const price = getVariantPrice(variant, product);
+  const tagBatch = getTagBatchForVariant(product, variant);
+  const useTagBuy = procurementChoice === PROCUREMENT_TAG && Boolean(tagBatch?.id);
+  const price = useTagBuy ? Number(tagBatch.tagPrice || 0) : getVariantPrice(variant, product);
   const variantName = buildVariantName(variant);
   const stock = variant?.stock ?? product?.stock ?? "In Stock";
   const purchaseRules = getVariantPurchaseRules(variant);
@@ -286,6 +298,8 @@ const buildCartItem = (product, variant, orderCount, fallbackImage, sizePreferen
     quantity,
     stock,
     image: getVariantImage(variant, product, fallbackImage),
+    ...buildTagCartMetadata(useTagBuy ? tagBatch : null),
+    tagBatch: useTagBuy ? tagBatch : null,
   };
 };
 
@@ -301,6 +315,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   const [variations, setVariations] = useState([]);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [purchaseMode, setPurchaseMode] = useState(PURCHASE_MODE_FIXED);
+  const [procurementChoice, setProcurementChoice] = useState(PROCUREMENT_STANDARD);
   const [quantity, setQuantity] = useState(1);
   const [sizePreference, setSizePreference] = useState("best_available");
   const [error, setError] = useState("");
@@ -340,6 +355,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setVariations([]);
       setSelectedVariant(null);
       setPurchaseMode(PURCHASE_MODE_FIXED);
+      setProcurementChoice(PROCUREMENT_STANDARD);
       setQuantity(1);
       setSizePreference("best_available");
       return;
@@ -447,12 +463,21 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   );
   const activeVariations = purchaseMode === PURCHASE_MODE_LOOSE ? looseVariations : fixedVariations;
   const effectiveVariant = selectedVariant || pickDefaultVariant(activeVariations, displayProduct);
+  const activeTagBatch = getTagBatchForVariant(displayProduct, effectiveVariant);
+  const activeTagBatchId = activeTagBatch?.id || "";
+  const tagPurchaseMode = normalizeTagPurchaseMode(activeTagBatch?.purchaseMode ?? activeTagBatch?.purchase_mode);
+  const isTagSelection = procurementChoice === PROCUREMENT_TAG && Boolean(activeTagBatch?.id);
   const purchaseRules = useMemo(() => getVariantPurchaseRules(effectiveVariant), [effectiveVariant]);
   const selectionModel = normalizeSelectionMode(displayProduct?.selectionModel ?? displayProduct?.selection_model);
   const isFlexibleMarket = selectionModel === SELECTION_MODE_FLEXIBLE;
   const availabilityMode = getAvailabilityMode(effectiveVariant, displayProduct);
   const inventoryTrackingMode = getInventoryTrackingMode(effectiveVariant, displayProduct);
-  const bypassLocalStock = availabilityMode === "request" || inventoryTrackingMode === "supplier";
+  const bypassLocalStock = isTagSelection || availabilityMode === "request" || inventoryTrackingMode === "supplier";
+
+  useEffect(() => {
+    setProcurementChoice(activeTagBatchId && tagPurchaseMode === TAG_PURCHASE_ONLY ? PROCUREMENT_TAG : PROCUREMENT_STANDARD);
+    setError("");
+  }, [activeTagBatchId, tagPurchaseMode]);
 
   useEffect(() => {
     const pool = activeVariations.length ? activeVariations : variations;
@@ -465,17 +490,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
     }
   }, [activeVariations, displayProduct, selectedVariant?.id, selectedVariant?.variationId, variations]);
 
-  const priceLabel = useMemo(() => {
-    if (!displayProduct) return "";
-    if (availabilityMode === "unavailable") return "Price unavailable";
-    return formatProductPrice(getVariantPrice(effectiveVariant, displayProduct), "");
-  }, [availabilityMode, displayProduct, effectiveVariant]);
   const categoryLabel = useMemo(() => {
     const category = displayProduct?.category || displayProduct?.categorySlug || "";
     return CATEGORY_LABELS.get(category) || category || "Produce";
   }, [displayProduct]);
 
-  const isUnavailable = isVariantInactive(effectiveVariant, displayProduct);
+  const isUnavailable = availabilityMode === "unavailable" || (!isTagSelection && isVariantInactive(effectiveVariant, displayProduct));
   const productImage = getVariantImage(effectiveVariant, displayProduct, product?.image);
   const productHref = displayProduct ? getProductHref(displayProduct) : "#";
   const productDescription = pickTextOrNull(
@@ -490,9 +510,11 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         ? "Out of stock"
         : "Available";
   const availableCount = getAvailableCount(getStockValue(effectiveVariant, displayProduct));
-  const effectiveMaxQuantity = !bypassLocalStock && Number.isFinite(availableCount)
-    ? Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount)
-    : purchaseRules.maxQuantity;
+  const effectiveMaxQuantity = isTagSelection
+    ? Math.min(purchaseRules.maxQuantity ?? activeTagBatch.remainingQuantity, activeTagBatch.remainingQuantity)
+    : !bypassLocalStock && Number.isFinite(availableCount)
+      ? Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount)
+      : purchaseRules.maxQuantity;
   const quantityAtMin = quantity <= purchaseRules.minQuantity;
   const quantityAtMax = effectiveMaxQuantity != null && quantity >= effectiveMaxQuantity;
 
@@ -521,8 +543,10 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       }
       const targetAvailabilityMode = getAvailabilityMode(targetVariant, baseProduct);
       const targetInventoryMode = getInventoryTrackingMode(targetVariant, baseProduct);
-      const targetBypassLocalStock = targetAvailabilityMode === "request" || targetInventoryMode === "supplier";
-      if (targetAvailabilityMode === "unavailable") {
+      const targetTagBatch = getTagBatchForVariant(baseProduct, targetVariant);
+      const targetUsesTag = procurementChoice === PROCUREMENT_TAG && Boolean(targetTagBatch?.id);
+      const targetBypassLocalStock = targetUsesTag || targetAvailabilityMode === "request" || targetInventoryMode === "supplier";
+      if (targetAvailabilityMode === "unavailable" && !targetUsesTag) {
         const message = "This option is out of stock.";
         if (isDropdown) {
           setError(message);
@@ -549,6 +573,10 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         return;
       }
       const safeQty = validation.quantity;
+      if (targetUsesTag && safeQty > Number(targetTagBatch.remainingQuantity || 0)) {
+        setError(`Only ${Number(targetTagBatch.remainingQuantity || 0)} remains in this Tag Buy.`);
+        return;
+      }
       const availableCount = getAvailableCount(getStockValue(targetVariant, baseProduct));
       const cartSizePreference =
         normalizeSelectionMode(baseProduct?.selectionModel ?? baseProduct?.selection_model) === SELECTION_MODE_FLEXIBLE
@@ -570,10 +598,24 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           );
         });
 
+        const incomingItem = buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference, procurementChoice);
+        const procurementConflict = getCartProcurementConflict(items, incomingItem);
+        if (procurementConflict) {
+          setError(procurementConflict);
+          showNotice({ tone: "info", title: "Separate checkout required", message: procurementConflict });
+          setStatus("ready");
+          return;
+        }
+
         if (index >= 0) {
           const existing = items[index];
           const existingCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, targetVariant, 0);
           const nextCount = existingCount + safeQty;
+          if (targetUsesTag && nextCount > Number(targetTagBatch.remainingQuantity || 0)) {
+            setError(`Only ${Number(targetTagBatch.remainingQuantity || 0)} remains in this Tag Buy.`);
+            setStatus("ready");
+            return;
+          }
           const nextValidation = validateVariantQuantity(targetVariant, nextCount);
           if (!nextValidation.ok) {
             setError(nextValidation.error);
@@ -592,7 +634,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           }
           items[index] = {
             ...existing,
-            ...buildCartItem(baseProduct, targetVariant, nextCount, product?.image, cartSizePreference),
+            ...buildCartItem(baseProduct, targetVariant, nextCount, product?.image, cartSizePreference, procurementChoice),
           };
         } else {
           if (!targetBypassLocalStock && Number.isFinite(availableCount) && safeQty > availableCount) {
@@ -605,12 +647,12 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             setStatus("ready");
             return;
           }
-          items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference));
+          items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference, procurementChoice));
         }
 
         if (readStoredUser()) {
           await addAuthenticatedCartItem(
-            buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference),
+            buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference, procurementChoice),
             { source: "quick-add" }
           );
         } else {
@@ -626,10 +668,15 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         showNotice({ tone: "error", title: "Cart not updated", message });
       }
     },
-    [displayProduct, effectiveVariant, isDropdown, onClose, product?.image, quantity, showNotice, sizePreference]
+    [displayProduct, effectiveVariant, isDropdown, onClose, procurementChoice, product?.image, quantity, showNotice, sizePreference]
   );
 
   if (!isOpen) return null;
+
+  const regularUnitPrice = getVariantPrice(effectiveVariant, displayProduct);
+  const selectedUnitPrice = isTagSelection ? Number(activeTagBatch?.tagPrice || 0) : regularUnitPrice;
+  const tagSaving = activeTagBatch ? Math.max(0, regularUnitPrice - Number(activeTagBatch.tagPrice || 0)) : 0;
+  const selectedLineTotal = selectedUnitPrice * quantity;
 
   const panelClassName = [
     "quick-add-panel",
@@ -815,11 +862,71 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
 
           {availabilityMode === "request" ? <AvailabilityRequestNotice compact /> : null}
 
+          {activeTagBatch ? (
+            <fieldset className="quick-add-purchase-method mt-4 border-0 p-0">
+              <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-meal-muted">
+                How would you like to buy?
+              </legend>
+              <div className="grid gap-2" role="radiogroup" aria-label="Purchase method">
+                {tagPurchaseMode !== TAG_PURCHASE_ONLY ? (
+                  <button
+                    type="button"
+                    onClick={() => setProcurementChoice(PROCUREMENT_STANDARD)}
+                    role="radio"
+                    aria-checked={!isTagSelection}
+                    className={`flex min-h-[64px] items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${!isTagSelection ? "border-meal-pepper bg-orange-50/70" : "border-meal-line bg-meal-paper hover:border-meal-pepper/50"}`}
+                  >
+                    <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${!isTagSelection ? "border-meal-pepper" : "border-slate-400"}`} aria-hidden="true">
+                      {!isTagSelection ? <span className="h-2 w-2 rounded-full bg-meal-pepper" /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong className="block text-sm font-semibold text-meal-text">Buy now</strong>
+                      <span className="mt-0.5 block text-xs text-meal-muted">Regular purchase</span>
+                    </span>
+                    <strong className="shrink-0 text-sm font-semibold text-meal-text">{formatProductPrice(regularUnitPrice, "")}</strong>
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setProcurementChoice(PROCUREMENT_TAG)}
+                  role="radio"
+                  aria-checked={isTagSelection}
+                  className={`flex min-h-[64px] items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${isTagSelection ? "border-meal-pepper bg-orange-50/70" : "border-meal-line bg-meal-paper hover:border-meal-pepper/50"}`}
+                >
+                  <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${isTagSelection ? "border-meal-pepper" : "border-slate-400"}`} aria-hidden="true">
+                    {isTagSelection ? <span className="h-2 w-2 rounded-full bg-meal-pepper" /> : null}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block text-sm font-semibold text-meal-text">Tag Buy</strong>
+                    {tagSaving > 0 ? (
+                      <span className="mt-1 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-meal-pepper">
+                        Save {formatProductPrice(tagSaving, "")}
+                      </span>
+                    ) : null}
+                  </span>
+                  <strong className="shrink-0 text-sm font-semibold text-meal-text">{formatProductPrice(activeTagBatch.tagPrice, "")}</strong>
+                </button>
+              </div>
+              {isTagSelection ? (
+                <div className="mt-3 px-1" aria-live="polite">
+                  <div className="flex items-center justify-between gap-3 text-xs font-medium text-meal-text">
+                    <span>{Number(activeTagBatch.committedQuantity || 0)} / {Number(activeTagBatch.targetQuantity || 0)} committed</span>
+                    <span>{Math.max(0, Math.min(100, Number(activeTagBatch.progressPercent || 0)))}%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200" aria-label={`${Number(activeTagBatch.progressPercent || 0)}% funded`}>
+                    <div className="h-full rounded-full bg-meal-pepper" style={{ width: `${Math.max(0, Math.min(100, Number(activeTagBatch.progressPercent || 0)))}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-meal-text">Closes {formatTagDeadline(activeTagBatch.closesAt).replace(",", " ·")}</p>
+                  <p className="mt-1 text-xs leading-5 text-meal-muted">
+                    Buy together and save. Fulfilled after the Tag closes. If the minimum is missed, the {activeTagBatch.failurePolicy === "carry_forward" ? "carry-forward" : "refund"} policy applies.
+                  </p>
+                </div>
+              ) : null}
+            </fieldset>
+          ) : null}
+
           <div className="quick-add-summary">
-            <div>
-              <p className="quick-add-summary__label">Price</p>
-              <p className="quick-add-summary__value">{priceLabel}</p>
-            </div>
+            <p className="quick-add-summary__label">Quantity</p>
             <div className="quick-add-qty">
               <button
                 type="button"
@@ -890,7 +997,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             ) : (
               <>
                 <IconShoppingBag size={20} stroke={1.8} aria-hidden="true" />
-                Add to cart
+                {isTagSelection ? "Join Tag Buy" : "Add to cart"} — {formatProductPrice(selectedLineTotal, "")}
               </>
             )}
           </button>

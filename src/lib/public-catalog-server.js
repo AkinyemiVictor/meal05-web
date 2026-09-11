@@ -6,6 +6,7 @@ import { pickFirstNumber } from "@/lib/number";
 import { resolveProductImage } from "@/lib/product-image";
 import { normalizeProductMerchandisingRecord } from "@/lib/product-merchandising";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
+import { applyFixedMeatOptionsPreviewPayload } from "@/lib/fixed-meat-options-preview-server";
 import { selectProductCardVariant } from "@/lib/product-card-pricing";
 import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/market-catalog-server";
@@ -913,7 +914,7 @@ export async function loadPublicSearchResults({
 }
 
 export function publicCatalogJson(payload, init = {}) {
-  return NextResponse.json(payload, {
+  return NextResponse.json(applyFixedMeatOptionsPreviewPayload(payload), {
     status: init.status || 200,
     headers: {
       ...PUBLIC_CATALOG_CACHE_HEADERS,

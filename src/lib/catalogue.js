@@ -163,6 +163,13 @@ export const normaliseProductCatalogue = (catalogue) => {
         base_unit: variant.base_unit ?? variant.baseUnit ?? item.base_unit ?? item.baseUnit,
         baseQuantity: variant.baseQuantity ?? variant.base_quantity ?? item.baseQuantity ?? item.base_quantity,
         base_quantity: variant.base_quantity ?? variant.baseQuantity ?? item.base_quantity ?? item.baseQuantity,
+        tagBatch: variant.tagBatch ?? variant.tag_batch ?? item.tagBatch ?? item.tag_batch ?? null,
+        procurementMode:
+          variant.procurementMode ??
+          variant.procurement_mode ??
+          item.procurementMode ??
+          item.procurement_mode ??
+          ((variant.tagBatch ?? variant.tag_batch ?? item.tagBatch ?? item.tag_batch) ? "tag" : "standard"),
         promoTagEnabled: normalizePromoEnabled(
           item.promoTagEnabled ?? item.promo_tag_enabled ?? item.promoEnabled ?? item.promo_enabled
         ),

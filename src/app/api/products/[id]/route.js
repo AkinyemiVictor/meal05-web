@@ -11,6 +11,8 @@ import { applyMarketListing, loadMarketCatalog, publicMarket } from "@/lib/marke
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { sortVariantsBySize } from "@/lib/variant-order";
 import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
+import { attachTagBatchesToProduct, loadTagBatches } from "@/lib/tag-buy-server";
+import { applyFixedMeatOptionsPreview } from "@/lib/fixed-meat-options-preview-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -487,7 +489,7 @@ export async function GET(_request, { params }) {
   const purchaseRules = getVariantPurchaseRules(defaultVariation || marketData);
   const defaultMeasurementSource = defaultVariation || marketData;
 
-  const [product] = await enrichCatalogSeasonMetadata(admin, [
+  const [baseProduct] = await enrichCatalogSeasonMetadata(admin, [
       {
         ...marketData,
         ...(categoryMeta || {}),
@@ -555,11 +557,18 @@ export async function GET(_request, { params }) {
       },
   ]);
 
+  const tagBatches = await loadTagBatches({ adminClient: admin, marketId: catalog.market.id, productIds: [String(id)], statuses: ["open"] });
+  const productWithVariations = applyFixedMeatOptionsPreview(
+    attachTagBatchesToProduct({ ...baseProduct, variations }, tagBatches)
+  );
+  const product = { ...productWithVariations };
+  delete product.variations;
+
   return NextResponse.json(
     {
       product,
-      variations,
-      defaultVariantId,
+      variations: productWithVariations.variations,
+      defaultVariantId: productWithVariations.variantId || defaultVariantId,
       market: publicMarket(catalog.market),
     },
     {

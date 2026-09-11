@@ -294,6 +294,8 @@ const mapApiOrder = (order) => ({
   paymentMethod: order?.paymentMethod || "",
   paymentReference: order?.paymentReference || "",
   availabilityRequestId: order?.availabilityRequestId || null,
+  procurementMode: order?.procurementMode || "standard",
+  tagAcknowledgedAt: order?.tagAcknowledgedAt || null,
   latestPayment: order?.latestPayment || null,
   deliveryStatus: order?.deliveryStatus || "",
   deliveryAddress: order?.deliveryAddress || "",
@@ -343,6 +345,8 @@ function OrderItemsList({ items }) {
                     <strong>{name}</strong>
                     {option ? <span>Option: {option}</span> : null}
                     {preference ? <span>Size preference: {preference}</span> : null}
+                    {item?.procurementMode === "tag" ? <span>Tag Buy · sourcing begins after {item?.tagClosesAt ? new Date(item.tagClosesAt).toLocaleString() : "the group closes"}</span> : null}
+                    {item?.procurementMode === "tag" && item?.expectedProcurementAt ? <span>Expected procurement: {new Date(item.expectedProcurementAt).toLocaleString()}</span> : null}
                     {item?.fulfillmentNote ? <span>Note: {item.fulfillmentNote}</span> : null}
                   </div>
                 </div>

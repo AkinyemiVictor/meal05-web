@@ -9,6 +9,8 @@ test("catalogue normalization keeps the canonical variant identity and quantity 
   assert.match(source, /variantId:\s*[\s\S]*?variant\.variantId[\s\S]*?variant\.variationId/);
   assert.match(source, /maxQuantity:\s*variant\.maxQuantity\s*\?\?/);
   assert.match(source, /stepQuantity:\s*variant\.stepQuantity\s*\?\?/);
+  assert.match(source, /tagBatch:\s*variant\.tagBatch\s*\?\?/);
+  assert.match(source, /procurementMode:[\s\S]*?"tag"\s*:\s*"standard"/);
   assert.match(source, /variations:\s*Array\.isArray\(item\.variations\)\s*\?\s*item\.variations\s*:\s*\[\]/);
   assert.match(source, /optionsLoaded:\s*item\.optionsLoaded\s*===\s*true/);
 });

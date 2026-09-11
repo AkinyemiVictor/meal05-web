@@ -46,6 +46,7 @@ export const buildCheckoutOrderRequest = ({
   deliveryLongitude,
   paymentMethod,
   promoCode,
+  tagAcknowledged = false,
   preview = false,
 }) => {
   const safeForm = form && typeof form === "object" ? form : {};
@@ -64,6 +65,7 @@ export const buildCheckoutOrderRequest = ({
     note: trimmedText(safeForm.notes ?? safeForm.note),
     paymentMethod: trimmedText(paymentMethod ?? safeForm.paymentMethod),
     items: buildCheckoutOrderItems(items),
+    tagAcknowledged: tagAcknowledged === true,
   };
 
   if (preview) payload.preview = true;

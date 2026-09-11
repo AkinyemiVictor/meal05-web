@@ -9,6 +9,8 @@ import { getAvailableCount } from "@/lib/stock";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 import { normalizeAvailabilityMode, normalizeSelectionMode, normalizeSizePreference, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
+import { PROCUREMENT_TAG } from "@/lib/tag-buy";
+import { loadTagBatch } from "@/lib/tag-buy-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +61,7 @@ export async function PATCH(req, { params }) {
   const routeClient = getSupabaseRouteClient(await cookies());
   const { data: cartItem, error: cartError } = await routeClient
     .from("cart_items")
-    .select("id, variant_id")
+    .select("id, variant_id, procurement_mode, tag_batch_id")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -116,11 +118,23 @@ export async function PATCH(req, { params }) {
       rl
     );
   }
-  const bypassLocalStock = normalizeAvailabilityMode(variant.availability_mode) === "request" || variant.inventory_tracking_mode === "supplier";
+  const tagBatch = cartItem.procurement_mode === PROCUREMENT_TAG
+    ? await loadTagBatch(cartItem.tag_batch_id, { adminClient: admin, requireOpen: true })
+    : null;
+  if (cartItem.procurement_mode === PROCUREMENT_TAG && !tagBatch) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "This Tag Buy is closed. Remove it from your cart." }, { status: 409 }), rl);
+  }
+  const bypassLocalStock = Boolean(tagBatch) || normalizeAvailabilityMode(variant.availability_mode) === "request" || variant.inventory_tracking_mode === "supplier";
   const available = bypassLocalStock ? Number.POSITIVE_INFINITY : getAvailableCount(variant.stock_count);
   if (quantityNum != null && Number.isFinite(available) && quantityNum > available) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: `Only ${available} item${available === 1 ? "" : "s"} available`, available, requested: quantityNum }, { status: 409 }),
+      rl
+    );
+  }
+  if (quantityNum != null && tagBatch && quantityNum > tagBatch.remainingQuantity) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: `Only ${formatQuantity(tagBatch.remainingQuantity)} remains in this Tag Buy.`, available: tagBatch.remainingQuantity }, { status: 409 }),
       rl
     );
   }

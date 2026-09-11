@@ -1,4 +1,6 @@
 import { unstable_cache } from "next/cache";
+import { attachTagBatchesToProduct, loadTagBatches } from "@/lib/tag-buy-server";
+import { applyFixedMeatOptionsPreview } from "@/lib/fixed-meat-options-preview-server";
 
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { pickFirstNumber } from "@/lib/number";
@@ -642,7 +644,21 @@ const fetchProductByIdCached = unstable_cache(
   }
 );
 
-export const fetchProductById = async (id) => fetchProductByIdCached(id);
+export const fetchProductById = async (id) => {
+  const result = await fetchProductByIdCached(id);
+  if (!result?.product) return result;
+  const batches = await loadTagBatches({ productIds: [String(id)], statuses: ["open"] });
+  const productWithVariations = applyFixedMeatOptionsPreview(attachTagBatchesToProduct({
+    ...result.product,
+    variations: Array.isArray(result.raw?.variations) ? result.raw.variations : [],
+  }, batches));
+  return {
+    ...result,
+    product: { ...productWithVariations, variations: undefined },
+    raw: { ...result.raw, variations: productWithVariations.variations },
+    defaultVariantId: productWithVariations.variantId || result.defaultVariantId,
+  };
+};
 
 export const fetchProductBySlug = async (slug) => {
   const id = extractIdFromSlug(slug);

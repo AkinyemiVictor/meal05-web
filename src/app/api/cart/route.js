@@ -13,6 +13,8 @@ import {
   normalizeSizePreference,
   SELECTION_MODE_FLEXIBLE,
 } from "@/lib/commerce-options";
+import { getCartProcurementConflict, PROCUREMENT_TAG } from "@/lib/tag-buy";
+import { loadTagBatch } from "@/lib/tag-buy-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +45,7 @@ const loadVariantStock = async (client, variantId, marketId) => {
 const loadCanonicalCart = async (admin, userId, catalog) => {
   const { data: rows, error: cartError } = await admin
     .from("cart_items")
-    .select("id, quantity, product_id, variant_id, unit_price_at_add, variant_name, product_name, size_preference")
+    .select("id, quantity, product_id, variant_id, unit_price_at_add, variant_name, product_name, size_preference, procurement_mode, tag_batch_id, tag_price_at_add")
     .eq("user_id", userId)
     .order("id", { ascending: true });
   if (cartError) throw cartError;
@@ -83,6 +85,9 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
   const eligibleProductIds = new Set(
     (eligibilityResult.data || []).map((row) => String(row.product_id))
   );
+  const tagBatchIds = [...new Set(cartRows.map((row) => row.tag_batch_id).filter(Boolean))];
+  const tagBatchEntries = await Promise.all(tagBatchIds.map(async (id) => [String(id), await loadTagBatch(id, { adminClient: admin })]));
+  const tagBatchIndex = new Map(tagBatchEntries);
 
   return cartRows.flatMap((row) => {
     const variant = variantIndex.get(String(row.variant_id));
@@ -94,6 +99,9 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
     const listing = catalog.listings.get(String(variant.product_id));
     const product = productIndex.get(String(variant.product_id));
     const catalogImage = catalogImageIndex.get(String(variant.product_id));
+    const tagBatch = row.procurement_mode === PROCUREMENT_TAG
+      ? tagBatchIndex.get(String(row.tag_batch_id || "")) || null
+      : null;
     return [{
       ...row,
       product_id: variant.product_id,
@@ -106,7 +114,7 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
         catalogImage?.main_image_url ||
         product?.main_image_url ||
         "",
-      unit_price_at_add: Number(variant.price),
+      unit_price_at_add: tagBatch ? Number(tagBatch.tagPrice) : Number(variant.price),
       currency_code: catalog.market.currencyCode,
       unit: variant.unit,
       stock_count: variant.stock_count,
@@ -128,6 +136,10 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
       selection_model: product?.selection_model || "exact_variant",
       variation_note: product?.variation_note || null,
       size_preference: normalizeSizePreference(row.size_preference, product?.selection_model),
+      procurement_mode: tagBatch ? PROCUREMENT_TAG : "standard",
+      tag_batch_id: tagBatch?.id || null,
+      tag_price_at_add: tagBatch ? Number(tagBatch.tagPrice) : null,
+      tag_batch: tagBatch,
     }];
   });
 };
@@ -171,6 +183,8 @@ export async function POST(req) {
     quantity: z.number().finite().positive().max(9999).refine((value) => decimalPlaces(value) <= 3, "Quantity may use no more than three decimal places").optional().default(1),
     operation: z.enum(["increment", "set"]).optional().default("increment"),
     size_preference: z.enum(["best_available", "smaller", "medium", "larger"]).nullable().optional(),
+    procurement_mode: z.enum(["standard", "tag"]).optional().default("standard"),
+    tag_batch_id: z.string().uuid().nullable().optional(),
   });
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
@@ -178,6 +192,10 @@ export async function POST(req) {
   }
   const { product_id, variant_id, product_name } = parsed.data;
   const quantity = roundQuantity(parsed.data.quantity);
+  const procurementMode = parsed.data.procurement_mode;
+  if (procurementMode === PROCUREMENT_TAG && !parsed.data.tag_batch_id) {
+    return Response.json({ error: "Choose an active Tag Buy." }, { status: 400 });
+  }
 
   const variantKey = String(variant_id);
   const stockResult = await loadVariantStock(admin, variantKey, catalog.market.id);
@@ -209,6 +227,25 @@ export async function POST(req) {
   if (stockSource.is_active === false) {
     return new Response(JSON.stringify({ error: "This option is out of stock", available: 0 }), { status: 409 });
   }
+
+  let tagBatch = null;
+  if (procurementMode === PROCUREMENT_TAG) {
+    tagBatch = await loadTagBatch(parsed.data.tag_batch_id, { adminClient: admin, requireOpen: true });
+    if (!tagBatch || tagBatch.variantId !== variantKey || tagBatch.productId !== String(stockSource.product_id)) {
+      return Response.json({ error: "This Tag Buy is no longer available." }, { status: 409 });
+    }
+  }
+
+  const { data: existingCartRows, error: existingCartError } = await authClient
+    .from("cart_items")
+    .select("variant_id, procurement_mode, tag_batch_id")
+    .eq("user_id", user.id);
+  if (existingCartError) return Response.json({ error: existingCartError.message }, { status: 400 });
+  const conflict = getCartProcurementConflict(existingCartRows || [], {
+    procurement_mode: procurementMode,
+    tag_batch_id: tagBatch?.id || null,
+  });
+  if (conflict) return Response.json({ error: conflict, code: "PROCUREMENT_MODE_CONFLICT" }, { status: 409 });
 
   const { data: productSettings, error: productSettingsError } = await admin
     .from("products")
@@ -255,7 +292,7 @@ export async function POST(req) {
       { status: 400 }
     );
   }
-  const bypassLocalStock = availabilityMode === "request" || stockSource.inventory_tracking_mode === "supplier";
+  const bypassLocalStock = procurementMode === PROCUREMENT_TAG || availabilityMode === "request" || stockSource.inventory_tracking_mode === "supplier";
   const availableCount = bypassLocalStock ? Number.POSITIVE_INFINITY : getAvailableCount(resolveStockValueFromRow(stockSource));
   if (!bypassLocalStock && availableCount === 0) {
     return new Response(JSON.stringify({ error: "This option is out of stock", available: 0 }), { status: 409 });
@@ -270,14 +307,20 @@ export async function POST(req) {
       { status: 409 }
     );
   }
+  if (tagBatch && nextQuantity > tagBatch.remainingQuantity) {
+    return Response.json({ error: `Only ${formatQuantity(tagBatch.remainingQuantity)} remains in this Tag Buy.`, available: tagBatch.remainingQuantity }, { status: 409 });
+  }
 
   const payload = {
     product_id: stockSource.product_id,
     variant_id: variantKey,
     variant_name: stockSource.name,
     product_name: catalog.listings.get(String(stockSource.product_id))?.local_name || product_name || stockSource.name,
-    unit_price_at_add: Number(stockSource.price),
+    unit_price_at_add: tagBatch ? Number(tagBatch.tagPrice) : Number(stockSource.price),
     size_preference: selectionModel === SELECTION_MODE_FLEXIBLE ? (sizePreference || "best_available") : null,
+    procurement_mode: tagBatch ? PROCUREMENT_TAG : "standard",
+    tag_batch_id: tagBatch?.id || null,
+    tag_price_at_add: tagBatch ? Number(tagBatch.tagPrice) : null,
   };
 
   const { error } = await authClient

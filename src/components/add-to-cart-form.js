@@ -1,13 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { resolveStockClass } from "@/lib/catalogue";
+import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { resolveProductImage } from "@/lib/product-image";
 import { getAvailableCount } from "@/lib/stock";
 import { useNotice } from "@/components/notice-provider";
 import { readStoredUser } from "@/lib/auth";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { addAuthenticatedCartItem } from "@/lib/cart-sync";
+import {
+  PROCUREMENT_STANDARD,
+  PROCUREMENT_TAG,
+  TAG_PURCHASE_ONLY,
+  buildTagCartMetadata,
+  formatTagDeadline,
+  getCartProcurementConflict,
+  getTagBatchForVariant,
+  normalizeTagPurchaseMode,
+} from "@/lib/tag-buy";
 import {
   PURCHASE_MODE_LOOSE,
   clampQuantityToRules,
@@ -33,10 +43,12 @@ const normaliseOrderCount = (value, product) => {
   return clampQuantityToRules(product, value);
 };
 
-const buildCartItem = (product, quantity, fallbackImage) => {
+const buildCartItem = (product, quantity, fallbackImage, procurementChoice = PROCUREMENT_STANDARD) => {
   const count = normaliseOrderCount(quantity, product);
   const variantId = product.variantId ?? product.id;
   const purchaseRules = getVariantPurchaseRules(product);
+  const tagBatch = getTagBatchForVariant(product, product);
+  const useTagBuy = procurementChoice === PROCUREMENT_TAG && Boolean(tagBatch?.id);
   return {
     id: variantId,
     productId: product.id,
@@ -47,7 +59,7 @@ const buildCartItem = (product, quantity, fallbackImage) => {
     categorySlug: product.categorySlug || "",
     packaging: product.packaging || "",
     unit: product.unit || "unit",
-    price: Number(product.price || 0),
+    price: useTagBuy ? Number(tagBatch.tagPrice || 0) : Number(product.price || 0),
     purchaseMode: purchaseRules.purchaseMode,
     purchase_mode: purchaseRules.purchaseMode,
     minQuantity: purchaseRules.minQuantity,
@@ -88,6 +100,8 @@ const buildCartItem = (product, quantity, fallbackImage) => {
     quantity: count,
     stock: product.stock,
     image: resolveProductImage(product.image, product.mainImageUrl || fallbackImage),
+    ...buildTagCartMetadata(useTagBuy ? tagBatch : null),
+    tagBatch: useTagBuy ? tagBatch : null,
   };
 };
 
@@ -109,19 +123,27 @@ export default function AddToCartForm({ product, fallbackImage }) {
   const purchaseRules = useMemo(() => getVariantPurchaseRules(product), [product]);
   const isLoose = purchaseRules.purchaseMode === PURCHASE_MODE_LOOSE;
   const [quantityInput, setQuantityInput] = useState(() => String(purchaseRules.minQuantity));
+  const [procurementChoice, setProcurementChoice] = useState(PROCUREMENT_STANDARD);
   const [feedback, setFeedback] = useState({ tone: "idle", message: "" });
   const unitLabel = useMemo(() => formatUnitLabel(product.unit), [product.unit]);
   const { showNotice } = useNotice();
+  const activeTagBatch = getTagBatchForVariant(product, product);
+  const activeTagBatchId = activeTagBatch?.id || "";
+  const tagPurchaseMode = normalizeTagPurchaseMode(activeTagBatch?.purchaseMode ?? activeTagBatch?.purchase_mode);
+  const isTagSelection = procurementChoice === PROCUREMENT_TAG && Boolean(activeTagBatch?.id);
 
   const availableCount = useMemo(() => getAvailableCount(product?.stock), [product?.stock]);
   const availabilityMode = String(product?.availabilityMode ?? product?.availability_mode ?? "standard");
-  const bypassLocalStock = availabilityMode === "request" || String(product?.inventoryTrackingMode ?? product?.inventory_tracking_mode) === "supplier";
+  const bypassLocalStock = isTagSelection || availabilityMode === "request" || String(product?.inventoryTrackingMode ?? product?.inventory_tracking_mode) === "supplier";
   const effectiveMaxQuantity = useMemo(() => {
+    if (isTagSelection) {
+      return Math.min(purchaseRules.maxQuantity ?? activeTagBatch.remainingQuantity, activeTagBatch.remainingQuantity);
+    }
     if (!bypassLocalStock && Number.isFinite(availableCount)) {
       return Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount);
     }
     return purchaseRules.maxQuantity;
-  }, [availableCount, bypassLocalStock, purchaseRules.maxQuantity]);
+  }, [activeTagBatch?.remainingQuantity, availableCount, bypassLocalStock, isTagSelection, purchaseRules.maxQuantity]);
   const quantityValidation = useMemo(
     () => validateVariantQuantity(product, quantityInput),
     [product, quantityInput]
@@ -129,11 +151,11 @@ export default function AddToCartForm({ product, fallbackImage }) {
   const safeQuantity = quantityValidation.ok ? quantityValidation.quantity : purchaseRules.minQuantity;
 
   const isUnavailable = useMemo(() => {
-    if (availabilityMode === "unavailable") return true;
+    if (availabilityMode === "unavailable" && !isTagSelection) return true;
     if (bypassLocalStock) return false;
     const stockClass = resolveStockClass(product?.stock);
     return stockClass === "is-unavailable" || availableCount === 0;
-  }, [product?.stock, availableCount, availabilityMode, bypassLocalStock]);
+  }, [product?.stock, availableCount, availabilityMode, bypassLocalStock, isTagSelection]);
 
   useEffect(() => {
     updateRecentlyViewed(product.id);
@@ -143,6 +165,11 @@ export default function AddToCartForm({ product, fallbackImage }) {
     setQuantityInput(String(purchaseRules.minQuantity));
     setFeedback({ tone: "idle", message: "" });
   }, [product.variantId, purchaseRules.minQuantity]);
+
+  useEffect(() => {
+    setProcurementChoice(activeTagBatchId && tagPurchaseMode === TAG_PURCHASE_ONLY ? PROCUREMENT_TAG : PROCUREMENT_STANDARD);
+    setFeedback({ tone: "idle", message: "" });
+  }, [activeTagBatchId, tagPurchaseMode]);
 
   const resetFeedback = () => setFeedback({ tone: "idle", message: "" });
 
@@ -170,8 +197,8 @@ export default function AddToCartForm({ product, fallbackImage }) {
 
   const handleIncrement = () => {
     const next = safeQuantity + purchaseRules.stepQuantity;
-    if (Number.isFinite(availableCount)) {
-      setNextQuantity(Math.min(next, availableCount || purchaseRules.minQuantity));
+    if (effectiveMaxQuantity != null) {
+      setNextQuantity(Math.min(next, effectiveMaxQuantity || purchaseRules.minQuantity));
       return;
     }
     setNextQuantity(next);
@@ -193,6 +220,11 @@ export default function AddToCartForm({ product, fallbackImage }) {
 
     const parsedQuantity = validation.quantity;
 
+    if (isTagSelection && parsedQuantity > Number(activeTagBatch.remainingQuantity || 0)) {
+      setFeedback({ tone: "error", message: `Only ${Number(activeTagBatch.remainingQuantity || 0)} remains in this Tag Buy.` });
+      return;
+    }
+
     if (isUnavailable) {
       setFeedback({ tone: "error", message: "This item is out of stock." });
       return;
@@ -209,6 +241,13 @@ export default function AddToCartForm({ product, fallbackImage }) {
     }
 
     const items = readCartItems();
+    const incomingItem = buildCartItem(product, parsedQuantity, fallbackImage, procurementChoice);
+    const procurementConflict = getCartProcurementConflict(items, incomingItem);
+    if (procurementConflict) {
+      setFeedback({ tone: "error", message: procurementConflict });
+      showNotice({ tone: "info", title: "Separate checkout required", message: procurementConflict });
+      return;
+    }
     const lineKey = getLineKey({ variantId, id: product.id, productId: product.id });
     const productIdKey = String(product.id || "");
     const index = items.findIndex((item) => {
@@ -224,6 +263,10 @@ export default function AddToCartForm({ product, fallbackImage }) {
     if (index >= 0) {
       const existing = items[index];
       const nextCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, product) + parsedQuantity;
+      if (isTagSelection && nextCount > Number(activeTagBatch.remainingQuantity || 0)) {
+        setFeedback({ tone: "error", message: `Only ${Number(activeTagBatch.remainingQuantity || 0)} remains in this Tag Buy.` });
+        return;
+      }
       const nextValidation = validateVariantQuantity(product, nextCount);
       if (!nextValidation.ok) {
         setFeedback({ tone: "error", message: nextValidation.error });
@@ -240,14 +283,14 @@ export default function AddToCartForm({ product, fallbackImage }) {
       }
       items[index] = {
         ...existing,
-        ...buildCartItem(product, nextCount, fallbackImage),
+        ...buildCartItem(product, nextCount, fallbackImage, procurementChoice),
       };
     } else {
-      items.push(buildCartItem(product, parsedQuantity, fallbackImage));
+      items.push(buildCartItem(product, parsedQuantity, fallbackImage, procurementChoice));
     }
     try {
       if (readStoredUser()) {
-        await addAuthenticatedCartItem(buildCartItem(product, parsedQuantity, fallbackImage), {
+        await addAuthenticatedCartItem(buildCartItem(product, parsedQuantity, fallbackImage, procurementChoice), {
           source: "product-detail",
         });
       } else {
@@ -261,7 +304,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
     }
 
     setFeedback({ tone: "idle", message: "" });
-  }, [availableCount, bypassLocalStock, fallbackImage, isUnavailable, product, quantityInput, showNotice, unitLabel]);
+  }, [activeTagBatch, availableCount, bypassLocalStock, fallbackImage, isTagSelection, isUnavailable, procurementChoice, product, quantityInput, showNotice, unitLabel]);
 
   const handleBlur = () => {
     const validation = validateVariantQuantity(product, quantityInput);
@@ -270,6 +313,40 @@ export default function AddToCartForm({ product, fallbackImage }) {
 
   return (
     <div className="product-detail-actions">
+      {activeTagBatch ? (
+        <fieldset className="mb-5 border-0 p-0">
+          <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-meal-muted">
+            How would you like to buy?
+          </legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {tagPurchaseMode !== TAG_PURCHASE_ONLY ? (
+              <button
+                type="button"
+                onClick={() => setProcurementChoice(PROCUREMENT_STANDARD)}
+                aria-pressed={!isTagSelection}
+                className={`rounded-2xl border p-3 text-left transition ${!isTagSelection ? "border-meal-ink bg-meal-ink text-meal-paper" : "border-meal-line bg-meal-paper text-meal-text"}`}
+              >
+                <span className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.12em]"><span>Buy now</span><span aria-hidden="true">{!isTagSelection ? "●" : "○"}</span></span>
+                <strong className="mt-2 block text-lg">{formatProductPrice(product.price, "")}</strong>
+                <span className={`mt-1 block text-xs ${!isTagSelection ? "text-meal-paper/75" : "text-meal-muted"}`}>Regular purchase · faster fulfilment</span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setProcurementChoice(PROCUREMENT_TAG)}
+              aria-pressed={isTagSelection}
+              className={`rounded-2xl border p-3 text-left transition ${isTagSelection ? "border-amber-700 bg-amber-100" : "border-amber-200 bg-amber-50"}`}
+            >
+              <span className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-amber-950">
+                <span>Tag Buy</span><span>Save {formatProductPrice(Math.max(0, Number(product.price || 0) - Number(activeTagBatch.tagPrice || 0)), "")}</span>
+              </span>
+              <strong className="mt-2 block text-lg text-amber-950">{formatProductPrice(activeTagBatch.tagPrice, "")}</strong>
+              <span className="mt-1 block text-xs text-amber-900">{Number(activeTagBatch.committedQuantity || 0)} / {Number(activeTagBatch.targetQuantity || 0)} committed · closes {formatTagDeadline(activeTagBatch.closesAt)}</span>
+            </button>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-meal-muted">Tag Buy fulfils after the group closes. If the minimum is missed, the {activeTagBatch.failurePolicy === "carry_forward" ? "carry-forward" : "refund"} policy applies.</p>
+        </fieldset>
+      ) : null}
       <label htmlFor="product-quantity" className="product-detail-actions__label">
         Quantity
       </label>
@@ -315,7 +392,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
           aria-disabled={isUnavailable}
         >
           <i className="fa-solid fa-cart-shopping" aria-hidden="true" />
-          <span>{isUnavailable ? "Unavailable" : availabilityMode === "request" ? "Add to availability basket" : "Add to cart"}</span>
+          <span>{isUnavailable ? "Unavailable" : isTagSelection ? `Join Tag Buy — ${formatProductPrice(Number(activeTagBatch.tagPrice || 0) * safeQuantity, "")}` : availabilityMode === "request" ? "Add to availability basket" : `Add to cart — ${formatProductPrice(Number(product.price || 0) * safeQuantity, "")}`}</span>
         </button>
       </div>
       {feedback.message ? (

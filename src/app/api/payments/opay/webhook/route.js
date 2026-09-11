@@ -421,7 +421,7 @@ export async function POST(request) {
   }
 
   if (paymentStatus === "paid") {
-    const { error: stockErr } = await admin.rpc("deduct_stock_for_order", { order_id_input: orderId });
+    const { error: stockErr } = await admin.rpc("deduct_stock_for_order", { p_order_id: orderId });
     if (stockErr) {
       await logAdminError(stockErr, { route: "/api/payments/opay/webhook", order_id: orderId, stage: "deduct_stock" });
       try {

@@ -46,6 +46,7 @@ import { requestPromoCodeValidation } from "@/lib/promo-code-client";
 import { getDeliverySummaryConfig } from "@/lib/delivery-settings";
 import useDeliverySettings from "@/lib/use-delivery-settings";
 import { CartAvailabilitySummary, CartLineAvailabilityBadge } from "@/components/cart-availability-ux";
+import TagBuyProgress from "@/components/tag-buy-progress";
 import {
   isRequestOnlyItem,
   SELECTION_MODE_FLEXIBLE,
@@ -597,7 +598,7 @@ function CartPageContent() {
       let message = "";
       const variantMissing = !item.variantId;
       const requestOnly = isRequestOnlyItem(item);
-      const bypassLocalStock = requestOnly || !usesTrackedInventory(item);
+      const bypassLocalStock = item.procurementMode === "tag" || item.procurement_mode === "tag" || requestOnly || !usesTrackedInventory(item);
 
       if (!product && productLookupStatus === "loading") {
         level = "pending";
@@ -1056,6 +1057,7 @@ function CartPageContent() {
                       <div className={styles.cartInfo}>
                         <span className={styles.cartCategory}>{categoryLabel}</span>
                         <h3>{item.name}</h3>
+                        {item.tagBatch || item.tag_batch ? <TagBuyProgress batch={item.tagBatch || item.tag_batch} compact /> : null}
                         <CartLineAvailabilityBadge requestOnly={requestOnly} />
                         <div className={styles.cartPriceRow}>
                           <span className={styles.cartPrice}>{priceLabel}</span>

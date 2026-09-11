@@ -52,6 +52,7 @@ export const buildOrderRequestFingerprint = (payload) => {
     paymentMethod: payload?.paymentMethod || "paystack",
     pickupLocationId: payload?.pickupLocationId ?? null,
     promo_code: payload?.promo_code || "",
+    tagAcknowledged: payload?.tagAcknowledged === true,
   };
 
   return crypto.createHash("sha256").update(stableStringify(intent)).digest("hex");

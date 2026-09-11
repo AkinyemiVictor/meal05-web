@@ -3,6 +3,7 @@ import {
   roundQuantity,
   validateVariantQuantity,
 } from "./product-quantity.js";
+import { buildTagCartMetadata, normalizeProcurementMode } from "./tag-buy.js";
 
 const positiveQuantity = (value, fallback = 0) => {
   const numeric = Number(value);
@@ -67,6 +68,16 @@ export const normalizeCartItem = (item) => {
   const price = Number(draft.price ?? draft.unitPrice ?? draft.unit_price_at_add ?? 0);
   const normalizedPrice = Number.isFinite(price) && price >= 0 ? price : 0;
   const liveImage = getLiveCartProductImageUrl(productId, "thumb");
+  const procurementMode = normalizeProcurementMode(draft.procurementMode ?? draft.procurement_mode);
+  const tagBatch = draft.tagBatch ?? draft.tag_batch ?? null;
+  const tagMetadata = procurementMode === "tag"
+    ? buildTagCartMetadata(tagBatch || {
+        id: draft.tagBatchId ?? draft.tag_batch_id,
+        tagPrice: draft.tagPriceAtAdd ?? draft.tag_price_at_add ?? normalizedPrice,
+        closesAt: draft.tagClosesAt ?? draft.tag_closes_at,
+        expectedProcurementAt: draft.expectedProcurementAt ?? draft.expected_procurement_at,
+      })
+    : buildTagCartMetadata(null);
 
   return {
     ...draft,
@@ -104,6 +115,8 @@ export const normalizeCartItem = (item) => {
     orderSize: 1,
     orderCount: quantity,
     quantity,
+    ...tagMetadata,
+    tagBatch,
   };
 };
 

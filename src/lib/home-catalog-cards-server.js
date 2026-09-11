@@ -9,6 +9,7 @@ import { resolveProductImage } from "@/lib/product-image";
 import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/lib/product-promo";
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
+import { attachTagBatchesToProduct, loadTagBatches } from "@/lib/tag-buy-server";
 
 const HOME_CARD_FIELDS = [
   "product_id",
@@ -180,7 +181,17 @@ export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = fal
   const flat = sortedRows
     .map(buildHomeCardProduct)
     .filter((product) => product.id);
-  const enrichedFlat = await enrichCatalogSeasonMetadata(admin, flat);
+  const seasonFlat = await enrichCatalogSeasonMetadata(admin, flat);
+  const tagBatches = seasonFlat.length
+    ? await loadTagBatches({ adminClient: admin, marketId: market.id, productIds: seasonFlat.map((product) => product.id), statuses: ["open"] })
+    : [];
+  const batchesByProduct = new Map();
+  tagBatches.forEach((batch) => {
+    const key = String(batch.productId);
+    if (!batchesByProduct.has(key)) batchesByProduct.set(key, []);
+    batchesByProduct.get(key).push(batch);
+  });
+  const enrichedFlat = seasonFlat.map((product) => attachTagBatchesToProduct(product, batchesByProduct.get(String(product.id)) || []));
 
   return {
     grouped: groupProducts(enrichedFlat),
@@ -235,7 +246,17 @@ export async function loadCatalogCardPage({
   const flat = (Array.isArray(pageResult.data) ? pageResult.data : [])
     .map(buildHomeCardProduct)
     .filter((product) => product.id);
-  const enrichedFlat = await enrichCatalogSeasonMetadata(admin, flat);
+  const seasonFlat = await enrichCatalogSeasonMetadata(admin, flat);
+  const tagBatches = seasonFlat.length
+    ? await loadTagBatches({ adminClient: admin, marketId: market.id, productIds: seasonFlat.map((product) => product.id), statuses: ["open"] })
+    : [];
+  const batchesByProduct = new Map();
+  tagBatches.forEach((batch) => {
+    const key = String(batch.productId);
+    if (!batchesByProduct.has(key)) batchesByProduct.set(key, []);
+    batchesByProduct.get(key).push(batch);
+  });
+  const enrichedFlat = seasonFlat.map((product) => attachTagBatchesToProduct(product, batchesByProduct.get(String(product.id)) || []));
   const pagination = normalizeCatalogPagination({
     page: range.page,
     pageSize: range.pageSize,

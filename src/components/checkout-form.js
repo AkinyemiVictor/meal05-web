@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import DeferredLocationPicker from "@/components/deferred-location-picker";
+import TagBuyProgress from "@/components/tag-buy-progress";
 import { persistManualTransferConfirmation } from "@/lib/payments/manual-transfer-confirmation-storage";
 
 import copy from "@/data/copy";
@@ -509,6 +510,8 @@ export default function CheckoutForm({
   const [overlayStatus, setOverlayStatus] = useState(null); // "success" | "failure" | null
   const [overlayMessage, setOverlayMessage] = useState("");
   const [orderSettings, setOrderSettings] = useState(null);
+  const [tagCheckoutBatch, setTagCheckoutBatch] = useState(null);
+  const [tagAcknowledged, setTagAcknowledged] = useState(false);
   const [checkoutLocation, setCheckoutLocation] = useState(() => typeof window !== "undefined" ? readStoredLocationPreference() : null);
   const deliveryArea = useMemo(
     () => resolveDeliveryArea(deliverySettings, formState.city),
@@ -552,6 +555,17 @@ export default function CheckoutForm({
     [savedAddresses, selectedSavedAddressId]
   );
   const usingNewAddress = fulfillmentType === "delivery" && (!savedAddresses.length || addressEntryMode === "new");
+
+  useEffect(() => {
+    const item = normalizeCartItems(readStoredCart()).find((row) => row.procurementMode === "tag" || row.procurement_mode === "tag");
+    setTagCheckoutBatch(item?.tagBatch || item?.tag_batch || (item?.tagBatchId || item?.tag_batch_id ? {
+      id: item.tagBatchId || item.tag_batch_id,
+      tagPrice: item.tagPriceAtAdd || item.tag_price_at_add,
+      closesAt: item.tagClosesAt || item.tag_closes_at,
+      expectedProcurementAt: item.expectedProcurementAt || item.expected_procurement_at,
+      failurePolicy: "refund",
+    } : null));
+  }, []);
 
   useEffect(() => {
     if (!serviceZoneOptions.length) return;
@@ -1334,6 +1348,11 @@ export default function CheckoutForm({
     }
 
     const cartItems = normalizeCartItems(readStoredCart());
+    const isTagCheckout = cartItems.some((item) => item.procurementMode === "tag" || item.procurement_mode === "tag");
+    if (isTagCheckout && !tagAcknowledged) {
+      showSubmitError("Confirm the Tag Buy timing and failure policy before checkout.");
+      return;
+    }
     if (!cartItems.length) {
       showSubmitError(copy.checkout.emptyDescription);
       return;
@@ -1424,6 +1443,7 @@ export default function CheckoutForm({
             deliveryLongitude,
             paymentMethod: DEFAULT_GATEWAY_PAYMENT_METHOD,
             promoCode: summary.promoCode,
+            tagAcknowledged,
             preview: true,
           })),
         });
@@ -1581,6 +1601,7 @@ export default function CheckoutForm({
       deliveryLongitude,
       paymentMethod: order.paymentMethod,
       promoCode: summary.promoCode,
+      tagAcknowledged,
     });
 
     const finalize = async (serverOrderId, serverPayload = null) => {
@@ -1873,6 +1894,20 @@ export default function CheckoutForm({
       noValidate
       onSubmit={handleSubmit}
     >
+      {tagCheckoutBatch ? (
+        <section className="checkout-section" aria-labelledby="tag-checkout-heading">
+          <div className="checkout-section__heading">
+            <span className="checkout-section__icon" aria-hidden="true"><i className="fa-solid fa-tags" /></span>
+            <h2 id="tag-checkout-heading">Tag Buy confirmation</h2>
+          </div>
+          <TagBuyProgress batch={tagCheckoutBatch} />
+          <label className="checkout-field__notice" style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <input type="checkbox" checked={tagAcknowledged} onChange={(event) => setTagAcknowledged(event.target.checked)} required />
+            <span>I understand delivery timing starts after this Tag Buy closes and its failure policy applies if the minimum is not reached.</span>
+          </label>
+        </section>
+      ) : null}
+
       <section className="checkout-section">
         <div className="checkout-section__heading"><span className="checkout-section__icon"><i className="fa-solid fa-box" /></span><h2>Receive order</h2></div>
         <div className="checkout-payment-options">
@@ -2099,11 +2134,13 @@ export default function CheckoutForm({
         <div className="checkout-field-grid">
           <label className="checkout-field">
             <span>Delivery window</span>
-            <select name="deliverySlot" value={formState.deliverySlot} onChange={handleChange}>
-              {Object.entries(copy.checkout.deliverySlots).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
+            {tagCheckoutBatch ? <div className="checkout-field__notice">Confirmed after the Tag Buy closes and procurement begins.</div> : (
+              <select name="deliverySlot" value={formState.deliverySlot} onChange={handleChange}>
+                {Object.entries(copy.checkout.deliverySlots).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            )}
           </label>
         </div>
         <div className="checkout-dispatch" aria-labelledby="checkout-dispatch-heading">
@@ -2176,11 +2213,13 @@ export default function CheckoutForm({
           <div className="checkout-field-grid">
             <label className="checkout-field">
               <span>Pickup window</span>
-              <select name="deliverySlot" value={formState.deliverySlot} onChange={handleChange}>
-                {Object.entries(copy.checkout.deliverySlots).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
+              {tagCheckoutBatch ? <div className="checkout-field__notice">Confirmed after the Tag Buy closes and procurement begins.</div> : (
+                <select name="deliverySlot" value={formState.deliverySlot} onChange={handleChange}>
+                  {Object.entries(copy.checkout.deliverySlots).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              )}
             </label>
           </div>
         ) : null}

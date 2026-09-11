@@ -13,6 +13,8 @@ const toApiItem = (item, operation = "increment") => ({
   quantity: Number(item?.quantity ?? item?.orderCount ?? 1),
   operation,
   size_preference: item?.sizePreference ?? item?.size_preference ?? null,
+  procurement_mode: item?.procurementMode ?? item?.procurement_mode ?? "standard",
+  tag_batch_id: item?.tagBatchId ?? item?.tag_batch_id ?? item?.tagBatch?.id ?? null,
 });
 
 const parseResponse = async (response) => {

@@ -45,7 +45,7 @@ function ProductImage({ product, compact = false, priority = false }) {
     >
       <div
         className={classNames(
-          "absolute z-10 flex min-w-0 items-start justify-start gap-2",
+          "absolute z-10 flex min-w-0 items-start justify-between gap-2",
           compact ? "left-2.5 right-2.5 top-2.5" : "left-3 right-3 top-3 sm:left-4 sm:right-4 sm:top-4"
         )}
       >
@@ -61,6 +61,17 @@ function ProductImage({ product, compact = false, priority = false }) {
           >
             <IconLeaf size={compact ? 10 : 12} stroke={2.2} aria-hidden="true" />
             {seasonLabel}
+          </span>
+        ) : null}
+        {product.tagBatch ? (
+          <span
+            className={classNames(
+              "ml-auto inline-flex shrink-0 items-center rounded-full border border-amber-300 bg-amber-100 font-semibold uppercase leading-none tracking-[0.12em] text-amber-950 shadow-sm",
+              compact ? "px-1.5 py-1 text-[8px]" : "px-2 py-1 text-[9px] sm:px-2.5 sm:text-[10px]"
+            )}
+            title="Tag Buy available"
+          >
+            Tag Buy
           </span>
         ) : null}
       </div>

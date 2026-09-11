@@ -6984,6 +6984,10 @@ main > section:not(.home-hero) {
     margin-top: 1rem;
   }
 
+  .quick-add-panel--mobile-modal .quick-add-purchase-method {
+    margin: 1.25rem 2rem 0;
+  }
+
   .quick-add-panel--mobile-modal .quick-add-summary {
     min-height: 78px;
     margin: 1.25rem 2rem 0;
