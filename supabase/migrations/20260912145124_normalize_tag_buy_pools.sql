@@ -140,7 +140,11 @@ create trigger tag_batches_sync_member_live_state
 after update of status on public.tag_batches
 for each row execute function public.sync_tag_batch_member_live_state();
 
-create or replace view public.tag_batch_progress
+-- The original view expanded b.* before purchase_mode and contribution_unit
+-- existed. Recreate it so PostgreSQL does not interpret the appended table
+-- columns as renames of the existing aggregate columns.
+drop view if exists public.tag_batch_progress;
+create view public.tag_batch_progress
 with (security_invoker = true)
 as
 select
