@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   status: z.enum(["draft", "open", "cancelled", "fulfilled"]).optional(),
-  tagPrice: z.coerce.number().nonnegative().optional(),
   targetQuantity: z.coerce.number().positive().optional(),
   minimumViableQuantity: z.coerce.number().positive().optional(),
   maximumQuantity: z.coerce.number().positive().optional(),
@@ -28,7 +27,6 @@ export async function PATCH(request, { params }) {
   const input = parsed.data;
   const updates = {
     ...(input.status ? { status: input.status } : {}),
-    ...(input.tagPrice != null ? { tag_price: input.tagPrice } : {}),
     ...(input.targetQuantity != null ? { target_quantity: input.targetQuantity } : {}),
     ...(input.minimumViableQuantity != null ? { minimum_viable_quantity: input.minimumViableQuantity } : {}),
     ...(input.maximumQuantity != null ? { maximum_quantity: input.maximumQuantity } : {}),
@@ -48,4 +46,3 @@ export async function PATCH(request, { params }) {
   revalidatePath("/admin/tag-buys");
   return NextResponse.json({ ok: true });
 }
-

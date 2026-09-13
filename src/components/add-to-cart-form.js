@@ -8,6 +8,7 @@ import { useNotice } from "@/components/notice-provider";
 import { readStoredUser } from "@/lib/auth";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { addAuthenticatedCartItem } from "@/lib/cart-sync";
+import TagBuyExplainer from "@/components/tag-buy-explainer";
 import {
   PROCUREMENT_STANDARD,
   PROCUREMENT_TAG,
@@ -16,6 +17,8 @@ import {
   formatTagDeadline,
   getCartProcurementConflict,
   getTagBatchForVariant,
+  getTagContributionQuantity,
+  getTagMaxOrderQuantity,
   normalizeTagPurchaseMode,
 } from "@/lib/tag-buy";
 import {
@@ -123,12 +126,13 @@ export default function AddToCartForm({ product, fallbackImage }) {
   const purchaseRules = useMemo(() => getVariantPurchaseRules(product), [product]);
   const isLoose = purchaseRules.purchaseMode === PURCHASE_MODE_LOOSE;
   const [quantityInput, setQuantityInput] = useState(() => String(purchaseRules.minQuantity));
-  const [procurementChoice, setProcurementChoice] = useState(PROCUREMENT_STANDARD);
+  const [procurementChoice, setProcurementChoice] = useState(PROCUREMENT_TAG);
   const [feedback, setFeedback] = useState({ tone: "idle", message: "" });
   const unitLabel = useMemo(() => formatUnitLabel(product.unit), [product.unit]);
   const { showNotice } = useNotice();
   const activeTagBatch = getTagBatchForVariant(product, product);
   const activeTagBatchId = activeTagBatch?.id || "";
+  const activeTagMaximum = getTagMaxOrderQuantity(activeTagBatch);
   const tagPurchaseMode = normalizeTagPurchaseMode(activeTagBatch?.purchaseMode ?? activeTagBatch?.purchase_mode);
   const isTagSelection = procurementChoice === PROCUREMENT_TAG && Boolean(activeTagBatch?.id);
 
@@ -137,13 +141,13 @@ export default function AddToCartForm({ product, fallbackImage }) {
   const bypassLocalStock = isTagSelection || availabilityMode === "request" || String(product?.inventoryTrackingMode ?? product?.inventory_tracking_mode) === "supplier";
   const effectiveMaxQuantity = useMemo(() => {
     if (isTagSelection) {
-      return Math.min(purchaseRules.maxQuantity ?? activeTagBatch.remainingQuantity, activeTagBatch.remainingQuantity);
+      return Math.min(purchaseRules.maxQuantity ?? activeTagMaximum, activeTagMaximum);
     }
     if (!bypassLocalStock && Number.isFinite(availableCount)) {
       return Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount);
     }
     return purchaseRules.maxQuantity;
-  }, [activeTagBatch?.remainingQuantity, availableCount, bypassLocalStock, isTagSelection, purchaseRules.maxQuantity]);
+  }, [activeTagMaximum, availableCount, bypassLocalStock, isTagSelection, purchaseRules.maxQuantity]);
   const quantityValidation = useMemo(
     () => validateVariantQuantity(product, quantityInput),
     [product, quantityInput]
@@ -167,7 +171,7 @@ export default function AddToCartForm({ product, fallbackImage }) {
   }, [product.variantId, purchaseRules.minQuantity]);
 
   useEffect(() => {
-    setProcurementChoice(activeTagBatchId && tagPurchaseMode === TAG_PURCHASE_ONLY ? PROCUREMENT_TAG : PROCUREMENT_STANDARD);
+    setProcurementChoice(activeTagBatchId ? PROCUREMENT_TAG : PROCUREMENT_STANDARD);
     setFeedback({ tone: "idle", message: "" });
   }, [activeTagBatchId, tagPurchaseMode]);
 
@@ -220,8 +224,8 @@ export default function AddToCartForm({ product, fallbackImage }) {
 
     const parsedQuantity = validation.quantity;
 
-    if (isTagSelection && parsedQuantity > Number(activeTagBatch.remainingQuantity || 0)) {
-      setFeedback({ tone: "error", message: `Only ${Number(activeTagBatch.remainingQuantity || 0)} remains in this Tag Buy.` });
+    if (isTagSelection && parsedQuantity > getTagMaxOrderQuantity(activeTagBatch)) {
+      setFeedback({ tone: "error", message: `Only ${formatQuantity(activeTagBatch.remainingQuantity || 0, activeTagBatch.contributionUnit)} remains in this Tag Buy.` });
       return;
     }
 
@@ -263,8 +267,8 @@ export default function AddToCartForm({ product, fallbackImage }) {
     if (index >= 0) {
       const existing = items[index];
       const nextCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, product) + parsedQuantity;
-      if (isTagSelection && nextCount > Number(activeTagBatch.remainingQuantity || 0)) {
-        setFeedback({ tone: "error", message: `Only ${Number(activeTagBatch.remainingQuantity || 0)} remains in this Tag Buy.` });
+      if (isTagSelection && nextCount > getTagMaxOrderQuantity(activeTagBatch)) {
+        setFeedback({ tone: "error", message: `Only ${formatQuantity(activeTagBatch.remainingQuantity || 0, activeTagBatch.contributionUnit)} remains in this Tag Buy.` });
         return;
       }
       const nextValidation = validateVariantQuantity(product, nextCount);
@@ -287,6 +291,15 @@ export default function AddToCartForm({ product, fallbackImage }) {
       };
     } else {
       items.push(buildCartItem(product, parsedQuantity, fallbackImage, procurementChoice));
+    }
+    if (isTagSelection) {
+      const cartContribution = items
+        .filter((item) => String(item.tagBatchId ?? item.tag_batch_id ?? "") === String(activeTagBatch.id))
+        .reduce((sum, item) => sum + getTagContributionQuantity(item, item.quantity ?? item.orderCount), 0);
+      if (cartContribution > Number(activeTagBatch.remainingQuantity || 0)) {
+        setFeedback({ tone: "error", message: `Only ${formatQuantity(activeTagBatch.remainingQuantity || 0, activeTagBatch.contributionUnit)} remains in this Tag Buy.` });
+        return;
+      }
     }
     try {
       if (readStoredUser()) {
@@ -341,10 +354,11 @@ export default function AddToCartForm({ product, fallbackImage }) {
                 <span>Tag Buy</span><span>Save {formatProductPrice(Math.max(0, Number(product.price || 0) - Number(activeTagBatch.tagPrice || 0)), "")}</span>
               </span>
               <strong className="mt-2 block text-lg text-amber-950">{formatProductPrice(activeTagBatch.tagPrice, "")}</strong>
-              <span className="mt-1 block text-xs text-amber-900">{Number(activeTagBatch.committedQuantity || 0)} / {Number(activeTagBatch.targetQuantity || 0)} committed · closes {formatTagDeadline(activeTagBatch.closesAt)}</span>
+              <span className="mt-1 block text-xs text-amber-900">{formatQuantity(activeTagBatch.committedQuantity || 0, activeTagBatch.contributionUnit)} / {formatQuantity(activeTagBatch.targetQuantity || 0, activeTagBatch.contributionUnit)} committed · closes {formatTagDeadline(activeTagBatch.closesAt)}</span>
             </button>
           </div>
           <p className="mt-2 text-xs leading-5 text-meal-muted">Tag Buy fulfils after the group closes. If the minimum is missed, the {activeTagBatch.failurePolicy === "carry_forward" ? "carry-forward" : "refund"} policy applies.</p>
+          <TagBuyExplainer />
         </fieldset>
       ) : null}
       <label htmlFor="product-quantity" className="product-detail-actions__label">

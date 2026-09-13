@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   variantId: z.coerce.number().int().positive(),
-  tagPrice: z.coerce.number().nonnegative(),
+  tagUnitPrice: z.coerce.number().nonnegative(),
   targetQuantity: z.coerce.number().positive(),
   minimumViableQuantity: z.coerce.number().positive(),
   maximumQuantity: z.coerce.number().positive(),
@@ -55,33 +55,31 @@ export async function POST(request) {
   const admin = getSupabaseAdminClient();
   const { data: variant, error: variantError } = await admin
     .from("product_variants")
-    .select("id, product_id, market_id, price, currency_code, is_active, tag_buy_eligible, tag_buy_purchase_mode, tag_buy_priority_tier")
+    .select("id, product_id, market_id, price, currency_code, base_unit, base_quantity, is_active, tag_buy_eligible, tag_buy_purchase_mode, tag_buy_priority_tier")
     .eq("id", input.variantId)
     .maybeSingle();
   if (variantError || !variant || variant.is_active === false) return NextResponse.json({ error: "Active product option not found." }, { status: 404 });
   if (!variant.tag_buy_eligible) return NextResponse.json({ error: "This product option is not eligible for Tag Buy." }, { status: 409 });
-  if (input.tagPrice >= Number(variant.price)) {
-    return NextResponse.json({ error: "Tag price must be lower than the regular price." }, { status: 400 });
+  if (!variant.base_unit || Number(variant.base_quantity) <= 0) {
+    return NextResponse.json({ error: "This option needs a canonical base unit and quantity before it can start a Tag Buy." }, { status: 409 });
   }
-  const { data, error } = await admin.from("tag_batches").insert({
-    market_id: variant.market_id,
-    product_id: variant.product_id,
-    variant_id: variant.id,
-    status: input.status,
-    tag_price: input.tagPrice,
-    standard_price_at_open: Number(variant.price),
-    target_quantity: input.targetQuantity,
-    minimum_viable_quantity: input.minimumViableQuantity,
-    maximum_quantity: input.maximumQuantity,
-    closes_at: input.closesAt,
-    expected_procurement_at: input.expectedProcurementAt,
-    failure_policy: input.failurePolicy,
-    purchase_mode: variant.tag_buy_purchase_mode,
-    carry_forward_batch_id: input.failurePolicy === "carry_forward" ? input.carryForwardBatchId || null : null,
-    created_by: auth.user.id,
-    updated_by: auth.user.id,
-  }).select("id").single();
+  if (input.tagUnitPrice * Number(variant.base_quantity) >= Number(variant.price)) {
+    return NextResponse.json({ error: `Tag price per ${variant.base_unit} must discount the selected option.` }, { status: 400 });
+  }
+  const { data, error } = await admin.rpc("create_tag_batch_pool", {
+    p_anchor_variant_id: variant.id,
+    p_tag_unit_price: input.tagUnitPrice,
+    p_minimum_viable_quantity: input.minimumViableQuantity,
+    p_target_quantity: input.targetQuantity,
+    p_maximum_quantity: input.maximumQuantity,
+    p_closes_at: input.closesAt,
+    p_expected_procurement_at: input.expectedProcurementAt,
+    p_failure_policy: input.failurePolicy,
+    p_carry_forward_batch_id: input.failurePolicy === "carry_forward" ? input.carryForwardBatchId || null : null,
+    p_status: input.status,
+    p_administrator_id: auth.user.id,
+  });
   if (error) return NextResponse.json({ error: error.message || "Unable to create Tag Buy." }, { status: 409 });
   refresh();
-  return NextResponse.json({ ok: true, id: data.id }, { status: 201 });
+  return NextResponse.json({ ok: true, id: data }, { status: 201 });
 }

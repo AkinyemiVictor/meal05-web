@@ -13,7 +13,13 @@ import {
   normalizeSizePreference,
   SELECTION_MODE_FLEXIBLE,
 } from "@/lib/commerce-options";
-import { getCartProcurementConflict, PROCUREMENT_TAG } from "@/lib/tag-buy";
+import {
+  getCartProcurementConflict,
+  getTagBatchVariant,
+  getTagContributionQuantity,
+  PROCUREMENT_TAG,
+  withTagBatchVariant,
+} from "@/lib/tag-buy";
 import { loadTagBatch } from "@/lib/tag-buy-server";
 
 export const runtime = "nodejs";
@@ -99,9 +105,10 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
     const listing = catalog.listings.get(String(variant.product_id));
     const product = productIndex.get(String(variant.product_id));
     const catalogImage = catalogImageIndex.get(String(variant.product_id));
-    const tagBatch = row.procurement_mode === PROCUREMENT_TAG
+    const rawTagBatch = row.procurement_mode === PROCUREMENT_TAG
       ? tagBatchIndex.get(String(row.tag_batch_id || "")) || null
       : null;
+    const tagBatch = rawTagBatch ? withTagBatchVariant(rawTagBatch, row.variant_id) : null;
     return [{
       ...row,
       product_id: variant.product_id,
@@ -229,16 +236,19 @@ export async function POST(req) {
   }
 
   let tagBatch = null;
+  let tagBatchMember = null;
   if (procurementMode === PROCUREMENT_TAG) {
     tagBatch = await loadTagBatch(parsed.data.tag_batch_id, { adminClient: admin, requireOpen: true });
-    if (!tagBatch || tagBatch.variantId !== variantKey || tagBatch.productId !== String(stockSource.product_id)) {
+    tagBatchMember = getTagBatchVariant(tagBatch, variantKey);
+    if (!tagBatch || !tagBatchMember || tagBatch.productId !== String(stockSource.product_id)) {
       return Response.json({ error: "This Tag Buy is no longer available." }, { status: 409 });
     }
+    tagBatch = withTagBatchVariant(tagBatch, variantKey);
   }
 
   const { data: existingCartRows, error: existingCartError } = await authClient
     .from("cart_items")
-    .select("variant_id, procurement_mode, tag_batch_id")
+    .select("variant_id, quantity, procurement_mode, tag_batch_id")
     .eq("user_id", user.id);
   if (existingCartError) return Response.json({ error: existingCartError.message }, { status: 400 });
   const conflict = getCartProcurementConflict(existingCartRows || [], {
@@ -307,8 +317,19 @@ export async function POST(req) {
       { status: 409 }
     );
   }
-  if (tagBatch && nextQuantity > tagBatch.remainingQuantity) {
-    return Response.json({ error: `Only ${formatQuantity(tagBatch.remainingQuantity)} remains in this Tag Buy.`, available: tagBatch.remainingQuantity }, { status: 409 });
+  if (tagBatch) {
+    const projectedContribution = (existingCartRows || [])
+      .filter((row) => row.procurement_mode === PROCUREMENT_TAG && String(row.tag_batch_id || "") === tagBatch.id && String(row.variant_id) !== variantKey)
+      .reduce((sum, row) => {
+        const member = getTagBatchVariant(tagBatch, row.variant_id);
+        return sum + getTagContributionQuantity(member, row.quantity);
+      }, getTagContributionQuantity(tagBatch, nextQuantity));
+    if (projectedContribution > tagBatch.remainingQuantity) {
+      return Response.json({
+        error: `Only ${formatQuantity(tagBatch.remainingQuantity, tagBatch.contributionUnit)} remains in this Tag Buy.`,
+        available: tagBatch.remainingQuantity,
+      }, { status: 409 });
+    }
   }
 
   const payload = {

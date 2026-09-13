@@ -4,6 +4,8 @@ import {
   buildTagCartMetadata,
   getCartProcurementConflict,
   getTagBatchForVariant,
+  getTagContributionQuantity,
+  getTagMaxOrderQuantity,
   normalizeProcurementMode,
   normalizeTagPurchaseMode,
 } from "./tag-buy.js";
@@ -19,11 +21,25 @@ test("shopper purchase mode defaults to dual and preserves explicit Tag-only bat
   assert.equal(normalizeTagPurchaseMode("tag_only"), "tag_only");
 });
 
-test("Tag batches only apply to their exact product option", () => {
-  const batch = { id: "batch-a", variantId: "1004" };
+test("one Tag batch resolves option-specific prices across a normalized product pool", () => {
+  const batch = {
+    id: "batch-a",
+    variantId: "1004",
+    variants: [
+      { variantId: "1003", tagPrice: 660, contributionQuantity: 1 },
+      { variantId: "1004", tagPrice: 2640, contributionQuantity: 4 },
+    ],
+  };
   const product = { variantId: "1003", tagBatch: batch };
-  assert.equal(getTagBatchForVariant(product, { variationId: 1003 }), null);
-  assert.equal(getTagBatchForVariant(product, { variationId: 1004, tagBatch: batch }), batch);
+  assert.equal(getTagBatchForVariant(product, { variationId: 1003 }).tagPrice, 660);
+  assert.equal(getTagBatchForVariant(product, { variationId: 1004, tagBatch: batch }).tagPrice, 2640);
+  assert.equal(getTagBatchForVariant(product, { variationId: 1005, tagBatch: batch }), null);
+});
+
+test("Tag capacity is converted between option counts and the pool base unit", () => {
+  const batch = { remainingQuantity: 7.5, contributionQuantity: 2.5 };
+  assert.equal(getTagContributionQuantity(batch, 2), 5);
+  assert.equal(getTagMaxOrderQuantity(batch), 3);
 });
 
 test("initial A+ allow-list excludes single eggs and existing bulk options", () => {
@@ -58,5 +74,9 @@ test("Tag cart metadata snapshots its identity, price, and timing", () => {
     tag_closes_at: "2026-09-12T12:00:00Z",
     expectedProcurementAt: "2026-09-13T12:00:00Z",
     expected_procurement_at: "2026-09-13T12:00:00Z",
+    contributionUnit: null,
+    contribution_unit: null,
+    contributionQuantity: 1,
+    contribution_quantity: 1,
   });
 });

@@ -335,6 +335,15 @@ function OrderItemsList({ items }) {
             const preference = ORDER_SIZE_PREFERENCE_LABELS[String(item?.sizePreference || "").toLowerCase()] || "";
             const quantity = formatOrderLineQuantity(item?.quantity);
             const image = resolveProductImage(item?.product?.image);
+            const tagStatusLabel = {
+              draft: "Group preparing",
+              open: "Group collecting",
+              closed: "Group closed",
+              procurement: "Procurement in progress",
+              fulfilled: "Group fulfilled",
+              cancelled: "Group cancelled",
+              failed: "Group target not reached",
+            }[String(item?.tagBatchStatus || "").toLowerCase()] || "";
             return (
               <li key={`${item?.variantId || item?.productId || "line"}-${index}`}>
                 <div className={styles.orderItemProduct}>
@@ -345,7 +354,7 @@ function OrderItemsList({ items }) {
                     <strong>{name}</strong>
                     {option ? <span>Option: {option}</span> : null}
                     {preference ? <span>Size preference: {preference}</span> : null}
-                    {item?.procurementMode === "tag" ? <span>Tag Buy · sourcing begins after {item?.tagClosesAt ? new Date(item.tagClosesAt).toLocaleString() : "the group closes"}</span> : null}
+                    {item?.procurementMode === "tag" ? <span>Tag Buy{tagStatusLabel ? ` · ${tagStatusLabel}` : ""} · sourcing begins after {item?.tagClosesAt ? new Date(item.tagClosesAt).toLocaleString() : "the group closes"}</span> : null}
                     {item?.procurementMode === "tag" && item?.expectedProcurementAt ? <span>Expected procurement: {new Date(item.expectedProcurementAt).toLocaleString()}</span> : null}
                     {item?.fulfillmentNote ? <span>Note: {item.fulfillmentNote}</span> : null}
                   </div>

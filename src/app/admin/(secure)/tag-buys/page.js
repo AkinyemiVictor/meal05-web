@@ -8,21 +8,29 @@ export default async function AdminTagBuysPage() {
   const admin = getSupabaseAdminClient();
   const [batches, variantsResult] = await Promise.all([
     loadTagBatches({ adminClient: admin, statuses: [] }),
-    admin.from("product_variants").select("id, product_id, name, price, unit, is_active, tag_buy_eligible, tag_buy_purchase_mode, tag_buy_priority_tier, products(name)").eq("is_active", true).eq("tag_buy_eligible", true).order("product_id").order("id"),
+    admin.from("product_variants").select("id, product_id, market_id, name, price, unit, base_unit, base_quantity, is_active, tag_buy_eligible, tag_buy_purchase_mode, tag_buy_priority_tier, products(name)").eq("is_active", true).eq("tag_buy_eligible", true).not("base_unit", "is", null).gt("base_quantity", 0).gt("price", 0).order("product_id").order("id"),
   ]);
   if (variantsResult.error) throw variantsResult.error;
   const variants = (variantsResult.data || []).map((row) => ({
     id: row.id,
     productId: row.product_id,
+    marketId: row.market_id,
     productName: row.products?.name || `Product ${row.product_id}`,
     name: row.name || row.unit || "Default",
     price: Number(row.price || 0),
+    baseUnit: row.base_unit,
+    baseQuantity: Number(row.base_quantity || 0),
     purchaseMode: row.tag_buy_purchase_mode || "dual",
     priorityTier: row.tag_buy_priority_tier || null,
   }));
   const productNames = new Map(variants.map((row) => [String(row.productId), row.productName]));
   const variantNames = new Map(variants.map((row) => [String(row.id), row.name]));
-  const rows = batches.map((batch) => ({ ...batch, productName: productNames.get(batch.productId), variantName: variantNames.get(batch.variantId) }));
+  const rows = batches.map((batch) => ({
+    ...batch,
+    productName: productNames.get(batch.productId),
+    variantName: variantNames.get(batch.variantId),
+    variantNames: (batch.variants || []).map((member) => variantNames.get(String(member.variantId))).filter(Boolean),
+  }));
   return (
     <main style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
       <h1 style={{ marginTop: 0 }}>Tag Buys</h1>

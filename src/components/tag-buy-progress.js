@@ -1,4 +1,5 @@
 import { formatTagDeadline } from "@/lib/tag-buy";
+import { formatQuantity } from "@/lib/purchase-quantities";
 
 export default function TagBuyProgress({ batch, compact = false }) {
   if (!batch?.id) return null;
@@ -13,7 +14,7 @@ export default function TagBuyProgress({ batch, compact = false }) {
         <div className="h-full rounded-full bg-amber-600" style={{ width: `${progress}%` }} />
       </div>
       <p className="mt-2 text-xs leading-5 text-amber-900">
-        {Number(batch.committedQuantity || 0)} of {Number(batch.targetQuantity || 0)} committed · closes {formatTagDeadline(batch.closesAt)}
+        {formatQuantity(batch.committedQuantity || 0, batch.contributionUnit)} of {formatQuantity(batch.targetQuantity || 0, batch.contributionUnit)} committed · closes {formatTagDeadline(batch.closesAt)}
       </p>
       {!compact ? (
         <p className="mt-1 text-xs leading-5 text-amber-800">
@@ -23,4 +24,3 @@ export default function TagBuyProgress({ batch, compact = false }) {
     </div>
   );
 }
-

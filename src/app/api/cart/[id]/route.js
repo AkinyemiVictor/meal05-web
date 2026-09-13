@@ -9,7 +9,12 @@ import { getAvailableCount } from "@/lib/stock";
 import { loadMarketCatalog } from "@/lib/market-catalog-server";
 import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity } from "@/lib/purchase-quantities";
 import { normalizeAvailabilityMode, normalizeSelectionMode, normalizeSizePreference, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
-import { PROCUREMENT_TAG } from "@/lib/tag-buy";
+import {
+  getTagBatchVariant,
+  getTagContributionQuantity,
+  PROCUREMENT_TAG,
+  withTagBatchVariant,
+} from "@/lib/tag-buy";
 import { loadTagBatch } from "@/lib/tag-buy-server";
 
 export const runtime = "nodejs";
@@ -118,9 +123,10 @@ export async function PATCH(req, { params }) {
       rl
     );
   }
-  const tagBatch = cartItem.procurement_mode === PROCUREMENT_TAG
+  const rawTagBatch = cartItem.procurement_mode === PROCUREMENT_TAG
     ? await loadTagBatch(cartItem.tag_batch_id, { adminClient: admin, requireOpen: true })
     : null;
+  const tagBatch = rawTagBatch ? withTagBatchVariant(rawTagBatch, variant.id) : null;
   if (cartItem.procurement_mode === PROCUREMENT_TAG && !tagBatch) {
     return applyRateLimitHeaders(NextResponse.json({ error: "This Tag Buy is closed. Remove it from your cart." }, { status: 409 }), rl);
   }
@@ -132,11 +138,25 @@ export async function PATCH(req, { params }) {
       rl
     );
   }
-  if (quantityNum != null && tagBatch && quantityNum > tagBatch.remainingQuantity) {
-    return applyRateLimitHeaders(
-      NextResponse.json({ error: `Only ${formatQuantity(tagBatch.remainingQuantity)} remains in this Tag Buy.`, available: tagBatch.remainingQuantity }, { status: 409 }),
-      rl
-    );
+  if (quantityNum != null && tagBatch) {
+    const { data: siblingRows, error: siblingError } = await routeClient
+      .from("cart_items")
+      .select("id, variant_id, quantity")
+      .eq("user_id", user.id)
+      .eq("procurement_mode", PROCUREMENT_TAG)
+      .eq("tag_batch_id", tagBatch.id);
+    if (siblingError) return applyRateLimitHeaders(NextResponse.json({ error: siblingError.message }, { status: 400 }), rl);
+    const projectedContribution = (siblingRows || []).reduce((sum, row) => {
+      const member = getTagBatchVariant(rawTagBatch, row.variant_id);
+      const lineQuantity = String(row.id) === String(cartItem.id) ? quantityNum : row.quantity;
+      return sum + getTagContributionQuantity(member, lineQuantity);
+    }, 0);
+    if (projectedContribution > tagBatch.remainingQuantity) {
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: `Only ${formatQuantity(tagBatch.remainingQuantity, tagBatch.contributionUnit)} remains in this Tag Buy.`, available: tagBatch.remainingQuantity }, { status: 409 }),
+        rl
+      );
+    }
   }
   const updates = { updated_at: new Date().toISOString() };
   if (quantityNum != null) updates.quantity = quantityNum;

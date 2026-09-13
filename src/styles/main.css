@@ -11171,3 +11171,155 @@ main > section:not(.home-hero) {
     height: 350px;
   }
 }
+.tag-buy-explainer__trigger {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  color: #9a3412;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.tag-buy-explainer__trigger.is-compact {
+  margin-top: 4px;
+}
+
+.tag-buy-explainer {
+  width: min(92vw, 470px);
+  max-width: none;
+  margin: auto;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  padding: 0;
+  color: #171923;
+}
+
+.tag-buy-explainer::backdrop {
+  background: rgb(15 23 42 / 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.tag-buy-explainer__sheet {
+  display: grid;
+  gap: 15px;
+  border: 1px solid #fed7aa;
+  border-radius: inherit;
+  background: #fffdf9;
+  padding: 22px;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 0.24);
+}
+
+.tag-buy-explainer__sheet header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tag-buy-explainer__sheet h2,
+.tag-buy-explainer__sheet p {
+  margin: 0;
+}
+
+.tag-buy-explainer__sheet h2 {
+  margin-top: 3px;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.tag-buy-explainer__sheet p,
+.tag-buy-explainer__choice span {
+  color: #57534e;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.tag-buy-explainer__eyebrow {
+  color: #c2410c;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tag-buy-explainer__close {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid #e7e5e4;
+  border-radius: 50%;
+  background: #fff;
+  color: #292524;
+  cursor: pointer;
+}
+
+.tag-buy-explainer__choice {
+  display: grid;
+  gap: 3px;
+  border-radius: 14px;
+  background: #fff7ed;
+  padding: 12px 14px;
+}
+
+.tag-buy-explainer__choice strong {
+  color: #7c2d12;
+  font-size: 14px;
+}
+
+.tag-buy-explainer__note {
+  border-left: 3px solid #f97316;
+  padding-left: 12px;
+  font-weight: 650;
+}
+
+.tag-buy-explainer__done {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: #171923;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tag-buy-explainer__handle {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .tag-buy-explainer {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    margin: auto 0 0;
+    border-radius: 26px 26px 0 0;
+  }
+
+  .tag-buy-explainer__sheet {
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    border-bottom: 0;
+    padding: 10px 20px max(20px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .tag-buy-explainer__handle {
+    display: block;
+    width: 42px;
+    height: 4px;
+    margin: 0 auto 2px;
+    border-radius: 999px;
+    background: #d6d3d1;
+  }
+}

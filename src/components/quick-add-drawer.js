@@ -10,6 +10,7 @@ import { IconCircleCheck, IconShoppingBag, IconX } from "@tabler/icons-react";
 import AvailabilityRequestNotice from "@/components/availability-request-notice";
 import SizePreferencePicker from "@/components/size-preference-picker";
 import VariantPicker from "@/components/variant-picker";
+import TagBuyExplainer from "@/components/tag-buy-explainer";
 import categories from "@/data/categories";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
 import { readCartItems, writeCartItems } from "@/lib/cart-storage";
@@ -27,6 +28,8 @@ import {
   formatTagDeadline,
   getCartProcurementConflict,
   getTagBatchForVariant,
+  getTagContributionQuantity,
+  getTagMaxOrderQuantity,
   normalizeTagPurchaseMode,
 } from "@/lib/tag-buy";
 import {
@@ -39,6 +42,7 @@ import {
   PURCHASE_MODE_FIXED,
   PURCHASE_MODE_LOOSE,
   clampQuantityToRules,
+  formatQuantity,
   getVariantPurchaseRules,
   normalizePurchaseMode,
   validateVariantQuantity,
@@ -315,7 +319,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   const [variations, setVariations] = useState([]);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [purchaseMode, setPurchaseMode] = useState(PURCHASE_MODE_FIXED);
-  const [procurementChoice, setProcurementChoice] = useState(PROCUREMENT_STANDARD);
+  const [procurementChoice, setProcurementChoice] = useState(PROCUREMENT_TAG);
   const [quantity, setQuantity] = useState(1);
   const [sizePreference, setSizePreference] = useState("best_available");
   const [error, setError] = useState("");
@@ -355,7 +359,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       setVariations([]);
       setSelectedVariant(null);
       setPurchaseMode(PURCHASE_MODE_FIXED);
-      setProcurementChoice(PROCUREMENT_STANDARD);
+      setProcurementChoice(PROCUREMENT_TAG);
       setQuantity(1);
       setSizePreference("best_available");
       return;
@@ -475,7 +479,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
   const bypassLocalStock = isTagSelection || availabilityMode === "request" || inventoryTrackingMode === "supplier";
 
   useEffect(() => {
-    setProcurementChoice(activeTagBatchId && tagPurchaseMode === TAG_PURCHASE_ONLY ? PROCUREMENT_TAG : PROCUREMENT_STANDARD);
+    setProcurementChoice(activeTagBatchId ? PROCUREMENT_TAG : PROCUREMENT_STANDARD);
     setError("");
   }, [activeTagBatchId, tagPurchaseMode]);
 
@@ -511,7 +515,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         : "Available";
   const availableCount = getAvailableCount(getStockValue(effectiveVariant, displayProduct));
   const effectiveMaxQuantity = isTagSelection
-    ? Math.min(purchaseRules.maxQuantity ?? activeTagBatch.remainingQuantity, activeTagBatch.remainingQuantity)
+    ? Math.min(purchaseRules.maxQuantity ?? getTagMaxOrderQuantity(activeTagBatch), getTagMaxOrderQuantity(activeTagBatch))
     : !bypassLocalStock && Number.isFinite(availableCount)
       ? Math.min(purchaseRules.maxQuantity ?? availableCount, availableCount)
       : purchaseRules.maxQuantity;
@@ -573,8 +577,8 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         return;
       }
       const safeQty = validation.quantity;
-      if (targetUsesTag && safeQty > Number(targetTagBatch.remainingQuantity || 0)) {
-        setError(`Only ${Number(targetTagBatch.remainingQuantity || 0)} remains in this Tag Buy.`);
+      if (targetUsesTag && safeQty > getTagMaxOrderQuantity(targetTagBatch)) {
+        setError(`Only ${formatQuantity(targetTagBatch.remainingQuantity || 0, targetTagBatch.contributionUnit)} remains in this Tag Buy.`);
         return;
       }
       const availableCount = getAvailableCount(getStockValue(targetVariant, baseProduct));
@@ -611,8 +615,8 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
           const existing = items[index];
           const existingCount = normaliseOrderCount(existing.orderCount ?? existing.quantity ?? 0, targetVariant, 0);
           const nextCount = existingCount + safeQty;
-          if (targetUsesTag && nextCount > Number(targetTagBatch.remainingQuantity || 0)) {
-            setError(`Only ${Number(targetTagBatch.remainingQuantity || 0)} remains in this Tag Buy.`);
+          if (targetUsesTag && nextCount > getTagMaxOrderQuantity(targetTagBatch)) {
+            setError(`Only ${formatQuantity(targetTagBatch.remainingQuantity || 0, targetTagBatch.contributionUnit)} remains in this Tag Buy.`);
             setStatus("ready");
             return;
           }
@@ -647,10 +651,21 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
             setStatus("ready");
             return;
           }
-          items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference, procurementChoice));
-        }
+            items.push(buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference, procurementChoice));
+          }
 
-        if (readStoredUser()) {
+          if (targetUsesTag) {
+            const cartContribution = items
+              .filter((item) => String(item.tagBatchId ?? item.tag_batch_id ?? "") === String(targetTagBatch.id))
+              .reduce((sum, item) => sum + getTagContributionQuantity(item, item.quantity ?? item.orderCount), 0);
+            if (cartContribution > Number(targetTagBatch.remainingQuantity || 0)) {
+              setError(`Only ${formatQuantity(targetTagBatch.remainingQuantity || 0, targetTagBatch.contributionUnit)} remains in this Tag Buy.`);
+              setStatus("ready");
+              return;
+            }
+          }
+
+          if (readStoredUser()) {
           await addAuthenticatedCartItem(
             buildCartItem(baseProduct, targetVariant, safeQty, product?.image, cartSizePreference, procurementChoice),
             { source: "quick-add" }
@@ -910,7 +925,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               {isTagSelection ? (
                 <div className="mt-3 px-1" aria-live="polite">
                   <div className="flex items-center justify-between gap-3 text-xs font-medium text-meal-text">
-                    <span>{Number(activeTagBatch.committedQuantity || 0)} / {Number(activeTagBatch.targetQuantity || 0)} committed</span>
+                    <span>{formatQuantity(activeTagBatch.committedQuantity || 0, activeTagBatch.contributionUnit)} / {formatQuantity(activeTagBatch.targetQuantity || 0, activeTagBatch.contributionUnit)} committed</span>
                     <span>{Math.max(0, Math.min(100, Number(activeTagBatch.progressPercent || 0)))}%</span>
                   </div>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200" aria-label={`${Number(activeTagBatch.progressPercent || 0)}% funded`}>
@@ -920,6 +935,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
                   <p className="mt-1 text-xs leading-5 text-meal-muted">
                     Buy together and save. Fulfilled after the Tag closes. If the minimum is missed, the {activeTagBatch.failurePolicy === "carry_forward" ? "carry-forward" : "refund"} policy applies.
                   </p>
+                  <TagBuyExplainer compact />
                 </div>
               ) : null}
             </fieldset>

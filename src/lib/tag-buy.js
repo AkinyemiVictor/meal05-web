@@ -19,13 +19,62 @@ export const isTagCartItem = (item) =>
 export const getTagBatchId = (item) =>
   String(item?.tagBatchId ?? item?.tag_batch_id ?? item?.tagBatch?.id ?? "").trim();
 
+export const getTagBatchVariant = (batch, variant) => {
+  const variantId = String(
+    variant?.variationId ?? variant?.variantId ?? variant?.variant_id ?? variant?.id ?? variant ?? ""
+  ).trim();
+  if (!batch?.id || !variantId) return null;
+  const members = Array.isArray(batch.variants) ? batch.variants : [];
+  const member = members.find((candidate) => String(candidate?.variantId ?? candidate?.variant_id ?? "") === variantId);
+  if (member) return member;
+  // V1 batches did not expose a membership list. Keep them readable during a
+  // rolling deployment, but never apply them to a different option.
+  return String(batch.variantId ?? batch.variant_id ?? "") === variantId
+    ? {
+        variantId,
+        tagPrice: Number(batch.tagPrice ?? batch.tag_price ?? 0),
+        standardPriceAtOpen: Number(batch.standardPriceAtOpen ?? batch.standard_price_at_open ?? 0),
+        contributionQuantity: Number(batch.contributionQuantity ?? batch.contribution_quantity ?? 1),
+      }
+    : null;
+};
+
+export const withTagBatchVariant = (batch, variant) => {
+  const member = getTagBatchVariant(batch, variant);
+  return member ? {
+    ...batch,
+    variantId: String(member.variantId ?? member.variant_id),
+    tagPrice: Number(member.tagPrice ?? member.tag_price ?? 0),
+    standardPriceAtOpen: Number(member.standardPriceAtOpen ?? member.standard_price_at_open ?? 0),
+    contributionQuantity: Number(member.contributionQuantity ?? member.contribution_quantity ?? 1),
+  } : null;
+};
+
 export const getTagBatchForVariant = (product, variant) => {
   const variantId = String(
     variant?.variationId ?? variant?.variantId ?? variant?.id ?? product?.variantId ?? ""
   ).trim();
   if (!variantId) return null;
   const candidates = [variant?.tagBatch, product?.tagBatch].filter(Boolean);
-  return candidates.find((batch) => String(batch?.variantId ?? batch?.variant_id ?? "") === variantId) || null;
+  for (const batch of candidates) {
+    const resolved = withTagBatchVariant(batch, variantId);
+    if (resolved) return resolved;
+  }
+  return null;
+};
+
+export const getTagContributionQuantity = (batch, quantity = 1) => {
+  const count = Number(quantity);
+  const factor = Number(batch?.contributionQuantity ?? batch?.contribution_quantity ?? 1);
+  if (!Number.isFinite(count) || count <= 0 || !Number.isFinite(factor) || factor <= 0) return 0;
+  return Math.round(count * factor * 1000) / 1000;
+};
+
+export const getTagMaxOrderQuantity = (batch) => {
+  const remaining = Number(batch?.remainingQuantity ?? batch?.remaining_quantity ?? 0);
+  const factor = Number(batch?.contributionQuantity ?? batch?.contribution_quantity ?? 1);
+  if (!Number.isFinite(remaining) || remaining < 0 || !Number.isFinite(factor) || factor <= 0) return 0;
+  return Math.floor((remaining / factor) * 1000) / 1000;
 };
 
 export const getCartProcurementConflict = (items, incoming) => {
@@ -70,6 +119,10 @@ export const buildTagCartMetadata = (batch) => batch?.id ? {
   tag_closes_at: batch.closesAt ?? batch.closes_at ?? null,
   expectedProcurementAt: batch.expectedProcurementAt ?? batch.expected_procurement_at ?? null,
   expected_procurement_at: batch.expectedProcurementAt ?? batch.expected_procurement_at ?? null,
+  contributionUnit: batch.contributionUnit ?? batch.contribution_unit ?? null,
+  contribution_unit: batch.contributionUnit ?? batch.contribution_unit ?? null,
+  contributionQuantity: Number(batch.contributionQuantity ?? batch.contribution_quantity ?? 1),
+  contribution_quantity: Number(batch.contributionQuantity ?? batch.contribution_quantity ?? 1),
 } : {
   procurementMode: PROCUREMENT_STANDARD,
   procurement_mode: PROCUREMENT_STANDARD,

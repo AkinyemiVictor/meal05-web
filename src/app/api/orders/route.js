@@ -35,7 +35,7 @@ import { decimalPlaces, formatQuantity, roundQuantity, validateVariantQuantity }
 import { calculateOrderCapacity } from "@/lib/order-capacity";
 import { loadPublicOrderSettings } from "@/lib/order-settings";
 import { normalizeAvailabilityMode, normalizeSelectionMode, normalizeSizePreference, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
-import { PROCUREMENT_TAG, normalizeProcurementMode } from "@/lib/tag-buy";
+import { getTagBatchVariant, PROCUREMENT_TAG, normalizeProcurementMode } from "@/lib/tag-buy";
 import { loadTagBatch } from "@/lib/tag-buy-server";
 
 export const runtime = "nodejs";
@@ -539,9 +539,12 @@ export async function POST(request) {
         return;
       }
       const availabilityMode = normalizeAvailabilityMode(variant.availability_mode);
+      const tagMember = procurementMode === PROCUREMENT_TAG
+        ? getTagBatchVariant(tagBatch, variant.id)
+        : null;
       if (procurementMode === PROCUREMENT_TAG && (
         String(row?.tag_batch_id || "") !== tagBatch.id ||
-        String(variant.id) !== tagBatch.variantId ||
+        !tagMember ||
         String(variant.product_id) !== tagBatch.productId
       )) {
         issues.push({ variantId, productId: variant.product_id, message: "Tag Buy no longer matches this product option", code: "TAG_BATCH_CHANGED" });
@@ -668,8 +671,10 @@ export async function POST(request) {
   }
 
   const resolveUnitPrice = (row) => {
-    if (procurementMode === PROCUREMENT_TAG && tagBatch) return Number(tagBatch.tagPrice);
     const variant = resolveCartVariant(row);
+    if (procurementMode === PROCUREMENT_TAG && tagBatch) {
+      return Number(getTagBatchVariant(tagBatch, variant?.id)?.tagPrice || 0);
+    }
     const price = Number(variant?.price);
     return Number.isFinite(price) && price >= 0 ? price : 0;
   };
@@ -1052,10 +1057,13 @@ export async function POST(request) {
     }).eq("tag_batch_id", tagBatch.id).eq("user_id", user.id).eq("reservation_key", tagReservationKey).eq("status", "reserved");
   };
   if (procurementMode === PROCUREMENT_TAG) {
-    const { error } = await admin.rpc("reserve_tag_capacity", {
+    const { error } = await admin.rpc("reserve_tag_capacity_v2", {
       p_batch_id: tagBatch.id,
       p_user_id: user.id,
-      p_quantity: Number(cart[0].quantity),
+      p_lines: cart.map((row) => ({
+        variant_id: Number(resolveCartVariant(row)?.id),
+        quantity: Number(row.quantity),
+      })),
       p_reservation_key: tagReservationKey,
       p_hold_minutes: 20,
     });
@@ -1147,7 +1155,9 @@ export async function POST(request) {
     size_preference: c.size_preference || null,
     procurement_mode: procurementMode,
     tag_batch_id: procurementMode === PROCUREMENT_TAG ? tagBatch.id : null,
-    tag_price_snapshot: procurementMode === PROCUREMENT_TAG ? Number(tagBatch.tagPrice) : null,
+    tag_price_snapshot: procurementMode === PROCUREMENT_TAG
+      ? Number(getTagBatchVariant(tagBatch, resolveVariantIdForOrderItem(c))?.tagPrice || 0)
+      : null,
     tag_closes_at_snapshot: procurementMode === PROCUREMENT_TAG ? tagBatch.closesAt : null,
     expected_procurement_at_snapshot: procurementMode === PROCUREMENT_TAG ? tagBatch.expectedProcurementAt : null,
   }));
@@ -1167,7 +1177,7 @@ export async function POST(request) {
   orderItems = insertedOrderItems || orderItemsWithVariant;
 
   if (procurementMode === PROCUREMENT_TAG) {
-    const { error: bindError } = await admin.rpc("bind_tag_commitment_to_order", {
+    const { error: bindError } = await admin.rpc("bind_tag_commitment_to_order_v2", {
       p_batch_id: tagBatch.id,
       p_user_id: user.id,
       p_reservation_key: tagReservationKey,
@@ -1539,6 +1549,11 @@ export async function GET(request) {
     }
   }
   const orderItems = rows.flatMap((row) => (Array.isArray(row?.order_items) ? row.order_items : []));
+  const tagBatchIds = [...new Set(
+    orderItems
+      .map((item) => item?.tag_batch_id)
+      .filter(Boolean)
+  )];
   const productIds = [...new Set(
     orderItems
       .filter((item) => !String(item?.product_name || "").trim() || !String(item?.image_url || "").trim())
@@ -1551,12 +1566,15 @@ export async function GET(request) {
       .map((item) => item?.variant_id)
       .filter((id) => id != null)
   )];
-  const [productsResult, variantsResult] = await Promise.all([
+  const [productsResult, variantsResult, tagBatchesResult] = await Promise.all([
     productIds.length
       ? admin.from("products").select("id, name, main_image_url").in("id", productIds)
       : Promise.resolve({ data: [], error: null }),
     variantIds.length
       ? admin.from("product_variants").select("id, name, display_label, size, unit").in("id", variantIds)
+      : Promise.resolve({ data: [], error: null }),
+    tagBatchIds.length
+      ? admin.from("tag_batches").select("id, status, closes_at, expected_procurement_at").in("id", tagBatchIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (productsResult.error) {
@@ -1565,11 +1583,17 @@ export async function GET(request) {
   if (variantsResult.error) {
     await logAdminError(variantsResult.error, { route: "/api/orders", stage: "list:variants", user_id: user.id });
   }
+  if (tagBatchesResult.error) {
+    await logAdminError(tagBatchesResult.error, { route: "/api/orders", stage: "list:tag_batches", user_id: user.id });
+  }
   const productsById = new Map(
     (Array.isArray(productsResult.data) ? productsResult.data : []).map((product) => [String(product.id), product])
   );
   const variantsById = new Map(
     (Array.isArray(variantsResult.data) ? variantsResult.data : []).map((variant) => [String(variant.id), variant])
+  );
+  const tagBatchesById = new Map(
+    (Array.isArray(tagBatchesResult.data) ? tagBatchesResult.data : []).map((batch) => [String(batch.id), batch])
   );
   const normalize = (row) => {
     const items = Array.isArray(row?.order_items) ? row.order_items : [];
@@ -1594,6 +1618,7 @@ export async function GET(request) {
         const qty = Number(it?.quantity) || 0;
         const prod = productsById.get(String(it?.product_id)) || {};
         const variant = variantsById.get(String(it?.variant_id)) || {};
+        const currentTagBatch = tagBatchesById.get(String(it?.tag_batch_id)) || {};
         return {
           orderId: it.order_id,
           productId: it.product_id,
@@ -1605,9 +1630,10 @@ export async function GET(request) {
           fulfillmentNote: it.fulfillment_note || null,
           procurementMode: it.procurement_mode || "standard",
           tagBatchId: it.tag_batch_id || null,
+          tagBatchStatus: currentTagBatch.status || null,
           tagPriceSnapshot: it.tag_price_snapshot == null ? null : Number(it.tag_price_snapshot),
-          tagClosesAt: it.tag_closes_at_snapshot || null,
-          expectedProcurementAt: it.expected_procurement_at_snapshot || null,
+          tagClosesAt: currentTagBatch.closes_at || it.tag_closes_at_snapshot || null,
+          expectedProcurementAt: currentTagBatch.expected_procurement_at || it.expected_procurement_at_snapshot || null,
           variantName: it.variant_name || variant?.display_label || variant?.name || variant?.size || "",
           product: {
             name: it.product_name || prod?.name || "Archived product",
