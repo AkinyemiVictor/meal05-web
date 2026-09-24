@@ -27,6 +27,17 @@ const getRangeMidpoint = (label) => {
   return (low + high) / 2;
 };
 
+const getSortablePrice = (variant) => {
+  const price = Number(variant?.price);
+  return Number.isFinite(price) && price > 0 ? price : Number.POSITIVE_INFINITY;
+};
+
+const compareVariantsByPrice = (a, b) => {
+  const priceDifference = getSortablePrice(a) - getSortablePrice(b);
+  if (Number.isFinite(priceDifference) && priceDifference !== 0) return priceDifference;
+  return getSizeLabel(a).localeCompare(getSizeLabel(b), undefined, { numeric: true, sensitivity: "base" });
+};
+
 const buildSizeDisplayLabels = (options) => {
   if (!Array.isArray(options) || options.length < 2 || options.length > 3) return new Map();
   if (!options.every((option) => RANGE_PATTERN.test(option.label))) return new Map();
@@ -89,7 +100,10 @@ const pickBySizeLabel = (list, label) => {
 const pickFirstAvailable = (list) => list.find((variant) => !isVariantInactive(variant)) || list[0] || null;
 
 export default function VariantPicker({ variations = [], selectedId, onChange }) {
-  const safeVariations = useMemo(() => (Array.isArray(variations) ? variations : []), [variations]);
+  const safeVariations = useMemo(
+    () => (Array.isArray(variations) ? [...variations].sort(compareVariantsByPrice) : []),
+    [variations]
+  );
   const selectedVariant = useMemo(
     () =>
       safeVariations.find(

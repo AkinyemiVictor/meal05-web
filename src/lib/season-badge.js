@@ -37,7 +37,6 @@ const SEASONAL_GRAIN_TERMS = [
   "corn",
   "maize",
   "millet",
-  "rice",
   "sorghum",
   "guinea corn",
 ];
