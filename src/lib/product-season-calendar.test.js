@@ -5,7 +5,7 @@ import { test } from "node:test";
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 const migration = read("supabase/migrations/20260906185305_finalize_product_season_calendar.sql");
-const palmOilMigration = read("supabase/migrations/20260909052109_add_palm_oil_season_profile.sql");
+const palmOilMigration = read("supabase/migrations/20260909100500_add_palm_oil_season_profile.sql");
 const adminData = read("src/lib/admin-dashboard-data.js");
 const adminPage = read("src/app/admin/(secure)/catalogue/page.js");
 const adminControl = read("src/components/admin-product-management-control.js");

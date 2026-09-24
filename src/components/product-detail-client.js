@@ -7,6 +7,7 @@ import AddToCartForm from "@/components/add-to-cart-form";
 import AvailabilityRequestNotice from "@/components/availability-request-notice";
 import SizePreferencePicker from "@/components/size-preference-picker";
 import VariantPicker from "@/components/variant-picker";
+import LocalMeasurementInfo from "@/components/local-measurement-info";
 import { useNotice } from "@/components/notice-provider";
 import { readStoredUser } from "@/lib/auth";
 import { buildSignInHref } from "@/lib/auth-redirect";
@@ -408,6 +409,8 @@ export default function ProductDetailClient({ product, variations = [], fallback
             onChange={setSizePreference}
           />
         ) : null}
+
+        <LocalMeasurementInfo measurementInfo={product?.measurementInfo} />
 
         {availabilityMode === "request" ? <AvailabilityRequestNotice /> : null}
 

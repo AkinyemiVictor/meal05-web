@@ -1,0 +1,76 @@
+
+> meal05-web@0.1.0 dev
+> next dev -p 3000
+
+   ▲ Next.js 15.5.18
+   - Local:        http://localhost:3000
+   - Network:      http://172.19.192.1:3000
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 7.4s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 629ms (122 modules)
+ ○ Compiling /api/products/[id] ...
+ ✓ Compiled /api/products/[id] in 8.3s (370 modules)
+ GET /api/products/226 200 in 15015ms
+ GET /api/products/204 200 in 2681ms
+ ○ Compiling /products/[productSlug] ...
+ ✓ Compiled /products/[productSlug] in 9.7s (1184 modules)
+ GET /products/frozen-chicken-broiler-226 200 in 20513ms
+ ○ Compiling /api/site-notification ...
+ ✓ Compiled /api/site-notification in 881ms (1090 modules)
+ GET /api/site-notification 200 in 1839ms
+ GET /products/beef-bone-in-cuts-204 200 in 4696ms
+ GET /api/site-notification 200 in 444ms
+ GET /products/frozen-chicken-broiler-226 200 in 6217ms
+ GET /api/site-notification 200 in 1233ms
+ GET /products/beef-bone-in-cuts-204 200 in 5572ms
+ GET /api/site-notification 200 in 470ms
+ ✓ Compiled in 13.9s (1084 modules)
+ ✓ Compiled in 1183ms (427 modules)
+ ✓ Compiled in 2.1s (427 modules)
+ ✓ Compiled in 1565ms (427 modules)
+ ✓ Compiled in 4.3s (1082 modules)
+ ✓ Compiled in 2s (1082 modules)
+ ✓ Compiled in 872ms (426 modules)
+ ✓ Compiled in 840ms (426 modules)
+ ✓ Compiled in 3s (1083 modules)
+ ✓ Compiled in 3.2s (1083 modules)
+ ○ Compiling /shop ...
+ ✓ Compiled /shop in 1883ms (1133 modules)
+ GET /shop 200 in 2789ms
+ ○ Compiling /api/products/[id] ...
+ ✓ Compiled /api/products/[id] in 845ms (702 modules)
+ GET /api/products/1070 200 in 6568ms
+ GET /api/products/602 200 in 3017ms
+ GET /api/products/610 200 in 2431ms
+ GET /api/products/204 200 in 2378ms
+ ○ Compiling /search ...
+ ✓ Compiled /search in 2.4s (1149 modules)
+ GET /search?q=eggs 200 in 5820ms
+ ○ Compiling /api/site-notification ...
+ ✓ Compiled /api/site-notification in 1223ms (712 modules)
+ GET /api/site-notification 200 in 2371ms
+ GET /api/products/1070 200 in 501ms
+ GET /search?q=eggs 200 in 1614ms
+ GET /api/site-notification 200 in 393ms
+ GET /api/products/1070 200 in 194ms
+ GET /search?q=eggs 200 in 1197ms
+ GET /api/site-notification 200 in 479ms
+ GET /api/products/1070 200 in 2674ms
+ GET /search?q=eggs 200 in 1239ms
+ GET /api/site-notification 200 in 643ms
+ GET /api/products/1070 200 in 3117ms
+ GET /search?q=eggs 200 in 1124ms
+ GET /api/site-notification 200 in 656ms
+ GET /api/products/1070 200 in 3050ms
+ GET /search?q=sweet%20potato 200 in 2688ms
+ GET /api/site-notification 200 in 578ms
+ GET /search?q=coconut 200 in 2605ms
+ GET /api/site-notification 200 in 742ms
+ GET /search?q=eggs 200 in 1383ms
+ GET /api/site-notification 200 in 463ms
+ GET /products/medium-eggs-1070 200 in 3630ms
+ GET /api/site-notification 200 in 445ms
+[?25h

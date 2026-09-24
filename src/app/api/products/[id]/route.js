@@ -13,6 +13,7 @@ import { sortVariantsBySize } from "@/lib/variant-order";
 import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
 import { attachTagBatchesToProduct, loadTagBatches } from "@/lib/tag-buy-server";
 import { applyFixedMeatOptionsPreview } from "@/lib/fixed-meat-options-preview-server";
+import { loadLocalMeasurementInfoByProductIds } from "@/lib/local-measurement-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -299,6 +300,9 @@ export async function GET(_request, { params }) {
   if (merchandising.isHidden) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
+  const measurementInfoPromise = loadLocalMeasurementInfoByProductIds(admin, [id])
+    .then((infoByProductId) => infoByProductId.get(String(id)) || null)
+    .catch(() => null);
 
   let imageIndex = {};
   try {
@@ -488,6 +492,7 @@ export async function GET(_request, { params }) {
   const effectiveStock = variations.length && !selectableVariations.length ? 0 : stockValue;
   const purchaseRules = getVariantPurchaseRules(defaultVariation || marketData);
   const defaultMeasurementSource = defaultVariation || marketData;
+  const measurementInfo = await measurementInfoPromise;
 
   const [baseProduct] = await enrichCatalogSeasonMetadata(admin, [
       {
@@ -548,6 +553,7 @@ export async function GET(_request, { params }) {
         promoTagEnabled: normalizePromoEnabled(marketData.promo_tag_enabled ?? marketData.promoTagEnabled),
         promoTagText: normalizePromoText(marketData.promo_tag_text ?? marketData.promoTagText),
         promoTagExpiresAt: parsePromoExpiry(marketData.promo_tag_expires_at ?? marketData.promoTagExpiresAt),
+        measurementInfo,
         ...buildPackagingMetadata({
           ...marketData,
           ...(categoryMeta || {}),

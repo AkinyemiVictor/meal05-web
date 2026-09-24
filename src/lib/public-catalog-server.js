@@ -17,6 +17,7 @@ import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { sortVariantsBySize } from "@/lib/variant-order";
 import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
+import { attachLocalMeasurementInfo } from "@/lib/local-measurement-server";
 
 export const PUBLIC_CATALOG_CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
@@ -599,7 +600,7 @@ const loadPublicCatalogProductsFromCardView = async ({
     .filter(isVisibleCatalogProduct);
   const hydratedFlat = await enrichCatalogSeasonMetadata(
     admin,
-    attachEmbeddedProductVariations(sortedRows, flat, market)
+    await attachLocalMeasurementInfo(admin, attachEmbeddedProductVariations(sortedRows, flat, market))
   );
 
   return {
@@ -658,7 +659,7 @@ export async function loadPublicCatalogPage({
     .filter(isVisibleCatalogProduct);
   const hydratedFlat = await enrichCatalogSeasonMetadata(
     admin,
-    attachEmbeddedProductVariations(data, flat, market)
+    await attachLocalMeasurementInfo(admin, attachEmbeddedProductVariations(data, flat, market))
   );
   const pagination = normalizeCatalogPagination({ page: range.page, pageSize: range.pageSize, total: count });
 
@@ -798,7 +799,10 @@ export async function loadPublicCatalogProducts({
     .filter(isVisibleCatalogProduct);
   const hydratedFlat = await enrichCatalogSeasonMetadata(
     admin,
-    await attachPublicProductVariations(admin, flat, catalog.market)
+    await attachLocalMeasurementInfo(
+      admin,
+      await attachPublicProductVariations(admin, flat, catalog.market)
+    )
   );
 
   return {
@@ -869,6 +873,7 @@ export function toProductCardDTO(product = {}) {
     volume_unit: textOrNull(product?.volume_unit ?? product?.volumeUnit),
     optionRole: textOrNull(product?.optionRole ?? product?.option_role),
     option_role: textOrNull(product?.option_role ?? product?.optionRole),
+    measurementInfo: product?.measurementInfo || null,
     variations: Array.isArray(product?.variations) ? product.variations : [],
     optionsLoaded: product?.optionsLoaded === true,
   };

@@ -16,11 +16,11 @@ const imageMigration = readFileSync(
   "utf8"
 );
 const supplierCostMigration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260908221500_snapshot_order_item_supplier_cost.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260908220047_snapshot_order_item_supplier_cost.sql"),
   "utf8"
 );
 const profitIndexMigration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260908222500_index_profit_dashboard_queries.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260909043539_index_profit_dashboard_queries.sql"),
   "utf8"
 );
 

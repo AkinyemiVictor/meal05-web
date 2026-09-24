@@ -10,6 +10,7 @@ import { IconCircleCheck, IconShoppingBag, IconX } from "@tabler/icons-react";
 import AvailabilityRequestNotice from "@/components/availability-request-notice";
 import SizePreferencePicker from "@/components/size-preference-picker";
 import VariantPicker from "@/components/variant-picker";
+import LocalMeasurementInfo from "@/components/local-measurement-info";
 import TagBuyExplainer from "@/components/tag-buy-explainer";
 import categories from "@/data/categories";
 import { formatProductPrice, resolveStockClass } from "@/lib/catalogue";
@@ -852,6 +853,8 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
               </div>
             </>
           ) : null}
+
+          <LocalMeasurementInfo measurementInfo={displayProduct?.measurementInfo} compact />
 
           {isFlexibleMarket ? (
             <>

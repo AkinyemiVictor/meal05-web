@@ -6142,6 +6142,82 @@ main > section:not(.home-hero) {
   font-size: 0.9rem;
 }
 
+.local-measurement-info {
+  overflow: hidden;
+  border: 1px solid #dbe3ec;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.local-measurement-info__summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.8rem;
+  color: #475569;
+  font-size: 0.86rem;
+  font-weight: 750;
+  cursor: pointer;
+  list-style: none;
+}
+
+.local-measurement-info__summary::-webkit-details-marker {
+  display: none;
+}
+
+.local-measurement-info__summary svg {
+  flex: 0 0 auto;
+  color: #64748b;
+}
+
+.local-measurement-info__summary:focus-visible {
+  outline: 3px solid rgba(71, 85, 105, 0.16);
+  outline-offset: -3px;
+}
+
+.local-measurement-info[open] .local-measurement-info__summary {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.local-measurement-info__content {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem 0.85rem 0.85rem;
+}
+
+.local-measurement-info__content strong,
+.local-measurement-info__content p,
+.local-measurement-info__content small {
+  margin: 0;
+}
+
+.local-measurement-info__content strong {
+  color: #0f172a;
+  font-size: 0.98rem;
+}
+
+.local-measurement-info__content p {
+  color: #334155;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.local-measurement-info__content small {
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.local-measurement-info--compact {
+  margin-top: 0.85rem;
+}
+
+.local-measurement-info--compact .local-measurement-info__summary {
+  font-size: 0.82rem;
+}
+
 .quick-add-overlay {
   position: fixed;
   inset: 0;
@@ -6891,6 +6967,7 @@ main > section:not(.home-hero) {
 
   .quick-add-desktop-options,
   .quick-add-desktop-size-preference,
+  .quick-add-panel--mobile-modal > .local-measurement-info,
   .quick-add-panel--mobile-modal > .availability-request-notice,
   .quick-add-panel--mobile-modal > .quick-add-status {
     margin-inline: 2rem;

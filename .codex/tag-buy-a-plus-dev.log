@@ -1,0 +1,20 @@
+
+> meal05-web@0.1.0 dev
+> next dev -p 3000
+
+   ▲ Next.js 15.5.18
+   - Local:        http://localhost:3000
+   - Network:      http://172.19.192.1:3000
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 6.7s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 2.5s (122 modules)
+ ○ Compiling /search ...
+ ✓ Compiled /search in 17.5s (1175 modules)
+ GET /search?q=eggs 200 in 4334ms
+ GET /search?q=eggs 200 in 1194ms
+ GET /search?q=eggs 200 in 1801ms
+ ○ Compiling /api/site-notification ...
+ ✓ Compiled /api/site-notification in 3.7s (1100 modules)

@@ -13,6 +13,7 @@ import { buildPackagingMetadata } from "@/lib/packaging-fees";
 import { applyMarketListing, loadMarketCatalog } from "@/lib/market-catalog-server";
 import { getVariantPurchaseRules } from "@/lib/purchase-quantities";
 import { sortVariantsBySize } from "@/lib/variant-order";
+import { loadLocalMeasurementInfoByProductIds } from "@/lib/local-measurement-server";
 
 const pickFirst = (row, fields = []) => {
   for (const key of fields) {
@@ -362,6 +363,7 @@ const mapRow = (row) => {
     promoTagExpiresAt: parsePromoExpiry(
       pickFirst(row, ["promo_tag_expires_at", "promoTagExpiresAt", "promo_expires_at", "promoExpiresAt"])
     ),
+    measurementInfo: row?.measurementInfo || null,
     ...buildPackagingMetadata(row),
     ...merchandising,
   };
@@ -441,7 +443,7 @@ const fetchProductByIdUncached = async (id) => {
     } catch {}
   }
 
-  const [imageResult, variantsResult] = await Promise.allSettled([
+  const [imageResult, variantsResult, measurementResult] = await Promise.allSettled([
     admin.from("product_images").select("*").eq("product_id", id),
     admin
       .from("product_variants")
@@ -451,6 +453,7 @@ const fetchProductByIdUncached = async (id) => {
       .eq("is_active", true)
       .order("base_quantity", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true }),
+    loadLocalMeasurementInfoByProductIds(admin, [id]),
   ]);
 
   let imageIndex = {};
@@ -463,6 +466,10 @@ const fetchProductByIdUncached = async (id) => {
   const gallery = imageIndex[id] || [];
   const mainImageUrl = resolveProductImage(gallery[0], marketData.image, marketData.image_url);
   const galleryImageUrls = gallery.length ? gallery : mainImageUrl ? [mainImageUrl] : [];
+  const measurementInfo =
+    measurementResult.status === "fulfilled"
+      ? measurementResult.value.get(String(id)) || null
+      : null;
 
   // Try to load structured variations from a dedicated variants table if present
   let variations = [];
@@ -580,8 +587,8 @@ const fetchProductByIdUncached = async (id) => {
   const defaultVariantId = defaultVariation?.variationId ? String(defaultVariation.variationId) : null;
 
   const raw = variations.length
-    ? { ...marketData, ...(categoryMeta || {}), variations, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls }
-    : { ...marketData, ...(categoryMeta || {}), main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls };
+    ? { ...marketData, ...(categoryMeta || {}), variations, measurementInfo, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls }
+    : { ...marketData, ...(categoryMeta || {}), measurementInfo, main_image_url: mainImageUrl, gallery_image_urls: galleryImageUrls };
   const baseProduct = mapRow({ ...raw, mainImageUrl, galleryImageUrls });
   const effectiveStock = variations.length && !selectableVariations.length ? 0 : defaultVariation?.stock ?? baseProduct.stock;
   const effectivePrice = defaultVariation?.price ?? baseProduct.price;

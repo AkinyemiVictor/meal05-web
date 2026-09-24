@@ -17,7 +17,7 @@ test("location picker explains distance-band pricing and offers pickup beyond th
 });
 
 test("delivery zone resolver uses three priced radius bands and no unrestricted fallback", () => {
-  const migration = read("supabase/migrations/20260907090000_launch_delivery_distance_bands.sql");
+  const migration = read("supabase/migrations/20260907045113_launch_delivery_distance_bands.sql");
 
   assert.match(migration, /Meal05 Core \(0-5 km\)'[\s\S]*1500[\s\S]*5000[\s\S]*priority/i);
   assert.match(migration, /Meal05 Extended \(5-10 km\)'[\s\S]*2500[\s\S]*10000/i);
@@ -41,7 +41,7 @@ test("checkout and policy explain distance pricing plus official pickup", () => 
 });
 
 test("the Oloyin one-cup option is retired without deleting historical variant links", () => {
-  const migration = read("supabase/migrations/20260907090000_launch_delivery_distance_bands.sql");
+  const migration = read("supabase/migrations/20260907045113_launch_delivery_distance_bands.sql");
 
   assert.match(migration, /lower\(p\.name\) = 'honey beans \(oloyin\)'/i);
   assert.match(migration, /lower\(coalesce\(pv\.name, ''\)\) = '1 cup \(150g\)'/i);
