@@ -43,6 +43,10 @@ test("quick-add becomes a product-detail bottom sheet with dropdown options on m
   assert.match(drawer, /<IconShoppingBag size=\{20\} stroke=\{1\.8\}/);
   assert.match(drawer, /<IconCircleCheck[\s\S]*?className="quick-add-availability-icon"/);
   assert.match(drawer, /quick-add-mobile-topbar__close[\s\S]*?<IconX/);
+  assert.match(drawer, /useSharedCartCount/);
+  assert.match(drawer, /quick-add-mobile-topbar__cart-count/);
+  assert.match(css, /\.quick-add-mobile-topbar__cart-count\s*\{[\s\S]*?background:\s*#f4511e;[\s\S]*?color:\s*#ffffff/);
+  assert.match(css, /\.quick-add-mobile-topbar__cart\s*\{[\s\S]*?color:\s*#11131f/);
   assert.doesNotMatch(drawer, /fa-xmark|fa-basket-shopping/);
   assert.match(drawer, /regularUnitPrice\s*=\s*getVariantPrice\(effectiveVariant, displayProduct\)/);
   assert.match(drawer, /How would you like to buy\?/);
@@ -131,6 +135,19 @@ test("quick-add quantity controls share an active colour and only fade when disa
   assert.match(css.slice(disabledRule, disabledRule + 260), /background:\s*#f1f2f4/);
   assert.match(css.slice(disabledRule, disabledRule + 260), /opacity:\s*1/);
   assert.doesNotMatch(css, /\.quick-add-panel--mobile-modal \.quick-add-qty button:last-child/);
+});
+
+test("saved and recommendation product cards reuse the catalogue card width", () => {
+  const css = read("src/styles/main.css");
+  const accountCss = read("src/app/account/account.module.css");
+  const cartCss = read("src/app/cart/cart.module.css");
+
+  assert.match(css, /--catalog-product-card-width:\s*240px/);
+  assert.match(css, /@media \(max-width: 768px\)[\s\S]*?--catalog-product-card-width:\s*clamp\(136px,/);
+  assert.match(accountCss, /\.productGrid\s*\{[\s\S]*?repeat\(auto-fill, var\(--catalog-product-card-width\)\)/);
+  assert.match(accountCss, /\.productGrid :global\(\.meal05-product-card\)[\s\S]*?width:\s*var\(--catalog-product-card-width\)/);
+  assert.match(cartCss, /\.productCardShell\s*\{[\s\S]*?flex:\s*0 0 var\(--catalog-product-card-width\)/);
+  assert.doesNotMatch(cartCss, /min\(78vw, 320px\)/);
 });
 
 test("product-detail and cart quantity controls use the same active and disabled states", () => {

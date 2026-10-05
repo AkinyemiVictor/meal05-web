@@ -101,6 +101,7 @@ export const isProviderTopupEnabled = (settings, provider) => {
     case "moniepoint":
     case "monnify":
       return settings.walletEnabled && settings.monnifyTopupsEnabled;
+    case "opay_transfer":
     case "opay":
       return settings.walletEnabled && settings.opayTopupsEnabled;
     default:

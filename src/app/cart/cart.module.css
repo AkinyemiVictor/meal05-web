@@ -778,8 +778,9 @@
 }
 
 .productCardShell {
-  flex: 0 0 clamp(210px, 22vw, 255px);
-  min-width: 210px;
+  flex: 0 0 var(--catalog-product-card-width);
+  width: var(--catalog-product-card-width);
+  min-width: var(--catalog-product-card-width);
   scroll-snap-align: start;
 }
 
@@ -903,8 +904,9 @@
   }
 
   .productCardShell {
-    flex-basis: min(78vw, 320px);
-    min-width: min(78vw, 320px);
+    flex-basis: var(--catalog-product-card-width);
+    width: var(--catalog-product-card-width);
+    min-width: var(--catalog-product-card-width);
   }
 
   .pageInner {

@@ -8,11 +8,13 @@ body {
 
 :root {
   --site-header-height: 88px;
+  --catalog-product-card-width: 240px;
 }
 
 @media (max-width: 768px) {
   :root {
     --site-header-height: 72px;
+    --catalog-product-card-width: clamp(136px, calc((100vw - 2.85rem) / 2), 240px);
   }
 }
 
@@ -4212,8 +4214,8 @@ main > section:not(.home-hero) {
 .category-page .meal05-product-card,
 .category-products .meal05-product-card {
   /* Prevent stretching to fill leftover space */
-  flex: 0 0 240px;
-  max-width: 240px;
+  flex: 0 0 var(--catalog-product-card-width);
+  max-width: var(--catalog-product-card-width);
   min-width: 200px;
 }
 
@@ -6762,6 +6764,29 @@ main > section:not(.home-hero) {
   display: none;
 }
 
+.quick-add-mobile-topbar__cart {
+  position: relative;
+}
+
+.quick-add-mobile-topbar__cart-count {
+  position: absolute;
+  top: -0.28rem;
+  right: -0.28rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.3rem;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #f4511e;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .quick-add-availability-icon {
   width: 1rem;
   height: 1rem;
@@ -6861,15 +6886,20 @@ main > section:not(.home-hero) {
 
   .quick-add-mobile-topbar__cart {
     justify-self: end;
-    color: #f4511e;
+    color: #11131f;
   }
 
   .quick-add-mobile-topbar__close:hover,
-  .quick-add-mobile-topbar__close:focus-visible,
+  .quick-add-mobile-topbar__close:focus-visible {
+    background: #fff0eb;
+    color: #e43d12;
+    outline: 3px solid rgba(244, 81, 30, 0.12);
+  }
+
   .quick-add-mobile-topbar__cart:hover,
   .quick-add-mobile-topbar__cart:focus-visible {
     background: #fff0eb;
-    color: #e43d12;
+    color: #11131f;
     outline: 3px solid rgba(244, 81, 30, 0.12);
   }
 
@@ -7291,7 +7321,7 @@ main > section:not(.home-hero) {
 
   .quick-add-mobile-topbar__cart {
     justify-self: end;
-    color: #f4511e;
+    color: #11131f;
     text-decoration: none;
     cursor: pointer;
   }

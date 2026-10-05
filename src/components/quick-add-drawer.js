@@ -21,6 +21,7 @@ import { resolveProductImage } from "@/lib/product-image";
 import { getProductHref } from "@/lib/products";
 import { readStoredUser } from "@/lib/auth";
 import { addAuthenticatedCartItem } from "@/lib/cart-sync";
+import useSharedCartCount from "@/lib/use-shared-cart-count";
 import {
   PROCUREMENT_STANDARD,
   PROCUREMENT_TAG,
@@ -311,6 +312,7 @@ const buildCartItem = (product, variant, orderCount, fallbackImage, sizePreferen
 export default function QuickAddDrawer({ product, isOpen, onClose, variant = "drawer" }) {
   const { showNotice } = useNotice();
   const router = useRouter();
+  const cartCount = useSharedCartCount();
   const cacheRef = useRef(new Map());
   const panelRef = useRef(null);
   const isDropdown = variant === "dropdown";
@@ -718,10 +720,15 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
         <Link
           href="/cart"
           className="quick-add-mobile-topbar__cart"
-          aria-label="View cart"
+          aria-label={`View cart - ${cartCount} item${cartCount === 1 ? "" : "s"}`}
           onClick={(event) => handleNavigation(event, "/cart")}
         >
-          <IconShoppingBag size={22} stroke={1.8} />
+          <IconShoppingBag size={22} stroke={1.8} aria-hidden="true" />
+          {cartCount > 0 ? (
+            <span className="quick-add-mobile-topbar__cart-count">
+              {cartCount > 99 ? "99+" : cartCount}
+            </span>
+          ) : null}
         </Link>
       </div>
 

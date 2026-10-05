@@ -45,7 +45,7 @@ export const isOpayGatewayServerReady = () =>
 
 export const isProviderUsable = (provider, capability = "checkout") => {
   if (!provider || !bool(provider.is_active)) return false;
-  if (["opay_transfer", "opay_gateway"].includes(provider.code)) return false;
+  if (provider.code === "opay_gateway") return false;
   if (capability === "wallet_topup" && !bool(provider.wallet_topup_enabled)) return false;
   if (capability === "checkout" && !bool(provider.checkout_enabled)) return false;
   if (provider.method_type === "bank_transfer") return Boolean(isCompleteBankProvider(provider));
@@ -115,7 +115,8 @@ export async function requireUsableProvider(admin, code, capability = "checkout"
 
 export const normalizeProviderCode = (value) => {
   const code = text(value).toLowerCase();
-  if (code === "bank_transfer" || code === "transfer" || code === "moniepoint") return "moniepoint_transfer";
+  if (code === "bank_transfer" || code === "transfer") return "opay_transfer";
+  if (code === "moniepoint") return "moniepoint_transfer";
   if (code === "opay") return "opay_transfer";
   return code;
 };

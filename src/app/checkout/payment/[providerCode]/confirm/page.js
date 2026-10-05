@@ -23,7 +23,7 @@ import {
 } from "@/lib/checkout-payload";
 import { fetchWithNetworkRetry, getNetworkErrorMessage } from "@/lib/fetch-with-network-retry";
 
-const MONIEPOINT_CODE = "moniepoint_transfer";
+const OPAY_CODE = "opay_transfer";
 
 const formatAmount = (amount, currency = "NGN") =>
   `${String(currency || "NGN").toUpperCase()} ${(Number(amount) || 0).toLocaleString("en-NG", {
@@ -78,7 +78,7 @@ export default function ManualTransferConfirmationPage() {
   const params = useParams();
   const router = useRouter();
   const providerCode = String(params?.providerCode || "");
-  if (providerCode !== MONIEPOINT_CODE) notFound();
+  if (providerCode !== OPAY_CODE) notFound();
 
   const [context, setContext] = useState(null);
   const [status, setStatus] = useState("loading");

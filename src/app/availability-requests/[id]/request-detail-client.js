@@ -101,7 +101,7 @@ export default function AvailabilityRequestDetailClient({ requestId }) {
           form: { fullName: record?.customer_name || "Meal05 customer" },
           summary: { total: Number(record?.final_total ?? record?.submitted_total ?? 0) },
         });
-        window.location.href = `/checkout/payment/moniepoint_transfer?orderId=${encodeURIComponent(payload.orderId)}`;
+        window.location.href = `/checkout/payment/opay_transfer?orderId=${encodeURIComponent(payload.orderId)}`;
         return;
       }
 

@@ -22,23 +22,23 @@ import {
 } from "@/lib/fetch-with-network-retry";
 import { reconcileCheckoutOrder } from "@/lib/order-reconciliation";
 
-const MONIEPOINT_CODE = "moniepoint_transfer";
-const MONIEPOINT_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/moniepoint logo.png";
+const OPAY_CODE = "opay_transfer";
+const OPAY_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png";
 
 const FALLBACK_PROVIDER = {
-  code: MONIEPOINT_CODE,
-  displayName: "Moniepoint",
+  code: OPAY_CODE,
+  displayName: "OPay",
   available: false,
   displayOrder: 1,
-  logoUrl: MONIEPOINT_LOGO_URL,
+  logoUrl: OPAY_LOGO_URL,
 };
 
 const mergeDisplayProvider = (liveProvider) => ({
   ...FALLBACK_PROVIDER,
   ...liveProvider,
-  displayName: "Moniepoint",
+  displayName: "OPay",
   available: Boolean(liveProvider) && liveProvider.available !== false,
-  logoUrl: MONIEPOINT_LOGO_URL,
+  logoUrl: OPAY_LOGO_URL,
 });
 
 const createIdempotencyKey = (prefix = "checkout-payment") => {
@@ -99,11 +99,11 @@ const copyToClipboard = async (value) => {
 function ProviderLogo({ provider }) {
   return (
     <Image
-      src={encodeURI(provider?.logoUrl || MONIEPOINT_LOGO_URL)}
-      alt="Moniepoint"
-      width={72}
-      height={72}
-      sizes="72px"
+      src={encodeURI(provider?.logoUrl || OPAY_LOGO_URL)}
+      alt="OPay"
+      width={164}
+      height={77}
+      sizes="(max-width: 640px) 112px, 132px"
       className="checkout-transfer-screen__provider-logo"
     />
   );
@@ -160,7 +160,7 @@ function PaymentHero({ amount }) {
 
 function AccountDetailsStep({ provider, details, pending, busy, message, onContinue }) {
   const payment = details?.payment || {};
-  const activeProvider = { ...(provider || {}), ...(details?.provider || {}), logoUrl: MONIEPOINT_LOGO_URL };
+  const activeProvider = { ...(provider || {}), ...(details?.provider || {}), logoUrl: OPAY_LOGO_URL };
   const amount = Number(payment.amount ?? details?.order?.summary?.total ?? pending?.summary?.total ?? 0) || 0;
 
   return (
@@ -173,12 +173,12 @@ function AccountDetailsStep({ provider, details, pending, busy, message, onConti
 
       <section className="checkout-transfer-screen__account-card" aria-labelledby="transfer-bank-name">
         <ProviderLogo provider={activeProvider} />
-        <h2 id="transfer-bank-name">{activeProvider.bankName || "Moniepoint Microfinance Bank"}</h2>
+        <h2 id="transfer-bank-name">{activeProvider.bankName || "Opay"}</h2>
         <button
           type="button"
           onClick={() => copyToClipboard(activeProvider.accountNumber)}
           className="checkout-transfer-screen__account-number"
-          aria-label="Copy Moniepoint account number"
+          aria-label="Copy OPay account number"
         >
           <span>{activeProvider.accountNumber || "Unavailable"}</span>
         </button>
@@ -224,7 +224,7 @@ export default function ProviderPaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const providerCode = String(params?.providerCode || "");
-  if (providerCode !== MONIEPOINT_CODE) notFound();
+  if (providerCode !== OPAY_CODE) notFound();
 
   const startedRef = useRef(false);
   const orderRequestKeyRef = useRef("");
@@ -252,10 +252,10 @@ export default function ProviderPaymentPage() {
   useEffect(() => {
     const controller = new AbortController();
     fetchWithNetworkRetry("/api/payment-methods", { cache: "no-store", signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("Unable to load Moniepoint."))))
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("Unable to load OPay."))))
       .then((payload) => {
         const liveProvider = Array.isArray(payload?.methods)
-          ? payload.methods.find((method) => method?.code === MONIEPOINT_CODE)
+          ? payload.methods.find((method) => method?.code === OPAY_CODE)
           : null;
         setProvider(mergeDisplayProvider(liveProvider));
         setProviderStatus("ready");
@@ -299,7 +299,7 @@ export default function ProviderPaymentPage() {
                 deliveryPartnerId: pending.selectedDispatchOptionId,
                 deliveryLatitude: pending.deliveryLocation?.latitude,
                 deliveryLongitude: pending.deliveryLocation?.longitude,
-                paymentMethod: MONIEPOINT_CODE,
+                paymentMethod: OPAY_CODE,
                 promoCode: pending.promoCode,
               })),
             },
@@ -360,7 +360,7 @@ export default function ProviderPaymentPage() {
           method: "POST",
           cache: "no-store",
           headers: buildHeaders(token, `${pending.orderIdempotencyKey || orderId}:payment`),
-          body: JSON.stringify({ orderId, providerCode: MONIEPOINT_CODE }),
+          body: JSON.stringify({ orderId, providerCode: OPAY_CODE }),
         });
       } catch (error) {
         logCheckoutNetworkError("/api/payments/bank-transfer/initialize", error, { stage: "initialize_transfer" });
@@ -378,7 +378,7 @@ export default function ProviderPaymentPage() {
           summary: orderPayload.summary || pending.summary,
         },
         payment: transferPayload.payment,
-        provider: { ...transferPayload.provider, logoUrl: MONIEPOINT_LOGO_URL },
+        provider: { ...transferPayload.provider, logoUrl: OPAY_LOGO_URL },
       });
       setStatus("details");
     } catch (error) {
@@ -392,13 +392,13 @@ export default function ProviderPaymentPage() {
   useEffect(() => {
     if (status !== "preparing" || !pending) return;
     if (providerStatus === "error") {
-      setMessage("Unable to load Moniepoint. Please try again.");
+      setMessage("Unable to load OPay. Please try again.");
       setStatus("error");
       return;
     }
     if (providerStatus !== "ready") return;
     if (!provider || provider.available === false) {
-      setMessage("Moniepoint transfer is not available right now.");
+      setMessage("OPay transfer is not available right now.");
       setStatus("error");
       return;
     }
@@ -433,7 +433,7 @@ export default function ProviderPaymentPage() {
           <p className="checkout-transfer-screen__confirmation">
             {status === "reconciling" && message
               ? message
-              : "Preparing your Moniepoint transfer..."}
+              : "Loading payment gateway..."}
           </p>
         </div>
       </TransferShell>

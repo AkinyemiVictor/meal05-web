@@ -83,15 +83,15 @@ test("wallet and quantity errors use flow-specific messages", () => {
   assert.doesNotMatch(checkoutForm, /Maximum is 10/);
 });
 
-test("checkout routes through Moniepoint details to a dedicated transfer confirmation page", () => {
+test("checkout routes through OPay details to a dedicated transfer confirmation page", () => {
   const checkoutForm = read("src/components/checkout-form.js");
   const paymentPage = read("src/app/checkout/payment/page.js");
   const providerPage = read("src/app/checkout/payment/[providerCode]/page.js");
   const confirmationPage = read("src/app/checkout/payment/[providerCode]/confirm/page.js");
 
-  assert.match(checkoutForm, /router\.push\("\/checkout\/payment\/moniepoint_transfer"\)/);
-  assert.match(paymentPage, /redirect\("\/checkout\/payment\/moniepoint_transfer"\)/);
-  assert.doesNotMatch(paymentPage, /OPay|radiogroup|Choose payment method/);
+  assert.match(checkoutForm, /router\.push\("\/checkout\/payment\/opay_transfer"\)/);
+  assert.match(paymentPage, /redirect\("\/checkout\/payment\/opay_transfer"\)/);
+  assert.doesNotMatch(paymentPage, /Moniepoint|radiogroup|Choose payment method/);
   assert.match(providerPage, /available:\s*false/);
   assert.match(providerPage, /aria-label="Copy payment amount"/);
   assert.match(providerPage, /copyToClipboard/);
@@ -107,7 +107,11 @@ test("checkout routes through Moniepoint details to a dedicated transfer confirm
   assert.match(providerPage, /IconBuildingBank/);
   assert.match(confirmationPage, /role="alertdialog"/);
   assert.match(providerPage, />\s*Secured\s*</);
-  assert.doesNotMatch(providerPage, /OPay|Sterling|Before you make this transfer/);
+  assert.match(providerPage, /opay logo\.png/);
+  assert.match(providerPage, /alt="OPay"/);
+  assert.match(providerPage, /Loading payment gateway\.\.\./);
+  assert.doesNotMatch(providerPage, /Preparing your OPay transfer/);
+  assert.doesNotMatch(providerPage, /Moniepoint|Sterling|Before you make this transfer/);
 });
 
 test("checkout chrome leaves the page-level back-to-cart control as the only back action", () => {

@@ -6,6 +6,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 const providerSettingsMigration = read("../../../supabase/migrations/20260728151918_payment_provider_settings.sql");
 const paymentRepairMigration = read("../../../supabase/migrations/20260728175222_repair_stock_and_phase1_payments.sql");
+const opaySwitchMigration = read("../../../supabase/migrations/20261005160000_switch_manual_transfers_to_opay.sql");
 const lifecycleMigration = read("../../../supabase/migrations/20260826090620_harden_checkout_manual_payments.sql");
 const walletFoundationMigration = read("../../../supabase/migrations/20260719173638_meal05_balance_foundation.sql");
 const paymentMethodsRoute = read("../../app/api/payment-methods/route.js");
@@ -23,16 +24,20 @@ test("Phase 1 seeds Moniepoint first while provider activation remains fail-clos
   assert.match(providerSettingsMigration, /payment_provider_settings_one_recommended_transfer_uidx/i);
 });
 
-test("OPay and Paystack stay disabled while Moniepoint is the only transfer option", () => {
+test("OPay transfer replaces Moniepoint while Paystack and the OPay gateway stay disabled", () => {
   assert.match(providerSettingsMigration, /\(\s*'opay_transfer',\s*'OPay Transfer',\s*'bank_transfer',\s*false,\s*false,\s*false,\s*false,/i);
   assert.match(providerSettingsMigration, /\(\s*'paystack',\s*'Card, USSD and Paystack',\s*'gateway',\s*false,\s*false,\s*false,\s*false,/i);
   assert.match(read("./payment-methods.js"), /case "paystack":\s*return false;/);
-  assert.match(read("./payment-methods.js"), /export const isOpayEnabled = \(\) => false;/);
+  assert.match(read("./payment-methods.js"), /export const isOpayEnabled = \(\) => true;/);
+  assert.match(read("./payment-methods.js"), /export const isMoniepointTransferEnabled = \(\) => false;/);
   assert.match(read("./payment-methods.js"), /case "opay_transfer":\s*return isOpayEnabled\(\);/);
-  assert.match(providerHelper, /\["opay_transfer", "opay_gateway"\]\.includes\(provider\.code\)/);
+  assert.match(providerHelper, /provider\.code === "opay_gateway"/);
+  assert.match(opaySwitchMigration, /'Opay',[\s\S]*'MEAL05 LTD',[\s\S]*'6549719431'/);
+  assert.match(opaySwitchMigration, /where code = 'moniepoint_transfer'/);
+  assert.match(opaySwitchMigration, /opay_topups_enabled = true/);
 });
 
-test("disabled Paystack and OPay initialization are rejected server-side", () => {
+test("disabled Paystack and OPay gateway initialization are rejected server-side", () => {
   assert.match(paystackSessionRoute, /requireUsableProvider\(admin, "paystack", "checkout"\)/);
   assert.match(paystackSessionRoute, /PAYMENT_METHOD_DISABLED/);
   assert.match(opayRoute, /PAYMENT_METHOD_DISABLED/);

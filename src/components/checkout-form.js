@@ -65,7 +65,7 @@ const INITIAL_FORM_STATE = {
   addressLabel: "Home",
   city: "",
   deliverySlot: "delivery-24-hours",
-  paymentMethod: "moniepoint_transfer",
+  paymentMethod: "opay_transfer",
   cardName: "",
   cardNumber: "",
   cardExpiry: "",
@@ -82,8 +82,8 @@ const DELIVERY_SLOT_LABELS = { ...copy.checkout.deliverySlots };
 
 const CARD_FIELDS = ["cardName", "cardNumber", "cardExpiry", "cardCvc"];
 const WALLET_PAYMENT_METHOD = "wallet";
-const DEFAULT_GATEWAY_PAYMENT_METHOD = "moniepoint_transfer";
-const TRANSFER_PAYMENT_METHODS = ["moniepoint_transfer"];
+const DEFAULT_GATEWAY_PAYMENT_METHOD = "opay_transfer";
+const TRANSFER_PAYMENT_METHODS = ["opay_transfer"];
 
 const NAME_PATTERN = "[A-Za-z ]+";
 const EMAIL_PATTERN = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}";
@@ -714,7 +714,7 @@ export default function CheckoutForm({
     return TRANSFER_PAYMENT_METHODS.map((code) => {
       const method = paymentMethods.find((entry) => entry.value === code) || {
         value: code,
-        title: code === "moniepoint_transfer" ? "Moniepoint" : code === "opay_transfer" ? "OPay" : code,
+        title: code === "opay_transfer" ? "OPay" : code,
         subtitle: "Bank Transfer.",
         badges: [],
       };
@@ -723,7 +723,7 @@ export default function CheckoutForm({
       const available = hasProvider ? Boolean(provider.available) : false;
       return {
         ...method,
-        title: code === "moniepoint_transfer" ? "Moniepoint" : provider?.displayName || method.title,
+        title: provider?.displayName || method.title,
         subtitle: "",
         provider,
         available,
@@ -1481,12 +1481,12 @@ export default function CheckoutForm({
       });
       setFormState((prev) => ({ ...prev, paymentMethod: DEFAULT_GATEWAY_PAYMENT_METHOD }));
       setStatus("idle");
-      router.push("/checkout/payment/moniepoint_transfer");
+      router.push("/checkout/payment/opay_transfer");
       return;
     }
 
     if (selectedPaymentGroup === "gateway" && !TRANSFER_PAYMENT_METHODS.includes(paymentMethodForOrder)) {
-      showSubmitError("Choose Moniepoint transfer to continue.");
+      showSubmitError("Choose OPay transfer to continue.");
       return;
     }
 

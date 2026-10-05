@@ -51,7 +51,7 @@ export default async function AdminPaymentsPage({ searchParams }) {
       <header>
         <p style={{ margin: 0, color: "#f04e1f", fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase" }}>Finance</p>
         <h1 style={{ margin: "4px 0", fontSize: 32 }}>Payments</h1>
-        <p style={{ margin: 0, color: "#64748b" }}>Verify Moniepoint transfers before orders become paid or wallet deposits are credited.</p>
+        <p style={{ margin: 0, color: "#64748b" }}>Verify OPay transfers before orders become paid or wallet deposits are credited.</p>
       </header>
 
       {error ? <p style={{ color: "#b91c1c", fontWeight: 700 }}>{error.message}</p> : null}

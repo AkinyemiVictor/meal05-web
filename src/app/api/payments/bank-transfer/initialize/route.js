@@ -23,7 +23,7 @@ export const revalidate = 0;
 
 const schema = z.object({
   orderId: z.union([z.string(), z.number()]),
-  providerCode: z.string().trim().optional().default("moniepoint_transfer"),
+  providerCode: z.string().trim().optional().default("opay_transfer"),
 });
 
 const send = (body, status, rl) => applyRateLimitHeaders(withNoStore(NextResponse.json(body, { status })), rl);

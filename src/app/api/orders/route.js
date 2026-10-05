@@ -139,7 +139,7 @@ export async function POST(request) {
     deliveryPartnerId: z.string().uuid().optional(),
     pickupLocationId: z.coerce.number().int().positive().optional(),
     note: z.string().max(500).optional(),
-    paymentMethod: z.string().max(64).optional().default("moniepoint_transfer"),
+    paymentMethod: z.string().max(64).optional().default("opay_transfer"),
     preview: z.boolean().optional().default(false),
     promo_code: z.string().trim().max(64).optional(),
     tagAcknowledged: z.boolean().optional().default(false),
@@ -952,7 +952,7 @@ export async function POST(request) {
 
   const finalSummary = promoValidation?.ok ? applyPromoToOrderSummary(baseSummary, promoValidation) : baseSummary;
   const orderTotal = finalSummary.total;
-  const requestedPaymentMethod = normalizeProviderCode(parsed.data.paymentMethod || "moniepoint_transfer");
+  const requestedPaymentMethod = normalizeProviderCode(parsed.data.paymentMethod || "opay_transfer");
   if (requestedPaymentMethod === "wallet") {
     const { settings, error: walletSettingsError } = await loadWalletSettings(admin);
     if (walletSettingsError) {

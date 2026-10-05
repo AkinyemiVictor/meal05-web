@@ -46,7 +46,7 @@ const copy = {
       {
         value: "gateway",
         title: "Transfer",
-        subtitle: "Transfer with Moniepoint.",
+        subtitle: "Transfer with OPay.",
         icon: "fa-solid fa-money-bill-transfer",
       },
     ],
@@ -64,8 +64,8 @@ const copy = {
         ],
       },
       {
-        value: "moniepoint_transfer",
-        title: "Moniepoint Transfer",
+        value: "opay_transfer",
+        title: "OPay Transfer",
         subtitle: "Bank Transfer - Recommended.",
         badges: [{ type: "text", label: "Recommended" }],
       },
@@ -151,9 +151,9 @@ const copy = {
       contactSupport: "Contact support",
     },
     bankAccount: {
-      name: "Meal05 Fresh Foods Ltd",
-      number: "0123456789",
-      bank: "GTBank",
+      name: "MEAL05 LTD",
+      number: "6549719431",
+      bank: "Opay",
     },
     emptyTitle: "Cart empty",
     emptyDescription: "Add fresh groceries to your cart to continue to checkout.",

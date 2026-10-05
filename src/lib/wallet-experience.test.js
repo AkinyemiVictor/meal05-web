@@ -20,6 +20,7 @@ test("wallet funding is available end to end with readable form spacing", () => 
   assert.match(account, /walletQuickAmountActive/);
   assert.match(account, /aria-pressed=\{walletTopupAmount === String\(amount\)\}/);
   assert.match(account, /walletFundingControl/);
+  assert.match(account, /opay icon\.jpeg/);
   assert.match(account, /walletTransferTitle/);
   assert.match(account, /walletPendingItem/);
   assert.match(account, /walletTransactionItem/);

@@ -4,11 +4,11 @@ export const isPaystackEnabled = () => /^pk_(test|live)_/.test(process.env.NEXT_
 
 export const isPalmPayEnabled = () => process.env.NEXT_PUBLIC_ENABLE_PALMPAY === "true";
 
-export const isOpayEnabled = () => false;
+export const isOpayEnabled = () => true;
 
 export const isWalletPaymentVisible = () => true;
 
-export const isMoniepointTransferEnabled = () => true;
+export const isMoniepointTransferEnabled = () => false;
 
 export const isCheckoutPaymentMethodEnabled = (method) => {
   switch (normaliseMethod(method)) {

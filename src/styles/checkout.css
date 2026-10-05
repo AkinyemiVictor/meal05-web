@@ -2465,8 +2465,8 @@
 }
 
 .checkout-transfer-screen__provider-logo {
-  width: 58px;
-  height: 58px;
+  width: 132px;
+  height: auto;
   object-fit: contain;
 }
 
@@ -2666,10 +2666,10 @@
 }
 
 .checkout-transfer-screen__account-card .checkout-transfer-screen__provider-logo {
-  width: 72px;
-  height: 72px;
+  width: 132px;
+  height: 62px;
   margin-top: 1.7rem;
-  border-radius: 18px;
+  border-radius: 0;
 }
 
 .checkout-transfer-screen__bank-dot {
@@ -2921,10 +2921,15 @@
     padding-bottom: clamp(0.7rem, 2dvh, 1.1rem);
   }
 
-  .checkout-transfer-screen__provider-logo,
   .checkout-transfer-screen__provider-mark--large {
     width: 48px;
     height: 48px;
+  }
+
+  .checkout-transfer-screen__provider-logo,
+  .checkout-transfer-screen__account-card .checkout-transfer-screen__provider-logo {
+    width: 112px;
+    height: 53px;
   }
 
   .checkout-transfer-screen__bank-icon {

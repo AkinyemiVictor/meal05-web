@@ -28,7 +28,7 @@ export const revalidate = 0;
 
 const schema = z.object({
   amount: z.union([z.string(), z.number()]),
-  provider: z.string().trim().max(40).default("moniepoint_transfer"),
+  provider: z.string().trim().max(40).default("opay_transfer"),
 });
 
 const send = (body, status, rl) => applyRateLimitHeaders(withNoStore(NextResponse.json(body, { status })), rl);
@@ -62,7 +62,7 @@ export async function POST(request) {
   if (!parsed.success) return send({ error: "Validation failed", issues: parsed.error.issues }, 400, rl);
 
   const providerCode = normalizeProviderCode(parsed.data.provider);
-  if (providerCode !== "moniepoint_transfer") {
+  if (providerCode !== "opay_transfer") {
     return send({ error: "This payment method is currently unavailable.", code: "PAYMENT_METHOD_DISABLED" }, 503, rl);
   }
 

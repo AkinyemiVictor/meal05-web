@@ -61,7 +61,7 @@ export default function CheckoutReceipt({ status = "success", reason }) {
   const paymentLabel = getPaymentMethodLabel(receipt?.paymentMethod);
   const payment = receipt?.payment || null;
   const paymentProvider = receipt?.paymentProvider || null;
-  const showTransferPanel = receipt?.paymentMethod === "moniepoint_transfer" && payment && paymentProvider;
+  const showTransferPanel = ["opay_transfer", "moniepoint_transfer"].includes(receipt?.paymentMethod) && payment && paymentProvider;
 
   const heading =
     status === "failure" ? copy.checkout.receiptPage.failureHeading : copy.checkout.receiptPage.successHeading;

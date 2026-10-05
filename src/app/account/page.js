@@ -472,7 +472,7 @@ export function AccountPageContent() {
   const [walletStatus, setWalletStatus] = useState("idle");
   const [walletMessage, setWalletMessage] = useState("");
   const [walletTopupAmount, setWalletTopupAmount] = useState("");
-  const [walletTopupProvider, setWalletTopupProvider] = useState("moniepoint_transfer");
+  const [walletTopupProvider, setWalletTopupProvider] = useState("opay_transfer");
   const [walletTopupTransfer, setWalletTopupTransfer] = useState(null);
   const [walletPayerAccountName, setWalletPayerAccountName] = useState("");
   const [walletPayerBankName, setWalletPayerBankName] = useState("");
@@ -1567,11 +1567,11 @@ export function AccountPageContent() {
                           </button>
                           {trackingOrderId === order.orderId ? <OrderTracker order={order} /> : null}
                           {String(order.paymentStatus || "").toLowerCase() === "awaiting_payment"
-                            && String(order.paymentMethod || "").toLowerCase() === "moniepoint_transfer"
+                            && ["opay_transfer", "moniepoint_transfer"].includes(String(order.paymentMethod || "").toLowerCase())
                             && !order.availabilityRequestId ? (
                             <Link
                               className={styles.orderActionButton}
-                              href={`/checkout/payment/moniepoint_transfer?orderId=${encodeURIComponent(order.orderId)}`}
+                              href={`/checkout/payment/opay_transfer?orderId=${encodeURIComponent(order.orderId)}`}
                             >
                               {order.latestPayment?.status === "rejected" || order.latestPayment?.status === "expired"
                                 ? "Retry transfer"
@@ -1748,7 +1748,7 @@ export function AccountPageContent() {
         const currencyCode = walletSnapshot?.currencyCode || "NGN";
         const pendingTopups = Array.isArray(walletSnapshot?.pendingTopups) ? walletSnapshot.pendingTopups : [];
         const walletEnabled = settings.walletEnabled === true;
-        const moniepointEnabled = settings.monnifyTopupsEnabled === true;
+        const opayEnabled = settings.opayTopupsEnabled === true;
         const activeTopupPayment = walletTopupTransfer?.payment || null;
         const activeTopupProvider = walletTopupTransfer?.provider || null;
         return (
@@ -1808,10 +1808,17 @@ export function AccountPageContent() {
                 <label className={styles.profileField}>
                   <span>Funding method</span>
                   <div className={styles.walletFundingControl}>
-                    <span aria-hidden="true">M</span>
+                    <span aria-hidden="true">
+                      <Image
+                        src="/assets/icons/png/thumbnails/bank logos thumbnails/opay icon.jpeg"
+                        alt=""
+                        width={40}
+                        height={40}
+                        sizes="32px"
+                      />
+                    </span>
                     <select value={walletTopupProvider} onChange={(event) => setWalletTopupProvider(event.target.value)}>
-                      <option value="moniepoint_transfer" disabled={!moniepointEnabled}>Moniepoint Transfer</option>
-                      <option value="opay_transfer" disabled>OPay Transfer (Unavailable for now)</option>
+                      <option value="opay_transfer" disabled={!opayEnabled}>OPay Transfer</option>
                       <option value="paystack" disabled>Card, USSD and Paystack (Coming later)</option>
                     </select>
                   </div>
