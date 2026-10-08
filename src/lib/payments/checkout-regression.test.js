@@ -107,7 +107,7 @@ test("checkout routes through OPay details to a dedicated transfer confirmation 
   assert.match(providerPage, /IconBuildingBank/);
   assert.match(confirmationPage, /role="alertdialog"/);
   assert.match(providerPage, />\s*Secured\s*</);
-  assert.match(providerPage, /opay logo\.png/);
+  assert.match(providerPage, /opay logo\.svg/);
   assert.match(providerPage, /alt="OPay"/);
   assert.match(providerPage, /Loading payment gateway\.\.\./);
   assert.doesNotMatch(providerPage, /Preparing your OPay transfer/);

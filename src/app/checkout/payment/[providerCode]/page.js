@@ -23,7 +23,7 @@ import {
 import { reconcileCheckoutOrder } from "@/lib/order-reconciliation";
 
 const OPAY_CODE = "opay_transfer";
-const OPAY_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.png";
+const OPAY_LOGO_URL = "/assets/icons/png/thumbnails/bank logos thumbnails/opay logo.svg";
 
 const FALLBACK_PROVIDER = {
   code: OPAY_CODE,
@@ -101,8 +101,8 @@ function ProviderLogo({ provider }) {
     <Image
       src={encodeURI(provider?.logoUrl || OPAY_LOGO_URL)}
       alt="OPay"
-      width={164}
-      height={77}
+      width={170}
+      height={80}
       sizes="(max-width: 640px) 112px, 132px"
       className="checkout-transfer-screen__provider-logo"
     />
