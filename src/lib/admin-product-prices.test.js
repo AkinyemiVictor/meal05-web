@@ -72,7 +72,7 @@ test("authenticated cart updates persist through the canonical server cart", () 
   assert.match(cartItems, /variantId == null \? draft\.id : null/);
   assert.doesNotMatch(cartRoute, /products\(name, image_url\)/);
   assert.match(cartRoute, /main_image_url/);
-  assert.match(cartRoute, /onConflict:\s*"user_id,variant_id"/);
+  assert.match(cartRoute, /onConflict:\s*"user_id,shopping_mode,variant_id"/);
   assert.match(cartSync, /addAuthenticatedCartItem/);
   assert.match(orderRoute, /CART_CHANGED/);
   assert.match(orderRoute, /let cart = \[\]/);

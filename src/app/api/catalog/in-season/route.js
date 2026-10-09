@@ -12,7 +12,7 @@ export async function GET(request) {
   try {
     const searchParams = new URL(request.url).searchParams;
     const limit = clampLimit(searchParams.get("limit"));
-    const payload = await loadHomeCatalogCards({ limit, inSeasonOnly: true });
+    const payload = await loadHomeCatalogCards({ limit, inSeasonOnly: true, mode: searchParams.get("mode") || "household" });
 
     const flat = (Array.isArray(payload?.flat) ? payload.flat : []).filter(
       (product) => product?.inSeason === true && shouldShowSeasonBadge(product)

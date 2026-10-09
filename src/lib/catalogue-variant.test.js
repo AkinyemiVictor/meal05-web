@@ -21,7 +21,7 @@ test("quick add uses catalogue options without waiting for a second product requ
   assert.match(drawer, /product\?\.optionsLoaded\s*===\s*true/);
   assert.match(drawer, /applyData\(\{\s*product,\s*variations:\s*embeddedVariations\s*\}\)/);
   assert.ok(
-    drawer.indexOf("product?.optionsLoaded === true") < drawer.indexOf("fetch(`/api/products/${productId}`)"),
+    drawer.indexOf("product?.optionsLoaded === true") < drawer.indexOf("fetch(withShoppingMode(`/api/products/${productId}`"),
     "embedded catalogue options should be applied before the detail-request fallback"
   );
 });

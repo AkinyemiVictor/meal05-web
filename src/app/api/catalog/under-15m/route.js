@@ -35,7 +35,7 @@ export async function GET(request) {
 
     // Under 15m only needs card-level data for browsing. Full variants remain
     // deferred until Quick Add requests /api/products/{id} for the selected item.
-    const payload = await loadHomeCatalogCards({ ids, limit: ids.length });
+    const payload = await loadHomeCatalogCards({ ids, limit: ids.length, mode: searchParams.get("mode") || "household" });
     const byId = new Map((Array.isArray(payload?.flat) ? payload.flat : []).map((product) => [String(product.id), product]));
 
     const flat = ids

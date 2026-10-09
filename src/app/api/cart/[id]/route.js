@@ -16,6 +16,7 @@ import {
   withTagBatchVariant,
 } from "@/lib/tag-buy";
 import { loadTagBatch } from "@/lib/tag-buy-server";
+import { getRequestShoppingMode, resolveVariantForShoppingMode } from "@/lib/shopping-mode-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export async function PATCH(req, { params }) {
     return respondZodError(parsed.error);
   }
   const quantityNum = parsed.data.quantity == null ? null : roundQuantity(parsed.data.quantity);
+  const mode = getRequestShoppingMode(req);
 
   const routeClient = getSupabaseRouteClient(await cookies());
   const { data: cartItem, error: cartError } = await routeClient
@@ -69,6 +71,7 @@ export async function PATCH(req, { params }) {
     .select("id, variant_id, procurement_mode, tag_batch_id")
     .eq("id", id)
     .eq("user_id", user.id)
+    .eq("shopping_mode", mode)
     .maybeSingle();
   if (cartError) return applyRateLimitHeaders(NextResponse.json({ error: cartError.message }, { status: 400 }), rl);
   if (!cartItem) return applyRateLimitHeaders(NextResponse.json({ error: "Item not found" }, { status: 404 }), rl);
@@ -85,6 +88,9 @@ export async function PATCH(req, { params }) {
   if (!variant || variant.is_active === false || !catalog.listings.has(String(variant.product_id))) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Product option is unavailable in this market" }, { status: 409 }), rl);
   }
+  const resolvedMode = await resolveVariantForShoppingMode(admin, variant, mode);
+  if (!resolvedMode.ok) return applyRateLimitHeaders(NextResponse.json({ error: resolvedMode.error }, { status: 409 }), rl);
+  const modeVariant = resolvedMode.variant;
   const { data: eligibleProduct, error: eligibilityError } = await admin
     .from("product_card_catalog")
     .select("product_id")
@@ -97,7 +103,7 @@ export async function PATCH(req, { params }) {
   if (!eligibleProduct) {
     return applyRateLimitHeaders(NextResponse.json({ error: "This product is currently unavailable" }, { status: 409 }), rl);
   }
-  if (normalizeAvailabilityMode(variant.availability_mode) === "unavailable") {
+  if (normalizeAvailabilityMode(modeVariant.availability_mode) === "unavailable") {
     return applyRateLimitHeaders(NextResponse.json({ error: "This product option is unavailable" }, { status: 409 }), rl);
   }
   const { data: productSettings, error: productError } = await admin
@@ -116,7 +122,7 @@ export async function PATCH(req, { params }) {
   if (Object.hasOwn(parsed.data, "size_preference") && selectionModel === SELECTION_MODE_FLEXIBLE && !sizePreference) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Choose a valid size preference" }, { status: 400 }), rl);
   }
-  const quantityValidation = quantityNum == null ? { ok: true } : validateVariantQuantity(variant, quantityNum);
+  const quantityValidation = quantityNum == null ? { ok: true } : validateVariantQuantity(modeVariant, quantityNum);
   if (!quantityValidation.ok) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: normaliseQuantityError(quantityValidation.error), requested: formatQuantity(quantityNum) }, { status: 400 }),
@@ -130,7 +136,7 @@ export async function PATCH(req, { params }) {
   if (cartItem.procurement_mode === PROCUREMENT_TAG && !tagBatch) {
     return applyRateLimitHeaders(NextResponse.json({ error: "This Tag Buy is closed. Remove it from your cart." }, { status: 409 }), rl);
   }
-  const bypassLocalStock = Boolean(tagBatch) || normalizeAvailabilityMode(variant.availability_mode) === "request" || variant.inventory_tracking_mode === "supplier";
+  const bypassLocalStock = Boolean(tagBatch) || normalizeAvailabilityMode(modeVariant.availability_mode) === "request" || variant.inventory_tracking_mode === "supplier";
   const available = bypassLocalStock ? Number.POSITIVE_INFINITY : getAvailableCount(variant.stock_count);
   if (quantityNum != null && Number.isFinite(available) && quantityNum > available) {
     return applyRateLimitHeaders(
@@ -143,6 +149,7 @@ export async function PATCH(req, { params }) {
       .from("cart_items")
       .select("id, variant_id, quantity")
       .eq("user_id", user.id)
+      .eq("shopping_mode", mode)
       .eq("procurement_mode", PROCUREMENT_TAG)
       .eq("tag_batch_id", tagBatch.id);
     if (siblingError) return applyRateLimitHeaders(NextResponse.json({ error: siblingError.message }, { status: 400 }), rl);
@@ -166,6 +173,7 @@ export async function PATCH(req, { params }) {
     .update(updates)
     .eq("id", id)
     .eq("user_id", user.id)
+    .eq("shopping_mode", mode)
     .select("id");
 
   if (error) return applyRateLimitHeaders(NextResponse.json({ error }, { status: 400 }), rl);
@@ -182,12 +190,14 @@ export async function DELETE(req, { params }) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const rl = await checkRateLimit({ request: req, id: "cart:remove", limit: 60, windowMs: 60_000 });
+  const mode = getRequestShoppingMode(req);
   const routeClient = getSupabaseRouteClient(await cookies());
   const { data, error } = await routeClient
     .from("cart_items")
     .delete()
     .eq("id", id)
     .eq("user_id", user.id)
+    .eq("shopping_mode", mode)
     .select("id");
 
   if (error) return applyRateLimitHeaders(NextResponse.json({ error }, { status: 400 }), rl);

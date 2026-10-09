@@ -38,10 +38,11 @@ export async function GET(request) {
   try {
     const searchParams = new URL(request.url).searchParams;
     const limit = Math.min(Math.max(Number(searchParams.get("limit") || 72), 1), 120);
+    const mode = searchParams.get("mode") || "household";
     const admin = getSupabaseAdminClient();
 
     const [payload, freshStock, chefResult] = await Promise.all([
-      loadHomeCatalogCards({ limit }),
+      loadHomeCatalogCards({ limit, mode }),
       loadRecentRestockedProductIds({ limit }),
       admin
         .from("products")
@@ -61,10 +62,10 @@ export async function GET(request) {
 
     const [freshPayload, chefPayload] = await Promise.all([
       freshStock.ids.length
-        ? loadHomeCatalogCards({ ids: freshStock.ids, limit: freshStock.ids.length })
+        ? loadHomeCatalogCards({ ids: freshStock.ids, limit: freshStock.ids.length, mode })
         : Promise.resolve({ flat: [] }),
       chefIds.length
-        ? loadHomeCatalogCards({ ids: chefIds, limit: chefIds.length })
+        ? loadHomeCatalogCards({ ids: chefIds, limit: chefIds.length, mode })
         : Promise.resolve({ flat: [] }),
     ]);
 

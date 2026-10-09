@@ -588,6 +588,7 @@ export async function GET(request) {
       limit: Number(searchParams.get("limit") || 120),
       category: searchParams.get("category") || "",
       search: searchParams.get("search") || "",
+      mode: searchParams.get("mode") || "household",
     });
     return publicCatalogJson(payload, { headers: PUBLIC_CATALOG_CACHE_HEADERS_LIGHT });
   } catch (error) {

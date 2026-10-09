@@ -16,6 +16,7 @@ export async function GET(request) {
       pageSize: limit,
       search: q,
       sort: "default",
+      mode: searchParams.get("mode") || "household",
     });
     return publicCatalogJson(payload);
   } catch (error) {

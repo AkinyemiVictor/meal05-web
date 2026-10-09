@@ -21,6 +21,7 @@ import {
   withTagBatchVariant,
 } from "@/lib/tag-buy";
 import { loadTagBatch } from "@/lib/tag-buy-server";
+import { getRequestShoppingMode, resolveVariantForShoppingMode } from "@/lib/shopping-mode-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,11 +49,12 @@ const loadVariantStock = async (client, variantId, marketId) => {
   return { row: result.data, error: result.error };
 };
 
-const loadCanonicalCart = async (admin, userId, catalog) => {
+const loadCanonicalCart = async (admin, userId, catalog, mode = "household") => {
   const { data: rows, error: cartError } = await admin
     .from("cart_items")
-    .select("id, quantity, product_id, variant_id, unit_price_at_add, variant_name, product_name, size_preference, procurement_mode, tag_batch_id, tag_price_at_add")
+    .select("id, quantity, product_id, variant_id, unit_price_at_add, variant_name, product_name, size_preference, procurement_mode, tag_batch_id, tag_price_at_add, shopping_mode, quote_only, supplier_confirmation_required")
     .eq("user_id", userId)
+    .eq("shopping_mode", mode)
     .order("id", { ascending: true });
   if (cartError) throw cartError;
 
@@ -95,13 +97,16 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
   const tagBatchEntries = await Promise.all(tagBatchIds.map(async (id) => [String(id), await loadTagBatch(id, { adminClient: admin })]));
   const tagBatchIndex = new Map(tagBatchEntries);
 
-  return cartRows.flatMap((row) => {
+  const modeRows = await Promise.all(cartRows.map(async (row) => {
     const variant = variantIndex.get(String(row.variant_id));
     if (
       !variant ||
       !catalog.listings.has(String(variant.product_id)) ||
       !eligibleProductIds.has(String(variant.product_id))
-    ) return [];
+    ) return null;
+    const resolvedMode = await resolveVariantForShoppingMode(admin, variant, mode);
+    if (!resolvedMode.ok) return null;
+    const modeVariant = resolvedMode.variant;
     const listing = catalog.listings.get(String(variant.product_id));
     const product = productIndex.get(String(variant.product_id));
     const catalogImage = catalogImageIndex.get(String(variant.product_id));
@@ -109,7 +114,7 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
       ? tagBatchIndex.get(String(row.tag_batch_id || "")) || null
       : null;
     const tagBatch = rawTagBatch ? withTagBatchVariant(rawTagBatch, row.variant_id) : null;
-    return [{
+    return {
       ...row,
       product_id: variant.product_id,
       variant_name: variant.name,
@@ -121,14 +126,14 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
         catalogImage?.main_image_url ||
         product?.main_image_url ||
         "",
-      unit_price_at_add: tagBatch ? Number(tagBatch.tagPrice) : Number(variant.price),
+      unit_price_at_add: tagBatch ? Number(tagBatch.tagPrice) : Number(modeVariant.price),
       currency_code: catalog.market.currencyCode,
       unit: variant.unit,
       stock_count: variant.stock_count,
-      purchase_mode: variant.purchase_mode,
-      min_quantity: variant.min_quantity,
-      max_quantity: variant.max_quantity,
-      step_quantity: variant.step_quantity,
+      purchase_mode: modeVariant.purchase_mode,
+      min_quantity: modeVariant.min_quantity,
+      max_quantity: modeVariant.max_quantity,
+      step_quantity: modeVariant.step_quantity,
       base_unit: variant.base_unit,
       base_quantity: variant.base_quantity,
       weight_min: variant.weight_min,
@@ -138,7 +143,7 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
       volume_max: variant.volume_max,
       volume_unit: variant.volume_unit,
       option_role: variant.option_role,
-      availability_mode: variant.availability_mode,
+      availability_mode: modeVariant.availability_mode,
       inventory_tracking_mode: variant.inventory_tracking_mode,
       selection_model: product?.selection_model || "exact_variant",
       variation_note: product?.variation_note || null,
@@ -147,8 +152,13 @@ const loadCanonicalCart = async (admin, userId, catalog) => {
       tag_batch_id: tagBatch?.id || null,
       tag_price_at_add: tagBatch ? Number(tagBatch.tagPrice) : null,
       tag_batch: tagBatch,
-    }];
-  });
+      shopping_mode: mode,
+      quote_only: resolvedMode.quoteOnly,
+      supplier_confirmation_required: resolvedMode.supplierConfirmationRequired,
+      purchasing_conditions: resolvedMode.purchasingConditions,
+    };
+  }));
+  return modeRows.filter(Boolean);
 };
 
 export async function GET(req) {
@@ -159,8 +169,9 @@ export async function GET(req) {
 
   const admin = getSupabaseAdminClient();
   const catalog = await loadMarketCatalog(admin);
+  const mode = getRequestShoppingMode(req);
   try {
-    const cart = await loadCanonicalCart(admin, user.id, catalog);
+    const cart = await loadCanonicalCart(admin, user.id, catalog, mode);
     return applyRateLimitHeaders(Response.json(cart), rl);
   } catch (error) {
     return applyRateLimitHeaders(Response.json({ error: error.message || "Unable to load cart" }, { status: 400 }), rl);
@@ -192,12 +203,14 @@ export async function POST(req) {
     size_preference: z.enum(["best_available", "smaller", "medium", "larger"]).nullable().optional(),
     procurement_mode: z.enum(["standard", "tag"]).optional().default("standard"),
     tag_batch_id: z.string().uuid().nullable().optional(),
+    shopping_mode: z.enum(["household", "business"]).optional().default("household"),
   });
   const parsed = schema.safeParse(body || {});
   if (!parsed.success) {
     return respondZodError(parsed.error);
   }
   const { product_id, variant_id, product_name } = parsed.data;
+  const mode = getRequestShoppingMode(req, parsed.data);
   const quantity = roundQuantity(parsed.data.quantity);
   const procurementMode = parsed.data.procurement_mode;
   if (procurementMode === PROCUREMENT_TAG && !parsed.data.tag_batch_id) {
@@ -208,7 +221,9 @@ export async function POST(req) {
   const stockResult = await loadVariantStock(admin, variantKey, catalog.market.id);
   const { row: variantStock, error: stockError } = stockResult;
   if (stockError) return new Response(JSON.stringify({ error: stockError.message || "Unable to validate stock" }), { status: 400 });
-  const stockSource = variantStock;
+  const resolvedMode = await resolveVariantForShoppingMode(admin, variantStock, mode);
+  if (!resolvedMode.ok) return Response.json({ error: resolvedMode.error }, { status: 409 });
+  const stockSource = resolvedMode.variant;
   if (!stockSource) return new Response(JSON.stringify({ error: "Product option not found" }), { status: 404 });
   const eligibilityResult = await admin
     .from("product_card_catalog")
@@ -249,7 +264,8 @@ export async function POST(req) {
   const { data: existingCartRows, error: existingCartError } = await authClient
     .from("cart_items")
     .select("variant_id, quantity, procurement_mode, tag_batch_id")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("shopping_mode", mode);
   if (existingCartError) return Response.json({ error: existingCartError.message }, { status: 400 });
   const conflict = getCartProcurementConflict(existingCartRows || [], {
     procurement_mode: procurementMode,
@@ -282,6 +298,7 @@ export async function POST(req) {
     .from("cart_items")
     .select("id, quantity")
     .eq("user_id", user.id)
+    .eq("shopping_mode", mode)
     .eq("variant_id", variantKey)
     .order("id", { ascending: true })
     .limit(1);
@@ -342,18 +359,21 @@ export async function POST(req) {
     procurement_mode: tagBatch ? PROCUREMENT_TAG : "standard",
     tag_batch_id: tagBatch?.id || null,
     tag_price_at_add: tagBatch ? Number(tagBatch.tagPrice) : null,
+    shopping_mode: mode,
+    quote_only: resolvedMode.quoteOnly,
+    supplier_confirmation_required: resolvedMode.supplierConfirmationRequired,
   };
 
   const { error } = await authClient
     .from("cart_items")
     .upsert(
       { user_id: user.id, ...payload, quantity: nextQuantity, updated_at: new Date().toISOString() },
-      { onConflict: "user_id,variant_id" }
+      { onConflict: "user_id,shopping_mode,variant_id" }
     );
 
   if (error) return Response.json({ error: error.message || "Unable to update cart" }, { status: 400 });
   try {
-    const cart = await loadCanonicalCart(admin, user.id, catalog);
+    const cart = await loadCanonicalCart(admin, user.id, catalog, mode);
     return applyRateLimitHeaders(Response.json({ message: "Cart updated", cart }, { status: 201 }), rl);
   } catch (cartError) {
     return applyRateLimitHeaders(Response.json({ error: cartError.message || "Unable to reload cart" }, { status: 400 }), rl);

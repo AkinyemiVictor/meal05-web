@@ -88,6 +88,7 @@ function OrderCard({ order, active, href }) {
       <div className={styles.cardPills}>
         <StatusPill value={order.status} />
         <StatusPill value={order.paymentStatus} prefix="Pay: " />
+        {order.shoppingMode === "business" ? <StatusPill value={order.orderSource} prefix="Business: " /> : null}
       </div>
       <div className={styles.orderCardBottom}>
         <span>{order.fulfillmentType === "pickup" ? "Pickup" : textStatus(order.deliveryStatus || "Delivery pending")}</span>
@@ -192,7 +193,7 @@ export default async function AdminOrdersPage({ searchParams }) {
               <div className={styles.detailHeader}>
                 <div>
                   <Link href={buildHref(params, { orderId: "" })} className={styles.mobileBack}>← Order queue</Link>
-                  <p>{order.fulfillmentType === "pickup" ? "Pickup order" : "Delivery order"}</p>
+                  <p>{order.shoppingMode === "business" ? `Business · ${textStatus(order.orderSource)}` : order.fulfillmentType === "pickup" ? "Pickup order" : "Delivery order"}</p>
                   <h2>Order #{order.id}</h2>
                   <span>{order.orderReference || `Order #${order.id}`} · {order.customer} · {adminFormatters.dateTime(order.createdAt)}</span>
                 </div>
@@ -237,6 +238,7 @@ export default async function AdminOrdersPage({ searchParams }) {
 
               <section className={styles.coreSection}>
                 <div className={styles.sectionTitle}><h3>{order.fulfillmentType === "pickup" ? "Collection" : "Delivery"}</h3></div>
+                {order.shoppingMode === "business" ? <p><strong>{order.businessName}</strong> · {order.businessContactName} · {order.businessPhone}</p> : null}
                 <p className={styles.address}>{order.deliveryAddress || (order.fulfillmentType === "pickup" ? "Pickup location is recorded in fulfilment details." : "No delivery address recorded.")}</p>
                 {order.deliveryInstructions ? <p className={styles.muted}>Instructions: {order.deliveryInstructions}</p> : null}
                 {order.customerNote ? <p className={styles.muted}>Customer note: {order.customerNote}</p> : null}

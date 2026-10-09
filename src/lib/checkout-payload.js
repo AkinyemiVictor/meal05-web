@@ -52,6 +52,11 @@ export const buildCheckoutOrderRequest = ({
   const safeForm = form && typeof form === "object" ? form : {};
   const address = normalizeDeliveryAddress(safeForm.address ?? safeForm.deliveryAddress);
   const payload = {
+    shoppingMode: safeForm.shoppingMode === "business" ? "business" : "household",
+    businessName: trimmedText(safeForm.businessName),
+    businessContactName: trimmedText(safeForm.businessContactName || safeForm.fullName),
+    businessPhone: trimmedText(safeForm.businessPhone || safeForm.phone),
+    businessAddress: trimmedText(safeForm.businessAddress || address),
     deliveryAddress: address,
     deliveryHouseNumber: trimmedText(safeForm.houseNumber ?? safeForm.deliveryHouseNumber),
     deliveryStreet: address,

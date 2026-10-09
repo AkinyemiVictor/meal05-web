@@ -37,6 +37,7 @@ import { loadPublicOrderSettings } from "@/lib/order-settings";
 import { normalizeAvailabilityMode, normalizeSelectionMode, normalizeSizePreference, SELECTION_MODE_FLEXIBLE } from "@/lib/commerce-options";
 import { getTagBatchVariant, PROCUREMENT_TAG, normalizeProcurementMode } from "@/lib/tag-buy";
 import { loadTagBatch } from "@/lib/tag-buy-server";
+import { resolveVariantForShoppingMode } from "@/lib/shopping-mode-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -124,6 +125,11 @@ export async function POST(request) {
   }
 
   const schema = z.object({
+    shoppingMode: z.enum(["household", "business"]).optional().default("household"),
+    businessName: z.string().trim().max(160).optional().default(""),
+    businessContactName: z.string().trim().max(120).optional().default(""),
+    businessPhone: z.string().trim().max(30).optional().default(""),
+    businessAddress: z.string().trim().max(500).optional().default(""),
     deliveryAddress: z.string().max(500).optional().default(""),
     deliveryHouseNumber: z.string().trim().max(80).optional().default(""),
     deliveryStreet: z.string().trim().max(500).optional().default(""),
@@ -165,6 +171,10 @@ export async function POST(request) {
   const parsed = schema.safeParse(payload || {});
   if (!parsed.success) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Validation failed", issues: parsed.error.issues }, { status: 400 }), rl);
+  }
+  const shoppingMode = parsed.data.shoppingMode;
+  if (shoppingMode === "business" && (!parsed.data.businessName || !parsed.data.businessContactName || !parsed.data.businessPhone || !parsed.data.businessAddress)) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Complete all business checkout details." }, { status: 400 }), rl);
   }
 
   const normalizedContactPhone = normalizeNigerianPhone(parsed.data.deliveryContactPhone);
@@ -233,7 +243,7 @@ export async function POST(request) {
   // 1) Fetch cart items with schema fallbacks
   const cartSelectCandidates = [
     {
-      select: "id, product_id, variant_id, quantity, unit_price_at_add, variant_name, product_name, size_preference, procurement_mode, tag_batch_id, tag_price_at_add",
+      select: "id, product_id, variant_id, quantity, unit_price_at_add, variant_name, product_name, size_preference, procurement_mode, tag_batch_id, tag_price_at_add, shopping_mode, quote_only, supplier_confirmation_required",
       hasVariant: true,
     },
     {
@@ -265,7 +275,7 @@ export async function POST(request) {
   let cart = [];
   let cartErr = null;
   for (const candidate of cartSelectCandidates) {
-    const result = await admin.from("cart_items").select(candidate.select).eq("user_id", user.id);
+    const result = await admin.from("cart_items").select(candidate.select).eq("user_id", user.id).eq("shopping_mode", shoppingMode);
     if (!result.error) {
       cart = Array.isArray(result.data) ? result.data : [];
       cartErr = null;
@@ -368,6 +378,19 @@ export async function POST(request) {
       return applyRateLimitHeaders(NextResponse.json({ error: result.error.message }, { status: 400 }), rl);
     }
     variantRows = Array.isArray(result.data) ? result.data : [];
+  }
+
+  if (shoppingMode === "business") {
+    const resolvedRows = [];
+    for (const variant of variantRows) {
+      const resolved = await resolveVariantForShoppingMode(admin, variant, shoppingMode);
+      if (!resolved.ok) return applyRateLimitHeaders(NextResponse.json({ error: resolved.error }, { status: 409 }), rl);
+      if (resolved.quoteOnly) {
+        return applyRateLimitHeaders(NextResponse.json({ error: "This business basket requires a quotation before checkout.", code: "BUSINESS_QUOTE_REQUIRED" }, { status: 409 }), rl);
+      }
+      resolvedRows.push(resolved.variant);
+    }
+    variantRows = resolvedRows;
   }
 
   const resolvedProductIds = Array.from(
@@ -1111,6 +1134,12 @@ export async function POST(request) {
     partner_cost: isPickup ? 0 : partnerCost,
     delivery_subsidy: Math.max(0, partnerCost - finalSummary.deliveryFee),
     customer_note: parsed.data.note || null,
+    shopping_mode: shoppingMode,
+    order_source: "website",
+    business_name: shoppingMode === "business" ? parsed.data.businessName : null,
+    business_contact_name: shoppingMode === "business" ? parsed.data.businessContactName : null,
+    business_phone: shoppingMode === "business" ? parsed.data.businessPhone : null,
+    business_address: shoppingMode === "business" ? parsed.data.businessAddress : null,
     delivery_instructions: isPickup ? `Pickup: ${pickupLocation.name} - ${pickupLocation.hours || "Time confirmed after payment"}` : parsed.data.deliveryLandmark || "Call the customer when outside.",
   };
   let orderIns = null;
@@ -1289,7 +1318,7 @@ export async function POST(request) {
   // 4) Clear cart only for payment methods that complete at order creation.
   // Manual transfers keep the cart until the customer submits the payment for verification.
   if (requestedPaymentMethod === "wallet") {
-    const { error: clearErr } = await admin.from("cart_items").delete().eq("user_id", user.id);
+    const { error: clearErr } = await admin.from("cart_items").delete().eq("user_id", user.id).eq("shopping_mode", shoppingMode);
     if (clearErr) {
       await logAdminError(clearErr, { route: "/api/orders", stage: "clear:cart", order_id: orderId, user_id: user.id });
       // Not fatal: return success but inform caller

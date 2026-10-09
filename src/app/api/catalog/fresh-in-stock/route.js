@@ -25,7 +25,7 @@ export async function GET(request) {
       );
     }
 
-    const payload = await loadHomeCatalogCards({ ids, limit: ids.length });
+    const payload = await loadHomeCatalogCards({ ids, limit: ids.length, mode: searchParams.get("mode") || "household" });
     const flat = attachFreshStockMetadata(payload?.flat, metadata);
 
     return publicCatalogJson(

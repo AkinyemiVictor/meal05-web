@@ -16,7 +16,7 @@ const schema = read("src/lib/seo/schema.js");
 test("catalogue products cannot make Quick Add skip canonical commerce metadata", () => {
   assert.match(catalogueClient, /requireCanonicalQuickAddMetadata/);
   assert.match(catalogueClient, /optionsLoaded: false/);
-  assert.match(quickAdd, /fetch\(`\/api\/products\/\$\{productId\}`\)/);
+  assert.match(quickAdd, /fetch\(withShoppingMode\(`\/api\/products\/\$\{productId\}`/);
   assert.match(quickAdd, /SizePreferencePicker/);
 });
 

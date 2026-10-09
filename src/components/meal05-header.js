@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { IconSearch } from "@tabler/icons-react";
 
 import { shouldShowCommerceHeader } from "@/lib/commerce-chrome";
+import ShoppingModeSwitch from "@/components/shopping-mode-switch";
 
 const LOGO_SRC = "/assets/logo/MEAL05 NEW LOGO-01.png";
 const Meal05HeaderActions = dynamic(() => import("@/components/meal05-header-actions"), { ssr: false });
@@ -75,6 +76,7 @@ export default function Meal05Header() {
             <Meal05HeaderActions mobile />
           </div>
         </div>
+        <div className="mt-2"><ShoppingModeSwitch compact /></div>
       </header>
 
       <header className="meal05-header meal05-header--desktop z-50 hidden min-h-20 border-b border-meal-line bg-meal-paper px-6 py-4 md:block">
@@ -94,6 +96,8 @@ export default function Meal05Header() {
           <div className="hidden min-w-0 flex-1 lg:block">
             <SearchForm id="header-search-desktop" compact />
           </div>
+
+          <ShoppingModeSwitch />
 
           <Meal05HeaderActions />
         </div>

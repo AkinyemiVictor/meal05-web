@@ -384,7 +384,7 @@ export async function loadOverviewMetrics() {
 }
 
 const ORDER_SELECT_CANDIDATES = [
-  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, order_reference, delivery_status, delivery_address, created_at, updated_at, fulfillment_type, customer_note, delivery_instructions",
+  "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, order_reference, delivery_status, delivery_address, created_at, updated_at, fulfillment_type, customer_note, delivery_instructions, shopping_mode, order_source, business_name, business_contact_name, business_phone, business_address",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, payment_method, payment_reference, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
   "id, user_id, total, subtotal, packaging_fee, delivery_fee, discount_total, promo_code, status, payment_status, authentication_method, auth_method, delivery_status, delivery_address, created_at, updated_at",
@@ -607,7 +607,7 @@ const mapOrderRecord = (row, userLookup, nowMs = Date.now()) => {
   const record = {
     id: row.id,
     userId: row.user_id,
-    customer: userLookup.get(String(row?.user_id || "")) || `User ${String(row?.user_id || "").slice(0, 8)}...`,
+    customer: String(row?.business_name || "").trim() || userLookup.get(String(row?.user_id || "")) || (row?.user_id ? `User ${String(row.user_id).slice(0, 8)}...` : "Guest business"),
     total: toNumber(row.total),
     subtotal: row?.subtotal == null ? null : toNumber(row.subtotal),
     packagingFee: row?.packaging_fee == null ? null : toNumber(row.packaging_fee),
@@ -625,6 +625,12 @@ const mapOrderRecord = (row, userLookup, nowMs = Date.now()) => {
     fulfillmentType: String(row.fulfillment_type || "delivery").trim().toLowerCase(),
     customerNote: String(row.customer_note || "").trim(),
     deliveryInstructions: String(row.delivery_instructions || "").trim(),
+    shoppingMode: String(row.shopping_mode || "household"),
+    orderSource: String(row.order_source || "website"),
+    businessName: String(row.business_name || "").trim(),
+    businessContactName: String(row.business_contact_name || "").trim(),
+    businessPhone: String(row.business_phone || "").trim(),
+    businessAddress: String(row.business_address || "").trim(),
     createdAt: row.created_at,
     updatedAt: row.updated_at || row.created_at,
   };

@@ -10,6 +10,7 @@ import { normalizePromoEnabled, normalizePromoText, parsePromoExpiry } from "@/l
 import { getSupabaseAdminClient } from "@/lib/supabase/server-client";
 import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
 import { attachTagBatchesToProduct, loadTagBatches } from "@/lib/tag-buy-server";
+import { applyShoppingModeToCatalogPayload } from "@/lib/catalog-mode-server";
 
 const HOME_CARD_FIELDS = [
   "product_id",
@@ -150,7 +151,7 @@ const buildHomeCardProduct = (row = {}) => {
   };
 };
 
-export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = false } = {}) {
+export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = false, mode = "household" } = {}) {
   const admin = getSupabaseAdminClient();
   const market = await getDefaultMarket();
   const requestedIds = uniqueIds(ids);
@@ -193,11 +194,11 @@ export async function loadHomeCatalogCards({ ids, limit = 36, inSeasonOnly = fal
   });
   const enrichedFlat = seasonFlat.map((product) => attachTagBatchesToProduct(product, batchesByProduct.get(String(product.id)) || []));
 
-  return {
+  return applyShoppingModeToCatalogPayload({
     grouped: groupProducts(enrichedFlat),
     flat: enrichedFlat,
     market: publicMarket(market),
-  };
+  }, mode, admin);
 }
 
 export async function loadCatalogCardPage({
@@ -206,6 +207,7 @@ export async function loadCatalogCardPage({
   category = "",
   search = "",
   sort = "default",
+  mode = "household",
 } = {}) {
   const admin = getSupabaseAdminClient();
   const market = await getDefaultMarket();
@@ -263,10 +265,10 @@ export async function loadCatalogCardPage({
     total: countResult.count,
   });
 
-  return {
+  return applyShoppingModeToCatalogPayload({
     grouped: groupProducts(enrichedFlat),
     flat: enrichedFlat,
     market: publicMarket(market),
     pagination,
-  };
+  }, mode, admin);
 }

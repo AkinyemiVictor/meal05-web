@@ -3,6 +3,8 @@
 import { readCartItems, writeCartItems } from "./cart-storage";
 import { readStoredUser } from "./auth";
 import { normalizeCartItems } from "./cart-items";
+import { readShoppingMode } from "./shopping-mode-client";
+import { withShoppingMode } from "./shopping-mode";
 
 const toApiItem = (item, operation = "increment") => ({
   product_id: item?.productId ?? item?.product_id,
@@ -15,6 +17,7 @@ const toApiItem = (item, operation = "increment") => ({
   size_preference: item?.sizePreference ?? item?.size_preference ?? null,
   procurement_mode: item?.procurementMode ?? item?.procurement_mode ?? "standard",
   tag_batch_id: item?.tagBatchId ?? item?.tag_batch_id ?? item?.tagBatch?.id ?? null,
+  shopping_mode: readShoppingMode(),
 });
 
 const parseResponse = async (response) => {
@@ -26,7 +29,7 @@ const parseResponse = async (response) => {
 };
 
 export const fetchCanonicalCart = async ({ signal, persist = true, source = "server-cart" } = {}) => {
-  const response = await fetch("/api/cart", { cache: "no-store", signal });
+  const response = await fetch(withShoppingMode("/api/cart", readShoppingMode()), { cache: "no-store", signal });
   const cart = await parseResponse(response);
   const rows = normalizeCartItems(Array.isArray(cart) ? cart : []);
   if (persist) writeCartItems(rows, undefined, { source, skipAnalytics: true });

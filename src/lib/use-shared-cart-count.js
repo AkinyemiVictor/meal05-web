@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 import { AUTH_EVENT, readStoredUser } from "@/lib/auth";
 import { readCartItems } from "@/lib/cart-storage";
+import { readShoppingMode } from "@/lib/shopping-mode-client";
+import { SHOPPING_MODE_EVENT, withShoppingMode } from "@/lib/shopping-mode";
 
 const REMOTE_COUNT_REUSE_MS = 2000;
 
@@ -36,7 +38,7 @@ const loadRemoteCount = ({ force = false } = {}) => {
   // hitting /api/cart during the same page/auth event.
   if (inFlightRequest) return inFlightRequest;
 
-  inFlightRequest = fetch("/api/cart", { cache: "no-store" })
+  inFlightRequest = fetch(withShoppingMode("/api/cart", readShoppingMode()), { cache: "no-store" })
     .then((response) => (response.ok ? response.json() : null))
     .then((items) => {
       if (!Array.isArray(items)) return null;
@@ -74,12 +76,14 @@ export default function useSharedCartCount() {
     window.addEventListener("storage", update);
     window.addEventListener("cart-updated", update);
     window.addEventListener(AUTH_EVENT, update);
+    window.addEventListener(SHOPPING_MODE_EVENT, update);
 
     return () => {
       cancelled = true;
       window.removeEventListener("storage", update);
       window.removeEventListener("cart-updated", update);
       window.removeEventListener(AUTH_EVENT, update);
+      window.removeEventListener(SHOPPING_MODE_EVENT, update);
     };
   }, []);
 

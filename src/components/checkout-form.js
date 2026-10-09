@@ -46,6 +46,7 @@ import {
   isAmbiguousNetworkError,
 } from "@/lib/fetch-with-network-retry";
 import { reconcileCheckoutOrder } from "@/lib/order-reconciliation";
+import { useShoppingMode } from "@/lib/shopping-mode-client";
 import {
   buildCheckoutOrderItems,
   buildCheckoutOrderRequest,
@@ -71,6 +72,11 @@ const INITIAL_FORM_STATE = {
   cardExpiry: "",
   cardCvc: "",
   notes: "",
+  shoppingMode: "household",
+  businessName: "",
+  businessContactName: "",
+  businessPhone: "",
+  businessAddress: "",
 };
 
 const PAYMENT_METHOD_LABELS = copy.checkout.paymentMethods.reduce((accumulator, method) => {
@@ -488,6 +494,7 @@ export default function CheckoutForm({
   onProcessingChange,
 }) {
   const router = useRouter();
+  const { mode: shoppingMode } = useShoppingMode();
   const formRef = useRef(null);
   const submitFeedbackRef = useRef(null);
   const [formState, setFormState] = useState(() =>
@@ -507,6 +514,10 @@ export default function CheckoutForm({
   const [savedDefaultAddressId, setSavedDefaultAddressId] = useState("");
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
   const [addressEntryMode, setAddressEntryMode] = useState("new");
+
+  useEffect(() => {
+    setFormState((current) => current.shoppingMode === shoppingMode ? current : { ...current, shoppingMode });
+  }, [shoppingMode]);
   const [overlayStatus, setOverlayStatus] = useState(null); // "success" | "failure" | null
   const [overlayMessage, setOverlayMessage] = useState("");
   const [orderSettings, setOrderSettings] = useState(null);
@@ -1905,6 +1916,18 @@ export default function CheckoutForm({
             <input type="checkbox" checked={tagAcknowledged} onChange={(event) => setTagAcknowledged(event.target.checked)} required />
             <span>I understand delivery timing starts after this Tag Buy closes and its failure policy applies if the minimum is not reached.</span>
           </label>
+        </section>
+      ) : null}
+
+      {formState.shoppingMode === "business" ? (
+        <section className="checkout-section">
+          <div className="checkout-section__heading"><span className="checkout-section__icon"><i className="fa-solid fa-building" /></span><h2>Business details</h2></div>
+          <div className="checkout-field-grid">
+            <label className="checkout-field"><span>Business name <RequiredMark /></span><input name="businessName" value={formState.businessName} onChange={handleChange} required autoComplete="organization" /></label>
+            <label className="checkout-field"><span>Business contact <RequiredMark /></span><input name="businessContactName" value={formState.businessContactName} onChange={handleChange} required autoComplete="name" /></label>
+            <label className="checkout-field"><span>Business phone <RequiredMark /></span><input name="businessPhone" value={formState.businessPhone} onChange={handleChange} required type="tel" autoComplete="tel" /></label>
+            <label className="checkout-field"><span>Business address <RequiredMark /></span><input name="businessAddress" value={formState.businessAddress} onChange={handleChange} required autoComplete="street-address" /></label>
+          </div>
         </section>
       ) : null}
 

@@ -127,6 +127,7 @@ export default function ProductCard({
   const hasOldPrice = Number.isFinite(oldPrice) && Number.isFinite(currentPrice) && oldPrice > currentPrice && currentPrice > 0;
   const formattedPrice = formatProductPrice(currentPrice, "");
   const pricePrefix = product.hasMultipleOptions && currentPrice > 0 ? "From " : "";
+  const quoteOnly = product.quoteOnly === true || product.requiresQuote === true;
 
   const handleAdd = (event) => {
     const handler = onQuickAdd || onAdd;
@@ -188,7 +189,7 @@ export default function ProductCard({
         >
           <div className="product-card__price-row flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <p className={classNames("max-w-full whitespace-nowrap font-medium tracking-tight text-meal-text", compact ? "text-lg" : "text-xl")}>
-              {pricePrefix}{formattedPrice}
+              {quoteOnly ? "Request a quote" : <>{pricePrefix}{formattedPrice}</>}
             </p>
             {hasOldPrice ? (
               <p className={classNames("font-medium text-meal-muted line-through", compact ? "text-xs" : "text-sm")}>
@@ -213,8 +214,11 @@ export default function ProductCard({
             )}
           >
             <IconShoppingCart size={compact ? 15 : 17} stroke={1.8} />
-            {unavailable ? "Out of stock" : actionLabel}
+            {unavailable ? "Out of stock" : quoteOnly ? "Request quote" : actionLabel}
           </button>
+          {product.supplierConfirmationRequired ? (
+            <p className="mt-2 text-center text-[10px] font-medium text-meal-muted">Supplier confirmation required</p>
+          ) : null}
         </div>
       </div>
     </article>

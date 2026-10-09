@@ -1,4 +1,6 @@
 "use client";
+import { readShoppingMode } from "@/lib/shopping-mode-client";
+import { withShoppingMode } from "@/lib/shopping-mode";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -297,6 +299,9 @@ const buildCartItem = (product, variant, orderCount, fallbackImage, sizePreferen
     selection_model: selectionModel,
     variationNote,
     variation_note: variationNote,
+    shoppingMode: readShoppingMode(),
+    quoteOnly: variant?.quoteOnly === true || product?.quoteOnly === true || product?.requiresQuote === true,
+    supplierConfirmationRequired: variant?.supplierConfirmationRequired === true || product?.supplierConfirmationRequired === true,
     sizePreference: normalizedSizePreference,
     size_preference: normalizedSizePreference,
     orderSize: 1,
@@ -435,7 +440,7 @@ export default function QuickAddDrawer({ product, isOpen, onClose, variant = "dr
       };
     }
 
-    fetch(`/api/products/${productId}`)
+    fetch(withShoppingMode(`/api/products/${productId}`, readShoppingMode()))
       .then((res) => res.json())
       .then((json) => applyData(json))
       .catch((err) => {

@@ -35,7 +35,7 @@ test("cart quantity updates stay responsive while preserving rollback and server
   assert.match(cartPage, /aria-busy=\{lineBusy\}/);
   assert.match(cartPage, /pendingQuantitySyncRef/);
   assert.match(cartPage, /queueQuantitySync\(id\)/);
-  assert.match(cartPage, /fetch\(`\/api\/cart\/\$\{encodeURIComponent\(job\.cartItemId\)\}`/);
+  assert.match(cartPage, /fetch\(withShoppingMode\(`\/api\/cart\/\$\{encodeURIComponent\(job\.cartItemId\)\}`/);
   assert.match(cartPage, /fetchCanonicalCart\(\{ persist: false \}\)/);
   assert.match(cartPage, /setCartItems\(job\.previousItems\)/);
   assert.match(cartPage, /skipAnalytics:\s*true/);
@@ -168,7 +168,7 @@ test("authenticated cart additions merge matching variants and checkout retries 
   const providerPage = read("src/app/checkout/payment/[providerCode]/page.js");
 
   assert.match(cartRoute, /\.eq\("variant_id", variantKey\)/);
-  assert.match(cartRoute, /onConflict:\s*"user_id,variant_id"/);
+  assert.match(cartRoute, /onConflict:\s*"user_id,shopping_mode,variant_id"/);
   assert.match(cartMigration, /sum\(quantity\)/);
   assert.match(cartMigration, /unique index cart_items_user_variant_unique_idx/);
   assert.match(checkoutForm, /orderIdempotencyKey:\s*createCheckoutIdempotencyKey\(\)/);
