@@ -23,8 +23,6 @@ import { readCartItems, writeCartItems } from "@/lib/cart-storage";
 import { fetchCanonicalCart, migrateLocalCartToEmptyServer, setAuthenticatedCartItem } from "@/lib/cart-sync";
 import { getCartItemQuantity, normalizeCartItems } from "@/lib/cart-items";
 import { readStoredUser, AUTH_EVENT } from "@/lib/auth";
-import { readShoppingMode } from "@/lib/shopping-mode-client";
-import { withShoppingMode } from "@/lib/shopping-mode";
 import { buildSignInHref } from "@/lib/auth-redirect";
 import { trackBeginCheckout } from "@/lib/analytics";
 import { resolveProductImage } from "@/lib/product-image";
@@ -357,7 +355,7 @@ function CartPageContent() {
       }
       const promise = (async () => {
         try {
-          const res = await fetch(withShoppingMode(`/api/products/${key}`, readShoppingMode()));
+          const res = await fetch(`/api/products/${key}`);
           if (!res.ok) return null;
           const json = await res.json();
           const variations = Array.isArray(json?.variations) ? json.variations : [];
@@ -473,7 +471,7 @@ function CartPageContent() {
 
     try {
       if (job.cartItemId) {
-        const response = await fetch(withShoppingMode(`/api/cart/${encodeURIComponent(job.cartItemId)}`, readShoppingMode()), {
+        const response = await fetch(`/api/cart/${encodeURIComponent(job.cartItemId)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           cache: "no-store",
@@ -815,7 +813,7 @@ function CartPageContent() {
     try {
       if (currentUser) {
         if (!target.cartItemId) throw new Error("Your cart is still syncing. Please try again.");
-        const response = await fetch(withShoppingMode(`/api/cart/${encodeURIComponent(target.cartItemId)}`, readShoppingMode()), {
+        const response = await fetch(`/api/cart/${encodeURIComponent(target.cartItemId)}`, {
           method: "DELETE",
           cache: "no-store",
         });
@@ -846,7 +844,7 @@ function CartPageContent() {
     if (!currentUser) return;
     try {
       if (!item.cartItemId) throw new Error("Your cart is still syncing. Please try again.");
-      const response = await fetch(withShoppingMode(`/api/cart/${encodeURIComponent(item.cartItemId)}`, readShoppingMode()), {
+      const response = await fetch(`/api/cart/${encodeURIComponent(item.cartItemId)}`, {
         method: "PATCH", cache: "no-store", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ size_preference: sizePreference }),
       });
@@ -929,8 +927,7 @@ function CartPageContent() {
     }
 
     persistCart(cartItems);
-    const hasQuoteItems = cartItems.some((item) => item.quoteOnly === true || item.quote_only === true);
-    router.push(hasQuoteItems ? "/business/quote" : hasRequestItems ? "/availability-requests/new" : "/checkout");
+    router.push(hasRequestItems ? "/availability-requests/new" : "/checkout");
   }, [activePromo?.code, bulkRequired, cartItems, hasCheckoutBlocker, hasRequestItems, persistCart, router, signInRedirectHref, summary.total]);
 
   const handleBulkContact = useCallback(
@@ -958,7 +955,6 @@ function CartPageContent() {
   const formattedItemsCount = formatQuantity(totalOrderCount);
   const itemLabel = totalOrderCount === 1 ? "item" : "items";
   const cartIsEmpty = cartItems.length === 0;
-  const hasQuoteItems = cartItems.some((item) => item.quoteOnly === true || item.quote_only === true);
   const cartLayoutClassName = [styles.cartLayout, cartIsEmpty ? styles.cartLayoutEmpty : ""].filter(Boolean).join(" ");
   const favoriteSuggestions = cartIsEmpty && currentUser ? crossSellProducts : [];
 
@@ -1241,7 +1237,7 @@ function CartPageContent() {
               onClick={bulkRequired ? () => handleBulkContact(primaryBulkChannel) : handleCheckout}
               disabled={cartIsEmpty || hasCheckoutBlocker || (bulkRequired && !primaryBulkChannel)}
             >
-              {bulkRequired ? "Continue with fulfilment team" : hasQuoteItems ? "Request business quote" : hasRequestItems ? "Check basket availability" : "Checkout"} <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              {bulkRequired ? "Continue with fulfilment team" : hasRequestItems ? "Check basket availability" : "Checkout"} <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
             </button>
             {bulkRequired ? (
               <button type="button" className={styles.adjustButton} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
@@ -1249,7 +1245,7 @@ function CartPageContent() {
               </button>
             ) : null}
             <p className={styles.summaryHint}>
-              <i className={`fa-solid ${hasQuoteItems || hasRequestItems ? "fa-clock" : "fa-lock"}`} aria-hidden="true"></i> {hasQuoteItems ? "A quote request does not create an order or payment" : hasRequestItems ? "No payment until requested items are confirmed" : "Secure checkout"}
+              <i className={`fa-solid ${hasRequestItems ? "fa-clock" : "fa-lock"}`} aria-hidden="true"></i> {hasRequestItems ? "No payment until requested items are confirmed" : "Secure checkout"}
             </p>
           </aside>
           ) : null}

@@ -19,7 +19,6 @@ export async function GET(request) {
   try {
     const searchParams = new URL(request.url).searchParams;
     const view = searchParams.get("view") || "default";
-    const mode = searchParams.get("mode") || "household";
     const limit = Math.min(Math.max(Number(searchParams.get("limit") || 48), 1), 120);
 
     if (searchParams.has("page") || searchParams.has("pageSize")) {
@@ -29,7 +28,6 @@ export async function GET(request) {
         category: searchParams.get("category") || "",
         search: searchParams.get("search") || "",
         sort: searchParams.get("sort") || "default",
-        mode,
       });
       // Shop/category pagination is stock-sensitive. Do not let an older edge copy
       // re-introduce depleted products ahead of newly available ones.
@@ -45,7 +43,7 @@ export async function GET(request) {
         );
       }
 
-      const payload = await loadPublicCatalogProducts({ ids, limit: ids.length, mode });
+      const payload = await loadPublicCatalogProducts({ ids, limit: ids.length });
       const flat = attachFreshStockMetadata(payload?.flat, metadata);
       return publicCatalogJson(
         {
@@ -61,7 +59,6 @@ export async function GET(request) {
       category: searchParams.get("category") || "",
       view,
       limit,
-      mode,
     });
     return publicCatalogJson(payload);
   } catch (error) {

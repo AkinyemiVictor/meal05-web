@@ -17,7 +17,6 @@ import MobileBottomNav from "@/components/mobile-bottom-nav";
 import NoticeProvider from "@/components/notice-provider";
 import PageScaler from "@/components/page-scaler";
 import SiteNotificationPopup from "@/components/site-notification-popup";
-import ShoppingModeGate from "@/components/shopping-mode-gate";
 
 const GOOGLE_ANALYTICS_ID = "G-LYL783RTRN";
 
@@ -92,7 +91,6 @@ export default function RootLayout({ children }) {
         </Suspense>
         <CartFeedbackBar />
         <ClientAppEffects />
-        <ShoppingModeGate />
       </body>
     </html>
   );

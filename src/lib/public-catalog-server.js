@@ -18,7 +18,6 @@ import { getAvailableCount, resolveStockValueFromRow } from "@/lib/stock";
 import { sortVariantsBySize } from "@/lib/variant-order";
 import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
 import { attachLocalMeasurementInfo } from "@/lib/local-measurement-server";
-import { applyShoppingModeToCatalogPayload } from "@/lib/catalog-mode-server";
 
 export const PUBLIC_CATALOG_CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
@@ -617,7 +616,6 @@ export async function loadPublicCatalogPage({
   category = "",
   search = "",
   sort = "default",
-  mode = "household",
 } = {}) {
   const admin = getSupabaseAdminClient();
   const market = await getDefaultMarket();
@@ -665,12 +663,12 @@ export async function loadPublicCatalogPage({
   );
   const pagination = normalizeCatalogPagination({ page: range.page, pageSize: range.pageSize, total: count });
 
-  return applyShoppingModeToCatalogPayload({
+  return {
     grouped: groupProducts(hydratedFlat),
     flat: hydratedFlat,
     market: publicMarket(market),
     pagination,
-  }, mode, admin);
+  };
 }
 
 export async function loadPublicCatalogProducts({
@@ -679,11 +677,10 @@ export async function loadPublicCatalogProducts({
   search,
   view = "default",
   limit = 48,
-  mode = "household",
 } = {}) {
   const admin = getSupabaseAdminClient();
   try {
-    const payload = await loadPublicCatalogProductsFromCardView({
+    return await loadPublicCatalogProductsFromCardView({
       admin,
       ids,
       category,
@@ -691,7 +688,6 @@ export async function loadPublicCatalogProducts({
       view,
       limit,
     });
-    return applyShoppingModeToCatalogPayload(payload, mode, admin);
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
       console.warn("product_card_catalog unavailable; falling back to legacy product catalogue query", error?.message || error);
@@ -809,11 +805,11 @@ export async function loadPublicCatalogProducts({
     )
   );
 
-  return applyShoppingModeToCatalogPayload({
+  return {
     grouped: groupProducts(hydratedFlat),
     flat: hydratedFlat,
     market: publicMarket(catalog.market),
-  }, mode, admin);
+  };
 }
 
 export function toProductCardDTO(product = {}) {
@@ -880,11 +876,6 @@ export function toProductCardDTO(product = {}) {
     measurementInfo: product?.measurementInfo || null,
     variations: Array.isArray(product?.variations) ? product.variations : [],
     optionsLoaded: product?.optionsLoaded === true,
-    shoppingMode: product?.shoppingMode || "household",
-    quoteOnly: product?.quoteOnly === true,
-    requiresQuote: product?.requiresQuote === true,
-    supplierConfirmationRequired: product?.supplierConfirmationRequired === true,
-    purchasingConditions: product?.purchasingConditions || null,
   };
 }
 
@@ -892,7 +883,6 @@ export async function loadPublicSearchResults({
   search,
   page = 1,
   pageSize = 12,
-  mode = "household",
 } = {}) {
   const query = String(search || "").trim().replace(/\s+/g, " ").slice(0, 80);
   const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
@@ -912,7 +902,6 @@ export async function loadPublicSearchResults({
     search: query,
     page: safePage,
     pageSize: safePageSize,
-    mode,
   });
   const items = (Array.isArray(payload?.flat) ? payload.flat : []).map(toProductCardDTO).filter((product) => product.id);
   const pagination = payload?.pagination || normalizeCatalogPagination({ page: safePage, pageSize: safePageSize });

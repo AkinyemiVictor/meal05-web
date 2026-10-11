@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { normaliseProductCatalogue } from "@/lib/catalogue";
-import { useShoppingMode, readShoppingMode } from "@/lib/shopping-mode-client";
-import { withShoppingMode } from "@/lib/shopping-mode";
 
 const inFlightRequests = new Map();
 const catalogueValueCache = new Map();
@@ -90,12 +88,10 @@ const fetchCatalog = async (url, orderedIds = [], { refresh = false } = {}) => {
 
 export const prefetchCatalogProducts = (url) => {
   if (!url) return Promise.resolve(EMPTY_LOOKUP);
-  return fetchCatalog(withShoppingMode(url, readShoppingMode())).catch(() => EMPTY_LOOKUP);
+  return fetchCatalog(url).catch(() => EMPTY_LOOKUP);
 };
 
 export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
-  const { mode } = useShoppingMode();
-  const modeUrl = url ? withShoppingMode(url, mode) : "";
   const [state, setState] = useState(() => ({
     ...EMPTY_LOOKUP,
     status: !url ? "ready" : "loading",
@@ -104,7 +100,7 @@ export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
 
   useEffect(() => {
     let cancelled = false;
-    if (!modeUrl) {
+    if (!url) {
       setState({ ...EMPTY_LOOKUP, status: "ready", error: null });
       return () => {
         cancelled = true;
@@ -112,7 +108,7 @@ export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
     }
     const load = (refresh = false) => {
       setState((current) => ({ ...current, status: "loading", error: null }));
-      fetchCatalog(modeUrl, [], { refresh })
+      fetchCatalog(url, [], { refresh })
         .then((lookup) => {
           if (!cancelled) setState({ ...lookup, status: "ready", error: null });
         })
@@ -134,16 +130,15 @@ export function useCatalogProducts(url = "/api/catalog/home?limit=72") {
     return () => {
       cancelled = true;
     };
-  }, [modeUrl]);
+  }, [url]);
 
   return state;
 }
 
 export function useProductsByIds(ids = []) {
-  const { mode } = useShoppingMode();
   const orderedIds = useMemo(() => normaliseIds(ids), [ids]);
   const key = orderedIds.join(",");
-  const url = key ? withShoppingMode(`/api/products/by-ids?ids=${encodeURIComponent(key)}`, mode) : "";
+  const url = key ? `/api/products/by-ids?ids=${encodeURIComponent(key)}` : "";
   const [state, setState] = useState(() => ({
     ...EMPTY_LOOKUP,
     requestKey: key,

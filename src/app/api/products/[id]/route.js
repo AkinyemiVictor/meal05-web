@@ -14,7 +14,6 @@ import { enrichCatalogSeasonMetadata } from "@/lib/catalog-season-metadata";
 import { attachTagBatchesToProduct, loadTagBatches } from "@/lib/tag-buy-server";
 import { applyFixedMeatOptionsPreview } from "@/lib/fixed-meat-options-preview-server";
 import { loadLocalMeasurementInfoByProductIds } from "@/lib/local-measurement-server";
-import { applyShoppingModeToCatalogPayload } from "@/lib/catalog-mode-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -288,7 +287,7 @@ const buildImageIndex = (rows, storage) => {
   return byProduct;
 };
 
-export async function GET(request, { params }) {
+export async function GET(_request, { params }) {
   const { id } = (await params) || {};
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const admin = getSupabaseAdminClient();
@@ -571,16 +570,13 @@ export async function GET(request, { params }) {
   const product = { ...productWithVariations };
   delete product.variations;
 
-  const modePayload = await applyShoppingModeToCatalogPayload({
+  return NextResponse.json(
+    {
       product,
       variations: productWithVariations.variations,
       defaultVariantId: productWithVariations.variantId || defaultVariantId,
       market: publicMarket(catalog.market),
-    }, new URL(request.url).searchParams.get("mode") || "household", admin);
-  if (!modePayload.product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
-
-  return NextResponse.json(
-    modePayload,
+    },
     {
       headers: PUBLIC_PRODUCT_DETAIL_CACHE_HEADERS,
     }

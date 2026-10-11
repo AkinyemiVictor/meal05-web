@@ -12,7 +12,7 @@ export async function GET(request) {
       .map((id) => id.trim())
       .filter(Boolean);
 
-    const payload = await loadPublicCatalogProducts({ ids, limit: Math.min(ids.length || 1, 80), mode: searchParams.get("mode") || "household" });
+    const payload = await loadPublicCatalogProducts({ ids, limit: Math.min(ids.length || 1, 80) });
     return publicCatalogJson(payload);
   } catch (error) {
     return publicCatalogJson(

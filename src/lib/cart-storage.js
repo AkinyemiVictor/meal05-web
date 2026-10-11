@@ -3,7 +3,6 @@
 import { readStoredUser } from "./auth";
 import { trackAddToCart } from "./analytics";
 import { roundQuantity } from "./purchase-quantities";
-import { readShoppingMode } from "./shopping-mode-client";
 
 const BASE_KEY = "meal05_cart";
 export const CART_UPDATED_EVENT = "cart-updated";
@@ -101,10 +100,9 @@ const trackCartAdditions = (previousItems, nextItems, options = {}) => {
   }
 };
 
-export const getCartStorageKeyForUser = (user = readStoredUser(), mode = readShoppingMode()) => {
+export const getCartStorageKeyForUser = (user = readStoredUser()) => {
   const emailKey = normaliseEmail(user?.email);
-  const ownerKey = emailKey ? `${BASE_KEY}_${emailKey}` : GUEST_KEY;
-  return `${ownerKey}_${mode}`;
+  return emailKey ? `${BASE_KEY}_${emailKey}` : GUEST_KEY;
 };
 
 const readRawCart = (user) => {
@@ -112,15 +110,6 @@ const readRawCart = (user) => {
   try {
     const key = getCartStorageKeyForUser(user);
     const raw = window.localStorage.getItem(key);
-    if (!raw && readShoppingMode() === "household") {
-      const legacyKey = normaliseEmail(user?.email) ? `${BASE_KEY}_${normaliseEmail(user?.email)}` : GUEST_KEY;
-      const legacyRaw = window.localStorage.getItem(legacyKey);
-      if (legacyRaw) {
-        window.localStorage.setItem(key, legacyRaw);
-        const migrated = JSON.parse(legacyRaw);
-        return Array.isArray(migrated) ? migrated : [];
-      }
-    }
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
