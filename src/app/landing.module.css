@@ -23,6 +23,10 @@
 
 @media(max-width:1080px){.hero{align-items:start;padding:110px 24px 72px}.heroCopy{padding:0;border:0;background:none;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;text-align:left}}
 
+/* Four supplied hero slides: a portrait source is selected only when this
+   layout turns the art into the full-page background. */
+.heroArt{overflow:hidden}.heroArt :global(.landing-hero-slideshow){position:absolute;inset:0}.heroArt :global(.landing-hero-slideshow__slide){position:absolute;inset:0;display:block;opacity:0;transition:opacity 800ms ease-in-out;will-change:opacity}.heroArt :global(.landing-hero-slideshow__slide.is-active){opacity:1}.heroArt :global(.landing-hero-slideshow__slide) img{display:block;width:100%;height:100%;object-fit:cover;border-radius:28px}.heroShade{z-index:1;pointer-events:none}.delivery,.discount{z-index:2}@media(max-width:1080px){.heroArt :global(.landing-hero-slideshow__slide) img{border-radius:0}}
+
 .compactLandingGrid .categories{grid-template-columns:repeat(4,minmax(0,1fr))}
 
 @media(max-width:720px){.compactLandingGrid .categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.compactLandingGrid .categories a{min-width:0;padding:15px 12px;gap:10px}.compactLandingGrid .categories a>i{width:44px;height:44px;border-radius:12px}.compactLandingGrid .categories a>i>i{font-size:22px}.compactLandingGrid .categories a span{min-width:0}.compactLandingGrid .categories b{font-size:15px;line-height:1.18;overflow-wrap:normal}.compactLandingGrid .categories small{font-size:11px;line-height:1.2}}
