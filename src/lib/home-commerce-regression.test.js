@@ -7,13 +7,13 @@ import { getHomeSidebarFrame } from "./home-sidebar.js";
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 
-test("root opens Home while the marketing experience remains available at Landing", () => {
+test("root opens the marketing landing page before customers continue to Home", () => {
   const root = read("src/app/page.js");
   const landing = read("src/app/landing/page.js");
   const commerceChrome = read("src/lib/commerce-chrome.js");
   const sitemap = read("src/app/sitemap.js");
 
-  assert.match(root, /redirect\("\/home"\)/);
+  assert.match(root, /redirect\("\/landing"\)/);
   assert.match(landing, /function LandingPage/);
   assert.match(landing, /\.\.\/landing\.module\.css/);
   assert.match(landing, /canonical:\s*"\/landing"/);

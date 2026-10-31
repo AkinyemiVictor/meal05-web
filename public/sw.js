@@ -1,4 +1,4 @@
-const CACHE_VERSION = "meal05-pwa-v3";
+const CACHE_VERSION = "meal05-pwa-v4";
 const STATIC_CACHE = `${CACHE_VERSION}:static`;
 const NAVIGATION_CACHE = `${CACHE_VERSION}:pages`;
 const STATIC_CACHE_LIMIT = 80;
